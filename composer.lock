@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "121ea3a2fffe49b3ef9aa4d064b28c19",
+    "content-hash": "fd4d28b49e1eb035edd66707c8510c47",
     "packages": [
         {
             "name": "brick/math",
@@ -2942,6 +2942,60 @@
                 }
             ],
             "time": "2023-01-12T18:13:24+00:00"
+        },
+        {
+            "name": "saber13812002/telegram-bale-bot-php",
+            "version": "1.3.10",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/saber13812002/TelegramBotPHP.git",
+                "reference": "aa9ba838a51e34db41f0a827e9ec4b20023ffa48"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/saber13812002/TelegramBotPHP/zipball/aa9ba838a51e34db41f0a827e9ec4b20023ffa48",
+                "reference": "aa9ba838a51e34db41f0a827e9ec4b20023ffa48",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "Telegram.php",
+                    "TelegramErrorLogger.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Gabriele Grillo",
+                    "email": "gabry.grillo@alice.it"
+                }
+            ],
+            "description": "A very simple PHP Telegram Bot API",
+            "support": {
+                "source": "https://github.com/saber13812002/TelegramBotPHP/tree/1.3.10"
+            },
+            "funding": [
+                {
+                    "url": "https://flattr.com/@Eleirbag89",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://paypal.me/eleirbag89",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://liberapay.com/eleirbag89",
+                    "type": "liberapay"
+                }
+            ],
+            "time": "2019-10-14T13:57:20+00:00"
         },
         {
             "name": "symfony/console",
