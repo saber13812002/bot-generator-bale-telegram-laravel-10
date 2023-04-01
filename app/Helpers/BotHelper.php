@@ -2,9 +2,11 @@
 
 namespace App\Helpers;
 
+use Telegram;
+
 class BotHelper
 {
-    public static function switchCase(\Telegram $messenger): void
+    public static function switchCase(Telegram $messenger): void
     {
         switch ($messenger->Text()) {
             case '/start':
@@ -24,25 +26,25 @@ class BotHelper
 
     }
 
-    private static function newBot(\Telegram $messenger): void
+    private static function newBot(Telegram $messenger): void
     {
         $message = 'روبات شما ساخته شد';
         self::sendMessage($messenger, $message);
     }
 
-    private static function start(\Telegram $messenger): void
+    private static function start(Telegram $messenger): void
     {
         $message = 'برای ساخت روبات /new_bot را بفرستید';
         self::sendMessage($messenger, $message);
     }
 
     /**
-     * @param \Telegram $messenger
+     * @param Telegram $messenger
      * @param string $message
      * @param $keyboard
      * @return void
      */
-    public static function sendKeyboardMessage(\Telegram $messenger, string $message, $keyboard): void
+    public static function sendKeyboardMessage(Telegram $messenger, string $message, $keyboard): void
     {
         $chat_id = $messenger->ChatID();
 
@@ -56,11 +58,11 @@ class BotHelper
     }
 
     /**
-     * @param \Telegram $messenger
+     * @param Telegram $messenger
      * @param string $message
      * @return void
      */
-    public static function sendMessage(\Telegram $messenger, string $message): void
+    public static function sendMessage(Telegram $messenger, string $message): void
     {
         $chat_id = $messenger->ChatID();
 
@@ -72,7 +74,7 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
-    private static function sendStartMessage(\Telegram $messenger, string $message): void
+    private static function sendStartMessage(Telegram $messenger, string $message): void
     {
         $option = array(
             //First row
