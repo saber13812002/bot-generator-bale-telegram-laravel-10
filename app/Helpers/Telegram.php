@@ -1,7 +1,5 @@
 <?php
 
-namespace App\Helpers;
-
 if (file_exists('TelegramErrorLogger.php')) {
     require_once 'TelegramErrorLogger.php';
 }
@@ -11,7 +9,7 @@ if (file_exists('TelegramErrorLogger.php')) {
  *
  * @author Gabriele Grillo <gabry.grillo@alice.it>
  */
-class Messengers
+class Telegram
 {
     /**
      * Constant for type Inline Query.
@@ -87,7 +85,6 @@ class Messengers
     const MY_CHAT_MEMBER = 'my_chat_member';
 
     private $bot_token = '';
-    private $base_url = '';
     private $data = [];
     private $updates = [];
     private $log_errors;
@@ -103,14 +100,9 @@ class Messengers
      * \param $proxy array with the proxy configuration (url, port, type, auth)
      * \return an instance of the class.
      */
-    public function __construct($bot_token, $type = 'telegram', $log_errors = true, array $proxy = [])
+    public function __construct($bot_token, $log_errors = true, array $proxy = [])
     {
         $this->bot_token = $bot_token;
-
-        $t_url = 'https://api.telegram.org/bot' . $this->bot_token;
-        $b_url = 'https://tapi.bale.ai/bot' . $this->bot_token;
-
-        $this->base_url = ($type == 'bale' ? $b_url : $t_url);
         $this->data = $this->getData();
         $this->log_errors = $log_errors;
         $this->proxy = $proxy;
@@ -127,7 +119,7 @@ class Messengers
      */
     public function endpoint($api, array $content, $post = true)
     {
-        $url = $this->base_url . '/' . $api;
+        $url = 'https://api.telegram.org/bot'.$this->bot_token.'/'.$api;
         if ($post) {
             $reply = $this->sendAPIRequest($url, $content);
         } else {
@@ -146,13 +138,6 @@ class Messengers
     public function getMe()
     {
         return $this->endpoint('getMe', [], false);
-    }
-
-
-    public function getCellPhone()
-    {
-        return $this->data["message"]["contact"]["phone_number"];
-
     }
 
     /**
@@ -756,7 +741,7 @@ class Messengers
      */
     public function downloadFile($telegram_file_path, $local_file_path)
     {
-        $file_url = 'https://api.telegram.org/file/bot' . $this->bot_token . '/' . $telegram_file_path;
+        $file_url = 'https://api.telegram.org/file/bot'.$this->bot_token.'/'.$telegram_file_path;
         $in = fopen($file_url, 'rb');
         $out = fopen($local_file_path, 'wb');
 
@@ -1167,10 +1152,10 @@ class Messengers
     public function buildKeyBoard(array $options, $onetime = false, $resize = false, $selective = true)
     {
         $replyMarkup = [
-            'keyboard' => $options,
+            'keyboard'          => $options,
             'one_time_keyboard' => $onetime,
-            'resize_keyboard' => $resize,
-            'selective' => $selective,
+            'resize_keyboard'   => $resize,
+            'selective'         => $selective,
         ];
         $encodedMarkup = json_encode($replyMarkup, true);
 
@@ -1213,8 +1198,7 @@ class Messengers
         $switch_inline_query_current_chat = null,
         $callback_game = '',
         $pay = ''
-    )
-    {
+    ) {
         $replyMarkup = [
             'text' => $text,
         ];
@@ -1246,8 +1230,8 @@ class Messengers
     public function buildKeyboardButton($text, $request_contact = false, $request_location = false)
     {
         $replyMarkup = [
-            'text' => $text,
-            'request_contact' => $request_contact,
+            'text'             => $text,
+            'request_contact'  => $request_contact,
             'request_location' => $request_location,
         ];
 
@@ -1264,7 +1248,7 @@ class Messengers
     {
         $replyMarkup = [
             'remove_keyboard' => true,
-            'selective' => $selective,
+            'selective'       => $selective,
         ];
         $encodedMarkup = json_encode($replyMarkup, true);
 
@@ -1280,7 +1264,7 @@ class Messengers
     {
         $replyMarkup = [
             'force_reply' => true,
-            'selective' => $selective,
+            'selective'   => $selective,
         ];
         $encodedMarkup = json_encode($replyMarkup, true);
 
@@ -1829,7 +1813,7 @@ class Messengers
     private function sendAPIRequest($url, array $content, $post = true)
     {
         if (isset($content['chat_id'])) {
-            $url = $url . '?chat_id=' . $content['chat_id'];
+            $url = $url.'?chat_id='.$content['chat_id'];
             unset($content['chat_id']);
         }
         $ch = curl_init();
@@ -1885,7 +1869,7 @@ if (!function_exists('curl_file_create')) {
     function curl_file_create($filename, $mimetype = '', $postname = '')
     {
         return "@$filename;filename="
-            . ($postname ?: basename($filename))
-            . ($mimetype ? ";type=$mimetype" : '');
+            .($postname ?: basename($filename))
+            .($mimetype ? ";type=$mimetype" : '');
     }
 }
