@@ -32,8 +32,8 @@ class BotHelper
 
     private static function start(Messengers $messenger): void
     {
-        $message = 'چکار میخواهید بکنید';
-        self::sendStartMessage($messenger, $message);
+        $message = 'برای ساخت روبات /new_bot را بفرستید';
+        self::sendMessage($messenger, $message);
     }
 
     /**
@@ -76,10 +76,10 @@ class BotHelper
     {
         $option = array(
             //First row
-            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
-            //Second row
-            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
-            //Third row
+//            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
+//            //Second row
+//            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
+//            //Third row
             array($messenger->buildKeyboardButton("Button 6")));
         $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
 

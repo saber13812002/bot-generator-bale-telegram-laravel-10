@@ -94,6 +94,7 @@ class Messengers
     private $proxy;
     private $update_type;
 
+    public $reply;
     /// Class constructor
 
     /**
@@ -134,6 +135,7 @@ class Messengers
             $reply = $this->sendAPIRequest($url, [], false);
         }
 
+        $this->reply = $reply;
         return json_decode($reply, true);
     }
 
@@ -1164,7 +1166,7 @@ class Messengers
      * \param $selective Boolean Use this parameter if you want to show the keyboard to specific users only. Targets: 1) users that are @mentioned in the text of the Message object; 2) if the bot's message is a reply (has reply_to_message_id), sender of the original message.
      * \return the requested keyboard as Json.
      */
-    public function buildKeyBoard(array $options, $onetime = false, $resize = false, $selective = true)
+    public function buildKeyBoard(array $options, $onetime = false, $resize = false, $selective = true): bool|string
     {
         $replyMarkup = [
             'keyboard' => $options,
@@ -1172,9 +1174,7 @@ class Messengers
             'resize_keyboard' => $resize,
             'selective' => $selective,
         ];
-        $encodedMarkup = json_encode($replyMarkup, true);
-
-        return $encodedMarkup;
+        return json_encode($replyMarkup, true);
     }
 
     /// Set an InlineKeyBoard
@@ -1183,14 +1183,12 @@ class Messengers
      * \param $options Array of Array of InlineKeyboardButton; Array of button rows, each represented by an Array of InlineKeyboardButton
      * \return the requested keyboard as Json.
      */
-    public function buildInlineKeyBoard(array $options)
+    public function buildInlineKeyBoard(array $options): bool|string
     {
         $replyMarkup = [
             'inline_keyboard' => $options,
         ];
-        $encodedMarkup = json_encode($replyMarkup, true);
-
-        return $encodedMarkup;
+        return json_encode($replyMarkup, true);
     }
 
     /// Create an InlineKeyboardButton
@@ -1213,7 +1211,7 @@ class Messengers
         $switch_inline_query_current_chat = null,
         $callback_game = '',
         $pay = ''
-    )
+    ): array
     {
         $replyMarkup = [
             'text' => $text,

@@ -19,22 +19,11 @@ class BotController extends Controller
         $bot_token = '1895809197:Hm9ocGSMEkrqyhC7sbDz5xirA4ojT5ujpzTQtOM4';
         $bale = new Messengers($bot_token, 'bale');
 
-        $text = $bale->Text();
         $chat_id = $bale->ChatID();
-//        $chat_username = $bale->Username();
-//        $chat_firstname = $bale->FirstName();
-//        $chat_lastname = $bale->LastName();
-//        $FromChatID = $bale->FromChatID();
-//        $messageFromGroup = $bale->messageFromGroup();
-//        $FromID = $bale->FromID();
-//        $UpdateID = $bale->UpdateID();
-
-
 
         $content = ['chat_id' => $chat_id, 'text' => 'چند لحظه صبر کنید...'];
         $bale->sendMessage($content);
-
-
+        //echo($bale->reply);
         BotHelper::switchCase($bale);
     }
 
