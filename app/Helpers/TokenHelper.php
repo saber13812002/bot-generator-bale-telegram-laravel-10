@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use Illuminate\Support\Facades\Log;
+
 class TokenHelper
 {
 
@@ -13,5 +15,18 @@ class TokenHelper
             return true;
         }
         return false;
+    }
+
+
+    /**
+     * @return mixed
+     */
+    public static function getMotherBotToken(): mixed
+    {
+        $bot_token = env('BOT_MOTHER_TOKEN');
+        if ($bot_token == null) {
+            Log::info("master botmother token is not set");
+        }
+        return $bot_token;
     }
 }
