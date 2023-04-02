@@ -18,12 +18,14 @@ return new class extends Migration {
             $table->string('telegram_bot_token')->nullable();
             $table->json('telegram_get_me_api_response')->nullable();
             $table->enum('telegram_bot_status', ['Active', 'DeActive'])->default('DeActive');
+            $table->boolean('telegram_webhook_is_set')->default(false);
 
             $table->bigInteger('bale_owner_chat_id')->nullable();
             $table->string('bale_bot_name')->nullable()->unique();
             $table->string('bale_bot_token')->nullable();
             $table->json('bale_get_me_api_response')->nullable();
             $table->enum('bale_bot_status', ['Active', 'DeActive'])->default('DeActive');
+            $table->boolean('bale_webhook_is_set')->default(false);
 
             $table->enum('block_strategy', ['block_first', 'block_by_admin'])->default('block_first');
             $table->enum('supported_message_types', ['text', 'all'])->default('text');

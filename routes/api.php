@@ -20,3 +20,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 Route::post('/webhook-bale', [\App\Http\Controllers\BotController::class, 'index']);
+
+Route::post('/webhook-bale-users', [\App\Http\Controllers\BotUsersController::class, 'index']);

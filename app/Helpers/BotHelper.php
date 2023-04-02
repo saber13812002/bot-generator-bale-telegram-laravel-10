@@ -21,8 +21,6 @@ class BotHelper
             self::sendMessage($messenger, $message);
             self::start($messenger);
         }
-
-
     }
 
     /**
@@ -62,6 +60,11 @@ class BotHelper
             $getMeBale = ($newBotBale->getMe());
             if ($getMeBale['ok']) {
                 $botItem = self::defineCreateBot($messenger, $getMeBale, 'bale');
+                $result = $newBotBale->setWebhook(config('bot.balewebhookurl'));
+                if (!$result['ok']) {
+                    $message = 'وب هوک ست نشد. با ادمین تماس بگیرید @sabertaba';
+                    self::sendMessage($messenger, $message);
+                }
             }
         } catch (Exception $e) {
             Log::info("no bale bot");
@@ -97,7 +100,7 @@ class BotHelper
      */
     public static function properMessage(Bot $botItem, Telegram $messenger): string
     {
-        $message = 'روبات شما ' . ($botItem->bale_bot_name ?? $botItem->telegram_bot_name) . ' ساخته شد';
+        $message = 'روبات شما @' . ($botItem->bale_bot_name ?? $botItem->telegram_bot_name) . ' ساخته شد';
         self::sendMessage($messenger, $message);
 
         if ($botItem->bale_bot_name && $botItem->telegram_bot_name) {
