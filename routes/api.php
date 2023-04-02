@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BotController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('/webhook-bale', [\App\Http\Controllers\BotController::class, 'index']);
+Route::post('/webhook-bale', [BotController::class, 'index']);
 
-Route::post('/webhook-bale-users', [\App\Http\Controllers\BotUsersController::class, 'index']);
+Route::post('/webhook-bale-users', [BotController::class, 'users']);

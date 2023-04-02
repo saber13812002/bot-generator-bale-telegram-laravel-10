@@ -6,6 +6,7 @@ use App\Helpers\BotHelper;
 use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
 use App\Models\Bot;
+use Illuminate\Http\Request;
 use Telegram;
 
 
@@ -25,6 +26,21 @@ class BotController extends Controller
         $bale->sendMessage($content);
         //echo($bale->reply);
         BotHelper::switchCase($bale);
+    }
+
+
+    /**
+     * Display a listing of the resource.
+     */
+    public function users(Request $request)
+    {
+        $bot_token = '1895809197:Hm9ocGSMEkrqyhC7sbDz5xirA4ojT5ujpzTQtOM4';
+        $bale = new Telegram($bot_token, 'bale');
+
+        $chat_id = $bale->ChatID();
+
+        $content = ['chat_id' => $chat_id, 'text' => json_encode( $request->getContent())];
+        $bale->sendMessage($content);
     }
 
     /**
