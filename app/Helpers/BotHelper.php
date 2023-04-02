@@ -9,13 +9,13 @@ use Telegram;
 
 class BotHelper
 {
-    public static function switchCase(Telegram $messenger): void
+    public static function switchCase(Telegram $messenger, $type): void
     {
         $text = $messenger->Text();
         if ($text == '/start' || $text == 'ساختن') {
             self::start($messenger);
-        } else if (TokenHelper::isToken($text)) {
-            self::newBot($messenger);
+        } else if (TokenHelper::isToken($text, $type)) {
+            self::newBot($messenger, $type);
         } else {
             $message = 'دستور شما منجر به هیچ کاری نشد';
             self::sendMessage($messenger, $message);
@@ -26,13 +26,13 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    private static function newBot(Telegram $messenger): void
+    private static function newBot(Telegram $messenger, $type): void
     {
         $text = $messenger->Text();
-        $isToken = TokenHelper::isToken($text);
+        $isToken = TokenHelper::isToken($text, $type);
         if ($isToken) {
             $botItem = new Bot();
-            $botItem = self::callBale($text, $messenger, $botItem);
+            $botItem = $type == 'bale' ? self::callBale($text, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem);
             $message = self::properMessage($botItem, $messenger);
         } else {
             $message = 'این یک توکن تلگرام یا بله نیست';
@@ -60,10 +60,16 @@ class BotHelper
             $getMeBale = ($newBotBale->getMe());
             if ($getMeBale['ok']) {
                 $botItem = self::defineCreateBot($messenger, $getMeBale, 'bale');
-                $result = $newBotBale->setWebhook(config('bot.balewebhookurl'));
+                $webHookUrl = self::getWebhookUrl($botItem);
+                $result = $newBotBale->setWebhook($webHookUrl);
                 if (!$result['ok']) {
                     $message = 'وب هوک ست نشد. با ادمین تماس بگیرید @sabertaba';
                     self::sendMessage($messenger, $message);
+                } else {
+                    if (config('app.env') == 'local') {
+                        $message = 'وب هوک :' . $webHookUrl;
+                        self::sendMessage($messenger, $message);
+                    }
                 }
             }
         } catch (Exception $e) {
@@ -115,6 +121,15 @@ class BotHelper
             self::sendMessage($messenger, $message);
         }
         return $message;
+    }
+
+    /**
+     * @param Bot $botItem
+     * @return string
+     */
+    public static function getWebhookUrl(Bot $botItem): string
+    {
+        return config('bot.balewebhookurl') . '/?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token;
     }
 
     /**

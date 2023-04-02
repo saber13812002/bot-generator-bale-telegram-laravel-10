@@ -20,6 +20,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('/webhook-bale', [BotController::class, 'index']);
+Route::post('/webhook-telegram', [BotController::class, 'telegram']);
+Route::post('/webhook-bale', [BotController::class, 'bale']);
 
-Route::post('/webhook-bale-users', [BotController::class, 'users']);
+Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsers']);
+Route::post('/webhook-bale-users', [BotController::class, 'baleUsers']);
