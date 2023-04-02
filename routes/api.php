@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BotController;
+use App\Http\Controllers\BotUsersController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,3 +26,6 @@ Route::post('/webhook-bale', [BotController::class, 'bale']);
 
 Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsers']);
 Route::post('/webhook-bale-users', [BotController::class, 'baleUsers']);
+
+
+Route::get('/approve', [BotUsersController::class, 'approve']);

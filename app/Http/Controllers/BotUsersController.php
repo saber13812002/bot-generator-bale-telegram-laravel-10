@@ -6,15 +6,16 @@ use App\Models\BotUsers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreBotUsersRequest;
 use App\Http\Requests\UpdateBotUsersRequest;
+use Illuminate\Http\Request;
 
 class BotUsersController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function approve(Request $request)
     {
-        //
+
     }
 
     /**

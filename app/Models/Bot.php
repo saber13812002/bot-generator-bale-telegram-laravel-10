@@ -9,5 +9,5 @@ class Bot extends Model
 {
     use HasFactory;
 
-    private array $protected = [];
+    protected $guarded = [];
 }
