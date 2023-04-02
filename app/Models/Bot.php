@@ -8,4 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 class Bot extends Model
 {
     use HasFactory;
+
+    private array $protected = [];
 }
