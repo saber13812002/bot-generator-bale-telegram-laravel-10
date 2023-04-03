@@ -9,6 +9,9 @@ use Telegram;
 
 class BotHelper
 {
+    /**
+     * @throws \Exception
+     */
     public static function switchCase(Telegram $messenger, $type): void
     {
         $text = $messenger->Text();
@@ -32,7 +35,8 @@ class BotHelper
         $isToken = TokenHelper::isToken($text, $type);
         if ($isToken) {
             $botItem = new Bot();
-            $botItem = $type == 'bale' ? self::callBale($text, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem);
+            $token = $text;
+            $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem));
             $message = self::properMessage($botItem, $messenger);
         } else {
             $message = 'این یک توکن تلگرام یا بله نیست';
@@ -47,25 +51,28 @@ class BotHelper
     }
 
     /**
-     * @param mixed $text
+     * @param mixed $token
      * @param Telegram $messenger
      * @param Bot $botItem
      * @return Bot
      * @throws \Exception
      */
-    public static function callBale(mixed $text, Telegram $messenger, Bot $botItem): Bot
+    public static function callBale(mixed $token, Telegram $messenger, Bot $botItem): Bot
     {
         try {
-            $newBotBale = new Telegram($text, 'bale');
+            $newBotBale = new Telegram($token, 'bale');
             $getMeBale = ($newBotBale->getMe());
             if ($getMeBale['ok']) {
                 $botItem = self::defineCreateBot($messenger, $getMeBale, 'bale');
-                $webHookUrl = self::getWebhookUrl($botItem);
+                $webHookUrl = self::createWebhookUrl($botItem);
                 $result = $newBotBale->setWebhook($webHookUrl);
                 if (!$result['ok']) {
                     $message = 'وب هوک ست نشد. با ادمین تماس بگیرید @sabertaba';
                     self::sendMessage($messenger, $message);
                 } else {
+                    //telegram_webhook_is_set
+                    $botItem->telegram_webhook_is_set = 1;
+                    $botItem->save();
                     if (config('app.env') == 'local') {
                         $message = 'وب هوک :' . $webHookUrl;
                         self::sendMessage($messenger, $message);
@@ -127,9 +134,9 @@ class BotHelper
      * @param Bot $botItem
      * @return string
      */
-    public static function getWebhookUrl(Bot $botItem): string
+    public static function createWebhookUrl(Bot $botItem): string
     {
-        return config('bot.balewebhookurl') . '/?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token;
+        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token;
     }
 
     /**

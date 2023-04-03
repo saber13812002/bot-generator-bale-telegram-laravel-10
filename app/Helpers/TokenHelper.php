@@ -9,6 +9,11 @@ class TokenHelper
 
     public static function isToken(mixed $text, $type): bool
     {
+        $text = str_replace(' ', '', $text); // remove spaces
+        $text = str_replace("\t", '', $text); // remove tabs
+        $text = str_replace("\n", '', $text); // remove new lines
+        $text = str_replace("\r", '', $text);
+
         $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{40}$/", $text);
 //        dd($check);
         if ($check) {
