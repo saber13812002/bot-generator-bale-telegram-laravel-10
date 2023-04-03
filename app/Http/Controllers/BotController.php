@@ -49,7 +49,9 @@ class BotController extends Controller
 //        dd(json_decode($request->getContent()), $baleMotherBot);
         $chat_id = $baleMotherBot->ChatID();
         $text = $baleMotherBot->Text();
-
+        $firstName = $baleMotherBot->FirstName();
+        $lastName = $baleMotherBot->LastName();
+//        dd($firstName);
         if (config('app.env') == 'local') {
             $this->sendMessageRequestContent($chat_id, $request, $baleMotherBot);
         }
@@ -108,12 +110,8 @@ class BotController extends Controller
                         $content = ['chat_id' => $chatId, 'text' => $text . "
 متن بالا
 از طرف:
-" . $bot->FirstName() . "
-" . $bot->FirstName() . "
-" . $bot->LastName() . "
-" . $bot->Username() . "
-" . $bot->FromChatID()
-
+" . $firstName . "
+" . $lastName
                         ];
                         $bot->sendMessage($content);
                     }
