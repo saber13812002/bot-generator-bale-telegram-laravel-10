@@ -105,7 +105,8 @@ class BotController extends Controller
 
 
                     foreach ($chatIds as $chatId) {
-                        BotHelper::sendMessage($bot, $text);
+                        $content = ['chat_id' => $chatId, 'text' => $text];
+                        $bot->sendMessage($content);
                     }
 
 
