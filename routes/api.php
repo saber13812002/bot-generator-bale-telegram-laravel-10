@@ -30,3 +30,6 @@ Route::post('/webhook-bale-users', [BotController::class, 'baleUsersWebhook']);
 
 
 Route::get('/approve', [BotUsersController::class, 'approve']);
+
+
+Route::post('/webhook-weather', [WeatherController::class, 'index']);
