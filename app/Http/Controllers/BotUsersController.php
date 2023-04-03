@@ -48,7 +48,7 @@ class BotUsersController extends Controller
                     ->firstOrFail();
 
             } catch (\Exception $e) {
-                $message = 'این روبات قبلا تایید شده است';
+                $message = 'یا این روبات قبلا تایید شده است و الان دارد دوباره تایید میشود';
                 BotHelper::sendMessageToBotAdmin($bot, $message);
                 Log::warning($e->getMessage());
                 throw $e;
