@@ -105,14 +105,14 @@ class BotController extends Controller
 
 
                     foreach ($chatIds as $chatId) {
-                        $content = ['chat_id' => $chatId, 'text' => $text . ""
-//متن بالا
-//از طرف:
-//" . $bot->FirstName() . "
-//" . $bot->FirstName() . "
-//" . $bot->LastName() . "
-//" . $bot->Username() . "
-//" . $bot->FromChatID()
+                        $content = ['chat_id' => $chatId, 'text' => $text . "
+متن بالا
+از طرف:
+" . $bot->FirstName() . "
+" . $bot->FirstName() . "
+" . $bot->LastName() . "
+" . $bot->Username() . "
+" . $bot->FromChatID()
 
                         ];
                         $bot->sendMessage($content);
