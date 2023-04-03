@@ -80,12 +80,9 @@ class BotController extends Controller
                 'origin' => $type
             ]);
 
-            if ($user->status == 'suspend') {
-                if (Carbon::now()->gte($user->created_at)) {
-                    $message = 'وضعیت شما هنوز توسط ادمین روبات تایید نشده است';
-                } else {
-                    $message = 'وضعیت شما در حال بررسی است، پس از تایید مدیر روبات اطلاع داده خواهد شد';
-                }
+            if ($user->updated_at == $user->created_at) {
+                $message = 'وضعیت شما هنوز توسط ادمین روبات تایید نشده است.';
+                $message .= 'وضعیت شما در حال بررسی است، پس از تایید مدیر روبات اطلاع داده خواهد شد';
                 BotHelper::sendMessage($bot, $message);
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
@@ -93,19 +90,23 @@ class BotController extends Controller
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
                 $baleBot->sendMessage($content);
             } else {
-                // TODO: next
-                BotHelper::sendMessage($bot, 'شما کاربر فعال هستید پیام شما برای همه اعضا ارسال شد');
+                if ($user->status == 'active') {
+                    // TODO: next
+                    BotHelper::sendMessage($bot, 'شما کاربر فعال هستید پیام شما برای همه اعضا ارسال شد');
+                }
             }
         } else {
             $content = ['chat_id' => $chat_id, 'text' => 'حاجی توکن درست توی وب هوک ست نشده. چکنیم به ادمین خبر بده @sabertaba'];
             $baleBot->sendMessage($content);
         }
+
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create()
+    public
+    function create()
     {
         //
     }
@@ -113,7 +114,8 @@ class BotController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreBotRequest $request)
+    public
+    function store(StoreBotRequest $request)
     {
         //
     }
@@ -121,7 +123,8 @@ class BotController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Bot $bot)
+    public
+    function show(Bot $bot)
     {
         //
     }
@@ -129,7 +132,8 @@ class BotController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Bot $bot)
+    public
+    function edit(Bot $bot)
     {
         //
     }
@@ -137,7 +141,8 @@ class BotController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateBotRequest $request, Bot $bot)
+    public
+    function update(UpdateBotRequest $request, Bot $bot)
     {
         //
     }
@@ -145,7 +150,8 @@ class BotController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Bot $bot)
+    public
+    function destroy(Bot $bot)
     {
         //
     }
@@ -154,7 +160,8 @@ class BotController extends Controller
      * @param string $type
      * @return Telegram
      */
-    public function getBotByType(string $type): Telegram
+    public
+    function getBotByType(string $type): Telegram
     {
         $bot_token = TokenHelper::getMotherBotToken($type);
         $bale = new Telegram($bot_token, $type);
@@ -167,7 +174,8 @@ class BotController extends Controller
      * @param Telegram $bale
      * @return array
      */
-    public function sendMessageRequestContent(mixed $chat_id, Request $request, Telegram $bale): array
+    public
+    function sendMessageRequestContent(mixed $chat_id, Request $request, Telegram $bale): array
     {
         $content = ['chat_id' => $chat_id, 'text' => json_encode($request->getContent())];
         $bale->sendMessage($content);
@@ -183,7 +191,8 @@ class BotController extends Controller
      * @param Telegram $bale
      * @return array
      */
-    public function sendDbIdMessage(mixed $chat_id, $botItem, Telegram $bale): array
+    public
+    function sendDbIdMessage(mixed $chat_id, $botItem, Telegram $bale): array
     {
         $content = ['chat_id' => $chat_id, 'text' => $botItem->id];
         $bale->sendMessage($content);
