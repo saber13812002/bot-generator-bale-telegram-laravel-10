@@ -21,11 +21,11 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 
-Route::post('/webhook-telegram', [BotController::class, 'telegram']);
-Route::post('/webhook-bale', [BotController::class, 'bale']);
+Route::post('/webhook-telegram', [BotController::class, 'telegramWebhook']);
+Route::post('/webhook-bale', [BotController::class, 'baleWebhook']);
 
-Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsers']);
-Route::post('/webhook-bale-users', [BotController::class, 'baleUsers']);
+Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsersWebhook']);
+Route::post('/webhook-bale-users', [BotController::class, 'baleUsersWebhook']);
 
 
 Route::get('/approve', [BotUsersController::class, 'approve']);

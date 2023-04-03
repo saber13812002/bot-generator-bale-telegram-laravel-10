@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BotUsers;
-use App\Http\Controllers\Controller;
+use App\Helpers\BotHelper;
 use App\Http\Requests\StoreBotUsersRequest;
 use App\Http\Requests\UpdateBotUsersRequest;
+use App\Models\Bot;
+use App\Models\BotUsers;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Telegram;
 
 class BotUsersController extends Controller
 {
@@ -15,6 +18,55 @@ class BotUsersController extends Controller
      */
     public function approve(Request $request)
     {
+        $type = 'bale';
+        $keys = ['origin',
+            'chat_id',
+            'bot_id',
+            'token'];
+        $checkRequest = $request->only($keys);
+
+        if (count($checkRequest) == 4) {
+            try {
+                $botItem = Bot::whereId($request->bot_id)
+                    ->whereBaleBotToken($request->token)
+                    ->get()
+                    ->firstOrFail();
+            } catch (\Exception $e) {
+                BotHelper::sendMessageToSuperAdmin('تایید یک ادمین برای یک کاربر با خطا مواجه شد', $type);
+                Log::warning($e->getMessage());
+                throw $e;
+            }
+
+            $bot = new Telegram($botItem->bale_bot_token, $type);
+
+            try {
+                $botUserItem = BotUsers::whereBotId($request->bot_id)
+                    ->whereChatId($request->chat_id)
+                    ->whereOrigin($type)
+                    ->whereStatus('suspend')
+                    ->get()
+                    ->firstOrFail();
+
+            } catch (\Exception $e) {
+                $message = 'این روبات قبلا تایید شده است';
+                BotHelper::sendMessageToBotAdmin($bot, $message);
+                Log::warning($e->getMessage());
+                throw $e;
+            }
+
+            $botUserItem->status = 'active';
+            $botUserItem->save();
+
+            BotHelper::sendMessageByChatId($bot, $request->chat_id, 'فعالیت شما تایید شد');
+            BotHelper::sendMessageByChatId($bot, $botItem->bale_owner_chat_id, 'این کاربر تایید شد:' . $request->chat_id);
+            BotHelper::sendMessageToSuperAdmin('تایید یک کاربر توسط ادمین روبات ایکس با موفقیت انجام شد', $type);
+
+        } else {
+            Log::info('message : تایید ممکن نیست لینک تایید مشکل دارد');
+        }
+
+        echo 'کاربر تایید شد بازگشت به برنامه
+ <br> <a href=\'https://web.bale.ai\'>https://web.bale.ai</a>';
 
     }
 

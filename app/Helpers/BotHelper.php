@@ -168,6 +168,45 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
+    /**
+     * @param Telegram $messenger
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageByChatId(Telegram $messenger, $chat_id, string $message): void
+    {
+        $content = [
+            'chat_id' => $chat_id,
+            'text' => $message
+        ];
+
+        $messenger->sendMessage($content);
+    }
+
+
+    /**
+     * @param Telegram $bot
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageToBotAdmin(Telegram $bot, string $message): void
+    {
+        BotHelper::sendMessageByChatId($bot, env('SUPER_ADMIN_CHAT_ID_BALE'), $message);
+    }
+
+
+    /**
+     * @param Telegram $bot
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageToSuperAdmin(string $message, $type): void
+    {
+        $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
+        BotHelper::sendMessageByChatId($bot, env('SUPER_ADMIN_CHAT_ID_BALE'), $message);
+    }
+
+
     private static function sendStartMessage(Telegram $messenger, string $message): void
     {
         $option = array(

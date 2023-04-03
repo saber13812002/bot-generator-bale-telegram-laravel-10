@@ -10,6 +10,7 @@ use App\Models\Bot;
 use App\Models\BotUsers;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Telegram;
 
 
@@ -18,7 +19,7 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function bale()
+    public function baleWebhook()
     {
         $type = 'bale';
         $bale = $this->getBotByType($type);
@@ -28,7 +29,7 @@ class BotController extends Controller
         BotHelper::switchCase($bale, $type);
     }
 
-    public function telegram()
+    public function telegramWebhook()
     {
         $type = 'telegram';
         $bale = $this->getBotByType($type);
@@ -41,9 +42,10 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function baleUsers(Request $request)
+    public function baleUsersWebhook(Request $request)
     {
-        $baleBot = $this->getBotByType('bale');
+        $type = 'bale';
+        $baleBot = $this->getBotByType($type);
 
         $chat_id = $baleBot->ChatID();
 
@@ -55,21 +57,27 @@ class BotController extends Controller
             $bot_token = $request->input('bot_token');
             $bot_user_name = $request->input('bot_user_name');
 
-            $botItem = Bot::whereBaleBotName($bot_user_name)
-                ->whereBaleBotToken($bot_token)
-                ->get()
-                ->first();
-
+            try {
+                $botItem = Bot::whereBaleBotName($bot_user_name)
+                    ->whereBaleBotToken($bot_token)
+                    ->get()
+                    ->firstOrFail();
+            } catch (\Exception $e) {
+                BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
+                Log::warning($e->getMessage());
+                throw $e;
+            }
+            // TODO: count check
             if (config('app.env') == 'local') {
                 $this->sendDbIdMessage($chat_id, $botItem, $baleBot);
             }
 
-            $bot = new Telegram($botItem->bale_bot_token, 'bale');
+            $bot = new Telegram($botItem->bale_bot_token, $type);
 
             $user = BotUsers::firstOrCreate([
                 'chat_id' => $chat_id,
                 'bot_id' => $botItem->id,
-                'origin' => 'bale'
+                'origin' => $type
             ]);
 
             if ($user->status == 'suspend') {
@@ -79,11 +87,14 @@ class BotController extends Controller
                     $message = 'وضعیت شما در حال بررسی است، پس از تایید مدیر روبات اطلاع داده خواهد شد';
                 }
                 BotHelper::sendMessage($bot, $message);
-
-                $content = ['chat_id' => $botItem->bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
+                $bale_owner_chat_id = $botItem->bale_owner_chat_id;
+                $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
                 $baleBot->sendMessage($content);
-                $content = ['chat_id' => $botItem->bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . ''];
+                $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
                 $baleBot->sendMessage($content);
+            } else {
+                // TODO: next
+                BotHelper::sendMessage($bot, 'شما کاربر فعال هستید پیام شما برای همه اعضا ارسال شد');
             }
         } else {
             $content = ['chat_id' => $chat_id, 'text' => 'حاجی توکن درست توی وب هوک ست نشده. چکنیم به ادمین خبر بده @sabertaba'];
