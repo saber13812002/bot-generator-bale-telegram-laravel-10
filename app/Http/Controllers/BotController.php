@@ -109,7 +109,7 @@ class BotController extends Controller
 
 متن بالا
 از طرف:
-" . $baleMotherBot->FirstName() . "
+" . $bot->FirstName() . "
 " . $bot->FirstName() . "
 " . $bot->LastName() . "
 " . $bot->Username() . "
