@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateweatherRequest;
 use App\Models\weather;
 use GuzzleHttp;
 use Http\Factory\Guzzle\RequestFactory;
+use Illuminate\Http\Request;
 use Telegram;
 
 class WeatherController extends Controller
@@ -15,21 +16,28 @@ class WeatherController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
-        $api_key = env("OPENWEATHER_API_TOKEN");
-        $city_name = "Qom";
 
-        $client = new GuzzleHttp\Client();
-        $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&appid=' . $api_key);
+        if ($request->has('origin')) {
+            if ($request->input('origin') == 'bale') {
+                $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
+            } else {
+                $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
+            }
+            $api_key = env("OPENWEATHER_API_TOKEN");
+            $city_name = "Qom";
+
+            $client = new GuzzleHttp\Client();
+            $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
-        echo $response->getBody()->getContents();
-        $data = json_decode($response->getBody(), true);
+            echo $response->getBody()->getContents();
+            $data = json_decode($response->getBody(), true);
 //        dd(json_encode($request->getBody()));
 //        dd($data['wind']['speed']);
-        BotHelper::sendMessage($bot, 'هوا باد میاد
+            BotHelper::sendMessage($bot, 'هوا باد میاد
         سرعت الان : ' . $data['wind']['speed']);
+        }
     }
 
 
