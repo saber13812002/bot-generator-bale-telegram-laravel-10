@@ -22,7 +22,7 @@ class BotController extends Controller
     public function baleWebhook()
     {
         $type = 'bale';
-        $bale = $this->getBotByType($type);
+        $bale = $this->getMotherBotByType($type);
         $message = 'چند لحظه صبر کنید...';
         BotHelper::sendMessage($bale, $message);
         //echo($bale->reply);
@@ -32,7 +32,7 @@ class BotController extends Controller
     public function telegramWebhook()
     {
         $type = 'telegram';
-        $bale = $this->getBotByType($type);
+        $bale = $this->getMotherBotByType($type);
         $message = 'چند لحظه صبر کنید...';
         BotHelper::sendMessage($bale, $message);
         //echo($bale->reply);
@@ -45,12 +45,13 @@ class BotController extends Controller
     public function baleUsersWebhook(Request $request)
     {
         $type = 'bale';
-        $baleBot = $this->getBotByType($type);
-
-        $chat_id = $baleBot->ChatID();
+        $baleMotherBot = $this->getMotherBotByType($type);
+//        dd(json_decode($request->getContent()), $baleMotherBot);
+        $chat_id = $baleMotherBot->ChatID();
+        $text = $baleMotherBot->Text();
 
         if (config('app.env') == 'local') {
-            $this->sendMessageRequestContent($chat_id, $request, $baleBot);
+            $this->sendMessageRequestContent($chat_id, $request, $baleMotherBot);
         }
 
         if ($request->has('bot_token') && $request->has('bot_user_name')) {
@@ -69,7 +70,7 @@ class BotController extends Controller
             }
             // TODO: count check
             if (config('app.env') == 'local') {
-                $this->sendDbIdMessage($chat_id, $botItem, $baleBot);
+                $this->sendDbIdMessage($chat_id, $botItem, $baleMotherBot);
             }
 
             $bot = new Telegram($botItem->bale_bot_token, $type);
@@ -86,18 +87,34 @@ class BotController extends Controller
                 BotHelper::sendMessage($bot, $message);
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
-                $baleBot->sendMessage($content);
+                $baleMotherBot->sendMessage($content);
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
-                $baleBot->sendMessage($content);
+                $baleMotherBot->sendMessage($content);
             } else {
-                if ($user->status == 'active') {
-                    // TODO: next
-                    BotHelper::sendMessage($bot, 'شما کاربر فعال هستید پیام شما برای همه اعضا ارسال شد');
+                if ($user->status == 'active' && !str_starts_with($text, "/")) {
+                    // TODO: send telegram who's telegram
+                    $users = BotUsers::select('chat_id')->whereBotId($botItem->id)
+                        ->whereOrigin($type)
+                        ->whereStatus('active')
+                        ->get();
+
+                    $chatIds = $users->pluck('chat_id')->toArray();
+                    $pos = array_search($chat_id . '', $chatIds);
+                    unset($chatIds[$pos]);
+//                    $array_without_strawberries = array_diff($userList, array($chat_id . ''));
+
+
+                    foreach ($chatIds as $chatId) {
+                        BotHelper::sendMessage($bot, $text);
+                    }
+
+
+                    BotHelper::sendMessage($bot, 'شما کاربر فعال هستید پیام شما برای همه اعضا بغیر از خودتان ارسال شد');
                 }
             }
         } else {
             $content = ['chat_id' => $chat_id, 'text' => 'حاجی توکن درست توی وب هوک ست نشده. چکنیم به ادمین خبر بده @sabertaba'];
-            $baleBot->sendMessage($content);
+            $baleMotherBot->sendMessage($content);
         }
 
     }
@@ -161,7 +178,7 @@ class BotController extends Controller
      * @return Telegram
      */
     public
-    function getBotByType(string $type): Telegram
+    function getMotherBotByType(string $type): Telegram
     {
         $bot_token = TokenHelper::getMotherBotToken($type);
         $bale = new Telegram($bot_token, $type);
@@ -179,7 +196,7 @@ class BotController extends Controller
     {
         $content = ['chat_id' => $chat_id, 'text' => json_encode($request->getContent())];
         $bale->sendMessage($content);
-
+        //TODO: strange things here
         $content = ['chat_id' => $chat_id, 'text' => json_encode($request->getQueryString())];
         $bale->sendMessage($content);
         return $content;
