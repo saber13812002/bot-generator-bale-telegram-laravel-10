@@ -177,13 +177,13 @@ class WeatherController extends Controller
             $pressure = $weather_data["values"]["pressureSeaLevel"];
 
             $datetime = new Carbon($weather_data["startTime"]);
-            $shamsiDateTime = verta($datetime);
+            $jalaliDateTime = verta($datetime);
 
             if ($weather_data["values"]['windSpeed'] > $windSpeedLimit) {
                 $raiseLimit++;
                 $message .= 'وضعیت قرمز 😥 باد 🌬 در ساعت :
- :' . $weather_data["startTime"] . '
- :' . $shamsiDateTime . '
+ تاریخ میلادی:' . $weather_data["startTime"] . '
+ تاریخ شمسی:' . $jalaliDateTime . '
  دید و برد چشم:' . $visibility . '
  تعداد ابرها:' . $clouds . '
  دمای هوا:' . $temp . '
