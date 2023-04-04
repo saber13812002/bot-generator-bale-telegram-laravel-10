@@ -27,9 +27,10 @@ class WeatherController extends Controller
             } else {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
             }
-            $message = $this->getMessageFromOpenWeatherMapApi();
+//            $message = $this->getMessageFromOpenWeatherMapApi();
+            $message = $this->getMessageFromTomorrowApi();
 
-            BotHelper::sendMessage($bot,$message);
+            BotHelper::sendMessage($bot, $message);
         }
     }
 
@@ -129,6 +130,37 @@ class WeatherController extends Controller
     }
 
     /**
+     * @param mixed $weather_data
+     * @return string
+     */
+    public function generateMessageByTomorrowData(mixed $weather_datas): string
+    {
+        foreach ($weather_datas as $weather_data) {
+            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weather_data["rainIntensity"]);
+            $visibility = $weather_data["visibility"];
+            $clouds = $weather_data["cloudCover"];
+            $temp = $weather_data["temperature"];
+            $feels_like = $weather_data["temperatureApparent"];
+            $humidity = $weather_data["humidity"];
+            $pressure = $weather_data["pressureSeaLevel"];
+
+            $message = 'وضعیت هوا 🌬 در قم :
+ :' . $weather_description . '
+ دید و برد چشم:' . $visibility . '
+ تعداد ابرها:' . $clouds . '
+ دمای هوا:' . $temp . '
+ دمای هوا که احساس میشه:' . $feels_like . '
+ رطوبت:' . $humidity . '
+ فشار هوا:' . $pressure . '
+ وضعیت باد 🌬 :.' . '
+ 💨 سرعت  :' . $weather_data['windSpeed'] . '
+🧭 زاویه  : ' . $weather_data['windDirection'] . '
+ 🌪 وزش شدید  :' . $weather_data['windGust'];
+        }
+        return $message;
+    }
+
+    /**
      * @return mixed
      * @throws GuzzleHttp\Exception\GuzzleException
      */
@@ -141,8 +173,7 @@ class WeatherController extends Controller
         $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&units=metric&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
-        $weather_data = json_decode($response->getBody(), true);
-        return $weather_data;
+        return json_decode($response->getBody(), true);
     }
 
     /**
@@ -153,7 +184,49 @@ class WeatherController extends Controller
     {
         $weather_data = $this->callOpenWeatherMap();
 
-        $message = $this->generateMessageByWeatherData($weather_data);
-        return $message;
+        return $this->generateMessageByWeatherData($weather_data);
+    }
+
+    /**
+     * @return string
+     * @throws GuzzleException
+     */
+    public function getMessageFromTomorrowApi(): string
+    {
+        $weather_data = $this->callTomorrow();
+        return $this->generateMessageByTomorrowData($weather_data['data']['timelines']['intervals']);
+    }
+
+    private function callTomorrow()
+    {
+        $api_key = env("TOMORROW_API_TOKEN");
+
+        $client = new GuzzleHttp\Client();
+        $response = $client->get('https://api.tomorrow.io/v4/timelines?location=34.600209,50.828128&apikey=' . $api_key . '&units=metric&timesteps=1h&fields=temperature,windSpeed,windDirection,windGust,pressureSurfaceLevel,pressureSeaLevel,rainIntensity,visibility,cloudCover,uvIndex,humidity,weatherCode,temperatureApparent' . $api_key);
+//        echo $request->getStatusCode(); // 200
+        echo $response->getBody()->getContents();
+        return json_decode($response->getBody(), true);
+    }
+
+    private function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string
+    {
+        $translate = [0 => "آسمان صاف☀️",
+            1 => "کمی ابری🌤",
+            2 => "ابرهای پراکنده⛅️",
+            3 => "ابرهای شکسته🌤",
+            4 => "باران نرم⛈",
+            5 => "باران🌧",
+            6 => "رعد و برق⚡️",
+            7 => "برف❄️",
+            8 => "مه🌫"];
+
+        if ($rainIntensity < 5) {
+            return $translate[0];
+        } elseif ($rainIntensity < 10) {
+            return $translate[1];
+        } elseif ($rainIntensity < 20) {
+            return $translate[2];
+        }
+        return "وضعیت مشخص نیست";
     }
 }
