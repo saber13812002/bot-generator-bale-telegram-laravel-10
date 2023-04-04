@@ -226,7 +226,7 @@ class WeatherController extends Controller
         try {
             $weather_data = $this->callTomorrow();
         } catch (\Exception $e) {
-            return substr($e->getMessage(), -90);;
+            return substr($e->getMessage(), -150);;
         }
         return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
     }
