@@ -140,7 +140,7 @@ class WeatherController extends Controller
     }
 
     /**
-     * @param mixed $weather_data
+     * @param mixed $weather_datas
      * @return string
      */
     public function generateMessageByTomorrowData(mixed $weather_datas): string
@@ -250,6 +250,7 @@ class WeatherController extends Controller
     /**
      * @param Telegram $bot
      * @param string $message
+     * @param $type
      * @return void
      */
     public function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
