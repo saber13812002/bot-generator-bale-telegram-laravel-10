@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Console\Commands\weatherWindCommand;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -13,6 +14,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
+        $schedule->command(weatherWindCommand::class, ['speed=12'])->dailyAt("10:00");
+
     }
 
     /**

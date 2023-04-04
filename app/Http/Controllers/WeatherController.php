@@ -11,8 +11,8 @@ use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Http\Factory\Guzzle\RequestFactory;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Telegram;
-use Hekmatinasser\Verta\Verta;
 
 
 class WeatherController extends Controller
@@ -145,7 +145,7 @@ class WeatherController extends Controller
      * @param mixed $weatherData
      * @return string
      */
-    public function generateMessageByTomorrowData($botText, mixed $weatherData): string
+    public static function generateMessageByTomorrowData($botText, mixed $weatherData): string
     {
         $windSpeedLimit = min($botText, 10);
 
@@ -176,12 +176,12 @@ class WeatherController extends Controller
 
                 if ($windSpeed > $windSpeedLimit) {
                     $raiseLimitCount++;
-                    $message .= $this->addLineToMessageForSecondItemToLast($raiseLimitCount);
-                    $message .= $this->generateDetailWeatherMessage($weatherDataItem);
+                    $message .= self::addLineToMessageForSecondItemToLast($raiseLimitCount);
+                    $message .= self::generateDetailWeatherMessage($weatherDataItem);
                 }
             }
         }
-        $message .= $this->addPostfixMessage($raiseLimitCount, $windSpeedLimit, $message);
+        $message .= self::addPostfixMessage($raiseLimitCount, $windSpeedLimit, $message);
         return $message;
     }
 
@@ -216,21 +216,21 @@ class WeatherController extends Controller
      * @return string
      * @throws \Exception|GuzzleException
      */
-    public function getMessageFromTomorrowApi(string $botText): string
+    public static function getMessageFromTomorrowApi(string $botText): string
     {
         try {
-            $weather_data = $this->callTomorrow();
+            $weather_data = self::callTomorrow();
         } catch (\Exception $e) {
-            return $this->findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";;
+            return self::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";;
             throw $e;
         }
-        return $this->generateMessageByTomorrowData($botText, $weather_data['data']['timelines'][0]['intervals']);
+        return self::generateMessageByTomorrowData($botText, $weather_data['data']['timelines'][0]['intervals']);
     }
 
     /**
      * @throws GuzzleException
      */
-    private function callTomorrow()
+    private static function callTomorrow()
     {
         $api_key = env("TOMORROW_API_TOKEN");
 
@@ -250,18 +250,18 @@ class WeatherController extends Controller
      * @param $type
      * @return void
      */
-    public function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
+    public static function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
     {
         BotHelper::sendMessage($bot, $message);
-        BotHelper::sendMessageToSuperAdmin($message . $this->insertTextForAdmin($bot, $type), 'bale');
-        BotHelper::sendMessageToSuperAdmin($message . $this->insertTextForAdmin($bot, $type), 'telegram');
+        BotHelper::sendMessageToSuperAdmin($message . self::insertTextForAdmin($bot, $type), 'bale');
+        BotHelper::sendMessageToSuperAdmin($message . self::insertTextForAdmin($bot, $type), 'telegram');
     }
 
     /**
      * @param $weatherDataItem
      * @return string
      */
-    public function generateDetailWeatherMessage($weatherDataItem): string
+    public static function generateDetailWeatherMessage($weatherDataItem): string
     {
         $originalStartDateTime = $weatherDataItem["startTime"];
         $datetime = new Carbon($originalStartDateTime);
@@ -294,7 +294,7 @@ class WeatherController extends Controller
      * @param int $raiseLimitCount
      * @return string
      */
-    public function addLineToMessageForSecondItemToLast(int $raiseLimitCount): string
+    public static function addLineToMessageForSecondItemToLast(int $raiseLimitCount): string
     {
         if ($raiseLimitCount > 1) {
             return '
@@ -309,7 +309,7 @@ class WeatherController extends Controller
      * @param string $message
      * @return string
      */
-    public function addPostfixMessage(int $raiseLimitCount, int $windSpeedLimit, string $message): string
+    public static function addPostfixMessage(int $raiseLimitCount, int $windSpeedLimit, string $message): string
     {
         if ($raiseLimitCount > 0) {
             return "
@@ -322,7 +322,7 @@ class WeatherController extends Controller
         return "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
     }
 
-    private function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string
+    private static function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string
     {
         $translate = [0 => "آسمان صاف☀️",
             1 => "کمی ابری🌤",
@@ -345,7 +345,7 @@ class WeatherController extends Controller
     }
 
 
-    private function findString($string, $subString): bool
+    private static function findString($string, $subString): bool
     {
         if (str_contains($string, $subString)) {
             return true;
@@ -353,7 +353,7 @@ class WeatherController extends Controller
         return false;
     }
 
-    private function insertTextForAdmin($bot, $type): string
+    private static function insertTextForAdmin($bot, $type): string
     {
         return "
 چت آی دی:" . $bot->ChatID() . "
