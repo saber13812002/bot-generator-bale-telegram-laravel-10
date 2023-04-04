@@ -223,7 +223,11 @@ class WeatherController extends Controller
      */
     public function getMessageFromTomorrowApi(): string
     {
-        $weather_data = $this->callTomorrow();
+        try {
+            $weather_data = $this->callTomorrow();
+        } catch (\Exception $e) {
+            return $e->getMessage();
+        }
         return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
     }
 
