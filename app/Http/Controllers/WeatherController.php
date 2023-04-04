@@ -125,7 +125,7 @@ class WeatherController extends Controller
         $humidity = $weather_data["main"]["humidity"];
         $pressure = $weather_data["main"]["pressure"];
 
-        $message = 'وضعیت هوا 🌬 در قم :
+        return 'وضعیت هوا 🌬 در قم :
  :' . $weather_description . '
  دید و برد چشم:' . $visibility . '
  تعداد ابرها:' . $clouds . '
@@ -137,7 +137,6 @@ class WeatherController extends Controller
  💨 سرعت  :' . $weather_data['wind']['speed'] . '
 🧭 زاویه  : ' . $weather_data['wind']['deg'] . '
  🌪 وزش شدید  :' . $weather_data['wind']['gust'];
-        return $message;
     }
 
     /**
@@ -148,42 +147,46 @@ class WeatherController extends Controller
     {
         $hours = 1;
         $raiseLimit = 0;
-        $windSpeedLimit = 13;
+        $windSpeedLimit = 10;
         $message = "";
 //        dd($weather_datas);
         foreach ($weather_datas as $weather_data) {
-            $hours++;
-            if ($hours > 15) {
-                if ($raiseLimit > 0) {
-                    $message .= "
+            $originalStartDateTime = $weather_data["startTime"];
+            $datetime = new Carbon($originalStartDateTime);
 
+            $timezone = 'Asia/Tehran';
+            $today5evening = Carbon::parse('today 5pm', $timezone);
+            $tomorrow1am = Carbon::parse('tomorrow 1am', $timezone);
 
- گزارش سرعت باد در قم-فلکه ایران مرینوس در 15 ساعت آینده
- تعداد " . $raiseLimit . " بار سرعت بالای " . $windSpeedLimit . "
- گزارش شده است";
-                } else {
-                    $message = "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
+            $now = Carbon::now($timezone);
+
+            if ($datetime->gte($now) && $datetime->gte($today5evening) && $datetime->lte($tomorrow1am)) {
+                $jalaliStartDateTime = verta($datetime);
+
+                $hours++;
+                if ($hours > 15) {
+                    return $message;
                 }
-                return $message;
-            }
 //            dd($weather_data);
 //            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weather_data["rainIntensity"]);
-            $weather_description = "";
-            $visibility = $weather_data["values"]["visibility"];
-            $clouds = $weather_data["values"]["cloudCover"];
-            $temp = $weather_data["values"]["temperature"];
-            $feels_like = $weather_data["values"]["temperatureApparent"];
-            $humidity = $weather_data["values"]["humidity"];
-            $pressure = $weather_data["values"]["pressureSeaLevel"];
+                $weather_description = "";
+                $visibility = $weather_data["values"]["visibility"];
+                $clouds = $weather_data["values"]["cloudCover"];
+                $temp = $weather_data["values"]["temperature"];
+                $feels_like = $weather_data["values"]["temperatureApparent"];
+                $humidity = $weather_data["values"]["humidity"];
+                $pressure = $weather_data["values"]["pressureSeaLevel"];
 
-            $datetime = new Carbon($weather_data["startTime"]);
-            $jalaliDateTime = verta($datetime);
+                $windSpeed = $weather_data["values"]['windSpeed'];
 
-            if ($weather_data["values"]['windSpeed'] > $windSpeedLimit) {
-                $raiseLimit++;
-                $message .= 'وضعیت قرمز 😥 باد 🌬 در ساعت :
- تاریخ میلادی:' . $weather_data["startTime"] . '
- تاریخ شمسی:' . $jalaliDateTime . '
+                if ($windSpeed > $windSpeedLimit) {
+                    $raiseLimit++;
+                    if ($raiseLimit > 1) $message .= '
+=====================';
+                    $message .= '
+وضعیت قرمز 😥 باد 🌬 در ساعت :
+ تاریخ میلادی:' . $originalStartDateTime . '
+ تاریخ شمسی:' . $jalaliStartDateTime . '
  دید و برد چشم:' . $visibility . '
  تعداد ابرها:' . $clouds . '
  دمای هوا:' . $temp . '
@@ -191,11 +194,25 @@ class WeatherController extends Controller
  رطوبت:' . $humidity . '
  فشار هوا:' . $pressure . '
  وضعیت باد 🌬 :.' . '
- 💨 سرعت  :' . $weather_data["values"]['windSpeed'] . '
+ 💨 سرعت  :' . $windSpeed . " km/s کیلومتر بر ساعت- " . ($windSpeed > 13 ? " 🌪 " : " ⚡ ") . '
 🧭 زاویه  : ' . $weather_data["values"]['windDirection'] . '
  🌪 وزش شدید  :' . $weather_data["values"]['windGust'];
+                }
             }
+
         }
+
+        if ($raiseLimit > 0) {
+            $message .= "
+
+
+ گزارش از ساعت 5 امروز تا یک نصف شب امشب(1 بامداد) سرعت باد در قم-فلکه ایران مرینوس در ساعات آینده
+ تعداد " . $raiseLimit . " بار سرعت بالای " . $windSpeedLimit . " کیلومتر بر ساعت
+ گزارش شده است";
+        } else {
+            $message = "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
+        }
+
         return $message;
     }
 
@@ -228,7 +245,7 @@ class WeatherController extends Controller
 
     /**
      * @return string
-     * @throws \Exception
+     * @throws \Exception|GuzzleException
      */
     public function getMessageFromTomorrowApi(): string
     {
