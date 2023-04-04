@@ -29,16 +29,28 @@ class WeatherController extends Controller
             $city_name = "Qom";
 
             $client = new GuzzleHttp\Client();
-            $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&appid=' . $api_key);
+            $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&units=metric&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
             echo $response->getBody()->getContents();
             $weather_data = json_decode($response->getBody(), true);
 //        dd(json_encode($request->getBody()));
 //        dd($data['wind']['speed']);
             $weather_description = $this->convertWeatherDescriptionToPersian($weather_data["weather"][0]["description"]);
+            $visibility = $weather_data["visibility"];
+            $clouds = $weather_data["clouds"]["all"];
+            $temp = $weather_data["main"]["temp"];
+            $feels_like = $weather_data["main"]["feels_like"];
+            $humidity = $weather_data["main"]["humidity"];
+            $pressure = $weather_data["main"]["pressure"];
             BotHelper::sendMessage($bot, 'وضعیت هوا 🌬 در قم :
  :' . $weather_description . '
- وضعیت باد 🌬 :
+ دید و برد چشم:' . $visibility . '
+ تعداد ابرها:' . $clouds . '
+ دمای هوا:' . $temp . '
+ دمای هوا که احساس میشه:' . $feels_like . '
+ رطوبت:' . $humidity . '
+ فشار هوا:' . $pressure . '
+ وضعیت باد 🌬 :.' . '
  💨 سرعت  :' . $weather_data['wind']['speed'] . '
 🧭 زاویه  : ' . $weather_data['wind']['deg'] . '
  🌪 وزش شدید  :' . $weather_data['wind']['gust']);
