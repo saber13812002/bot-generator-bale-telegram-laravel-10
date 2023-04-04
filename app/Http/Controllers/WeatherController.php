@@ -36,9 +36,9 @@ class WeatherController extends Controller
 //        dd(json_encode($request->getBody()));
 //        dd($data['wind']['speed']);
             BotHelper::sendMessage($bot, 'وضعیت باد در قم :
-        سرعت  : ' . $data['wind']['speed'].'وضعیت باد در قم :
-        زاویه  : ' . $data['wind']['deg'].'وضعیت باد در قم :
-        وزش شدید  : ' . $data['wind']['gust']);
+ سرعت  :' . $data['wind']['speed'].'
+زاویه  : ' . $data['wind']['deg'].'
+ وزش شدید  :' . $data['wind']['gust']);
         }
     }
 
