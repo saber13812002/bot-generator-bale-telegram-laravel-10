@@ -30,12 +30,7 @@ class WeatherController extends Controller
             } else {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
             }
-            $commands = "
-=====================
-برای استعلام
-وضعیت هواشناسی فعلی دستور /current
-و برای پیش بینی باد در 16 ساعت آینده /forcasting
-را کلیک یا ارسال کنید.";
+            $commands = $this->getAdminPostfixMessage();
             if ($bot->Text() == "/current") {
                 $message = $this->getMessageFromOpenWeatherMapApi();
             } else {
@@ -364,5 +359,19 @@ class WeatherController extends Controller
 " . "
 مرجع:" . $type . "
 ";
+    }
+
+    /**
+     * @return string
+     */
+    public function getAdminPostfixMessage(): string
+    {
+        $commands = "
+=====================
+برای استعلام
+وضعیت هواشناسی فعلی دستور /current
+و برای پیش بینی باد در 16 ساعت آینده /forcasting
+را کلیک یا ارسال کنید.";
+        return $commands;
     }
 }
