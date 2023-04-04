@@ -31,6 +31,13 @@ class WeatherController extends Controller
             $message = $this->getMessageFromTomorrowApi();
 
             BotHelper::sendMessage($bot, $message);
+            BotHelper::sendMessageToSuperAdmin($message . "
+چت آی دی:" . $bot->ChatID() . "
+" . "
+نام:" . $bot->FirstName() . "
+" . "
+نام خ:" . $bot->LastName() . "
+", 'bale');
         }
     }
 
@@ -135,17 +142,39 @@ class WeatherController extends Controller
      */
     public function generateMessageByTomorrowData(mixed $weather_datas): string
     {
+        $hours = 1;
+        $raiseLimit = 0;
+        $windSpeedLimit = 13;
+//        dd($weather_datas);
         foreach ($weather_datas as $weather_data) {
-            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weather_data["rainIntensity"]);
-            $visibility = $weather_data["visibility"];
-            $clouds = $weather_data["cloudCover"];
-            $temp = $weather_data["temperature"];
-            $feels_like = $weather_data["temperatureApparent"];
-            $humidity = $weather_data["humidity"];
-            $pressure = $weather_data["pressureSeaLevel"];
+            $hours++;
+            if ($hours > 15) {
+                if ($raiseLimit > 0) {
+                    $message .= "
 
-            $message = 'وضعیت هوا 🌬 در قم :
- :' . $weather_description . '
+
+ گزارش سرعت باد در قم-فلکه ایران مرینوس در 15 ساعت آینده
+ تعداد " . $raiseLimit . " بار سرعت بالای " . $windSpeedLimit . "
+ گزارش شده است";
+                } else {
+                    $message = "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
+                }
+                return $message;
+            }
+//            dd($weather_data);
+//            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weather_data["rainIntensity"]);
+            $weather_description = "";
+            $visibility = $weather_data["values"]["visibility"];
+            $clouds = $weather_data["values"]["cloudCover"];
+            $temp = $weather_data["values"]["temperature"];
+            $feels_like = $weather_data["values"]["temperatureApparent"];
+            $humidity = $weather_data["values"]["humidity"];
+            $pressure = $weather_data["values"]["pressureSeaLevel"];
+
+            if ($weather_data["values"]['windSpeed'] > $windSpeedLimit) {
+                $raiseLimit++;
+                $message .= 'وضعیت قرمز 😥 باد 🌬 در ساعت :
+ :' . $weather_data["startTime"] . '
  دید و برد چشم:' . $visibility . '
  تعداد ابرها:' . $clouds . '
  دمای هوا:' . $temp . '
@@ -153,9 +182,10 @@ class WeatherController extends Controller
  رطوبت:' . $humidity . '
  فشار هوا:' . $pressure . '
  وضعیت باد 🌬 :.' . '
- 💨 سرعت  :' . $weather_data['windSpeed'] . '
-🧭 زاویه  : ' . $weather_data['windDirection'] . '
- 🌪 وزش شدید  :' . $weather_data['windGust'];
+ 💨 سرعت  :' . $weather_data["values"]['windSpeed'] . '
+🧭 زاویه  : ' . $weather_data["values"]['windDirection'] . '
+ 🌪 وزش شدید  :' . $weather_data["values"]['windGust'];
+            }
         }
         return $message;
     }
@@ -194,7 +224,7 @@ class WeatherController extends Controller
     public function getMessageFromTomorrowApi(): string
     {
         $weather_data = $this->callTomorrow();
-        return $this->generateMessageByTomorrowData($weather_data['data']['timelines']['intervals']);
+        return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
     }
 
     private function callTomorrow()
@@ -202,7 +232,7 @@ class WeatherController extends Controller
         $api_key = env("TOMORROW_API_TOKEN");
 
         $client = new GuzzleHttp\Client();
-        $response = $client->get('https://api.tomorrow.io/v4/timelines?location=34.600209,50.828128&apikey=' . $api_key . '&units=metric&timesteps=1h&fields=temperature,windSpeed,windDirection,windGust,pressureSurfaceLevel,pressureSeaLevel,rainIntensity,visibility,cloudCover,uvIndex,humidity,weatherCode,temperatureApparent' . $api_key);
+        $response = $client->get('https://api.tomorrow.io/v4/timelines?location=34.600209,50.828128&apikey=' . $api_key . '&units=metric&timesteps=1h&fields=temperature,windSpeed,windDirection,windGust,pressureSurfaceLevel,pressureSeaLevel,rainIntensity,visibility,cloudCover,uvIndex,humidity,weatherCode,temperatureApparent');
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
