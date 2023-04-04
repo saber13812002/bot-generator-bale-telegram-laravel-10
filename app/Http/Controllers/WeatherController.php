@@ -27,7 +27,9 @@ class WeatherController extends Controller
             } else {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
             }
-            $commands = " برای استعلام
+            $commands = "
+=====================
+برای استعلام
 وضعیت هواشناسی فعلی دستور /current
 و برای پیش بینی باد در 16 ساعت آینده /forcasting
 را کلیک یا ارسال کنید.";
