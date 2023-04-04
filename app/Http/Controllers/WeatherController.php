@@ -39,8 +39,9 @@ class WeatherController extends Controller
             if ($bot->Text() == "/current") {
                 $message = $this->getMessageFromOpenWeatherMapApi();
             } else {
-                $message = $this->getMessageFromTomorrowApi();
+                $message = $this->getMessageFromTomorrowApi($bot->Text());
             }
+//            dd($message);
             $this->sendMessageToUserAndAdmin($bot, $message . $commands, $type);
         }
     }
@@ -140,79 +141,47 @@ class WeatherController extends Controller
     }
 
     /**
-     * @param mixed $weather_datas
+     * @param $botText
+     * @param mixed $weatherData
      * @return string
      */
-    public function generateMessageByTomorrowData(mixed $weather_datas): string
+    public function generateMessageByTomorrowData($botText, mixed $weatherData): string
     {
-        $hours = 1;
-        $raiseLimit = 0;
-        $windSpeedLimit = 10;
+        $windSpeedLimit = min($botText, 10);
+
+        $hoursBitCount = 1;
+        $raiseLimitCount = 0;
         $message = "";
-//        dd($weather_datas);
-        foreach ($weather_datas as $weather_data) {
-            $originalStartDateTime = $weather_data["startTime"];
+
+        foreach ($weatherData as $weatherDataItem) {
+            $originalStartDateTime = $weatherDataItem["startTime"];
             $datetime = new Carbon($originalStartDateTime);
 
             $timezone = 'Asia/Tehran';
             $today5evening = Carbon::parse('today 5pm', $timezone);
             $tomorrow1am = Carbon::parse('tomorrow 1am', $timezone);
-
             $now = Carbon::now($timezone);
 
+//            dd($today5evening, $tomorrow1am, $now);
             if ($datetime->gte($now) && $datetime->gte($today5evening) && $datetime->lte($tomorrow1am)) {
-                $jalaliStartDateTime = verta($datetime);
 
-                $hours++;
-                if ($hours > 15) {
+                $hoursBitCount++;
+                if ($hoursBitCount > 15) {
                     return $message;
                 }
-//            dd($weather_data);
-//            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weather_data["rainIntensity"]);
-                $weather_description = "";
-                $visibility = $weather_data["values"]["visibility"];
-                $clouds = $weather_data["values"]["cloudCover"];
-                $temp = $weather_data["values"]["temperature"];
-                $feels_like = $weather_data["values"]["temperatureApparent"];
-                $humidity = $weather_data["values"]["humidity"];
-                $pressure = $weather_data["values"]["pressureSeaLevel"];
 
-                $windSpeed = $weather_data["values"]['windSpeed'];
+//            $weather_description = $this->convertWeatherTomorrowDescriptionToPersian($weatherDataItem["rainIntensity"]);
+                $weather_description = "";
+                $windSpeed = $weatherDataItem["values"]['windSpeed'];
 
                 if ($windSpeed > $windSpeedLimit) {
-                    $raiseLimit++;
-                    if ($raiseLimit > 1) $message .= '
-=====================';
-                    $message .= '
-وضعیت قرمز 😥 باد 🌬 در ساعت :
- تاریخ میلادی:' . $originalStartDateTime . '
- تاریخ شمسی:' . $jalaliStartDateTime . '
- دید و برد چشم:' . $visibility . '
- تعداد ابرها:' . $clouds . '
- دمای هوا:' . $temp . '
- دمای هوا که احساس میشه:' . $feels_like . '
- رطوبت:' . $humidity . '
- فشار هوا:' . $pressure . '
- وضعیت باد 🌬 :.' . '
- 💨 سرعت  :' . $windSpeed . " km/s کیلومتر بر ساعت- " . ($windSpeed > 13 ? " 🌪 " : " ⚡ ") . '
-🧭 زاویه  : ' . $weather_data["values"]['windDirection'] . '
- 🌪 وزش شدید  :' . $weather_data["values"]['windGust'];
+                    $raiseLimitCount++;
+                    $message .= $this->addLineToMessageForSecondItemToLast($raiseLimitCount);
+                    $message .= $this->generateDetailWeatherMessage($weatherDataItem);
                 }
             }
-
         }
-
-        if ($raiseLimit > 0) {
-            $message .= "
-
-
- گزارش از ساعت 5 امروز تا یک نصف شب امشب(1 بامداد) سرعت باد در قم-فلکه ایران مرینوس در ساعات آینده
- تعداد " . $raiseLimit . " بار سرعت بالای " . $windSpeedLimit . " کیلومتر بر ساعت
- گزارش شده است";
-        } else {
-            $message = "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
-        }
-
+        $message .= $this->addPostfixMessage($raiseLimitCount, $windSpeedLimit, $message);
         return $message;
     }
 
@@ -226,7 +195,7 @@ class WeatherController extends Controller
         $city_name = "Qom";
 
         $client = new GuzzleHttp\Client();
-        $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&units=metric&appid=' . $api_key);
+        $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=' . $city_name . '&units=metric&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
@@ -247,7 +216,7 @@ class WeatherController extends Controller
      * @return string
      * @throws \Exception|GuzzleException
      */
-    public function getMessageFromTomorrowApi(): string
+    public function getMessageFromTomorrowApi(string $botText): string
     {
         try {
             $weather_data = $this->callTomorrow();
@@ -255,7 +224,7 @@ class WeatherController extends Controller
             return $this->findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";;
             throw $e;
         }
-        return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
+        return $this->generateMessageByTomorrowData($botText, $weather_data['data']['timelines'][0]['intervals']);
     }
 
     /**
@@ -284,15 +253,73 @@ class WeatherController extends Controller
     public function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
     {
         BotHelper::sendMessage($bot, $message);
-        BotHelper::sendMessageToSuperAdmin($message . "
-چت آی دی:" . $bot->ChatID() . "
-" . "
-نام:" . $bot->FirstName() . "
-" . "
-نام خ:" . $bot->LastName() . "
-" . "
-مرجع:" . $type . "
-", 'bale');
+        BotHelper::sendMessageToSuperAdmin($message . $this->insertTextForAdmin($bot, $type), 'bale');
+        BotHelper::sendMessageToSuperAdmin($message . $this->insertTextForAdmin($bot, $type), 'telegram');
+    }
+
+    /**
+     * @param $weatherDataItem
+     * @return string
+     */
+    public function generateDetailWeatherMessage($weatherDataItem): string
+    {
+        $originalStartDateTime = $weatherDataItem["startTime"];
+        $datetime = new Carbon($originalStartDateTime);
+        $jalaliStartDateTime = verta($datetime);
+        $windSpeed = $weatherDataItem["values"]['windSpeed'];
+        $visibility = $weatherDataItem["values"]["visibility"];
+        $clouds = $weatherDataItem["values"]["cloudCover"];
+        $temp = $weatherDataItem["values"]["temperature"];
+        $feels_like = $weatherDataItem["values"]["temperatureApparent"];
+        $humidity = $weatherDataItem["values"]["humidity"];
+        $pressure = $weatherDataItem["values"]["pressureSeaLevel"];
+
+        return '
+وضعیت قرمز 😥 باد 🌬 در ساعت :
+ تاریخ میلادی:' . $originalStartDateTime . '
+ تاریخ شمسی:' . $jalaliStartDateTime . '
+ دید و برد چشم:' . $visibility . '
+ تعداد ابرها:' . $clouds . '
+ دمای هوا:' . $temp . '
+ دمای هوا که احساس میشه:' . $feels_like . '
+ رطوبت:' . $humidity . '
+ فشار هوا:' . $pressure . '
+ وضعیت باد 🌬 :.' . '
+ 💨 سرعت  :' . $windSpeed . " km/s کیلومتر بر ساعت- " . ($windSpeed > 13 ? " 🌪 " : " ⚡ ") . '
+🧭 زاویه  : ' . $weatherDataItem["values"]['windDirection'] . '
+ 🌪 وزش شدید  :' . $weatherDataItem["values"]['windGust'];
+    }
+
+    /**
+     * @param int $raiseLimitCount
+     * @return string
+     */
+    public function addLineToMessageForSecondItemToLast(int $raiseLimitCount): string
+    {
+        if ($raiseLimitCount > 1) {
+            return '
+=====================';
+        }
+        return "";
+    }
+
+    /**
+     * @param int $raiseLimitCount
+     * @param int $windSpeedLimit
+     * @param string $message
+     * @return string
+     */
+    public function addPostfixMessage(int $raiseLimitCount, int $windSpeedLimit, string $message): string
+    {
+        if ($raiseLimitCount > 0) {
+            return "
+
+
+ گزارش از ساعت 5 امروز تا یک نصف شب امشب (1 بامداد) سرعت باد در قم-فلکه ایران مرینوس در ساعات آینده
+ تعداد " . $raiseLimitCount . " بار سرعت بالای " . $windSpeedLimit . " کیلومتر بر ساعت
+ گزارش شده است";
+        }
+        return "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
     }
 
     private function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string
@@ -324,5 +351,18 @@ class WeatherController extends Controller
             return true;
         }
         return false;
+    }
+
+    private function insertTextForAdmin($bot, $type): string
+    {
+        return "
+چت آی دی:" . $bot->ChatID() . "
+" . "
+نام:" . $bot->FirstName() . "
+" . "
+نام خ:" . $bot->LastName() . "
+" . "
+مرجع:" . $type . "
+";
     }
 }

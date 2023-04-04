@@ -203,14 +203,14 @@ class BotHelper
 
 
     /**
-     * @param Telegram $bot
      * @param string $message
+     * @param $type
      * @return void
      */
     public static function sendMessageToSuperAdmin(string $message, $type): void
     {
         $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
-        BotHelper::sendMessageByChatId($bot, env('SUPER_ADMIN_CHAT_ID_BALE'), $message);
+        BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM'), $message);
     }
 
 
