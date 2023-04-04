@@ -6,11 +6,14 @@ use App\Helpers\BotHelper;
 use App\Http\Requests\StoreweatherRequest;
 use App\Http\Requests\UpdateweatherRequest;
 use App\Models\weather;
+use Carbon\Carbon;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Http\Factory\Guzzle\RequestFactory;
 use Illuminate\Http\Request;
 use Telegram;
+use Hekmatinasser\Verta\Verta;
+
 
 class WeatherController extends Controller
 {
@@ -35,9 +38,7 @@ class WeatherController extends Controller
 را کلیک یا ارسال کنید.";
             if ($bot->Text() == "/current") {
                 $message = $this->getMessageFromOpenWeatherMapApi();
-//                $message = $this->getMessageFromTomorrowApi();
             } else {
-//            $message = $this->getMessageFromOpenWeatherMapApi();
                 $message = $this->getMessageFromTomorrowApi();
             }
             $this->sendMessageToUserAndAdmin($bot, $message . $commands, $type);
@@ -148,6 +149,7 @@ class WeatherController extends Controller
         $hours = 1;
         $raiseLimit = 0;
         $windSpeedLimit = 13;
+        $message = "";
 //        dd($weather_datas);
         foreach ($weather_datas as $weather_data) {
             $hours++;
@@ -174,10 +176,14 @@ class WeatherController extends Controller
             $humidity = $weather_data["values"]["humidity"];
             $pressure = $weather_data["values"]["pressureSeaLevel"];
 
+            $datetime = new Carbon($weather_data["startTime"]);
+            $shamsiDateTime = verta($datetime);
+
             if ($weather_data["values"]['windSpeed'] > $windSpeedLimit) {
                 $raiseLimit++;
                 $message .= 'وضعیت قرمز 😥 باد 🌬 در ساعت :
  :' . $weather_data["startTime"] . '
+ :' . $shamsiDateTime . '
  دید و برد چشم:' . $visibility . '
  تعداد ابرها:' . $clouds . '
  دمای هوا:' . $temp . '
@@ -222,7 +228,6 @@ class WeatherController extends Controller
 
     /**
      * @return string
-     * @throws GuzzleException
      * @throws \Exception
      */
     public function getMessageFromTomorrowApi(): string
@@ -236,12 +241,18 @@ class WeatherController extends Controller
         return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
     }
 
+    /**
+     * @throws GuzzleException
+     */
     private function callTomorrow()
     {
         $api_key = env("TOMORROW_API_TOKEN");
 
         $client = new GuzzleHttp\Client();
-        $response = $client->get('https://api.tomorrow.io/v4/timelines?location=34.600209,50.828128&apikey=' . $api_key . '&units=metric&timesteps=1h&fields=temperature,windSpeed,windDirection,windGust,pressureSurfaceLevel,pressureSeaLevel,rainIntensity,visibility,cloudCover,uvIndex,humidity,weatherCode,temperatureApparent');
+        $baseUrl = env("APP_ENV") != "local" ? "https://api.tomorrow.io" : "http://localhost:3002";
+        $uri = $baseUrl . '/v4/timelines?location=34.600209,50.828128&apikey=' . $api_key . '&units=metric&timesteps=1h&fields=temperature,windSpeed,windDirection,windGust,pressureSurfaceLevel,pressureSeaLevel,rainIntensity,visibility,cloudCover,uvIndex,humidity,weatherCode,temperatureApparent';
+//        dd($uri);
+        $response = $client->get($uri);
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
