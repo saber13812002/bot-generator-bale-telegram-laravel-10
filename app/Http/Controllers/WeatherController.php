@@ -32,13 +32,16 @@ class WeatherController extends Controller
             $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=Qom&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
             echo $response->getBody()->getContents();
-            $data = json_decode($response->getBody(), true);
+            $weather_data = json_decode($response->getBody(), true);
 //        dd(json_encode($request->getBody()));
 //        dd($data['wind']['speed']);
-            BotHelper::sendMessage($bot, 'وضعیت باد در قم :
- سرعت  :' . $data['wind']['speed'].'
-زاویه  : ' . $data['wind']['deg'].'
- وزش شدید  :' . $data['wind']['gust']);
+            $weather_description = $this->convertWeatherDescriptionToPersian($weather_data["weather"][0]["description"]);
+            BotHelper::sendMessage($bot, 'وضعیت هوا 🌬 در قم :
+ :' . $weather_description . '
+ وضعیت باد 🌬 :
+ 💨 سرعت  :' . $weather_data['wind']['speed'] . '
+🧭 زاویه  : ' . $weather_data['wind']['deg'] . '
+ 🌪 وزش شدید  :' . $weather_data['wind']['gust']);
         }
     }
 
@@ -81,5 +84,30 @@ class WeatherController extends Controller
     public function destroy(weather $weather)
     {
         //
+    }
+
+    private function convertWeatherDescriptionToPersian(mixed $description): int|string
+    {
+        return $this->find($description);
+    }
+
+    function find($mot): int|string
+    {
+        $translate = ["clear sky" => "آسمان صاف",
+            "few clouds" => "کمی ابری",
+            "scattered clouds" => "ابرهای پراکنده",
+            "broken clouds" => "ابرهای شکسته",
+            "shower rain" => "باران",
+            "rain" => "باران",
+            "thunderstorm" => "رعد و برق",
+            "snow" => "برف",
+            "mist" => "مه"];
+
+        foreach ($translate as $key => $value) {
+            if ($key == $mot) {
+                return $value; // or return true;
+            }
+        }
+        return -1;
     }
 }
