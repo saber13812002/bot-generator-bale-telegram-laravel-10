@@ -20,7 +20,7 @@ class WeatherController extends Controller
      */
     public function index(Request $request)
     {
-
+        $type = $request->input('origin');
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
@@ -40,7 +40,7 @@ class WeatherController extends Controller
 //            $message = $this->getMessageFromOpenWeatherMapApi();
                 $message = $this->getMessageFromTomorrowApi();
             }
-            $this->sendMessageToUserAndAdmin($bot, $message . $commands);
+            $this->sendMessageToUserAndAdmin($bot, $message . $commands, $type);
         }
     }
 
@@ -252,7 +252,7 @@ class WeatherController extends Controller
      * @param string $message
      * @return void
      */
-    public function sendMessageToUserAndAdmin(Telegram $bot, string $message): void
+    public function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
     {
         BotHelper::sendMessage($bot, $message);
         BotHelper::sendMessageToSuperAdmin($message . "
@@ -261,6 +261,8 @@ class WeatherController extends Controller
 نام:" . $bot->FirstName() . "
 " . "
 نام خ:" . $bot->LastName() . "
+" . "
+مرجع:" . $type . "
 ", 'bale');
     }
 
