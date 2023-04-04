@@ -93,15 +93,15 @@ class WeatherController extends Controller
 
     function find($mot): int|string
     {
-        $translate = ["clear sky" => "آسمان صاف",
-            "few clouds" => "کمی ابری",
-            "scattered clouds" => "ابرهای پراکنده",
-            "broken clouds" => "ابرهای شکسته",
-            "shower rain" => "باران",
-            "rain" => "باران",
-            "thunderstorm" => "رعد و برق",
-            "snow" => "برف",
-            "mist" => "مه"];
+        $translate = ["clear sky" => "آسمان صاف☀️",
+            "few clouds" => "کمی ابری🌤",
+            "scattered clouds" => "ابرهای پراکنده⛅️",
+            "broken clouds" => "ابرهای شکسته🌤",
+            "shower rain" => "باران نرم⛈",
+            "rain" => "باران🌧",
+            "thunderstorm" => "رعد و برق⚡️",
+            "snow" => "برف❄️",
+            "mist" => "مه🌫"];
 
         foreach ($translate as $key => $value) {
             if ($key == $mot) {
