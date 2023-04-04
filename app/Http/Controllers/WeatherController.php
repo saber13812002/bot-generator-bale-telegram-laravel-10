@@ -27,17 +27,18 @@ class WeatherController extends Controller
             } else {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
             }
+            $commands = " برای استعلام
+وضعیت هواشناسی فعلی دستور /current
+و برای پیش بینی باد در 16 ساعت آینده /forcasting
+را کلیک یا ارسال کنید.";
+            if ($bot->Text() == "/current") {
+                $message = $this->getMessageFromOpenWeatherMapApi();
+//                $message = $this->getMessageFromTomorrowApi();
+            } else {
 //            $message = $this->getMessageFromOpenWeatherMapApi();
-            $message = $this->getMessageFromTomorrowApi();
-
-            BotHelper::sendMessage($bot, $message);
-            BotHelper::sendMessageToSuperAdmin($message . "
-چت آی دی:" . $bot->ChatID() . "
-" . "
-نام:" . $bot->FirstName() . "
-" . "
-نام خ:" . $bot->LastName() . "
-", 'bale');
+                $message = $this->getMessageFromTomorrowApi();
+            }
+            $this->sendMessageToUserAndAdmin($bot, $message . $commands);
         }
     }
 
@@ -84,10 +85,10 @@ class WeatherController extends Controller
 
     private function convertWeatherDescriptionToPersian(mixed $description): int|string
     {
-        return $this->find($description);
+        return $this->mapStringOpenWeatherApi($description);
     }
 
-    function find($mot): int|string
+    function mapStringOpenWeatherApi($mot): int|string
     {
         $translate = ["clear sky" => "آسمان صاف☀️",
             "few clouds" => "کمی ابری🌤",
@@ -220,13 +221,15 @@ class WeatherController extends Controller
     /**
      * @return string
      * @throws GuzzleException
+     * @throws \Exception
      */
     public function getMessageFromTomorrowApi(): string
     {
         try {
             $weather_data = $this->callTomorrow();
         } catch (\Exception $e) {
-            return substr($e->getMessage(), -180);;
+            return $this->findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";;
+            throw $e;
         }
         return $this->generateMessageByTomorrowData($weather_data['data']['timelines'][0]['intervals']);
     }
@@ -240,6 +243,23 @@ class WeatherController extends Controller
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
+    }
+
+    /**
+     * @param Telegram $bot
+     * @param string $message
+     * @return void
+     */
+    public function sendMessageToUserAndAdmin(Telegram $bot, string $message): void
+    {
+        BotHelper::sendMessage($bot, $message);
+        BotHelper::sendMessageToSuperAdmin($message . "
+چت آی دی:" . $bot->ChatID() . "
+" . "
+نام:" . $bot->FirstName() . "
+" . "
+نام خ:" . $bot->LastName() . "
+", 'bale');
     }
 
     private function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string
@@ -262,5 +282,14 @@ class WeatherController extends Controller
             return $translate[2];
         }
         return "وضعیت مشخص نیست";
+    }
+
+
+    private function findString($string, $subString): bool
+    {
+        if (str_contains($string, $subString)) {
+            return true;
+        }
+        return false;
     }
 }
