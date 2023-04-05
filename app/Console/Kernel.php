@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command(weatherWindCommand::class, ['speed=12'])->dailyAt("10:00");
+        $schedule->command(weatherWindCommand::class, ['speed=12'])->everyFiveMinutes();
 
     }
 
