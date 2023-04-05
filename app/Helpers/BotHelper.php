@@ -259,4 +259,18 @@ class BotHelper
         }
         return $botItem;
     }
+
+
+    /**
+     * @param Telegram $bot
+     * @param string $message
+     * @param $type
+     * @return void
+     */
+    public static function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
+    {
+        BotHelper::sendMessage($bot, $message);
+        BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
+        BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
+    }
 }
