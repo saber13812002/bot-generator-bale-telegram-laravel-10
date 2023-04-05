@@ -44,7 +44,7 @@ class weatherWindCommand extends Command
         if (!$message) {
             BotHelper::sendMessageToSuperAdmin("چیزی نفرستاد", 'telegram');
         } else {
-            BotHelper::sendMessageByChatId(new \Telegram(env('6161712151:AAHT6zaBki-rM9yNW41ttYEsWRGAMllCHAY', 'telegram')), 151370482, $message);
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), 151370482, $message);
         }
     }
 }
