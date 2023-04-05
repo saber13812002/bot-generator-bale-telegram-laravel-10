@@ -73,8 +73,8 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
                     return $message;
                 }
 
-                $weather_description = self::convertWeatherTomorrowDescriptionToPersian($weatherDataItem["values"]["rainIntensity"]);
-                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
+//                $weather_description = self::convertWeatherTomorrowDescriptionToPersian($weatherDataItem["values"]["rainIntensity"]);
+//                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
 
                 $windSpeed = $weatherDataItem["values"]['windSpeed'];
 
