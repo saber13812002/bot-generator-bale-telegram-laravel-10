@@ -22,9 +22,16 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
 
     /**
      */
-    public function getMessage(string $userText): string
+    public function getMessage(string $userText, $isBot = true): string
     {
-        return $this->getMessageFromTomorrowApi($userText);
+        if ($isBot) {
+            $message = $this->getMessageFromTomorrowApi($userText);
+            if ($message == "")
+                return "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
+            else
+                return $message;
+        }
+        return "";
     }
 
 
@@ -50,8 +57,9 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
      */
     private static function generateMessageByTomorrowData($botText, mixed $weatherData): string
     {
+        $windSpeedLimit = 20;
         if (intval($botText)) {
-            $windSpeedLimit = min($botText, 20);
+            $windSpeedLimit = min($botText, $windSpeedLimit);
         }
 
         $hoursBitCount = 1;
@@ -75,8 +83,8 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
                     return $message;
                 }
 
-                $weather_description = ($weatherDataItem["values"]["rainIntensity"]);
-                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
+//                $weather_description = ($weatherDataItem["values"]["rainIntensity"]);
+//                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
 
                 $windSpeed = $weatherDataItem["values"]['windSpeed'];
 
@@ -87,8 +95,11 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
                 }
             }
         }
-        $message .= self::addPostfixMessage($raiseLimitCount, $windSpeedLimit);
-        return $message;
+        if ($raiseLimitCount > 0) {
+            $message .= self::addPostfixMessage($raiseLimitCount, $windSpeedLimit);
+            return $message;
+        }
+        return "";
     }
 
 
@@ -99,10 +110,7 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
      */
     public static function addPostfixMessage(int $raiseLimitCount, int $windSpeedLimit): string
     {
-        if ($raiseLimitCount > 0) {
-            return StringHelper::getTomorrowApiPostfixReport($raiseLimitCount, $windSpeedLimit);
-        }
-        return "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
+        return StringHelper::getTomorrowApiPostfixReport($raiseLimitCount, $windSpeedLimit);
     }
 
     private static function convertWeatherTomorrowDescriptionToPersian(mixed $rainIntensity): string

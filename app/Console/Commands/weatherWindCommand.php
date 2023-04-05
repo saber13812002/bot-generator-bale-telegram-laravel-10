@@ -21,7 +21,7 @@ class weatherWindCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'run weather command for tennis channels';
 
 
     private WeatherTomorrowApiService $weatherTomorrowApiService;
@@ -33,13 +33,15 @@ class weatherWindCommand extends Command
         $this->weatherTomorrowApiService = $weatherTomorrowApiService;
         $this->weatherOpenWeatherMapApiService = $weatherOpenWeatherMapApiService;
     }
+
     /**
      * Execute the console command.
      */
     public function handle(): void
     {
         $speed = $this->argument('speed');
-        $message = $this->weatherTomorrowApiService->getMessage(20);
-        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
+        $message = $this->weatherTomorrowApiService->getMessage(20, false);
+        if ($message)
+            BotHelper::sendMessageToSuperAdmin($message, 'telegram');
     }
 }
