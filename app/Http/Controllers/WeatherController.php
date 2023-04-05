@@ -30,6 +30,7 @@ class WeatherController extends Controller
     public function index(Request $request)
     {
         $type = $request->input('origin');
+        $message = "-";
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
@@ -41,8 +42,10 @@ class WeatherController extends Controller
                 $message = $this->weatherOpenWeatherMapApiService->getMessage();
             } else if ($bot->Text() == "/forecasting") {
                 $message = "حدقل سرعت باد رو با ارسال یک عدد کوچکتر از 20 تعیین کنید که پیش بینی رو براتون بفرستم";
-            } else {
+            } else if ($bot->Text() > 1 && $bot->Text() < 20) {
                 $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
+            } else {
+                $message = $this->weatherTomorrowApiService->getMessage(20);
             }
 
             BotHelper::sendMessageToUserAndAdmin($bot, $message . $commands, $type);
@@ -53,7 +56,8 @@ class WeatherController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StoreweatherRequest $request)
+    public
+    function store(StoreweatherRequest $request)
     {
         //
     }
@@ -61,7 +65,8 @@ class WeatherController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(weather $weather)
+    public
+    function show(weather $weather)
     {
         //
     }
@@ -69,7 +74,8 @@ class WeatherController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(weather $weather)
+    public
+    function edit(weather $weather)
     {
         //
     }
@@ -77,7 +83,8 @@ class WeatherController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateweatherRequest $request, weather $weather)
+    public
+    function update(UpdateweatherRequest $request, weather $weather)
     {
         //
     }
@@ -85,7 +92,8 @@ class WeatherController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(weather $weather)
+    public
+    function destroy(weather $weather)
     {
         //
     }
