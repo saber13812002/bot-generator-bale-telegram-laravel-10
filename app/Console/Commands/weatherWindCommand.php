@@ -43,8 +43,14 @@ class weatherWindCommand extends Command
         $message = $this->weatherTomorrowApiService->getMessage(20, false);
         if (!$message) {
             BotHelper::sendMessageToSuperAdmin("چیزی نفرستاد", 'telegram');
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), env('CHAT_ID_ACCOUNT_2_SABER'), "استاد روبات ده صبح اجرا شد ولی چون هیچ خطری نبود و باد با سرعت بالای 20 کیلومتر نیومده هیچ پیامی نگذاشت و فقط محض احتیاط که سرور داره کار میکنه این پیام رو در خصوصی برای شما فرستاده");
+
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), env('CHAT_ID_ACCOUNT_SHAFIEI'), "استاد روبات ده صبح اجرا شد ولی چون هیچ خطری نبود و باد با سرعت بالای 20 کیلومتر نیومده هیچ پیامی نگذاشت و فقط محض احتیاط که سرور داره کار میکنه این پیام رو در خصوصی برای شما فرستاده");
+
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), env('CHAT_ID_CHANNEL_TENNIS'), "استاد روبات ده صبح اجرا شد ولی چون هیچ خطری نبود و باد با سرعت بالای 20 کیلومتر نیومده هیچ پیامی نگذاشت و فقط محض احتیاط که سرور داره کار میکنه این پیام رو در خصوصی برای شما فرستاده");
         } else {
-            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), 151370482, $message);
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), env('CHAT_ID_ACCOUNT_2_SABER'), $message);
+            BotHelper::sendMessageByChatId(new \Telegram(env('BOT_WEATHER_TOKEN_TELEGRAM', 'telegram')), env('CHAT_ID_CHANNEL_TENNIS'), $message);
         }
     }
 }
