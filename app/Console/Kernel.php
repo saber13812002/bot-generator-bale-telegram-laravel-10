@@ -14,8 +14,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
-        $schedule->command(weatherWindCommand::class, ['speed=12'])->dailyAt("11:16");
-        $schedule->command(weatherWindCommand::class, ['speed=12'])->everyFiveMinutes();
+        $schedule->command(weatherWindCommand::class, ['speed=12'])->dailyAt("6:30"); //10:00 iran
+//        $schedule->command(weatherWindCommand::class, ['speed=12'])->everyFiveMinutes();
     }
 
     /**
@@ -23,7 +23,7 @@ class Kernel extends ConsoleKernel
      */
     protected function commands(): void
     {
-        $this->load(__DIR__.'/Commands');
+        $this->load(__DIR__ . '/Commands');
 
         require base_path('routes/console.php');
     }
