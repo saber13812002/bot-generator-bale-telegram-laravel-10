@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Helpers\BotHelper;
-use App\Http\Controllers\WeatherController;
-use GuzzleHttp\Exception\GuzzleException;
+use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
+use App\Interfaces\Services\WeatherTomorrowApiService;
 use Illuminate\Console\Command;
 
 class weatherWindCommand extends Command
@@ -23,14 +23,23 @@ class weatherWindCommand extends Command
      */
     protected $description = 'Command description';
 
+
+    private WeatherTomorrowApiService $weatherTomorrowApiService;
+    private WeatherOpenWeatherMapApiService $weatherOpenWeatherMapApiService;
+
+    public function __construct(WeatherTomorrowApiService $weatherTomorrowApiService, WeatherOpenWeatherMapApiService $weatherOpenWeatherMapApiService)
+    {
+        parent::__construct();
+        $this->weatherTomorrowApiService = $weatherTomorrowApiService;
+        $this->weatherOpenWeatherMapApiService = $weatherOpenWeatherMapApiService;
+    }
     /**
      * Execute the console command.
-     * @throws GuzzleException
      */
     public function handle(): void
     {
         $speed = $this->argument('speed');
-        $message = WeatherController::getMessageFromTomorrowApi("15");
+        $message = $this->weatherTomorrowApiService->getMessage(20);
         BotHelper::sendMessageToSuperAdmin($message, 'telegram');
     }
 }
