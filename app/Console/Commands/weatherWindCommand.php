@@ -41,7 +41,10 @@ class weatherWindCommand extends Command
     {
         $speed = $this->argument('speed');
         $message = $this->weatherTomorrowApiService->getMessage(20, false);
-        if ($message)
-            BotHelper::sendMessageToSuperAdmin($message, 'telegram');
+        if (!$message) {
+            BotHelper::sendMessageToSuperAdmin("چیزی نفرستاد", 'telegram');
+        } else {
+            BotHelper::sendMessageByChatId(new \Telegram(env('6161712151:AAHT6zaBki-rM9yNW41ttYEsWRGAMllCHAY', 'telegram')), 151370482, $message);
+        }
     }
 }
