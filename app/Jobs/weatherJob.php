@@ -28,8 +28,8 @@ class weatherJob implements ShouldQueue
     public function handle(): void
     {
         $speed = 9;
-        Artisan::command('app:weather-wind-command speed=10', function () {
-            $this->info("weather wind speed: 10!");
-        });
+//        Artisan::command('app:weather-wind-command speed=10', function () {
+//            $this->info("weather wind speed: 10!");
+//        });
     }
 }
