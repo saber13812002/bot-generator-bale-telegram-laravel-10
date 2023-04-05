@@ -50,7 +50,9 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
      */
     private static function generateMessageByTomorrowData($botText, mixed $weatherData): string
     {
-        $windSpeedLimit = min($botText, 10);
+        if (intval($botText)) {
+            $windSpeedLimit = min($botText, 20);
+        }
 
         $hoursBitCount = 1;
         $raiseLimitCount = 0;
@@ -73,8 +75,8 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
                     return $message;
                 }
 
-//                $weather_description = self::convertWeatherTomorrowDescriptionToPersian($weatherDataItem["values"]["rainIntensity"]);
-//                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
+                $weather_description = ($weatherDataItem["values"]["rainIntensity"]);
+                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
 
                 $windSpeed = $weatherDataItem["values"]['windSpeed'];
 

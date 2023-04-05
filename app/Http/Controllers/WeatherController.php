@@ -39,6 +39,8 @@ class WeatherController extends Controller
             $commands = StringHelper::getCommandsAsPostfixForMessages();
             if ($bot->Text() == "/current") {
                 $message = $this->weatherOpenWeatherMapApiService->getMessage();
+            } else if ($bot->Text() == "/forecasting") {
+                $message = "حدقل سرعت باد رو با ارسال یک عدد کوچکتر از 20 تعیین کنید که پیش بینی رو براتون بفرستم";
             } else {
                 $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
             }
