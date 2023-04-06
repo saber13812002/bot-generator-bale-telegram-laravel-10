@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BotController;
 use App\Http\Controllers\BotUsersController;
+use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -27,9 +28,11 @@ Route::post('/webhook-bale', [BotController::class, 'baleWebhook']);
 
 Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsersWebhook']);
 Route::post('/webhook-bale-users', [BotController::class, 'baleUsersWebhook']);
-
-
 Route::get('/approve', [BotUsersController::class, 'approve']);
 
 
 Route::post('/webhook-weather', [WeatherController::class, 'index']);
+
+
+
+Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
