@@ -19,5 +19,6 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
         $this->call(QuranWordsTableSeeder::class);
+        $this->call(QuranSurahsTableSeeder::class);
     }
 }
