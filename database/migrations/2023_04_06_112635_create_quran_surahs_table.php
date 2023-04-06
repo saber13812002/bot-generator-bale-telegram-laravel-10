@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('location', 1);
             $table->string('sajda', 55);
 
-            $table->integer('ayah', 3);
+            $table->integer('ayah')->length(3)->unsigned();
 
             $table->timestamps();
         });
