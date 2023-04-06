@@ -14,12 +14,12 @@ class QuranSurahsTableSeeder extends Seeder
      */
     public function run()
     {
-        
 
-        \DB::table('quran_surahs')->delete();
-        
+
+//        \DB::table('quran_surahs')->delete();
+
         \DB::table('quran_surahs')->insert(array (
-            0 => 
+            0 =>
             array (
                 'id' => 1,
                 'arabic' => 'سورة الفاتحة',
@@ -29,7 +29,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 7,
             ),
-            1 => 
+            1 =>
             array (
                 'id' => 2,
                 'arabic' => 'سورة البقرة',
@@ -39,7 +39,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 286,
             ),
-            2 => 
+            2 =>
             array (
                 'id' => 3,
                 'arabic' => 'سورة آل عمران',
@@ -49,7 +49,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 200,
             ),
-            3 => 
+            3 =>
             array (
                 'id' => 4,
                 'arabic' => 'سورة النساء',
@@ -59,7 +59,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 176,
             ),
-            4 => 
+            4 =>
             array (
                 'id' => 5,
                 'arabic' => 'سورة المائدة',
@@ -69,7 +69,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 120,
             ),
-            5 => 
+            5 =>
             array (
                 'id' => 6,
                 'arabic' => 'سورة الأنعام',
@@ -79,7 +79,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 165,
             ),
-            6 => 
+            6 =>
             array (
                 'id' => 7,
                 'arabic' => 'سورة الأعراف',
@@ -89,7 +89,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '206',
                 'ayah' => 206,
             ),
-            7 => 
+            7 =>
             array (
                 'id' => 8,
                 'arabic' => 'سورة الأنفال',
@@ -99,7 +99,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 75,
             ),
-            8 => 
+            8 =>
             array (
                 'id' => 9,
                 'arabic' => 'سورة التوبة',
@@ -109,7 +109,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 129,
             ),
-            9 => 
+            9 =>
             array (
                 'id' => 10,
                 'arabic' => 'سورة يونس',
@@ -119,7 +119,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 109,
             ),
-            10 => 
+            10 =>
             array (
                 'id' => 11,
                 'arabic' => 'سورة هود',
@@ -129,7 +129,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 123,
             ),
-            11 => 
+            11 =>
             array (
                 'id' => 12,
                 'arabic' => 'سورة يوسف',
@@ -139,7 +139,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 111,
             ),
-            12 => 
+            12 =>
             array (
                 'id' => 13,
                 'arabic' => 'سورة الرعد',
@@ -149,7 +149,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '15',
                 'ayah' => 43,
             ),
-            13 => 
+            13 =>
             array (
                 'id' => 14,
                 'arabic' => 'سورة إبراهيم',
@@ -159,7 +159,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 52,
             ),
-            14 => 
+            14 =>
             array (
                 'id' => 15,
                 'arabic' => 'سورة الحجر',
@@ -169,7 +169,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 99,
             ),
-            15 => 
+            15 =>
             array (
                 'id' => 16,
                 'arabic' => 'سورة النحل',
@@ -179,7 +179,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '50',
                 'ayah' => 128,
             ),
-            16 => 
+            16 =>
             array (
                 'id' => 17,
                 'arabic' => 'سورة الإسراء',
@@ -189,7 +189,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '100',
                 'ayah' => 111,
             ),
-            17 => 
+            17 =>
             array (
                 'id' => 18,
                 'arabic' => 'سورة الكهف',
@@ -199,7 +199,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 110,
             ),
-            18 => 
+            18 =>
             array (
                 'id' => 19,
                 'arabic' => 'سورة مريم',
@@ -209,7 +209,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '58',
                 'ayah' => 98,
             ),
-            19 => 
+            19 =>
             array (
                 'id' => 20,
                 'arabic' => 'سورة طه',
@@ -219,7 +219,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 135,
             ),
-            20 => 
+            20 =>
             array (
                 'id' => 21,
                 'arabic' => 'سورة الأنبياء',
@@ -229,7 +229,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 112,
             ),
-            21 => 
+            21 =>
             array (
                 'id' => 22,
                 'arabic' => 'سورة الحج',
@@ -239,7 +239,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '18',
                 'ayah' => 78,
             ),
-            22 => 
+            22 =>
             array (
                 'id' => 23,
                 'arabic' => 'سورة المؤمنون',
@@ -249,7 +249,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 118,
             ),
-            23 => 
+            23 =>
             array (
                 'id' => 24,
                 'arabic' => 'سورة النور',
@@ -259,7 +259,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 64,
             ),
-            24 => 
+            24 =>
             array (
                 'id' => 25,
                 'arabic' => 'سورة الفرقان',
@@ -269,7 +269,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '60',
                 'ayah' => 77,
             ),
-            25 => 
+            25 =>
             array (
                 'id' => 26,
                 'arabic' => 'سورة الشعراء',
@@ -279,7 +279,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 227,
             ),
-            26 => 
+            26 =>
             array (
                 'id' => 27,
                 'arabic' => 'سورة النمل',
@@ -289,7 +289,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '26',
                 'ayah' => 93,
             ),
-            27 => 
+            27 =>
             array (
                 'id' => 28,
                 'arabic' => 'سورة القصص',
@@ -299,7 +299,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 88,
             ),
-            28 => 
+            28 =>
             array (
                 'id' => 29,
                 'arabic' => 'سورة العنكبوت',
@@ -309,7 +309,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 69,
             ),
-            29 => 
+            29 =>
             array (
                 'id' => 30,
                 'arabic' => 'سورة الروم',
@@ -319,7 +319,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 60,
             ),
-            30 => 
+            30 =>
             array (
                 'id' => 31,
                 'arabic' => 'سورة لقمان',
@@ -329,7 +329,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 34,
             ),
-            31 => 
+            31 =>
             array (
                 'id' => 32,
                 'arabic' => 'سورة السجدة',
@@ -339,7 +339,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '15',
                 'ayah' => 30,
             ),
-            32 => 
+            32 =>
             array (
                 'id' => 33,
                 'arabic' => 'سورة الأحزاب',
@@ -349,7 +349,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 73,
             ),
-            33 => 
+            33 =>
             array (
                 'id' => 34,
                 'arabic' => 'سورة سبأ',
@@ -359,7 +359,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 54,
             ),
-            34 => 
+            34 =>
             array (
                 'id' => 35,
                 'arabic' => 'سورة فاطر',
@@ -369,7 +369,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 45,
             ),
-            35 => 
+            35 =>
             array (
                 'id' => 36,
                 'arabic' => 'سورة يس',
@@ -379,7 +379,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 83,
             ),
-            36 => 
+            36 =>
             array (
                 'id' => 37,
                 'arabic' => 'سورة الصافات',
@@ -389,7 +389,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 182,
             ),
-            37 => 
+            37 =>
             array (
                 'id' => 38,
                 'arabic' => 'سورة ص',
@@ -399,7 +399,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '24',
                 'ayah' => 88,
             ),
-            38 => 
+            38 =>
             array (
                 'id' => 39,
                 'arabic' => 'سورة الزمر',
@@ -409,7 +409,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 75,
             ),
-            39 => 
+            39 =>
             array (
                 'id' => 40,
                 'arabic' => 'سورة غافر',
@@ -419,7 +419,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 85,
             ),
-            40 => 
+            40 =>
             array (
                 'id' => 41,
                 'arabic' => 'سورة فصلت',
@@ -429,7 +429,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '38',
                 'ayah' => 54,
             ),
-            41 => 
+            41 =>
             array (
                 'id' => 42,
                 'arabic' => 'سورة الشورى',
@@ -439,7 +439,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 53,
             ),
-            42 => 
+            42 =>
             array (
                 'id' => 43,
                 'arabic' => 'سورة الزخرف',
@@ -449,7 +449,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 89,
             ),
-            43 => 
+            43 =>
             array (
                 'id' => 44,
                 'arabic' => 'سورة الدخان',
@@ -459,7 +459,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 59,
             ),
-            44 => 
+            44 =>
             array (
                 'id' => 45,
                 'arabic' => 'سورة الجاثية',
@@ -469,7 +469,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 37,
             ),
-            45 => 
+            45 =>
             array (
                 'id' => 46,
                 'arabic' => 'سورة الأحقاف',
@@ -479,7 +479,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 35,
             ),
-            46 => 
+            46 =>
             array (
                 'id' => 47,
                 'arabic' => 'سورة محمد',
@@ -489,7 +489,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 38,
             ),
-            47 => 
+            47 =>
             array (
                 'id' => 48,
                 'arabic' => 'سورة الفتح',
@@ -499,7 +499,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 29,
             ),
-            48 => 
+            48 =>
             array (
                 'id' => 49,
                 'arabic' => 'سورة الحجرات',
@@ -509,7 +509,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 18,
             ),
-            49 => 
+            49 =>
             array (
                 'id' => 50,
                 'arabic' => 'سورة ق',
@@ -519,7 +519,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 45,
             ),
-            50 => 
+            50 =>
             array (
                 'id' => 51,
                 'arabic' => 'سورة الذاريات',
@@ -529,7 +529,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 60,
             ),
-            51 => 
+            51 =>
             array (
                 'id' => 52,
                 'arabic' => 'سورة الطور',
@@ -539,7 +539,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 49,
             ),
-            52 => 
+            52 =>
             array (
                 'id' => 53,
                 'arabic' => 'سورة النجم',
@@ -549,7 +549,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '62',
                 'ayah' => 62,
             ),
-            53 => 
+            53 =>
             array (
                 'id' => 54,
                 'arabic' => 'سورة القمر',
@@ -559,7 +559,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 55,
             ),
-            54 => 
+            54 =>
             array (
                 'id' => 55,
                 'arabic' => 'سورة الرحمن',
@@ -569,7 +569,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 78,
             ),
-            55 => 
+            55 =>
             array (
                 'id' => 56,
                 'arabic' => 'سورة الواقعة',
@@ -579,7 +579,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 96,
             ),
-            56 => 
+            56 =>
             array (
                 'id' => 57,
                 'arabic' => 'سورة الحديد',
@@ -589,7 +589,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 29,
             ),
-            57 => 
+            57 =>
             array (
                 'id' => 58,
                 'arabic' => 'سورة المجادلة',
@@ -599,7 +599,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 22,
             ),
-            58 => 
+            58 =>
             array (
                 'id' => 59,
                 'arabic' => 'سورة الحشر',
@@ -609,7 +609,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 24,
             ),
-            59 => 
+            59 =>
             array (
                 'id' => 60,
                 'arabic' => 'سورة الممتحنة',
@@ -619,7 +619,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 13,
             ),
-            60 => 
+            60 =>
             array (
                 'id' => 61,
                 'arabic' => 'سورة الصف',
@@ -629,7 +629,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 14,
             ),
-            61 => 
+            61 =>
             array (
                 'id' => 62,
                 'arabic' => 'سورة الجمعة',
@@ -639,7 +639,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 11,
             ),
-            62 => 
+            62 =>
             array (
                 'id' => 63,
                 'arabic' => 'سورة المنافقون',
@@ -649,7 +649,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 11,
             ),
-            63 => 
+            63 =>
             array (
                 'id' => 64,
                 'arabic' => 'سورة التغابن',
@@ -659,7 +659,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 18,
             ),
-            64 => 
+            64 =>
             array (
                 'id' => 65,
                 'arabic' => 'سورة الطلاق',
@@ -669,7 +669,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 12,
             ),
-            65 => 
+            65 =>
             array (
                 'id' => 66,
                 'arabic' => 'سورة التحريم',
@@ -679,7 +679,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 12,
             ),
-            66 => 
+            66 =>
             array (
                 'id' => 67,
                 'arabic' => 'سورة الملك',
@@ -689,7 +689,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 30,
             ),
-            67 => 
+            67 =>
             array (
                 'id' => 68,
                 'arabic' => 'سورة القلم',
@@ -699,7 +699,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 52,
             ),
-            68 => 
+            68 =>
             array (
                 'id' => 69,
                 'arabic' => 'سورة الحاقة',
@@ -709,7 +709,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 52,
             ),
-            69 => 
+            69 =>
             array (
                 'id' => 70,
                 'arabic' => 'سورة المعارج',
@@ -719,7 +719,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 44,
             ),
-            70 => 
+            70 =>
             array (
                 'id' => 71,
                 'arabic' => 'سورة نوح',
@@ -729,7 +729,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 28,
             ),
-            71 => 
+            71 =>
             array (
                 'id' => 72,
                 'arabic' => 'سورة الجن',
@@ -739,7 +739,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 28,
             ),
-            72 => 
+            72 =>
             array (
                 'id' => 73,
                 'arabic' => 'سورة المزمل',
@@ -749,7 +749,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 20,
             ),
-            73 => 
+            73 =>
             array (
                 'id' => 74,
                 'arabic' => 'سورة المدثر',
@@ -759,7 +759,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 56,
             ),
-            74 => 
+            74 =>
             array (
                 'id' => 75,
                 'arabic' => 'سورة القيامة',
@@ -769,7 +769,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 40,
             ),
-            75 => 
+            75 =>
             array (
                 'id' => 76,
                 'arabic' => 'سورة الإنسان',
@@ -779,7 +779,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 31,
             ),
-            76 => 
+            76 =>
             array (
                 'id' => 77,
                 'arabic' => 'سورة المرسلات',
@@ -789,7 +789,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 50,
             ),
-            77 => 
+            77 =>
             array (
                 'id' => 78,
                 'arabic' => 'سورة النبأ',
@@ -799,7 +799,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 40,
             ),
-            78 => 
+            78 =>
             array (
                 'id' => 79,
                 'arabic' => 'سورة النازعات',
@@ -809,7 +809,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 46,
             ),
-            79 => 
+            79 =>
             array (
                 'id' => 80,
                 'arabic' => 'سورة عبس',
@@ -819,7 +819,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 42,
             ),
-            80 => 
+            80 =>
             array (
                 'id' => 81,
                 'arabic' => 'سورة التكوير',
@@ -829,7 +829,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 29,
             ),
-            81 => 
+            81 =>
             array (
                 'id' => 82,
                 'arabic' => 'سورة الإنفطار',
@@ -839,7 +839,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 19,
             ),
-            82 => 
+            82 =>
             array (
                 'id' => 83,
                 'arabic' => 'سورة المطففين',
@@ -849,7 +849,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 36,
             ),
-            83 => 
+            83 =>
             array (
                 'id' => 84,
                 'arabic' => 'سورة الانشقاق',
@@ -859,7 +859,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '21',
                 'ayah' => 25,
             ),
-            84 => 
+            84 =>
             array (
                 'id' => 85,
                 'arabic' => 'سورة البروج',
@@ -869,7 +869,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 22,
             ),
-            85 => 
+            85 =>
             array (
                 'id' => 86,
                 'arabic' => 'سورة الطارق',
@@ -879,7 +879,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 17,
             ),
-            86 => 
+            86 =>
             array (
                 'id' => 87,
                 'arabic' => 'سورة الأعلى',
@@ -889,7 +889,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 19,
             ),
-            87 => 
+            87 =>
             array (
                 'id' => 88,
                 'arabic' => 'سورة الغاشية',
@@ -899,7 +899,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 26,
             ),
-            88 => 
+            88 =>
             array (
                 'id' => 89,
                 'arabic' => 'سورة الفجر',
@@ -909,7 +909,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 30,
             ),
-            89 => 
+            89 =>
             array (
                 'id' => 90,
                 'arabic' => 'سورة البلد',
@@ -919,7 +919,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 20,
             ),
-            90 => 
+            90 =>
             array (
                 'id' => 91,
                 'arabic' => 'سورة الشمس',
@@ -929,7 +929,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 15,
             ),
-            91 => 
+            91 =>
             array (
                 'id' => 92,
                 'arabic' => 'سورة الليل',
@@ -939,7 +939,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 21,
             ),
-            92 => 
+            92 =>
             array (
                 'id' => 93,
                 'arabic' => 'سورة الضحى',
@@ -949,7 +949,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 11,
             ),
-            93 => 
+            93 =>
             array (
                 'id' => 94,
                 'arabic' => 'سورة الشرح',
@@ -959,7 +959,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 8,
             ),
-            94 => 
+            94 =>
             array (
                 'id' => 95,
                 'arabic' => 'سورة التين',
@@ -969,7 +969,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 8,
             ),
-            95 => 
+            95 =>
             array (
                 'id' => 96,
                 'arabic' => 'سورة العلق',
@@ -979,7 +979,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '19',
                 'ayah' => 19,
             ),
-            96 => 
+            96 =>
             array (
                 'id' => 97,
                 'arabic' => 'سورة القدر',
@@ -989,7 +989,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 5,
             ),
-            97 => 
+            97 =>
             array (
                 'id' => 98,
                 'arabic' => 'سورة البينة',
@@ -999,7 +999,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 8,
             ),
-            98 => 
+            98 =>
             array (
                 'id' => 99,
                 'arabic' => 'سورة الزلزلة',
@@ -1009,7 +1009,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 8,
             ),
-            99 => 
+            99 =>
             array (
                 'id' => 100,
                 'arabic' => 'سورة العاديات',
@@ -1019,7 +1019,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 11,
             ),
-            100 => 
+            100 =>
             array (
                 'id' => 101,
                 'arabic' => 'سورة القارعة',
@@ -1029,7 +1029,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 11,
             ),
-            101 => 
+            101 =>
             array (
                 'id' => 102,
                 'arabic' => 'سورة التكاثر',
@@ -1039,7 +1039,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 8,
             ),
-            102 => 
+            102 =>
             array (
                 'id' => 103,
                 'arabic' => 'سورة العصر',
@@ -1049,7 +1049,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 3,
             ),
-            103 => 
+            103 =>
             array (
                 'id' => 104,
                 'arabic' => 'سورة الهمزة',
@@ -1059,7 +1059,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 9,
             ),
-            104 => 
+            104 =>
             array (
                 'id' => 105,
                 'arabic' => 'سورة الفيل',
@@ -1069,7 +1069,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 5,
             ),
-            105 => 
+            105 =>
             array (
                 'id' => 106,
                 'arabic' => 'سورة قريش',
@@ -1079,7 +1079,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 4,
             ),
-            106 => 
+            106 =>
             array (
                 'id' => 107,
                 'arabic' => 'سورة الماعون',
@@ -1089,7 +1089,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 7,
             ),
-            107 => 
+            107 =>
             array (
                 'id' => 108,
                 'arabic' => 'سورة الكوثر',
@@ -1099,7 +1099,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 3,
             ),
-            108 => 
+            108 =>
             array (
                 'id' => 109,
                 'arabic' => 'سورة الكافرون',
@@ -1109,7 +1109,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 6,
             ),
-            109 => 
+            109 =>
             array (
                 'id' => 110,
                 'arabic' => 'سورة النصر',
@@ -1119,7 +1119,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 3,
             ),
-            110 => 
+            110 =>
             array (
                 'id' => 111,
                 'arabic' => 'سورة المسد',
@@ -1129,7 +1129,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 5,
             ),
-            111 => 
+            111 =>
             array (
                 'id' => 112,
                 'arabic' => 'سورة الإخلاص',
@@ -1139,7 +1139,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 4,
             ),
-            112 => 
+            112 =>
             array (
                 'id' => 113,
                 'arabic' => 'سورة الفلق',
@@ -1149,7 +1149,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'sajda' => '0',
                 'ayah' => 5,
             ),
-            113 => 
+            113 =>
             array (
                 'id' => 114,
                 'arabic' => 'سورة الناس',
@@ -1160,7 +1160,7 @@ class QuranSurahsTableSeeder extends Seeder
                 'ayah' => 6,
             ),
         ));
-        
-        
+
+
     }
 }
