@@ -22,9 +22,9 @@ class QuranWordController extends Controller
         $message = "";
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
-                $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
+                $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_BALE"), 'bale');
             } else {
-                $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
+                $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM"), 'telegram');
             }
 
 
