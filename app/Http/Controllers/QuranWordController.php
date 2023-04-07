@@ -64,8 +64,8 @@ class QuranWordController extends Controller
 //                dd($wordId);
                 $message = $this->getQuranWordById($wordId);
 
-                $next = ((integer)$botText == 88246 ? "88246" : ((integer)$botText + 1));
-                $back = ((integer)$botText == 1 ? "1" : ((integer)$botText - 1));
+                $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
+                $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
 
                 $messageCommands = "
 ===============
