@@ -3,9 +3,11 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Exception;
 use Telegram;
+use GuzzleHttp;
 
 class BotHelper
 {
@@ -214,15 +216,16 @@ class BotHelper
     }
 
 
-    private static function sendStartMessage(Telegram $messenger, string $message): void
+    public static function sendStartMessage(Telegram $messenger, string $message): void
     {
         $option = array(
-            //First row
-//            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
-//            //Second row
-//            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
-//            //Third row
-            array($messenger->buildKeyboardButton("Button 6")));
+//            First row
+            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
+            //Second row
+            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
+            //Third row
+            array($messenger->buildKeyboardButton("Button 6"))
+        );
         $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
 
         self::sendKeyboardMessage($messenger, $message, $keyboard);
@@ -272,5 +275,69 @@ class BotHelper
         BotHelper::sendMessage($bot, $message);
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
+    }
+
+    public static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
+    {
+        return [
+            [
+                [
+                    "text" => $text1,
+                    "callback_data" => $cd1
+                ],
+                [
+                    "text" => $text2,
+                    "callback_data" => $cd2
+                ]
+            ]
+        ];
+    }
+
+    public static function makeKeyboard4button($text1, $cd1, $text2, $cd2, $text3, $cd3, $text4, $cd4): array
+    {
+        return [
+            [
+                [
+                    "text" => $text1,
+                    "callback_data" => $cd1
+                ],
+                [
+                    "text" => $text2,
+                    "callback_data" => $cd2
+                ]
+            ],
+            [
+                [
+                    "text" => $text3,
+                    "callback_data" => $cd3
+                ],
+                [
+                    "text" => $text4,
+                    "callback_data" => $cd4
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * @param $botToken
+     * @param $chatId
+     * @param string $message
+     * @param $inlineKeyboard
+     * @return void
+     * @throws GuzzleException
+     */
+    public static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
+    {
+        $client = new GuzzleHttp\Client();
+        $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
+        $response = $client->post($uri, ['json' => [
+            "chat_id" => $chatId,
+            "text" => $message,
+            "reply_markup" => [
+                "inline_keyboard" => $inlineKeyboard
+            ]]]);
+//        echo $request->getStatusCode(); // 200
+        echo $response->getBody()->getContents();
     }
 }

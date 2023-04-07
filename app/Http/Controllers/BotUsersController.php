@@ -15,6 +15,7 @@ class BotUsersController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @throws \Exception
      */
     public function approve(Request $request)
     {
@@ -27,7 +28,7 @@ class BotUsersController extends Controller
 
         if (count($checkRequest) == 4) {
             try {
-                $botItem = Bot::whereId($request->bot_id)
+                $botItem = Bot::query()->whereId($request->bot_id)
                     ->whereBaleBotToken($request->token)
                     ->get()
                     ->firstOrFail();
@@ -40,7 +41,7 @@ class BotUsersController extends Controller
             $bot = new Telegram($botItem->bale_bot_token, $type);
 
             try {
-                $botUserItem = BotUsers::whereBotId($request->bot_id)
+                $botUserItem = BotUsers::query()->whereBotId($request->bot_id)
                     ->whereChatId($request->chat_id)
                     ->whereOrigin($type)
                     ->whereStatus('suspend')

@@ -8,7 +8,7 @@ use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
 use App\Models\Bot;
 use App\Models\BotUsers;
-use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -29,6 +29,9 @@ class BotController extends Controller
         BotHelper::switchCase($bale, $type);
     }
 
+    /**
+     * @throws Exception
+     */
     public function telegramWebhook()
     {
         $type = 'telegram';
@@ -61,11 +64,11 @@ class BotController extends Controller
             $bot_user_name = $request->input('bot_user_name');
 
             try {
-                $botItem = Bot::whereBaleBotName($bot_user_name)
+                $botItem = Bot::query()->whereBaleBotName($bot_user_name)
                     ->whereBaleBotToken($bot_token)
                     ->get()
                     ->firstOrFail();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
                 Log::warning($e->getMessage());
                 throw $e;
@@ -95,7 +98,7 @@ class BotController extends Controller
             } else {
                 if ($user->status == 'active' && !str_starts_with($text, "/")) {
                     // TODO: send telegram who's telegram
-                    $users = BotUsers::select('chat_id')->whereBotId($botItem->id)
+                    $users = BotUsers::query()->select('chat_id')->whereBotId($botItem->id)
                         ->whereOrigin($type)
                         ->whereStatus('active')
                         ->get();
