@@ -36,7 +36,7 @@ class QuranHefzBotHelper
     public static function getQuranWordById(mixed $botText)
     {
         $quranWords = QuranWord::query()->whereId($botText)->get()->first();
-        return $quranWords->count() > 0 ? $quranWords['text'] : 0;
+        return $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
     }
 
     /**
