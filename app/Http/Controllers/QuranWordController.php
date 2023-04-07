@@ -44,13 +44,7 @@ class QuranWordController extends Controller
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
-                $wordId = substr($bot->Text(), 1, 1);
-                if ((integer)(substr($bot->Text(), 1, 2)) > 0) {
-                    $wordId = substr($bot->Text(), 1, 2);
-                }
-                if ((integer)(substr($bot->Text(), 1, 3)) > 0) {
-                    $wordId = substr($bot->Text(), 1, 3);
-                }
+                $wordId = $this->getWordId($bot);
 
                 $message = QuranHefzBotHelper::getQuranWordById($wordId);
 
@@ -152,6 +146,28 @@ class QuranWordController extends Controller
     function destroy(QuranWord $quranWord)
     {
         //
+    }
+
+    /**
+     * @param Telegram $bot
+     * @return string
+     */
+    public function getWordId(Telegram $bot): string
+    {
+        $wordId = substr($bot->Text(), 1, 1);
+        if ((integer)(substr($bot->Text(), 1, 2)) > 0) {
+            $wordId = substr($bot->Text(), 1, 2);
+        }
+        if ((integer)(substr($bot->Text(), 1, 3)) > 0) {
+            $wordId = substr($bot->Text(), 1, 3);
+        }
+        if ((integer)(substr($bot->Text(), 1, 4)) > 0) {
+            $wordId = substr($bot->Text(), 1, 4);
+        }
+        if ((integer)(substr($bot->Text(), 1, 5)) > 0) {
+            $wordId = substr($bot->Text(), 1, 5);
+        }
+        return $wordId;
     }
 
 }
