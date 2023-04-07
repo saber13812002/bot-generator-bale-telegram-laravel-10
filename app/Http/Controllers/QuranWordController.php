@@ -41,7 +41,7 @@ class QuranWordController extends Controller
                 if ($type == 'telegram')
                     BotHelper::sendMessage($bot, $message . $messageCommands);
                 else {
-                    $inlineKeyboard = BotHelper::makeKeyboard4button("کلمه به کلمه", "/1", "آیه به آیه", "/sure2ayah2", "قهرست 114 سوره", "/commandFehrest", "فهرست 30 جز", "commandJoz");
+                    $inlineKeyboard = BotHelper::makeKeyboard4button("کلمه به کلمه", "/1", "آیه به آیه", "/sure2ayah2", "قهرست 114 سوره", "/commandFehrest", "فهرست 30 جز", "/commandJoz");
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
