@@ -27,10 +27,10 @@ class QuranHefzBotHelper
 
     }
 
-    public static function getLastAyeBySurehId(mixed $sure)
+    public static function getLastAyeBySurehId(mixed $sure): array
     {
-        $quranSurahs = QuranSurah::select('ayah')->whereId($sure)->get()->first();
-        return $quranSurahs->count() > 0 ? $quranSurahs['ayah'] : 0;
+        $quranSurahs = QuranSurah::select('ayah', 'arabic')->whereId($sure)->get()->first();
+        return [$quranSurahs->count() > 0 ? $quranSurahs['ayah'] : 0, $quranSurahs['arabic']];
     }
 
     public static function getQuranWordById(mixed $botText)

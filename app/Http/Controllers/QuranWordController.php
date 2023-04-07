@@ -66,9 +66,17 @@ class QuranWordController extends Controller
                         $aya = (integer)substr($botText, strpos($botText, $commandTemplateNextAyah) + Str::length($commandTemplateNextAyah));
 
                         if ($aya > 0) {
+
                             $message = QuranHefzBotHelper::getSureAye($sure, $aya);
 
-                            $maxAyah = QuranHefzBotHelper::getLastAyeBySurehId($sure);
+                            [$maxAyah, $suraName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
+
+                            if ($aya == 1) {
+                                $message = $suraName . ($sure != 1 ? "
+بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+" : "
+") . $message;
+                            }
 
                             $nextAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya + 1;
                             $lastAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya - 1;
