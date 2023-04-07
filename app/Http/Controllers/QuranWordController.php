@@ -6,6 +6,7 @@ use App\Helpers\BotHelper;
 use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
+use App\Models\QuranSurah;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
@@ -40,7 +41,7 @@ class QuranWordController extends Controller
                 if ($type == 'telegram')
                     BotHelper::sendMessage($bot, $message . $messageCommands);
                 else {
-                    $inlineKeyboard = BotHelper::makeKeyboard2button("کلمه به کلمه", "/1", "آیه به آیه", "/sure2ayah2");
+                    $inlineKeyboard = BotHelper::makeKeyboard4button("کلمه به کلمه", "/1", "آیه به آیه", "/sure2ayah2", "قهرست 114 سوره", "/commandFehrest", "فهرست 30 جز", "commandJoz");
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
@@ -71,12 +72,7 @@ class QuranWordController extends Controller
 
                             [$maxAyah, $suraName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
 
-                            if ($aya == 1) {
-                                $message = $suraName . ($sure != 1 ? "
-بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-" : "
-") . $message;
-                            }
+                            $message = $this->addAyeIdAndBesmella($aya, $suraName, $sure, $message);
 
                             $nextAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya + 1;
                             $lastAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya - 1;
@@ -93,6 +89,25 @@ class QuranWordController extends Controller
                                 BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                             }
                         }
+                    }
+                }
+            } elseif ((substr($bot->Text(), 1, 7)) == "command") {
+                $command = substr($botText, strpos($botText, "/command") + Str::length("/command"));
+                if ($command == "Fehrest") {
+                    $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
+                        ->get();
+                    for ($i = 0; $i < 112; $i += 4) {
+                        $inlineKeyboard = BotHelper::makeKeyboard4button($quranSurahs[$i]->arabic, "/sure" . ($i + 1) . "ayah1", $quranSurahs[$i + 1]->arabic, "/sure" . ($i + 2) . "ayah1", $quranSurahs[$i + 2]->arabic, "/sure" . ($i + 3) . "ayah1", $quranSurahs[$i + 3]->arabic, "/sure" . ($i + 4) . "ayah1");
+                        BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "سوره شماره " . ($i + 1) . " تا " . ($i + 4), $inlineKeyboard);
+                    }
+                    $inlineKeyboard = BotHelper::makeKeyboard2button($quranSurahs[112]->arabic, "/sure113ayah1", $quranSurahs[113]->arabic, "/sure114ayah1");
+                    BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "سوره شماره 113 و 114", $inlineKeyboard);
+                }
+                if ($command == "Joz") {
+//                    dd(config('juz.' . (1)));
+                    for ($i = 0; $i < 30; $i += 2) {
+                        $inlineKeyboard = BotHelper::makeKeyboard2button("جزء" . ($i + 1), config('juz.' . ($i + 1)), "جزء" . ($i + 2), config('juz.' . ($i + 2)));
+                        BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "جزء", $inlineKeyboard);
                     }
                 }
             } else {
@@ -176,6 +191,26 @@ class QuranWordController extends Controller
             $wordId = substr($bot->Text(), 1, 5);
         }
         return $wordId;
+    }
+
+    /**
+     * @param int $aya
+     * @param mixed $suraName
+     * @param int $sure
+     * @param string $message
+     * @return string
+     */
+    public function addAyeIdAndBesmella(int $aya, mixed $suraName, int $sure, string $message): string
+    {
+        if ($aya == 1) {
+            $message = $suraName . ($sure != 1 ? "
+بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+" : "
+") . $message . "(" . $aya . ")";
+        } else {
+            $message .= "(" . $aya . ")";
+        }
+        return $message;
     }
 
 }
