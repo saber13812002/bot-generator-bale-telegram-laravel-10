@@ -27,8 +27,8 @@ class QuranWordController extends Controller
             if ($request->input('origin') == 'bale') {
                 $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_BALE"), 'bale');
             } elseif ($request->input('origin') == 'telegram') {
-                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام", 'bale');
                 $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM"));
+                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } else {
                 return 200;
             }
