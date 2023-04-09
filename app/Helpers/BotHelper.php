@@ -183,6 +183,32 @@ class BotHelper
      * @param string $message
      * @return void
      */
+    public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
+    {
+//        $chat_id = $messenger->ChatID();
+//
+//        $content = [
+//            'chat_id' => $chat_id,
+//            'text' => $message
+//        ];
+//
+//        $messenger->sendMessage($content);
+
+        $option = array(
+            //First row
+            array($messenger->buildInlineKeyBoardButton("بعدی", callback_data: $next)),
+            array($messenger->buildInlineKeyBoardButton("قبلی", callback_data: $back))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+    }
+
+    /**
+     * @param Telegram $messenger
+     * @param $chat_id
+     * @param string $message
+     * @return void
+     */
     public static function sendMessageByChatId(Telegram $messenger, $chat_id, string $message): void
     {
         $content = [
