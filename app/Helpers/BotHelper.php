@@ -160,6 +160,7 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
+
     /**
      * @param Telegram $messenger
      * @param string $message
@@ -215,20 +216,32 @@ class BotHelper
         BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM'), $message);
     }
 
-
-    public static function sendStartMessage(Telegram $messenger, string $message): void
+    public static function sendStartMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
     {
-        $option = array(
-//            First row
-            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
-            //Second row
-            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
-            //Third row
-            array($messenger->buildKeyboardButton("Button 6"))
-        );
-        $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
 
-        self::sendKeyboardMessage($messenger, $message, $keyboard);
+        if (!$isInlineKeyBoard) {
+            $option = array(
+//            First row
+                array($messenger->buildKeyboardButton($array[0][1]), $messenger->buildKeyboardButton($array[1][1])),
+                //Second row
+                array($messenger->buildKeyboardButton($array[1][1]), $messenger->buildKeyboardButton($array[2][1])),
+                //Third row
+//            array($messenger->buildKeyboardButton("Button 6"))
+            );
+            $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
+            self::sendKeyboardMessage($messenger, $message, $keyboard);
+        } else {
+            $option = array(
+                //First row
+                array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
+                //Second row
+                array($messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1]), $messenger->buildInlineKeyBoardButton($array[2][0], callback_data: $array[2][1])),
+                //Third row
+//                        array($bot->buildInlineKeyBoardButton("Button 6", $url = "http://link6.com")))
+            );
+            $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+            self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+        }
     }
 
     /**
@@ -293,27 +306,27 @@ class BotHelper
         ];
     }
 
-    public static function makeKeyboard4button($text1, $cd1, $text2, $cd2, $text3, $cd3, $text4, $cd4): array
+    public static function makeKeyboard4button($array): array
     {
         return [
             [
                 [
-                    "text" => $text1,
-                    "callback_data" => $cd1
+                    "text" => $array[0][0],
+                    "callback_data" => $array[0][1]
                 ],
                 [
-                    "text" => $text2,
-                    "callback_data" => $cd2
+                    "text" => $array[1][0],
+                    "callback_data" => $array[1][1]
                 ]
             ],
             [
                 [
-                    "text" => $text3,
-                    "callback_data" => $cd3
+                    "text" => $array[2][0],
+                    "callback_data" => $array[2][1]
                 ],
                 [
-                    "text" => $text4,
-                    "callback_data" => $cd4
+                    "text" => $array[3][0],
+                    "callback_data" => $array[3][1]
                 ]
             ]
         ];

@@ -95,7 +95,12 @@ class QuranHefzBotHelper
 
 یکی دیگه:
 آیه به آیه که میتونید از اینجا شروع کنید
-/sure2ayah2";
+/sure2ayah2
+فهرست 114 سوره
+/commandFehrest
+فهرست 30 جزء
+/commandJoz";
+
         return array($message, $messageCommands);
     }
 
