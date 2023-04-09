@@ -244,6 +244,17 @@ class BotHelper
         }
     }
 
+    public static function sendStart(Telegram $messenger, string $message): void
+    {
+        $option = array(
+            //First row
+            array($messenger->buildInlineKeyBoardButton("شروع", callback_data: "/start"))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+
+    }
+
     /**
      * @throws \Exception
      */

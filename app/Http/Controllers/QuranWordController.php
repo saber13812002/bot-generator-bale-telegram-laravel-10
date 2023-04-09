@@ -110,8 +110,8 @@ class QuranWordController extends Controller
                 BotHelper::sendMessage($bot, $message);
             }
 
-            $message = "دستور نا مشخص /start";
-            BotHelper::sendMessage($bot, $message);
+            $message = "/start";
+            BotHelper::sendStart($bot, $message);
         }
     }
 
