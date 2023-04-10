@@ -267,10 +267,8 @@ class QuranWordController extends Controller
             for ($j = 0; $j < 6; $j++) {
                 $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
             }
-//            dd($array);
 
             $inlineKeyboard = BotHelper::makeKeyboard6button($array);
-//            dd($inlineKeyboard);
             BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "سوره شماره " . ($i + 1) . " تا " . ($i + 6), $inlineKeyboard);
         }
     }
