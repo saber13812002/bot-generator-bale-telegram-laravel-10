@@ -33,10 +33,15 @@ class QuranHefzBotHelper
         return [$quranSurahs->count() > 0 ? $quranSurahs['ayah'] : 0, $quranSurahs['arabic']];
     }
 
-    public static function getQuranWordById(mixed $botText)
+    public static function getQuranWordById(mixed $botText): array
     {
+        $idEndAya = 0;
         $quranWords = QuranWord::query()->whereId($botText)->get()->first();
-        return $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
+        $word = $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
+        if ($quranWords->char_type) {
+            $idEndAya = 1;
+        }
+        return [$word, $idEndAya];
     }
 
     /**
@@ -90,7 +95,7 @@ class QuranHefzBotHelper
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
 دو جور مطالعه قرآن داریم
 یکی کلمه به کلمه ";
-        if ($type=='bale') {
+        if ($type == 'bale') {
             $messageCommands = "که از اینجا شروع کنید
 کلمه به کلمه:/" . 1 . "
 
@@ -101,8 +106,7 @@ class QuranHefzBotHelper
 /commandFehrest
 فهرست 30 جزء
 /commandJoz";
-        }
-        else{
+        } else {
             $messageCommands = "
 یکی دیگه:
 آیه به آیه از دکمه دوم شروع کنید

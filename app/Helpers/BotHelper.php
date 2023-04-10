@@ -185,15 +185,6 @@ class BotHelper
      */
     public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
     {
-//        $chat_id = $messenger->ChatID();
-//
-//        $content = [
-//            'chat_id' => $chat_id,
-//            'text' => $message
-//        ];
-//
-//        $messenger->sendMessage($content);
-
         $option = array(
             //First row
             array($messenger->buildInlineKeyBoardButton("بعدی", callback_data: $next)),
