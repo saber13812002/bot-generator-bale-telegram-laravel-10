@@ -34,8 +34,8 @@ class QuranWordController extends Controller
                 return 200;
             }
 
-            $commandTemplateNextSure = '/sure';
-            $commandTemplateNextAyah = 'ayah';
+            $commandTemplateSure = '/sure';
+            $commandTemplateAyah = 'ayah';
 
             $botText = $bot->Text();
 
@@ -71,31 +71,36 @@ class QuranWordController extends Controller
                     $inlineKeyboard = BotHelper::makeKeyboard2button("بعدی", "/" . $next, "قبلی", "/" . $back);
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                 }
-            } elseif (str_starts_with($botText, $commandTemplateNextSure)) {
+            } elseif (str_starts_with($botText, $commandTemplateSure)) {
                 if (preg_match('/sure(.*?)ayah/', substr($botText, 1, Str::length($botText)), $match) == 1) {
                     $sure = (integer)$match[1];
                     if ($sure > 0) {
-                        $aya = (integer)substr($botText, strpos($botText, $commandTemplateNextAyah) + Str::length($commandTemplateNextAyah));
+                        $aya = (integer)substr($botText, strpos($botText, $commandTemplateAyah) + Str::length($commandTemplateAyah));
 
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
                             $message = QuranHefzBotHelper::getSureAye($sure, $aya);
 
-                            [$maxAyah, $suraName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
+                            [$maxAyah, $sureName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
+                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHefzBotHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
 
-                            $message = $this->addAyeIdAndBesmella($aya, $suraName, $sure, $message);
+                            $message = $this->addAyeIdAndBesmella($aya, $sureName, $sure, $message);
 
-                            $nextAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya + 1;
-                            $lastAye = $commandTemplateNextSure . ($sure) . $commandTemplateNextAyah . $aya - 1;
+                            $nextSure = $commandTemplateSure . ($sure != 114 ? $sure + 1 : 1) . $commandTemplateAyah . "1";
+                            $firstAyaOfLastSure = $commandTemplateSure . ($sure - 1) . $commandTemplateAyah . "1";
+                            $lastAyaOfLastSure = $commandTemplateSure . ($sure - 1) . $commandTemplateAyah . $maxAyahSureGhabli;
 
-                            $nextSure = $commandTemplateNextSure . ($sure + 1) . $commandTemplateNextAyah . "1";
-                            $lastSure = $commandTemplateNextSure . ($sure - 1) . $commandTemplateNextAyah . "1";
+                            $nextAye = ($aya == $maxAyah) ? $nextSure : $commandTemplateSure . ($sure) . $commandTemplateAyah . $aya + 1;
+                            $lastAye = ($aya == 1) ? $lastAyaOfLastSure : $commandTemplateSure . ($sure) . $commandTemplateAyah . $aya - 1;
 
+                            if ($aya == $maxAyah || $aya == 1) {
+                                $isStartCommandShow = true;
+                            }
 //                            $messageCommands = QuranHefzBotHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
 
-                            $array = [["آیه بعدی", $nextAye], [$aya == 1 ? "بازگشت به فهرست" : "آیه قبلی", $aya == 1 ? "/start" : $lastAye], ["سوره بعدی", $nextSure], ["سوره قبلی", $lastSure]];
+                            $array = [["آیه بعدی", $nextAye], ["آیه قبلی", $lastAye], ["سوره بعدی", $nextSure], ["سوره قبلی", $firstAyaOfLastSure]];
                             if ($type == 'telegram') {
                                 BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
                             } else {
