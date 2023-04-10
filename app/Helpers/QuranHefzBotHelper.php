@@ -84,13 +84,14 @@ class QuranHefzBotHelper
     /**
      * @return string[]
      */
-    public static function getStringCommandsStartBot(): array
+    public static function getStringCommandsStartBot($type): array
     {
         $message = "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
 دو جور مطالعه قرآن داریم
-یکی کلمه به کلمه که از اینجا شروع کنید";
-        $messageCommands = "
+یکی کلمه به کلمه ";
+        if ($type=='bale') {
+            $messageCommands = "که از اینجا شروع کنید
 کلمه به کلمه:/" . 1 . "
 
 یکی دیگه:
@@ -100,8 +101,17 @@ class QuranHefzBotHelper
 /commandFehrest
 فهرست 30 جزء
 /commandJoz";
+        }
+        else{
+            $messageCommands = "
+یکی دیگه:
+آیه به آیه از دکمه دوم شروع کنید
+
+فهرست 114 سوره دکمه سوم
+فهرست 30 جزء دکمه چهارم استفاده کنید
+";
+        }
 
         return array($message, $messageCommands);
     }
-
 }

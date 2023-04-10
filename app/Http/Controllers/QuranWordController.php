@@ -39,7 +39,7 @@ class QuranWordController extends Controller
             $botText = $bot->Text();
 
             if ($botText == '/start') {
-                list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot();
+                list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
 
                 $array = [["کلمه به کلمه", "/1"], ["آیه به آیه", "/sure2ayah2"], ["فهرست 114 سوره", "/commandFehrest"], ["فهرست 30 جز", "/commandJoz"]];
 
