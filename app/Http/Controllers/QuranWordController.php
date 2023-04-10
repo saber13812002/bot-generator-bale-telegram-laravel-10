@@ -270,6 +270,7 @@ class QuranWordController extends Controller
 //            dd($array);
 
             $inlineKeyboard = BotHelper::makeKeyboard6button($array);
+            dd($inlineKeyboard);
             BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "سوره شماره " . ($i + 1) . " تا " . ($i + 6), $inlineKeyboard);
         }
     }

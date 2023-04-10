@@ -3,11 +3,11 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Exception;
 use Telegram;
-use GuzzleHttp;
 
 class BotHelper
 {
@@ -286,6 +286,7 @@ class BotHelper
             self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
         }
     }
+
     public static function sendTelegram6InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
     {
         if (!$isInlineKeyBoard) {
@@ -410,38 +411,21 @@ class BotHelper
 
     public static function makeKeyboard6button($array): array
     {
-        return [
-            [
+        $arr = [];
+        for ($j = 0, $i = 0; $j < count($array); $j++) {
+            $arr[$i++] =
                 [
-                    "text" => $array[0][0],
-                    "callback_data" => $array[0][1]
-                ],
-                [
-                    "text" => $array[1][0],
-                    "callback_data" => $array[1][1]
-                ]
-            ],
-            [
-                [
-                    "text" => $array[2][0],
-                    "callback_data" => $array[2][1]
-                ],
-                [
-                    "text" => $array[3][0],
-                    "callback_data" => $array[3][1]
-                ]
-            ],
-            [
-                [
-                    "text" => $array[4][0],
-                    "callback_data" => $array[4][1]
-                ],
-                [
-                    "text" => $array[5][0],
-                    "callback_data" => $array[5][1]
-                ]
-            ]
-        ];
+                    [
+                        "text" => $array[$j][0],
+                        "callback_data" => $array[$j][1]
+                    ],
+                    [
+                        "text" => $array[++$j][0],
+                        "callback_data" => $array[$j][1]
+                    ]
+                ];
+        }
+        return $arr;
     }
 
     /**
