@@ -51,7 +51,7 @@ class QuranWordController extends Controller
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
                 $wordId = $this->getWordId($bot);
-
+                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId, 'bale');
                 $message = QuranHefzBotHelper::getQuranWordById($wordId);
 
                 $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
