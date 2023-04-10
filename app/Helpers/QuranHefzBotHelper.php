@@ -38,7 +38,7 @@ class QuranHefzBotHelper
         $idEndAya = 0;
         $quranWords = QuranWord::query()->whereId($botText)->get()->first();
         $word = $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
-        if ($quranWords->char_type) {
+        if ($quranWords['char_type']) {
             $idEndAya = 1;
         }
         return [$word, $idEndAya];
