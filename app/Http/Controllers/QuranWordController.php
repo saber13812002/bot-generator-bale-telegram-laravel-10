@@ -94,7 +94,8 @@ class QuranWordController extends Controller
 
 //                            $messageCommands = QuranHefzBotHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
-                            $array = [["آیه بعدی", $nextAye], ["آیه قبلی", $lastAye], ["سوره بعدی", $nextSure], ["سوره قبلی", $lastSure]];
+
+                            $array = [["آیه بعدی", $nextAye], [$aya == 1 ? "بازگشت به فهرست" : "آیه قبلی", $aya == 1 ? "/start" : $lastAye], ["سوره بعدی", $nextSure], ["سوره قبلی", $lastSure]];
                             if ($type == 'telegram') {
                                 BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
                             } else {
