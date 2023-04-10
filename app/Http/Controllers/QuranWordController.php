@@ -40,6 +40,7 @@ class QuranWordController extends Controller
             $botText = $bot->Text();
 
             if ($botText == '/start') {
+                $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
 
                 $array = [["کلمه به کلمه", "/1"], ["آیه به آیه", "/sure2ayah2"], ["فهرست 114 سوره", "/commandFehrest"], ["فهرست 30 جز", "/commandJoz"]];
@@ -78,6 +79,7 @@ class QuranWordController extends Controller
 
                         if ($aya > 0) {
 
+                            $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
                             $message = QuranHefzBotHelper::getSureAye($sure, $aya);
 
                             [$maxAyah, $suraName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
