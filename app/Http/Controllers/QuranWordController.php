@@ -113,12 +113,12 @@ class QuranWordController extends Controller
                         $this->generateJozKeyBoardThenSendIt($bot);
                     }
                 }
-            }
-
-            if ($type == 'bale') {
+            } else {
                 $message = "دستور نا مشخص /start";
                 BotHelper::sendMessage($bot, $message);
-            } else {
+            }
+
+            if ($type != 'bale') {
                 $message = "/start"; // . $botText . ": -< :" . $bot->Text()
                 BotHelper::sendStart($bot, $message);
             }
@@ -260,13 +260,15 @@ class QuranWordController extends Controller
     public
     function generateFehrestThenSendIt(Telegram $bot): void
     {
-        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
+        $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
             ->get();
 
         for ($i = 0; $i < 114; $i += 6) {
             for ($j = 0; $j < 6; $j++) {
                 $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
             }
+//            dd($array);
+
             $inlineKeyboard = BotHelper::makeKeyboard6button($array);
             BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), "سوره شماره " . ($i + 1) . " تا " . ($i + 6), $inlineKeyboard);
         }
