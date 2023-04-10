@@ -247,7 +247,7 @@ class QuranWordController extends Controller
     {
         for ($i = 0; $i < 30; $i += 2) {
             $message = "جزء" . ($i + 1) . " و " . ($i + 2);
-            $array = ["جزء" . ($i + 1), config('juz.' . ($i + 1)), "جزء" . ($i + 2), config('juz.' . ($i + 2))];
+            $array = [["جزء" . ($i + 1), config('juz.' . ($i + 1))], ["جزء" . ($i + 2), config('juz.' . ($i + 2))]];
             BotHelper::sendTelegram2InlineMessage($bot, $message, $array, true);
         }
     }

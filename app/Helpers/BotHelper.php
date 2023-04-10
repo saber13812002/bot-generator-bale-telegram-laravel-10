@@ -280,7 +280,10 @@ class BotHelper
             self::sendKeyboardMessage($messenger, $message, $keyboard);
         } else {
             $option = array(
-                array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
+                array(
+                    $messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]),
+                    $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1]),
+                ),
             );
             $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
             self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
