@@ -103,7 +103,7 @@ class QuranWordController extends Controller
                     if ($type == 'telegram') {
                         $this->generateTelegramFehrestThenSendIt($bot);
                     } else {
-                        $this->generateFehrestThenSendIt($bot);
+                        $this->generateBaleFehrestThenSendIt($bot);
                     }
                 }
                 if ($command == "Joz") {
@@ -258,7 +258,7 @@ class QuranWordController extends Controller
      * @throws GuzzleException
      */
     public
-    function generateFehrestThenSendIt(Telegram $bot): void
+    function generateBaleFehrestThenSendIt(Telegram $bot): void
     {
         $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
             ->get();
@@ -289,7 +289,7 @@ class QuranWordController extends Controller
                 $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
             }
             $message = "سوره شماره " . ($i + 1) . " تا " . ($i + 6);
-            BotHelper::sendTelegram2InlineMessage($bot, $message, $array, true);
+            BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
     }
 
