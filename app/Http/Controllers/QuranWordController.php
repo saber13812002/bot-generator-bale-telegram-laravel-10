@@ -124,7 +124,7 @@ class QuranWordController extends Controller
             }
 
             if ($type != 'bale' && $isStartCommandShow) {
-                $message = "/start"; // . $botText . ": -< :" . $bot->Text()
+                $message = "بازگشت به فهرست"; // . $botText . ": -< :" . $bot->Text()
                 BotHelper::sendStart($bot, $message);
             }
         }

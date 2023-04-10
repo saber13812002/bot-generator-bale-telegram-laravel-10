@@ -308,7 +308,7 @@ class BotHelper
     {
         $option = array(
             //First row
-            array($messenger->buildInlineKeyBoardButton("شروع", callback_data: "/start"))
+            array($messenger->buildInlineKeyBoardButton("بازگشت به فهرست", callback_data: "/start"))
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
