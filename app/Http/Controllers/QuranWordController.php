@@ -65,7 +65,7 @@ class QuranWordController extends Controller
                 }
 
                 if ($type == 'telegram')
-                    BotHelper::sendMessageAye($bot, $message, $next, $back);
+                    BotHelper::sendMessageAye($bot, $message, "/" . $next, "/" . $back);
                 else {
                     $inlineKeyboard = BotHelper::makeKeyboard2button("بعدی", "/" . $next, "قبلی", "/" . $back);
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
