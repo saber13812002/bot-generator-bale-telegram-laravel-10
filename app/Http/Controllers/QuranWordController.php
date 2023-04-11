@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
 use App\Helpers\QuranHefzBotHelper;
+use App\Http\Requests\QuranBotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
 use App\Models\QuranSurah;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 use Telegram;
 
@@ -19,8 +21,14 @@ class QuranWordController extends Controller
      * Display a listing of the resource.
      * @throws GuzzleException
      */
-    public function index(Request $request)
+    public function index(QuranBotRequest $request)
     {
+        if ($request->has('language')) {
+            App::setLocale($request->input('language'));
+        } else {
+            App::setLocale("fa");
+        }
+
         $isStartCommandShow = 1;
         $type = $request->input('origin');
 //        BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . $type, 'bale');
@@ -43,7 +51,7 @@ class QuranWordController extends Controller
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
 
-                $array = [["کلمه به کلمه", "/1"], ["آیه به آیه", "/sure2ayah2"], ["فهرست 114 سوره", "/commandFehrest"], ["فهرست 30 جز", "/commandJoz"]];
+                $array = [[trans('bot.word by word'), "/1"], ["آیه به آیه", "/sure2ayah2"], ["فهرست 114 سوره", "/commandFehrest"], ["فهرست 30 جز", "/commandJoz"]];
 
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands, $array, true);
@@ -135,6 +143,9 @@ class QuranWordController extends Controller
                 $message = "بازگشت به فهرست"; // . $botText . ": -< :" . $bot->Text()
                 BotHelper::sendStart($bot, $message);
             }
+//            return Response::HTTP_ACCEPTED;
+        } else {
+            return Response::HTTP_ACCEPTED;
         }
     }
 
