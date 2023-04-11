@@ -342,7 +342,6 @@ class BotHelper
             } else {
                 self::sendMessage($messenger, $e->getMessage());
             }
-            throw $e;
         }
         return $botItem;
     }
