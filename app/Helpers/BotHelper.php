@@ -115,7 +115,7 @@ class BotHelper
      */
     public static function properMessage(Bot $botItem, Telegram $messenger): string
     {
-        $message = 'روبات شما @' . ($botItem->bale_bot_name ?? $botItem->telegram_bot_name) . ' ساخته شد';
+        $message = 'روبات شما @' . ($botItem->bale_bot_name != "" ?? $botItem->telegram_bot_name) . ' ساخته شد';
         self::sendMessage($messenger, $message);
 
         if ($botItem->bale_bot_name && $botItem->telegram_bot_name) {
