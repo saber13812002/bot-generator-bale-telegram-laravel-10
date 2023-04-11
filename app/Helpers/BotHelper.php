@@ -111,6 +111,7 @@ class BotHelper
     /**
      * @param Bot $botItem
      * @param Telegram $messenger
+     * @param $type
      * @return string
      */
     public static function properMessage(Bot $botItem, Telegram $messenger, $type): string
@@ -122,7 +123,7 @@ class BotHelper
             $message = 'روبات های شما ' . ($botItem->bale_bot_name . " و " . $botItem->telegram_bot_name) . ' ساخته شده است دوستان خود را برای استارت کردن روبات ها به کلیک روی اسم آنها با ات سایت دعوت کنید';
             self::sendMessage($messenger, $message);
         } else if ($botItem->bale_bot_name || $botItem->telegram_bot_name) {
-            if ($botItem->bale_bot_name) {
+            if ($type == 'bale') {
                 $message = 'روبات بله شما ساخته شده باید توکن روبات تلگرام را اگر لازم دارید بفرستید';
             } else {
                 $message = 'روبات تلگرام شما ساخته شده باید توکن روبات بله را اگر لازم دارید بفرستید';
