@@ -39,7 +39,7 @@ class BotHelper
             $botItem = new Bot();
             $token = $text;
             $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem));
-            $message = self::properMessage($botItem, $messenger);
+            $message = self::properMessage($botItem, $messenger, $type);
         } else {
             $message = 'این یک توکن تلگرام یا بله نیست';
         }
@@ -113,9 +113,9 @@ class BotHelper
      * @param Telegram $messenger
      * @return string
      */
-    public static function properMessage(Bot $botItem, Telegram $messenger): string
+    public static function properMessage(Bot $botItem, Telegram $messenger, $type): string
     {
-        $message = 'روبات شما @' . ($botItem->bale_bot_name != "" ?? $botItem->telegram_bot_name) . ' ساخته شد';
+        $message = 'روبات شما @' . ($type == 'bale' ? $botItem->bale_bot_name : $botItem->telegram_bot_name) . ' ساخته شد';
         self::sendMessage($messenger, $message);
 
         if ($botItem->bale_bot_name && $botItem->telegram_bot_name) {
