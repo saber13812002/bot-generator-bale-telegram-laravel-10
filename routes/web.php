@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-})->middleware('set.locale');
+});
 
 Route::get('/approve', function () {
     return view('approve');

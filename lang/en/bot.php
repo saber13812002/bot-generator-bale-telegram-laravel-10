@@ -39,5 +39,5 @@ return [
     'Your request accepted as well' => 'Your request accepted as well.',
     'An error occurred when admin want to approve your request' => 'An error occurred when admin want to approve your request.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Please determine the minimum wind speed for bot to send you desired alert.',
-    '' => '',
+    'abc' => 'abc',
 ];
