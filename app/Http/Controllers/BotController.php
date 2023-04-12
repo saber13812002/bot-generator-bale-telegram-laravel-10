@@ -71,7 +71,7 @@ class BotController extends Controller
             } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
                 Log::warning($e->getMessage());
-                throw $e;
+//                throw $e;
             }
             // TODO: count check
             if (config('app.env') == 'local') {

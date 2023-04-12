@@ -46,7 +46,7 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
             $weather_data = $this->weatherTomorrowApiRepository->call();
         } catch (Exception $e) {
             Log::warning($e->getMessage());
-            throw $e;
+//            throw $e;
             return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";
         }
         return self::generateMessageByTomorrowData($botText, $weather_data['data']['timelines'][0]['intervals']);

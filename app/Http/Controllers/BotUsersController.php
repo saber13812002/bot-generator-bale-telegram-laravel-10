@@ -33,9 +33,9 @@ class BotUsersController extends Controller
                     ->get()
                     ->firstOrFail();
             } catch (\Exception $e) {
-                BotHelper::sendMessageToSuperAdmin('تایید یک ادمین برای یک کاربر با خطا مواجه شد', $type);
+                BotHelper::sendMessageToSuperAdmin(trans("bot.An error occurred when admin want to approve your request"), $type);
                 Log::warning($e->getMessage());
-                throw $e;
+//                throw $e;
             }
 
             $bot = new Telegram($botItem->bale_bot_token, $type);
@@ -52,13 +52,13 @@ class BotUsersController extends Controller
                 $message = 'یا این روبات قبلا تایید شده است و الان دارد دوباره تایید میشود';
                 BotHelper::sendMessageToBotAdmin($bot, $message);
                 Log::warning($e->getMessage());
-                throw $e;
+//                throw $e;
             }
 
             $botUserItem->status = 'active';
             $botUserItem->save();
 
-            BotHelper::sendMessageByChatId($bot, $request->chat_id, 'فعالیت شما تایید شد');
+            BotHelper::sendMessageByChatId($bot, $request->chat_id, trans("bot.Your request accepted as well").trans("bot.You can start your activities"));
             BotHelper::sendMessageByChatId($bot, $botItem->bale_owner_chat_id, 'این کاربر تایید شد:' . $request->chat_id);
             BotHelper::sendMessageToSuperAdmin('تایید یک کاربر توسط ادمین روبات ایکس با موفقیت انجام شد', $type);
 

@@ -22,7 +22,7 @@ class BotHelper
         } else if (TokenHelper::isToken($text, $type)) {
             self::newBot($messenger, $type);
         } else {
-            $message = 'دستور شما منجر به هیچ کاری نشد';
+            $message = trans("bot.this command not recognized");
             self::sendMessage($messenger, $message);
             self::start($messenger);
         }
@@ -41,14 +41,14 @@ class BotHelper
             $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem));
             $message = self::properMessage($botItem, $messenger, $type);
         } else {
-            $message = 'این یک توکن تلگرام یا بله نیست';
+            $message = trans("bot.this is not correct bot token");
         }
         self::sendMessage($messenger, $message);
     }
 
     private static function start(Telegram $messenger): void
     {
-        $message = 'برای ساخت روبات توکن را بفرستید';
+        $message = trans("bot.send your token to turn on your bot");
         self::sendMessage($messenger, $message);
     }
 
@@ -69,7 +69,7 @@ class BotHelper
                 $webHookUrl = self::createWebhookUrl($botItem);
                 $result = $newBotBale->setWebhook($webHookUrl);
                 if (!$result['ok']) {
-                    $message = 'وب هوک ست نشد. با ادمین تماس بگیرید @sabertaba';
+                    $message = trans("bot.i cant configure your bot") . " " . trans("bot.please call admin by this account") . ' @sabertaba';
                     self::sendMessage($messenger, $message);
                 } else {
                     //telegram_webhook_is_set
@@ -116,17 +116,17 @@ class BotHelper
      */
     public static function properMessage(Bot $botItem, Telegram $messenger, $type): string
     {
-        $message = 'روبات شما @' . ($type == 'bale' ? $botItem->bale_bot_name : $botItem->telegram_bot_name) . ' ساخته شد';
+        $message = trans("bot.your bots") . ' @' . ($type == 'bale' ? $botItem->bale_bot_name : $botItem->telegram_bot_name) . ' ' . trans("bot.created");
         self::sendMessage($messenger, $message);
 
         if ($botItem->bale_bot_name && $botItem->telegram_bot_name) {
-            $message = 'روبات های شما ' . ($botItem->bale_bot_name . " و " . $botItem->telegram_bot_name) . ' ساخته شده است دوستان خود را برای استارت کردن روبات ها به کلیک روی اسم آنها با ات سایت دعوت کنید';
+            $message = trans("bot.Your bots") . ($botItem->bale_bot_name . " " . trans("bot.and") . " " . $botItem->telegram_bot_name) . trans("bot.your bot created as well.") . trans("bot.please invite your friends via your bot link or bot username");
             self::sendMessage($messenger, $message);
         } else if ($botItem->bale_bot_name || $botItem->telegram_bot_name) {
             if ($type == 'bale') {
-                $message = 'روبات بله شما ساخته شده باید توکن روبات تلگرام را اگر لازم دارید بفرستید';
+                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.bale")]) . " " . trans("bot.If you need :bot bot please send another token", ['bot' => trans("bot.telegram")]);
             } else {
-                $message = 'روبات تلگرام شما ساخته شده باید توکن روبات بله را اگر لازم دارید بفرستید';
+                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.telegram")]) . " " . trans("bot.If you need :bot bot please send another token", ['bot' => trans("bot.bale")]);
             }
             self::sendMessage($messenger, $message);
         }
@@ -188,8 +188,8 @@ class BotHelper
     {
         $option = array(
             //First row
-            array($messenger->buildInlineKeyBoardButton("بعدی", callback_data: $next)),
-            array($messenger->buildInlineKeyBoardButton("قبلی", callback_data: $back))
+            array($messenger->buildInlineKeyBoardButton(trans('pagination.next'), callback_data: $next)),
+            array($messenger->buildInlineKeyBoardButton(trans('pagination.previous'), callback_data: $back))
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
@@ -309,7 +309,7 @@ class BotHelper
     {
         $option = array(
             //First row
-            array($messenger->buildInlineKeyBoardButton("بازگشت به فهرست", callback_data: "/start"))
+            array($messenger->buildInlineKeyBoardButton(trans("bots.return to command list"), callback_data: "/start"))
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
@@ -339,7 +339,7 @@ class BotHelper
             $botItem->save();
         } catch (\Exception $e) {
             if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
-                self::sendMessage($messenger, "این روبات و توکن قبلا در این سیستم استفاده شده است اگر متوجه اشکال نشدید این پیام را به همراه ساعت و تاریخ برای ادمین ما بفرستید @sabertaba");
+                self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
             } else {
                 self::sendMessage($messenger, $e->getMessage());
             }

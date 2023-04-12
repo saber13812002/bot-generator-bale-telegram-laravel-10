@@ -14,3 +14,8 @@
  - php artisan migrate
  - php artisan db:seed
  - extension=mbstring
+
+
+### for translate:
+
+php artisan translation:sync

@@ -41,7 +41,7 @@ class WeatherController extends Controller
             if ($bot->Text() == "/current") {
                 $message = $this->weatherOpenWeatherMapApiService->getMessage();
             } else if ($bot->Text() == "/forecasting") {
-                $message = "حدقل سرعت باد رو با ارسال یک عدد کوچکتر از 20 تعیین کنید که پیش بینی رو براتون بفرستم";
+                $message = trans("bot.Please determine the minimum wind speed for bot to send you desired alert");
             } else if ($bot->Text() > 1 && $bot->Text() < 20) {
                 $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
             } else {
