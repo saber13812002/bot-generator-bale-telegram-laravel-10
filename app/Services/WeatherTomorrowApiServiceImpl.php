@@ -88,7 +88,7 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
 //                $weather_description = ($weatherDataItem["values"]["rainIntensity"]);
 //                BotHelper::sendMessageToSuperAdmin($weather_description, 'telegram');
 
-                $windSpeed = $weatherDataItem["values"]['windSpeed'];
+                $windSpeed = $weatherDataItem["values"]['windGust'];
 
                 if ($windSpeed > $windSpeedLimit) {
                     $raiseLimitCount++;
