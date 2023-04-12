@@ -3,6 +3,8 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use GuzzleHttp;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
 use PHPUnit\Exception;
 use Telegram;
@@ -37,7 +39,7 @@ class BotHelper
             $botItem = new Bot();
             $token = $text;
             $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem));
-            $message = self::properMessage($botItem, $messenger);
+            $message = self::properMessage($botItem, $messenger, $type);
         } else {
             $message = 'این یک توکن تلگرام یا بله نیست';
         }
@@ -109,18 +111,19 @@ class BotHelper
     /**
      * @param Bot $botItem
      * @param Telegram $messenger
+     * @param $type
      * @return string
      */
-    public static function properMessage(Bot $botItem, Telegram $messenger): string
+    public static function properMessage(Bot $botItem, Telegram $messenger, $type): string
     {
-        $message = 'روبات شما @' . ($botItem->bale_bot_name ?? $botItem->telegram_bot_name) . ' ساخته شد';
+        $message = 'روبات شما @' . ($type == 'bale' ? $botItem->bale_bot_name : $botItem->telegram_bot_name) . ' ساخته شد';
         self::sendMessage($messenger, $message);
 
         if ($botItem->bale_bot_name && $botItem->telegram_bot_name) {
             $message = 'روبات های شما ' . ($botItem->bale_bot_name . " و " . $botItem->telegram_bot_name) . ' ساخته شده است دوستان خود را برای استارت کردن روبات ها به کلیک روی اسم آنها با ات سایت دعوت کنید';
             self::sendMessage($messenger, $message);
         } else if ($botItem->bale_bot_name || $botItem->telegram_bot_name) {
-            if ($botItem->bale_bot_name) {
+            if ($type == 'bale') {
                 $message = 'روبات بله شما ساخته شده باید توکن روبات تلگرام را اگر لازم دارید بفرستید';
             } else {
                 $message = 'روبات تلگرام شما ساخته شده باید توکن روبات بله را اگر لازم دارید بفرستید';
@@ -158,6 +161,7 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
+
     /**
      * @param Telegram $messenger
      * @param string $message
@@ -177,6 +181,23 @@ class BotHelper
 
     /**
      * @param Telegram $messenger
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
+    {
+        $option = array(
+            //First row
+            array($messenger->buildInlineKeyBoardButton("بعدی", callback_data: $next)),
+            array($messenger->buildInlineKeyBoardButton("قبلی", callback_data: $back))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+    }
+
+    /**
+     * @param Telegram $messenger
+     * @param $chat_id
      * @param string $message
      * @return void
      */
@@ -213,19 +234,86 @@ class BotHelper
         BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM'), $message);
     }
 
+    public static function sendTelegram4InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
+    {
 
-    private static function sendStartMessage(Telegram $messenger, string $message): void
+        if (!$isInlineKeyBoard) {
+            $option = array(
+//            First row
+                array($messenger->buildKeyboardButton($array[0][1]), $messenger->buildKeyboardButton($array[1][1])),
+                //Second row
+                array($messenger->buildKeyboardButton($array[2][1]), $messenger->buildKeyboardButton($array[3][1])),
+                //Third row
+//            array($messenger->buildKeyboardButton("Button 6"))
+            );
+            $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
+            self::sendKeyboardMessage($messenger, $message, $keyboard);
+        } else {
+            $option = array(
+                //First row
+                array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
+                //Second row
+                array($messenger->buildInlineKeyBoardButton($array[2][0], callback_data: $array[2][1]), $messenger->buildInlineKeyBoardButton($array[3][0], callback_data: $array[3][1])),
+                //Third row
+//                        array($bot->buildInlineKeyBoardButton("Button 6", $url = "http://link6.com")))
+            );
+            $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+            self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+        }
+    }
+
+    public static function sendTelegram2InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
+    {
+        if (!$isInlineKeyBoard) {
+            $option = array(
+                array($messenger->buildKeyboardButton($array[0][1]), $messenger->buildKeyboardButton($array[1][1])),
+            );
+            $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
+            self::sendKeyboardMessage($messenger, $message, $keyboard);
+        } else {
+            $option = array(
+                array(
+                    $messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]),
+                    $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1]),
+                ),
+            );
+            $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+            self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+        }
+    }
+
+    public static function sendTelegram6InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
+    {
+        if (!$isInlineKeyBoard) {
+            $option = array(
+                array($messenger->buildKeyboardButton($array[0][1]), $messenger->buildKeyboardButton($array[1][1])),
+                array($messenger->buildKeyboardButton($array[2][1]), $messenger->buildKeyboardButton($array[3][1])),
+                array($messenger->buildKeyboardButton($array[4][1]), $messenger->buildKeyboardButton($array[5][1])),
+            );
+            $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
+            self::sendKeyboardMessage($messenger, $message, $keyboard);
+        } else {
+            $option = array(
+                array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), $messenger->buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
+
+                array($messenger->buildInlineKeyBoardButton($array[2][0], callback_data: $array[2][1]), $messenger->buildInlineKeyBoardButton($array[3][0], callback_data: $array[3][1])),
+
+                array($messenger->buildInlineKeyBoardButton($array[4][0], callback_data: $array[4][1]), $messenger->buildInlineKeyBoardButton($array[5][0], callback_data: $array[5][1])),
+            );
+            $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+            self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+        }
+    }
+
+    public static function sendStart(Telegram $messenger, string $message): void
     {
         $option = array(
             //First row
-//            array($messenger->buildKeyboardButton("Button 1"), $messenger->buildKeyboardButton("Button 2")),
-//            //Second row
-//            array($messenger->buildKeyboardButton("Button 3"), $messenger->buildKeyboardButton("Button 4"), $messenger->buildKeyboardButton("Button 5")),
-//            //Third row
-            array($messenger->buildKeyboardButton("Button 6")));
-        $keyboard = $messenger->buildKeyBoard($option, $onetime = false);
+            array($messenger->buildInlineKeyBoardButton("بازگشت به فهرست", callback_data: "/start"))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
 
-        self::sendKeyboardMessage($messenger, $message, $keyboard);
     }
 
     /**
@@ -255,7 +343,6 @@ class BotHelper
             } else {
                 self::sendMessage($messenger, $e->getMessage());
             }
-            throw $e;
         }
         return $botItem;
     }
@@ -272,5 +359,88 @@ class BotHelper
         BotHelper::sendMessage($bot, $message);
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
+    }
+
+    public static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
+    {
+        return [
+            [
+                [
+                    "text" => $text1,
+                    "callback_data" => $cd1
+                ],
+                [
+                    "text" => $text2,
+                    "callback_data" => $cd2
+                ]
+            ]
+        ];
+    }
+
+    public static function makeBaleKeyboard4button($array): array
+    {
+        return [
+            [
+                [
+                    "text" => $array[0][0],
+                    "callback_data" => $array[0][1]
+                ],
+                [
+                    "text" => $array[1][0],
+                    "callback_data" => $array[1][1]
+                ]
+            ],
+            [
+                [
+                    "text" => $array[2][0],
+                    "callback_data" => $array[2][1]
+                ],
+                [
+                    "text" => $array[3][0],
+                    "callback_data" => $array[3][1]
+                ]
+            ]
+        ];
+    }
+
+    public static function makeKeyboard6button($array): array
+    {
+        $arr = [];
+        for ($j = 0, $i = 0; $j < count($array); $j++) {
+            $arr[$i++] =
+                [
+                    [
+                        "text" => $array[$j][0],
+                        "callback_data" => $array[$j][1]
+                    ],
+                    [
+                        "text" => $array[++$j][0],
+                        "callback_data" => $array[$j][1]
+                    ]
+                ];
+        }
+        return $arr;
+    }
+
+    /**
+     * @param $botToken
+     * @param $chatId
+     * @param string $message
+     * @param $inlineKeyboard
+     * @return void
+     * @throws GuzzleException
+     */
+    public static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
+    {
+        $client = new GuzzleHttp\Client();
+        $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
+        $response = $client->post($uri, ['json' => [
+            "chat_id" => $chatId,
+            "text" => $message,
+            "reply_markup" => [
+                "inline_keyboard" => $inlineKeyboard
+            ]]]);
+//        echo $request->getStatusCode(); // 200
+        echo $response->getBody()->getContents();
     }
 }
