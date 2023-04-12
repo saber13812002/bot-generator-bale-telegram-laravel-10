@@ -93,26 +93,45 @@ class QuranHefzBotHelper
     {
         $message = "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-دو جور مطالعه قرآن داریم
-یکی کلمه به کلمه ";
+" .
+            trans('bot.this bot support 2 methods') . "
+" .
+            trans('bot.one of them') . "
+" .
+            trans('bot.word by word');
         if ($type == 'bale') {
-            $messageCommands = "که از اینجا شروع کنید
-کلمه به کلمه:/" . 1 . "
-
-یکی دیگه:
-آیه به آیه که میتونید از اینجا شروع کنید
+            $messageCommands = "
+" .
+                trans('bot.this bot support 2 methods') . "
+" .
+                trans('bot.word by word') . "
+:/" . 1 . "
+" .
+                trans('bot.ayah after ayah') . "
 /sure2ayah2
-فهرست 114 سوره
+" .
+                trans('bot.List of 114 Surahs') . "
 /commandFehrest
-فهرست 30 جزء
+" .
+                trans('bot.List of 30 Juz') . "
 /commandJoz";
         } else {
             $messageCommands = "
-یکی دیگه:
-آیه به آیه از دکمه دوم شروع کنید
+" .
+                trans('bot.another method is') . "
+" .
+                trans('bot.ayah after ayah') . "
+" .
+                trans('bot.start from second button') . "
 
-فهرست 114 سوره دکمه سوم
-فهرست 30 جزء دکمه چهارم استفاده کنید
+" .
+                trans('bot.List of 114 Surahs') . "
+" .
+                trans('bot.third button') . "
+" .
+                trans('bot.List of 30 Juz') . "
+" .
+                trans('bot.forth button') . "
 ";
         }
 

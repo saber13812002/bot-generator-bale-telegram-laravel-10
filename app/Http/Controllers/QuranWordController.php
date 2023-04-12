@@ -51,7 +51,7 @@ class QuranWordController extends Controller
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
 
-                $array = [[trans('bot.word by word'), "/1"], ["آیه به آیه", "/sure2ayah2"], ["فهرست 114 سوره", "/commandFehrest"], ["فهرست 30 جز", "/commandJoz"]];
+                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/commandFehrest"], [trans('bot.List of 30 Juz'), "/commandJoz"]];
 
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands, $array, true);
