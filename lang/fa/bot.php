@@ -42,4 +42,6 @@ return [
     'An error occurred when admin want to approve your request'                 => 'هنگامی که مدیر می خواهد درخواست شما را تأیید کند، خطایی روی داد.تایید یک ادمین برای یک کاربر با خطا مواجه شد.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'لطفاً حداقل سرعت باد را برای ربات تعیین کنید تا هشدار مورد نظر شما را ارسال کند.حدقل سرعت باد رو با ارسال یک عدد کوچکتر از 20 تعیین کنید که پیش بینی رو براتون بفرستم',
     'abc'                                                                       => 'الف',
+    'previous'                                                                  => 'قبلی',
+    'next'                                                                      => 'بعدی',
 ];

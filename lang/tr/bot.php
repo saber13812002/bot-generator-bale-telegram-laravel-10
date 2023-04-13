@@ -41,4 +41,6 @@ return [
     'Your request accepted as well'                                             => 'Talebiniz de kabul edildi.',
     'An error occurred when admin want to approve your request'                 => 'Yönetici talebinizi onaylamak isterken bir hata oluştu.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Lütfen botun size istediğiniz uyarıyı göndermesi için minimum rüzgar hızını belirleyin.',
+    'previous'                                                                  => 'Önceki',
+    'next'                                                                      => 'Sonraki',
 ];

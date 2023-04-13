@@ -41,4 +41,6 @@ return [
     'Your request accepted as well'                                             => 'Ваш запрос также принят.',
     'An error occurred when admin want to approve your request'                 => 'Произошла ошибка, когда администратор хотел одобрить ваш запрос.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Пожалуйста, определите минимальную скорость ветра, чтобы бот отправил вам желаемое оповещение.',
+    'previous'                                                                  => 'Предыдущий',
+    'next'                                                                      => 'Следующий',
 ];

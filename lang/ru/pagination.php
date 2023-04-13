@@ -1,5 +1,5 @@
 <?php
 return [
-    'previous' => '&laquo; аят',
+    'previous' => '&laquo;  Предыдущая',
     'next'     => 'Далее  &raquo;',
 ];

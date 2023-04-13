@@ -41,4 +41,5 @@ return [
     'Your request accepted as well'                                             => '也接受你的请求。',
     'An error occurred when admin want to approve your request'                 => '当管理员想批准你的请求时，发生了一个错误。',
     'Please determine the minimum wind speed for bot to send you desired alert' => '请确定机器人向您发送所需警报的最低风速。',
+    'next'                                                                      => '下一页',
 ];

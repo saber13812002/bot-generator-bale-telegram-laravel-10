@@ -41,4 +41,6 @@ return [
     'Your request accepted as well'                                             => 'تم إنشاء روبوتك :bot أيضًا.',
     'An error occurred when admin want to approve your request'                 => 'حدث خطأ عندما يريد المسؤول الموافقة على طلبك.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'إذا كنت بحاجة إلى برنامج :bot. الرجاء إرسال رمز آخر',
+    'previous'                                                                  => 'سابق',
+    'next'                                                                      => 'التالي',
 ];

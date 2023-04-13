@@ -76,7 +76,7 @@ class QuranWordController extends Controller
                 if ($type == 'telegram')
                     BotHelper::sendMessageAye($bot, $message, "/" . $next, "/" . $back);
                 else {
-                    $inlineKeyboard = BotHelper::makeKeyboard2button(trans('pagination.next'), "/" . $next, trans('pagination.previous'), "/" . $back);
+                    $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                     BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif (str_starts_with($botText, $commandTemplateSure)) {
@@ -135,13 +135,20 @@ class QuranWordController extends Controller
                     }
                 }
             } else {
-                $message = trans('bots.bot cant recognized your command') . " /start";
+                $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);
             }
 
-            if ($type != 'bale' && $isStartCommandShow) {
-                $message = trans("bots.return to command list"); // . $botText . ": -< :" . $bot->Text()
-                BotHelper::sendStart($bot, $message);
+            if ($isStartCommandShow) {
+
+                $array = [trans("bot.return to command list"),  "/start"];
+                $message = $array[0][0];
+                if ($type == 'telegram') {
+                    BotHelper::sendStart($bot, $array);
+                } else {
+                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                    BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
+                }
             }
 //            return Response::HTTP_ACCEPTED;
         } else {

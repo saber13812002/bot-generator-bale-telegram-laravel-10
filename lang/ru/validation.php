@@ -3,7 +3,7 @@ return [
     'accepted'         => 'Поле :attribute должно быть принято, если :other равно :value.',
     'accepted_if'      => 'Поле :attribute должно быть принято, если :other равно :value.',
     'active_url'       => 'Поле :attribute должно быть принято, если :other равно :value.',
-    'after'            => 'Поле :attribute должно быть принято, если :other равно :value.',
+    'after'            => 'Поле :attribute должно быть датой после :date.',
     'after_or_equal'   => 'Поле :attribute должно быть датой после или равной :date.',
     'alpha'            => 'Поле :attribute должно быть принято, если :other равно :value.',
     'alpha_dash'       => 'Поле :attribute должно содержать только буквы, цифры, тире и знаки подчеркивания.',

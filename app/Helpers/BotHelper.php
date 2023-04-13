@@ -188,8 +188,8 @@ class BotHelper
     {
         $option = array(
             //First row
-            array($messenger->buildInlineKeyBoardButton(trans('pagination.next'), callback_data: $next)),
-            array($messenger->buildInlineKeyBoardButton(trans('pagination.previous'), callback_data: $back))
+            array($messenger->buildInlineKeyBoardButton(trans('bot.next'), callback_data: $next)),
+            array($messenger->buildInlineKeyBoardButton(trans('bot.previous'), callback_data: $back))
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
@@ -305,14 +305,13 @@ class BotHelper
         }
     }
 
-    public static function sendStart(Telegram $messenger, string $message): void
+    public static function sendStart(Telegram $messenger, $array): void
     {
         $option = array(
-            //First row
-            array($messenger->buildInlineKeyBoardButton(trans("bots.return to command list"), callback_data: "/start"))
+            array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
-        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+        self::sendKeyboardMessage($messenger, $array[0][0], $inlineKeyboard);
 
     }
 
@@ -419,6 +418,19 @@ class BotHelper
                     ]
                 ];
         }
+        return $arr;
+    }
+
+    public static function makeBaleKeyboard1button($array): array
+    {
+        $arr = [];
+        $arr[0] =
+            [
+                [
+                    "text" => $array[0][0],
+                    "callback_data" => $array[0][1]
+                ]
+            ];
         return $arr;
     }
 

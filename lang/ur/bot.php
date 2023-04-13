@@ -41,4 +41,6 @@ return [
     'Your request accepted as well'                                             => 'آپ کی درخواست بھی قبول کر لی گئی۔',
     'An error occurred when admin want to approve your request'                 => 'ایک خرابی اس وقت پیش آگئی جب منتظم آپ کی درخواست کو منظور کرنا چاہتا ہے۔',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'براہ کرم آپ کو مطلوبہ الرٹ بھیجنے کے لیے بوٹ کے لیے ہوا کی کم از کم رفتار کا تعین کریں۔',
+    'previous'                                                                  => 'پچھلا',
+    'next'                                                                      => 'اگلے',
 ];
