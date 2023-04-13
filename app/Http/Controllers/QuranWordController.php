@@ -34,9 +34,9 @@ class QuranWordController extends Controller
 //        BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . $type, 'bale');
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
-                $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_BALE"), 'bale');
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE"), 'bale');
             } elseif ($request->input('origin') == 'telegram') {
-                $bot = new Telegram(env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM"));
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM"));
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } else {
                 return 200;
@@ -141,7 +141,7 @@ class QuranWordController extends Controller
 
             if ($isStartCommandShow) {
 
-                $array = [trans("bot.return to command list"),  "/start"];
+                $array = [trans("bot.return to command list"), "/start"];
                 $message = $array[0][0];
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);
