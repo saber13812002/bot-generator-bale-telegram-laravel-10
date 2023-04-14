@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
 use App\Helpers\TokenHelper;
+use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
 use App\Models\Bot;
@@ -19,28 +20,23 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function baleWebhook()
+    public function botMotherWebhook(BotRequest $request)
     {
-        $type = 'bale';
-        $bale = $this->getMotherBotByType($type);
-        $message = 'چند لحظه صبر کنید...';
-        BotHelper::sendMessage($bale, $message);
-        //echo($bale->reply);
-        BotHelper::switchCase($bale, $type);
+        if ($request->has('origin')) {
+            $type = $request->input('origin');
+            if ($type == 'bale') {
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
+            } else {
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
+            }
+
+            $message = trans('bot.please wait');
+            BotHelper::sendMessage($bot, $message);
+            //echo($bale->reply);
+            BotHelper::switchCase($bot, $type);
+        }
     }
 
-    /**
-     * @throws Exception
-     */
-    public function telegramWebhook()
-    {
-        $type = 'telegram';
-        $bale = $this->getMotherBotByType($type);
-        $message = 'چند لحظه صبر کنید...';
-        BotHelper::sendMessage($bale, $message);
-        //echo($bale->reply);
-        BotHelper::switchCase($bale, $type);
-    }
 
     /**
      * Display a listing of the resource.
@@ -192,8 +188,7 @@ class BotController extends Controller
     function getMotherBotByType(string $type): Telegram
     {
         $bot_token = TokenHelper::getMotherBotToken($type);
-        $bale = new Telegram($bot_token, $type);
-        return $bale;
+        return new Telegram($bot_token, $type);
     }
 
     /**
