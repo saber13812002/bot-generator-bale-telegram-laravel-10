@@ -22,16 +22,11 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-
 Route::post('/webhook-bot-mother', [BotController::class, 'botMotherWebhook']);
 
-Route::post('/webhook-telegram-users', [BotController::class, 'telegramUsersWebhook']);
-Route::post('/webhook-bale-users', [BotController::class, 'baleUsersWebhook']);
+Route::post('/webhook-bot-children', [BotController::class, 'childrenWebhook']);
 Route::get('/approve', [BotUsersController::class, 'approve']);
 
-
 Route::post('/webhook-weather', [WeatherController::class, 'index']);
-
-
 
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);

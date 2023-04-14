@@ -14,14 +14,18 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    public static function switchCase(Telegram $messenger, $type): void
+    public static function switchCase(Telegram $messenger, $type, $language): void
     {
         $text = $messenger->Text();
         if ($text == '/start' || $text == 'ساختن') {
             self::start($messenger);
         } else if (TokenHelper::isToken($text, $type)) {
-            self::newBot($messenger, $type);
-        } else {
+            self::newBot($messenger, $type, $language);
+        }
+//        else if ($language != 'fa') {
+//            self::setBotLanguage($messenger, $type, $language);
+//        }
+        else {
             $message = trans("bot.this command not recognized");
             self::sendMessage($messenger, $message);
             self::start($messenger);
@@ -31,19 +35,25 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    private static function newBot(Telegram $messenger, $type): void
+    private static function newBot(Telegram $messenger, $type, $language): void
     {
         $text = $messenger->Text();
         $isToken = TokenHelper::isToken($text, $type);
         if ($isToken) {
             $botItem = new Bot();
             $token = $text;
-            $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem) : self::callTelegram($text, $messenger, $botItem));
+            $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language) : self::callTelegram($text, $messenger, $botItem, $language));
             $message = self::properMessage($botItem, $messenger, $type);
         } else {
             $message = trans("bot.this is not correct bot token");
         }
         self::sendMessage($messenger, $message);
+    }
+
+    public static function setBotLanguage($messenger, $type, $language)
+    {
+        $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language) : self::callTelegram($text, $messenger, $botItem, $language));
+        $message = self::properMessage($botItem, $messenger, $type);
     }
 
     private static function start(Telegram $messenger): void
@@ -56,17 +66,18 @@ class BotHelper
      * @param mixed $token
      * @param Telegram $messenger
      * @param Bot $botItem
+     * @param string $language
      * @return Bot
      * @throws \Exception
      */
-    public static function callBale(mixed $token, Telegram $messenger, Bot $botItem): Bot
+    public static function callBale(mixed $token, Telegram $messenger, Bot $botItem, string $language = 'fa'): Bot
     {
         try {
             $newBotBale = new Telegram($token, 'bale');
             $getMeBale = ($newBotBale->getMe());
             if ($getMeBale['ok']) {
                 $botItem = self::defineCreateBot($messenger, $getMeBale, 'bale');
-                $webHookUrl = self::createWebhookUrl($botItem);
+                $webHookUrl = self::createWebhookUrl($botItem, 'bale', $language);
                 $result = $newBotBale->setWebhook($webHookUrl);
                 if (!$result['ok']) {
                     $message = trans("bot.i cant configure your bot") . " " . trans("bot.please call admin by this account") . ' @sabertaba';
@@ -94,7 +105,7 @@ class BotHelper
      * @return Bot
      * @throws \Exception
      */
-    public static function callTelegram(mixed $text, Telegram $messenger, Bot $botItem): Bot
+    public static function callTelegram(mixed $text, Telegram $messenger, Bot $botItem, $language): Bot
     {
         try {
             $newBotTelegram = new Telegram($text);
@@ -137,9 +148,9 @@ class BotHelper
      * @param Bot $botItem
      * @return string
      */
-    public static function createWebhookUrl(Bot $botItem): string
+    public static function createWebhookUrl(Bot $botItem, $type, $language): string
     {
-        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token;
+        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token . '&origin=' . $type . '&language=' . $language;
     }
 
     /**
@@ -321,6 +332,7 @@ class BotHelper
     private static function defineCreateBot(Telegram $messenger, $getMe, $type): Bot
     {
         $botItem = new Bot();
+        $botItem->bot_mother_id = 0;
         if ($type == 'bale') {
             $botItem->bale_owner_chat_id = $messenger->ChatID();
             $botItem->bale_bot_name = $getMe['result']['username'];

@@ -19,6 +19,7 @@ class BotController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @throws Exception
      */
     public function botMotherWebhook(BotRequest $request)
     {
@@ -30,10 +31,16 @@ class BotController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
+
+            if ($request->has('language')) {
+                $language = $request->input('language');
+            }
             $message = trans('bot.please wait');
             BotHelper::sendMessage($bot, $message);
             //echo($bale->reply);
-            BotHelper::switchCase($bot, $type);
+            $origin = $request->input('origin');
+            $language = $request->input('language');
+            BotHelper::switchCase($bot, $origin, $language);
         }
     }
 
@@ -41,7 +48,7 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function baleUsersWebhook(Request $request)
+    public function childrenWebhook(Request $request)
     {
         $type = 'bale';
         $baleMotherBot = $this->getMotherBotByType($type);
