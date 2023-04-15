@@ -245,9 +245,9 @@ class QuranWordController extends Controller
     function addAyeIdAndBesmella(int $aya, mixed $suraName, int $sure, string $message): string
     {
         if ($aya == 1) {
-            $message = $suraName . ($sure != 1 ? "
-بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+            $message = $suraName . (($sure == 1 || $sure == 9) ? "
 " : "
+بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
 ") . $message . "(" . $aya . ")";
         } else {
             $message .= "(" . $aya . ")";
