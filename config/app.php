@@ -83,7 +83,7 @@ return [
     */
 
     'locale' => 'fa',
-    'available_locale' => ['fa', 'en', 'ar-IQ', 'zh-CN', 'fr', 'de-DE', 'fa', 'ru', 'es', 'tr', 'ur'],
+    'available_locale' => ['fa', 'en', 'ar-IQ', 'zh-CN', 'fr', 'de-DE', 'fa', 'ru', 'es', 'tr', 'ur', 'he'],
 
     /*
     |--------------------------------------------------------------------------
