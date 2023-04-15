@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
 use App\Helpers\QuranHefzBotHelper;
-use App\Http\Requests\QuranBotRequest;
+use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
 use App\Models\QuranSurah;
@@ -21,7 +21,7 @@ class QuranWordController extends Controller
      * Display a listing of the resource.
      * @throws GuzzleException
      */
-    public function index(QuranBotRequest $request)
+    public function index(BotRequest $request)
     {
         if ($request->has('language')) {
             App::setLocale($request->input('language'));
