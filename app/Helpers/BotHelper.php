@@ -14,13 +14,13 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    public static function switchCase(Telegram $messenger, $type, $language): void
+    public static function switchCase(Telegram $messenger, $type, $language, $botMotherId): void
     {
         $text = $messenger->Text();
         if ($text == '/start' || $text == 'ساختن') {
             self::start($messenger);
         } else if (TokenHelper::isToken($text, $type)) {
-            self::newBot($messenger, $type, $language);
+            self::newBot($messenger, $type, $language, $botMotherId);
         }
 //        else if ($language != 'fa') {
 //            self::setBotLanguage($messenger, $type, $language);
@@ -35,14 +35,14 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    private static function newBot(Telegram $messenger, $type, $language): void
+    private static function newBot(Telegram $messenger, $type, $language, $botMotherId): void
     {
         $text = $messenger->Text();
         $isToken = TokenHelper::isToken($text, $type);
         if ($isToken) {
             $botItem = new Bot();
             $token = $text;
-            $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language) : self::callTelegram($text, $messenger, $botItem, $language));
+            $botItem = self::defineBotInDbThenSetWebHook($token, $messenger, $botItem, $type, $language, $botMotherId);
             $message = self::properMessage($botItem, $messenger, $type);
         } else {
             $message = trans("bot.this is not correct bot token");
@@ -50,10 +50,10 @@ class BotHelper
         self::sendMessage($messenger, $message);
     }
 
-    public static function setBotLanguage($messenger, $type, $language)
+    public static function setBotLanguage($messenger, $type, $language, $botMotherId): void
     {
-        $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language) : self::callTelegram($text, $messenger, $botItem, $language));
-        $message = self::properMessage($botItem, $messenger, $type);
+//        $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language, $botMotherId) : self::callTelegram($text, $messenger, $botItem, $language, $botMotherId));
+//        $message = self::properMessage($botItem, $messenger, $type);
     }
 
     private static function start(Telegram $messenger): void
@@ -66,25 +66,30 @@ class BotHelper
      * @param mixed $token
      * @param Telegram $messenger
      * @param Bot $botItem
+     * @param $type
      * @param string $language
+     * @param int $botMotherId
      * @return Bot
      * @throws \Exception
      */
-    public static function callBale(mixed $token, Telegram $messenger, Bot $botItem, string $language = 'fa'): Bot
+    public static function defineBotInDbThenSetWebHook(mixed $token, Telegram $messenger, Bot $botItem, $type, string $language = 'fa', int $botMotherId = 1): Bot
     {
         try {
-            $newBotBale = new Telegram($token, 'bale');
+            $newBotBale = new Telegram($token, $type);
             $getMeBale = ($newBotBale->getMe());
             if ($getMeBale['ok']) {
-                $botItem = self::defineCreateBot($messenger, $getMeBale, 'bale');
-                $webHookUrl = self::createWebhookUrl($botItem, 'bale', $language);
+                $botItem = self::defineCreateBot($messenger, $getMeBale, $type, $botMotherId);
+                $webHookUrl = self::createWebhookUrl($botItem, $type, $language, $botMotherId);
                 $result = $newBotBale->setWebhook($webHookUrl);
                 if (!$result['ok']) {
-                    $message = trans("bot.i cant configure your bot") . " " . trans("bot.please call admin by this account") . ' @sabertaba';
+                    $message = trans("bot.i cant configure your bot") . " type:" . $type . " :" . trans("bot.please call admin by this account") . ' @sabertaba';
                     self::sendMessage($messenger, $message);
                 } else {
-                    //telegram_webhook_is_set
-                    $botItem->telegram_webhook_is_set = 1;
+                    if ($type == 'bale') {
+                        $botItem->bale_webhook_is_set = 1;
+                    } else {
+                        $botItem->telegram_webhook_is_set = 1;
+                    }
                     $botItem->save();
                     if (config('app.env') == 'local') {
                         $message = 'وب هوک :' . $webHookUrl;
@@ -93,31 +98,11 @@ class BotHelper
                 }
             }
         } catch (Exception $e) {
-            Log::info("no bale bot");
+            Log::info("no " . $type . " bot");
         }
         return $botItem;
     }
 
-    /**
-     * @param mixed $text
-     * @param Telegram $messenger
-     * @param Bot $botItem
-     * @return Bot
-     * @throws \Exception
-     */
-    public static function callTelegram(mixed $text, Telegram $messenger, Bot $botItem, $language): Bot
-    {
-        try {
-            $newBotTelegram = new Telegram($text);
-            $getMeTelegram = ($newBotTelegram->getMe());
-            if ($getMeTelegram['ok']) {
-                self::defineCreateBot($messenger, $getMeTelegram, 'telegram');
-            }
-        } catch (Exception $e) {
-            Log::info("not telegram bot");
-        }
-        return $botItem;
-    }
 
     /**
      * @param Bot $botItem
@@ -135,9 +120,9 @@ class BotHelper
             self::sendMessage($messenger, $message);
         } else if ($botItem->bale_bot_name || $botItem->telegram_bot_name) {
             if ($type == 'bale') {
-                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.bale")]) . " " . trans("bot.If you need :bot bot please send another token", ['bot' => trans("bot.telegram")]);
+                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.bale")]) . " " . trans("bot.If you need :bot bot please send another token to https://t.me/botmomsbot", ['bot' => trans("bot.telegram")]);
             } else {
-                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.telegram")]) . " " . trans("bot.If you need :bot bot please send another token", ['bot' => trans("bot.bale")]);
+                $message = trans("bot.Your :bot bot created as well", ['bot' => trans("bot.telegram")]) . " " . trans("bot.If you need :bot bot please send another token to https://ble.ir/Testchannelbot ", ['bot' => trans("bot.bale")]);
             }
             self::sendMessage($messenger, $message);
         }
@@ -146,11 +131,14 @@ class BotHelper
 
     /**
      * @param Bot $botItem
+     * @param $type
+     * @param $language
+     * @param $botMotherId
      * @return string
      */
-    public static function createWebhookUrl(Bot $botItem, $type, $language): string
+    public static function createWebhookUrl(Bot $botItem, $type, $language, $botMotherId): string
     {
-        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token . '&origin=' . $type . '&language=' . $language;
+        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token . '&origin=' . $type . '&language=' . $language . '&bot_mother_id=' . $botMotherId;
     }
 
     /**
@@ -329,10 +317,10 @@ class BotHelper
     /**
      * @throws \Exception
      */
-    private static function defineCreateBot(Telegram $messenger, $getMe, $type): Bot
+    private static function defineCreateBot(Telegram $messenger, $getMe, $type, $botMotherId): Bot
     {
         $botItem = new Bot();
-        $botItem->bot_mother_id = 0;
+        $botItem->bot_mother_id = $botMotherId;
         if ($type == 'bale') {
             $botItem->bale_owner_chat_id = $messenger->ChatID();
             $botItem->bale_bot_name = $getMe['result']['username'];

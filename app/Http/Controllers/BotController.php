@@ -23,8 +23,9 @@ class BotController extends Controller
      */
     public function botMotherWebhook(BotRequest $request)
     {
-        if ($request->has('origin')) {
+        if ($request->has('origin') && $request->has('bot_mother_id')) {
             $type = $request->input('origin');
+            $botMotherId = $request->input('bot_mother_id');
             if ($type == 'bale') {
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
             } else {
@@ -33,14 +34,13 @@ class BotController extends Controller
 
 
             if ($request->has('language')) {
+                $message = trans('bot.please wait');
+                BotHelper::sendMessage($bot, $message);
+                //echo($bale->reply);
+                $type = $request->input('origin');
                 $language = $request->input('language');
+                BotHelper::switchCase($bot, $type, $language,$botMotherId);
             }
-            $message = trans('bot.please wait');
-            BotHelper::sendMessage($bot, $message);
-            //echo($bale->reply);
-            $origin = $request->input('origin');
-            $language = $request->input('language');
-            BotHelper::switchCase($bot, $origin, $language);
         }
     }
 
