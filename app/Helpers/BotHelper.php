@@ -138,7 +138,17 @@ class BotHelper
      */
     public static function createWebhookUrl(Bot $botItem, $type, $language, $botMotherId): string
     {
-        return config('bot.balewebhookurl') . '?bot_user_name=' . $botItem->bale_bot_name . '&bot_token=' . $botItem->bale_bot_token . '&origin=' . $type . '&language=' . $language . '&bot_mother_id=' . $botMotherId;
+        return config('bot.childbotwebhookurl')
+            . '?bot_user_name='
+            . $botItem->bale_bot_name
+            . '&bot_token='
+            . $botItem->bale_bot_token
+            . '&origin='
+            . $type
+            . '&language='
+            . $language
+            . '&bot_mother_id='
+            . $botMotherId;
     }
 
     /**

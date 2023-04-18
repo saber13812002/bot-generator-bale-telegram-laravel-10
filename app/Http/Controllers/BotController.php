@@ -96,7 +96,7 @@ class BotController extends Controller
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
                 $baleMotherBot->sendMessage($content);
-                $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
+                $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.childbotapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
                 $baleMotherBot->sendMessage($content);
             } else {
                 if ($user->status == 'active' && !str_starts_with($text, "/")) {
