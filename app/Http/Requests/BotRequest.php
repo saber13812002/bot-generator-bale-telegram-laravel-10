@@ -27,7 +27,8 @@ class BotRequest extends FormRequest
                 'required',
                 Rule::in(['bale', 'telegram', 'soroosh']),
             ],
-            'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,fa,ru,es,tr,ur,he'
+            'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,fa,ru,es,tr,ur,he',
+            'bot_mother_id' => 'required'
         ];
     }
 }

@@ -19,21 +19,28 @@ class BotController extends Controller
 {
     /**
      * Display a listing of the resource.
+     * @throws Exception
      */
     public function botMotherWebhook(BotRequest $request)
     {
-        if ($request->has('origin')) {
+        if ($request->has('origin') && $request->has('bot_mother_id')) {
             $type = $request->input('origin');
+            $botMotherId = $request->input('bot_mother_id');
             if ($type == 'bale') {
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
             } else {
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
-            $message = trans('bot.please wait');
-            BotHelper::sendMessage($bot, $message);
-            //echo($bale->reply);
-            BotHelper::switchCase($bot, $type);
+
+            if ($request->has('language')) {
+                $message = trans('bot.please wait');
+                BotHelper::sendMessage($bot, $message);
+                //echo($bale->reply);
+                $type = $request->input('origin');
+                $language = $request->input('language');
+                BotHelper::switchCase($bot, $type, $language,$botMotherId);
+            }
         }
     }
 
@@ -41,7 +48,7 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function baleUsersWebhook(Request $request)
+    public function childrenWebhook(Request $request)
     {
         $type = 'bale';
         $baleMotherBot = $this->getMotherBotByType($type);
@@ -89,7 +96,7 @@ class BotController extends Controller
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
                 $baleMotherBot->sendMessage($content);
-                $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.baleapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
+                $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.childbotapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
                 $baleMotherBot->sendMessage($content);
             } else {
                 if ($user->status == 'active' && !str_starts_with($text, "/")) {

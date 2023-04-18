@@ -2,7 +2,7 @@
 
 
 return [
-    'balewebhookurl' => env('APP_URL') . '/api/webhook-bale-users',
-    'baleapproveurl' => env('APP_URL') . '/api/approve'
+    'childbotwebhookurl' => env('APP_URL') . '/api/webhook-bot-children',
+    'childbotapproveurl' => env('APP_URL') . '/api/approve'
 
 ];
