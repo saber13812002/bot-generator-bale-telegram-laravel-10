@@ -18,7 +18,8 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
-        $this->call(QuranWordsTableSeeder::class);
-        $this->call(QuranSurahsTableSeeder::class);
+//        $this->call(QuranWordsTableSeeder::class);
+//        $this->call(QuranSurahsTableSeeder::class);
+        $this->call(TranslationsTableSeeder::class);
     }
 }
