@@ -22,11 +22,11 @@ class QuranHefzBotHelper
         foreach ($quranWords as $quranWord) {
             $message .= " " . $quranWord['text'];
         }
-//        if (App::getLocale() == 'fa') {
-//            $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
-////            dd($quranTranslate, $sure, $aye);
-//            $message .= " :" . $quranTranslate['text'];
-//        }
+        if (App::getLocale() == 'fa') {
+            $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
+//            dd($quranTranslate, $sure, $aye);
+            $message .= " :" . $quranTranslate['text'];
+        }
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
         }
