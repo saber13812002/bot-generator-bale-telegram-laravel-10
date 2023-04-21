@@ -354,8 +354,8 @@ class QuranWordController extends Controller
         $log->bot_id = 1;
         $log->chat_id = $bot->ChatID();
         $log->message_id = $bot->MessageID();
-        $log->from_id = $bot->FromID() ?? "";
-        $log->from_chat_id = $bot->FromChatID() ?? "";
+        $log->from_id = "";// $bot->FromID() ?? "";
+        $log->from_chat_id = "";// $bot->FromChatID() ?? "";
 
 //        dd($log->attributesToArray());
         $log->save();
