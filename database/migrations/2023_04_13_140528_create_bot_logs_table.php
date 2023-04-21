@@ -23,7 +23,7 @@ return new class extends Migration {
             $table->bigInteger('channel_group_type')->nullable();
             $table->unsignedInteger('bot_id')->nullable();
             $table->bigInteger('chat_id');
-            $table->bigInteger('message_id');
+            $table->bigInteger('message_id')->nullable();
             $table->bigInteger('from_id')->nullable();
             $table->bigInteger('from_chat_id')->nullable();
 
