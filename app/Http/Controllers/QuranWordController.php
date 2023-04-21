@@ -353,9 +353,9 @@ class QuranWordController extends Controller
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         $log->bot_id = 1;
         $log->chat_id = $bot->ChatID();
-        $log->message_id = 0;// $bot->MessageID();
-        $log->from_id = "";// $bot->FromID() ?? "";
-        $log->from_chat_id = "";// $bot->FromChatID() ?? "";
+//        $log->message_id = 0;// $bot->MessageID();
+//        $log->from_id = 0;// $bot->FromID() ?? "";
+//        $log->from_chat_id = 0;// $bot->FromChatID() ?? "";
 
 //        dd($log->attributesToArray());
         $log->save();
