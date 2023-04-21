@@ -7,11 +7,14 @@ use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
+use App\Models\BotLog;
 use App\Models\QuranSurah;
 use App\Models\QuranWord;
+use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Telegram;
 
@@ -23,6 +26,7 @@ class QuranWordController extends Controller
      */
     public function index(BotRequest $request)
     {
+
         if ($request->has('language')) {
             App::setLocale($request->input('language'));
         } else {
@@ -40,6 +44,12 @@ class QuranWordController extends Controller
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } else {
                 return 200;
+            }
+
+            try {
+                $this->log($request, $type, $bot);
+            } catch (Exception $e) {
+                Log::info($e->getMessage());
             }
 
             $commandTemplateSure = '/sure';
@@ -322,6 +332,33 @@ class QuranWordController extends Controller
             $message = trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6);
             BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
+    }
+
+    /**
+     * @param BotRequest $request
+     * @param mixed $type
+     * @param Telegram $bot
+     * @return void
+     */
+    public function log(BotRequest $request, mixed $type, Telegram $bot): void
+    {
+        $log = new BotLog();
+        $log->webhook_endpoint_uri = request()->segment(2);
+        $log->bot_mother_id = 0;
+        $log->language = $request->input('language');
+        $log->locale = App::getLocale();
+        $log->type = $type;
+        $log->text = substr($bot->Text(), 0, 19);
+        $log->is_command = substr($bot->Text(), 0, 1) === "/";
+        $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
+        $log->bot_id = 1;
+        $log->chat_id = $bot->ChatID();
+        $log->message_id = $bot->MessageID();
+        $log->from_id = $bot->FromID() ?? "";
+        $log->from_chat_id = $bot->FromChatID() ?? "";
+
+//        dd($log->attributesToArray());
+        $log->save();
     }
 
 }
