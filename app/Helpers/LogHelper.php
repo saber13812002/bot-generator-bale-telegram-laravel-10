@@ -25,7 +25,7 @@ class LogHelper
         $log->locale = App::getLocale();
         $log->type = $type;
         $log->text = substr($bot->Text(), 0, 19);
-        $log->is_command = substr($bot->Text(), 0, 1) === "/";
+        $log->is_command = str_starts_with($bot->Text(), "/");
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         $log->bot_id = 1;
         $log->chat_id = $bot->ChatID();

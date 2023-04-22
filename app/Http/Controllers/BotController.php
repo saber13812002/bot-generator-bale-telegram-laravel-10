@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\LogHelper;
 use App\Helpers\TokenHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreBotRequest;
@@ -66,6 +67,7 @@ class BotController extends Controller
 : " . $bot->ChatID();
                 BotHelper::sendMessage($bot, $message);
             }
+            LogHelper::log($request, $type, $bot);
         }
     }
 
