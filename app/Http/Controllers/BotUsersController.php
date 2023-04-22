@@ -7,6 +7,7 @@ use App\Http\Requests\StoreBotUsersRequest;
 use App\Http\Requests\UpdateBotUsersRequest;
 use App\Models\Bot;
 use App\Models\BotUsers;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -32,7 +33,7 @@ class BotUsersController extends Controller
                     ->whereBaleBotToken($request->token)
                     ->get()
                     ->firstOrFail();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin(trans("bot.An error occurred when admin want to approve your request"), $type);
                 Log::warning($e->getMessage());
 //                throw $e;
@@ -48,7 +49,7 @@ class BotUsersController extends Controller
                     ->get()
                     ->firstOrFail();
 
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $message = 'یا این روبات قبلا تایید شده است و الان دارد دوباره تایید میشود';
                 BotHelper::sendMessageToBotAdmin($bot, $message);
                 Log::warning($e->getMessage());

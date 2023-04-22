@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\LogHelper;
 use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
 use App\Models\QuranSurah;
 use App\Models\QuranWord;
+use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Telegram;
 
@@ -23,6 +26,7 @@ class QuranWordController extends Controller
      */
     public function index(BotRequest $request)
     {
+
         if ($request->has('language')) {
             App::setLocale($request->input('language'));
         } else {
@@ -40,6 +44,12 @@ class QuranWordController extends Controller
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } else {
                 return 200;
+            }
+
+            try {
+                LogHelper::log($request, $type, $bot);
+            } catch (Exception $e) {
+                Log::info($e->getMessage());
             }
 
             $commandTemplateSure = '/sure';
@@ -323,5 +333,6 @@ class QuranWordController extends Controller
             BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
     }
+
 
 }

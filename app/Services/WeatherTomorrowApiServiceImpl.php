@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Helpers\BotHelper;
 use App\Helpers\StringHelper;
 use App\Interfaces\Repositories\WeatherTomorrowApiRepository;
 use App\Interfaces\Services\WeatherTomorrowApiService;
