@@ -43,4 +43,5 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Veuillez déterminer la vitesse minimale du vent pour que bot vous envoie l\'alerte souhaitée.',
     'previous'                                                                  => 'Précédent',
     'next'                                                                      => 'Suivant',
+    'your chat id'                                                              => 'votre identifiant de chat :',
 ];

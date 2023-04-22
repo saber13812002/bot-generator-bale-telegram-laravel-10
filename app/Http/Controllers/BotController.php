@@ -39,11 +39,35 @@ class BotController extends Controller
                 //echo($bale->reply);
                 $type = $request->input('origin');
                 $language = $request->input('language');
-                BotHelper::switchCase($bot, $type, $language,$botMotherId);
+                BotHelper::switchCase($bot, $type, $language, $botMotherId);
             }
         }
     }
 
+
+    /**
+     * Display a listing of the resource.
+     * @throws Exception
+     */
+    public function getId(BotRequest $request)
+    {
+        if ($request->has('origin') && $request->has('bot_mother_id') && $request->has('token')) {
+            $type = $request->input('origin');
+            $botMotherId = $request->input('bot_mother_id');
+            if ($type == 'bale') {
+                $bot = new Telegram($request->input('token'), 'bale');
+            } else {
+                $bot = new Telegram($request->input('token'));
+            }
+
+
+            if ($request->has('language')) {
+                $message = trans('bot.your chat id') . "
+: " . $bot->ChatID();
+                BotHelper::sendMessage($bot, $message);
+            }
+        }
+    }
 
     /**
      * Display a listing of the resource.

@@ -41,5 +41,5 @@ return [
     'Your request accepted as well'                                             => 'Auch Ihr Antrag wird angenommen.',
     'An error occurred when admin want to approve your request'                 => 'Es ist ein Fehler aufgetreten, als der Administrator Ihre Anfrage genehmigen wollte.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Bitte bestimmen Sie die minimale Windgeschwindigkeit, damit der Bot die gewünschte Meldung senden kann.',
-    'abc'                                                                       => 'abc',
+    'your chat id'                                                              => 'ihre Chat-ID:',
 ];

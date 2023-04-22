@@ -23,6 +23,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::post('/webhook-bot-mother', [BotController::class, 'botMotherWebhook']);
+Route::post('/webhook-bot-get-id', [BotController::class, 'getId']);
 
 Route::post('/webhook-bot-children', [BotController::class, 'childrenWebhook']);
 Route::get('/approve', [BotUsersController::class, 'approve']);

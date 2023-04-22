@@ -43,4 +43,5 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'إذا كنت بحاجة إلى برنامج :bot. الرجاء إرسال رمز آخر',
     'previous'                                                                  => 'سابق',
     'next'                                                                      => 'التالي',
+    'your chat id'                                                              => 'معرف الدردشة الخاص بك:',
 ];

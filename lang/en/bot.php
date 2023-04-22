@@ -40,6 +40,7 @@ return [
     'An error occurred when admin want to approve your request' => 'An error occurred when admin want to approve your request.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Please determine the minimum wind speed for bot to send you desired alert.',
     'please wait' => 'please wait ...',
+    'your chat id' => 'your chat id:',
 
     'previous' => 'Previous',
     'next' => 'Next',
