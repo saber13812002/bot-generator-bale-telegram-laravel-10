@@ -36,11 +36,14 @@ class QuranWordController extends Controller
         $isStartCommandShow = 1;
         $type = $request->input('origin');
 //        BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . $type, 'bale');
+        $token = "";
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE"), 'bale');
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+                $bot = new Telegram($token, 'bale');
             } elseif ($request->input('origin') == 'telegram') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM"));
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                $bot = new Telegram($token);
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } else {
                 return 200;
@@ -67,7 +70,7 @@ class QuranWordController extends Controller
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands, $array, true);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
-                    BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
+                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
                 $wordId = $this->getWordId($bot);
@@ -87,7 +90,7 @@ class QuranWordController extends Controller
                     BotHelper::sendMessageAye($bot, $message, "/" . $next, "/" . $back);
                 else {
                     $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
-                    BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
+                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif (str_starts_with($botText, $commandTemplateSure)) {
                 if (preg_match('/sure(.*?)ayah/', substr($botText, 1, Str::length($botText)), $match) == 1) {
@@ -117,13 +120,12 @@ class QuranWordController extends Controller
                             }
 //                            $messageCommands = QuranHefzBotHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
-
                             $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
                             if ($type == 'telegram') {
                                 BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
                             } else {
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
-                                BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
+                                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
                         }
                     }
@@ -134,14 +136,14 @@ class QuranWordController extends Controller
                     if ($type == 'telegram') {
                         $this->generateTelegramFehrestThenSendIt($bot);
                     } else {
-                        $this->generateBaleFehrestThenSendIt($bot);
+                        $this->generateBaleFehrestThenSendIt($bot, $token);
                     }
                 }
                 if ($command == "Joz") {
                     if ($type == 'telegram') {
                         $this->generateJozKeyBoardThenSendItTelegram($bot);
                     } else {
-                        $this->generateJozKeyBoardThenSendIt($bot);
+                        $this->generateJozKeyBoardThenSendIt($bot, $token);
                     }
                 }
             } else {
@@ -157,7 +159,7 @@ class QuranWordController extends Controller
                     BotHelper::sendStart($bot, $array);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                    BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), $message, $inlineKeyboard);
+                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             }
 //            return Response::HTTP_ACCEPTED;
@@ -267,15 +269,16 @@ class QuranWordController extends Controller
 
     /**
      * @param Telegram $bot
+     * @param $token
      * @return void
      * @throws GuzzleException
      */
     public
-    function generateJozKeyBoardThenSendIt(Telegram $bot): void
+    function generateJozKeyBoardThenSendIt(Telegram $bot, $token): void
     {
         for ($i = 0; $i < 30; $i += 2) {
             $inlineKeyboard = BotHelper::makeKeyboard2button(trans("bot.Juz") . ($i + 1), config('juz.' . ($i + 1)), trans("bot.Juz") . ($i + 2), config('juz.' . ($i + 2)));
-            BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2), $inlineKeyboard);
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2), $inlineKeyboard);
         }
     }
 
@@ -295,11 +298,12 @@ class QuranWordController extends Controller
 
     /**
      * @param Telegram $bot
+     * @param $token
      * @return void
      * @throws GuzzleException
      */
     public
-    function generateBaleFehrestThenSendIt(Telegram $bot): void
+    function generateBaleFehrestThenSendIt(Telegram $bot, $token): void
     {
         $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
             ->get();
@@ -310,7 +314,7 @@ class QuranWordController extends Controller
             }
 
             $inlineKeyboard = BotHelper::makeKeyboard6button($array);
-            BotHelper::messageWithKeyboard(env("QURAN_HEFZ_BOT_TOKEN_BALE"), $bot->ChatID(), trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6), $inlineKeyboard);
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6), $inlineKeyboard);
         }
     }
 
@@ -333,6 +337,5 @@ class QuranWordController extends Controller
             BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
     }
-
 
 }
