@@ -3,10 +3,10 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use Exception;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
-use PHPUnit\Exception;
 use Telegram;
 
 class BotHelper
@@ -191,6 +191,8 @@ class BotHelper
     /**
      * @param Telegram $messenger
      * @param string $message
+     * @param $next
+     * @param $back
      * @return void
      */
     public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
@@ -346,7 +348,7 @@ class BotHelper
         }
         try {
             $botItem->save();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
                 self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
             } else {
