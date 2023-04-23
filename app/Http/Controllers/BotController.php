@@ -33,11 +33,10 @@ class BotController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
-
             if ($request->has('language')) {
                 $message = trans('bot.please wait');
                 BotHelper::sendMessage($bot, $message);
-                //echo($bale->reply);
+                //echo($bot->reply);
                 $type = $request->input('origin');
                 $language = $request->input('language');
                 BotHelper::switchCase($bot, $type, $language, $botMotherId);
