@@ -40,7 +40,7 @@ class weatherWindCommand extends Command
     public function handle(): void
     {
         $speed = $this->argument('speed');
-        $message = $this->weatherTomorrowApiService->getMessage(20, false);
+        $message = $this->weatherTomorrowApiService->getMessage(15, false);
         $postfix_local = ' : ' . env('APP_ENV');
         if (!$message) {
             BotHelper::sendMessageToSuperAdmin("چیزی نفرستاد" . $postfix_local, 'telegram');
