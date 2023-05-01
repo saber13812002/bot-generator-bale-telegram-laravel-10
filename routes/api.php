@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\QuranWordController;
@@ -31,3 +32,5 @@ Route::get('/approve', [BotUsersController::class, 'approve']);
 Route::post('/webhook-weather', [WeatherController::class, 'index']);
 
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
+
+Route::post('/webhook-blog', [BlogController::class, 'index']);
