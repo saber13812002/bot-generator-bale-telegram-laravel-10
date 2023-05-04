@@ -29,8 +29,32 @@ class TaskReminderCommand extends Command
     public function handle()
     {
         //
-        $count = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
-        BotHelper::sendMessageToSuperAdmin("تعداد" . $count, 'telegram');
+        $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
+        $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
+
+
+        $count_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))->count();
+        $count_unique_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))->distinct('chat_id')->count();
+
+
+        $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->count();
+        $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->distinct('chat_id')->count();
+
+
+        $postfix_local = ' : ' . env('APP_ENV');
+
+        $message = "آمار روز" . $count_daily . "
+یونیک روز:" . $count_unique_daily . "
+آمار هفته: " . $count_weekly . "
+یونیک هفته: " . $count_unique_weekly . "
+آمار یک ماه قبل: " . $count_monthly . "
+یونیک سی روز قبل: " . $count_unique_monthly . "
+" . $postfix_local;
+
+
+        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
+
+        BotHelper::sendMessageToSuperAdmin($message, 'bale');
 
     }
 }
