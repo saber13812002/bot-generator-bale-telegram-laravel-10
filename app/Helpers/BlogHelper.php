@@ -19,10 +19,10 @@ class BlogHelper
 //        $client = new Client(['headers' => ['X-Client-Code' => env('KEY_CODE')]]);
 
         $client = new GuzzleHttp\Client();
-
+//        dd($request->text);
         $request_param = [
-            'title' => $request->title,
-            'content' => $request->content,
+            'title' => $request->text,
+            'content' => $request->text,
             'posted_at' => Carbon::now(),
             'author_id' => $request->author_id,
             'thumbnail_id' => ''

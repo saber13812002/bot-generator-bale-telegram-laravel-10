@@ -33,4 +33,6 @@ Route::post('/webhook-weather', [WeatherController::class, 'index']);
 
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
 
+Route::post('/webhook-rss', [BotController::class, 'rss']);
+
 Route::post('/webhook-blog', [BlogController::class, 'index']);
