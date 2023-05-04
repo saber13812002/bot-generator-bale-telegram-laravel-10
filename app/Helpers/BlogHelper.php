@@ -4,8 +4,6 @@ namespace App\Helpers;
 
 use Carbon\Carbon;
 use GuzzleHttp;
-use GuzzleHttp\Exception\GuzzleException;
-use JetBrains\PhpStorm\NoReturn;
 
 class BlogHelper
 {
@@ -14,17 +12,15 @@ class BlogHelper
 
     }
 
-    public static function callApiPost($request)
+    public static function callApiPost($text, $authorId)
     {
-//        $client = new Client(['headers' => ['X-Client-Code' => env('KEY_CODE')]]);
-
         $client = new GuzzleHttp\Client();
-//        dd($request->text);
+
         $request_param = [
-            'title' => $request->text,
-            'content' => $request->text,
+            'title' => $text,
+            'content' => $text,
             'posted_at' => Carbon::now(),
-            'author_id' => $request->author_id,
+            'author_id' => $authorId,
             'thumbnail_id' => ''
         ];
 
@@ -42,8 +38,9 @@ class BlogHelper
                 'body' => $request_data
             ]
         );
-//        dd(json_decode($response->getBody(), true));
-        return json_decode($response->getBody(), true);
+
         // TODO: if slug existed
+
+        return json_decode($response->getBody(), true);
     }
 }
