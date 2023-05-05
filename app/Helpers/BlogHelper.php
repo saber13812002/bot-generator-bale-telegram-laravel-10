@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Models\BlogUser;
 use Carbon\Carbon;
 use GuzzleHttp;
 
@@ -12,7 +13,7 @@ class BlogHelper
 
     }
 
-    public static function callApiPost($text, $authorId)
+    public static function callApiPost($text, $authorId, $blog_token)
     {
         $client = new GuzzleHttp\Client();
 
@@ -32,7 +33,7 @@ class BlogHelper
             [
                 'headers' => [
                     'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . env("Blog_TEST_TOKEN"),
+                    'Authorization' => 'Bearer ' . $blog_token,
                     'Content-Type' => 'application/json'
                 ],
                 'body' => $request_data
@@ -42,5 +43,17 @@ class BlogHelper
         // TODO: if slug existed
 
         return json_decode($response->getBody(), true);
+    }
+
+
+
+    public static function getBlogInfo(string $type, string $chatId): array
+    {
+        $blogUser = BlogUser::query()
+            ->whereType($type)
+            ->whereChatId($chatId)
+            ->get()
+            ->first();
+        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
     }
 }

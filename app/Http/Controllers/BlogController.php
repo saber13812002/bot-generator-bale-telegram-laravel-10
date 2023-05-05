@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Helpers\BlogHelper;
 use App\Helpers\BotHelper;
 use App\Http\Requests\BotRequest;
+use App\Models\BlogUser;
 use Exception;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Telegram;
 
 class BlogController extends Controller
@@ -34,17 +37,22 @@ class BlogController extends Controller
                 // if in blog table has success token get valid twitter phrase and save in blog
                 $response = "";
                 // if not we can get valid token and save it in blog table
+
+                [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
+
                 try {
-                    // TODO: get author_id from table
-                    $request->merge(["author_id" => config('blog.author_id')]);
-                    $response = BlogHelper::callApiPost($bot->Text(), $request->author_id);
+                    $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
 
                 } catch (Exception $e) {
-//                    if (Str::before($e->getMessage(), "Client error: `POST http://localhost:8082/api/v1/posts` resulted in a `422 Unprocessable Content` response: {\"message\":\"The given data was invalid.\",\"errors\":{\"slug\":[\"slug")) {
+                    $contains = Str::contains($e->getMessage(), 'slug');
+                    Log::info($e->getMessage());
+                    if ($contains) {
                         $message = "به نظر میرسه توییت شما تکراری است و قبلا مشابه این نوشته شده لطفا کمی تغییربش بدهید";
                         BotHelper::sendMessage($bot, $message);
+                        return "{\"error\":\"slug\"}";
+                    } else {
                         return "{\"error\":\"" . $e->getMessage() . "\"}";
-//                    }
+                    }
                 }
 
                 if ($response['data'] && $response['data']['id']) {
@@ -57,4 +65,5 @@ class BlogController extends Controller
         }
 
     }
+
 }
