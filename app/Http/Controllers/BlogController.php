@@ -52,12 +52,7 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
                         BotHelper::sendMessage($bot, $message);
                     } else {
                         $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
-بعد از توییت لینک برای شما ساخته میشه.
- که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
- dlvr.it
- اقدام به اتصال آر اس اس خود به توییتر خود کنید
-لینک آر اس اس شما جهت انجام تنظیمات:
-https://blog.pardisania.ir/posts/feed/" . $author_id;
+قبلش لطفا در سایت blog.pardisania.ir عضو بشید و پیام بدین";
 
                         BotHelper::sendMessage($bot, $message);
                     }
