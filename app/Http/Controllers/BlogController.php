@@ -40,6 +40,18 @@ class BlogController extends Controller
 
                 [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
 
+                if ($bot->Text() == '/start' && $author_id) {
+                    $message = "توییت کنید و شروع کنید.
+بعد از توییت لینک برای شما ساخته میشه.
+ که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
+ dlvr.it
+ اقدام به اتصال آر اس اس خود به توییتر خود کنید
+لینک آر اس اس شما جهت انجام تنظیمات:
+https://blog.pardisania.ir/posts/feed/" . $author_id;
+
+                    BotHelper::sendMessage($bot, $message);
+                }
+
                 try {
                     $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
 
