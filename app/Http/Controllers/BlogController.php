@@ -39,9 +39,9 @@ class BlogController extends Controller
                 // if not we can get valid token and save it in blog table
 
                 [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
-
-                if ($bot->Text() == '/start' && $author_id) {
-                    $message = "توییت کنید و شروع کنید.
+                if ($bot->Text() == '/start') {
+                    if ($author_id) {
+                        $message = "توییت کنید و شروع کنید.
 بعد از توییت لینک برای شما ساخته میشه.
  که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
  dlvr.it
@@ -49,7 +49,18 @@ class BlogController extends Controller
 لینک آر اس اس شما جهت انجام تنظیمات:
 https://blog.pardisania.ir/posts/feed/" . $author_id;
 
-                    BotHelper::sendMessage($bot, $message);
+                        BotHelper::sendMessage($bot, $message);
+                    } else {
+                        $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
+بعد از توییت لینک برای شما ساخته میشه.
+ که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
+ dlvr.it
+ اقدام به اتصال آر اس اس خود به توییتر خود کنید
+لینک آر اس اس شما جهت انجام تنظیمات:
+https://blog.pardisania.ir/posts/feed/" . $author_id;
+
+                        BotHelper::sendMessage($bot, $message);
+                    }
                 }
 
                 try {
