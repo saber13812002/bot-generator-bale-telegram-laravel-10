@@ -7,6 +7,7 @@ use Exception;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Telegram;
 
 class BotHelper
@@ -466,5 +467,22 @@ class BotHelper
             ]]]);
 //        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
+    }
+
+    public static function isAdminCommand(mixed $Text): bool
+    {
+        if (Str::start($Text, '///'))
+            return true;
+        return false;
+    }
+
+    public static function isAdmin(mixed $ChatID): bool
+    {
+        return true;
+    }
+
+    public static function getMessageAdmin(mixed $Text): string
+    {
+        return Str::substr($Text, 3, -1);
     }
 }
