@@ -18,14 +18,16 @@ class BlogHelper
         $client = new GuzzleHttp\Client();
 
         $request_param = [
-            'title' => $text,
-            'content' => $text,
+            'title' => explode('.', $text, 178)[0],
+            'content' => str_replace('....', "<br>", $text),
             'posted_at' => Carbon::now(),
             'author_id' => $authorId,
             'thumbnail_id' => ''
         ];
 
         $request_data = json_encode($request_param);
+
+//        dd($request_data);
 
         $response = $client->request(
             'POST',
@@ -44,7 +46,6 @@ class BlogHelper
 
         return json_decode($response->getBody(), true);
     }
-
 
 
     public static function getBlogInfo(string $type, string $chatId): array

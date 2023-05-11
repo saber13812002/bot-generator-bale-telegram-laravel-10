@@ -37,7 +37,7 @@ class BlogController extends Controller
                 // if in blog table has success token get valid twitter phrase and save in blog
                 $response = "";
                 // if not we can get valid token and save it in blog table
-
+//                dd(explode('.', $bot->Text(), 178)[0]);
                 [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
                 if ($bot->Text() == '/start') {
                     if ($author_id) {
