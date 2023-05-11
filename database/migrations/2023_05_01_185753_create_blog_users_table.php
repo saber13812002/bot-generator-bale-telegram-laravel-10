@@ -14,8 +14,13 @@ return new class extends Migration
         Schema::create('blog_users', function (Blueprint $table) {
             $table->id();
 
-            $table->string('token');
-            $table->unsignedInteger('blog_user_id')->unique();
+            $table->unsignedBigInteger('bot_mother_id')->nullable();
+            $table->string('blog_token');
+            $table->unsignedInteger('blog_user_id');
+            $table->unsignedBigInteger('chat_id');
+            $table->enum('type', ['bale', 'telegram']);
+            $table->string('language', 7)->default('fa');
+            $table->string('locale', 7)->default('fa');
 
             $table->timestamps();
         });

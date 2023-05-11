@@ -158,6 +158,18 @@ class BotController extends Controller
 
     }
 
+
+
+    /**
+     * Show the form for creating a new resource.
+     */
+    public
+    function rss(Request $request)
+    {
+        //asdkjfalkdjf
+
+    }
+
     /**
      * Show the form for creating a new resource.
      */

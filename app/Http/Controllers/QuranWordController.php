@@ -8,11 +8,13 @@ use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
+use App\Models\BotLog;
 use App\Models\QuranSurah;
 use App\Models\QuranWord;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -173,9 +175,47 @@ class QuranWordController extends Controller
      * Show the form for creating a new resource.
      */
     public
-    function create()
+    function messageToAll(BotRequest $request)
     {
-        //
+
+        if ($request->has('language')) {
+            App::setLocale($request->input('language'));
+        } else {
+            App::setLocale("fa");
+        }
+
+        $type = $request->input('origin');
+        $token = "";
+        $count = 0;
+        if ($request->has('origin')) {
+            if ($request->input('origin') == 'bale') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+                $bot = new Telegram($token, 'bale');
+            } elseif ($request->input('origin') == 'telegram') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                $bot = new Telegram($token);
+            } else {
+                return 200;
+            }
+            if (BotHelper::isAdminCommand($bot->Text())) {
+                if (BotHelper::isAdmin($bot->ChatID())) {
+
+                    $message = BotHelper::getMessageAdmin($bot->Text());
+
+                    $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
+                    $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
+                    $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(50))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+                    foreach ($logs as $log) {
+                        $count = $logs->count();
+                        if ($log['type'] == 'bale')
+                            BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
+                        else
+                            BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                    }
+                }
+            }
+            BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
+        }
     }
 
     /**

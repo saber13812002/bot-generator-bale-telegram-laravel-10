@@ -2,10 +2,9 @@
 
 namespace App\Helpers;
 
+use App\Models\BlogUser;
 use Carbon\Carbon;
 use GuzzleHttp;
-use GuzzleHttp\Exception\GuzzleException;
-use JetBrains\PhpStorm\NoReturn;
 
 class BlogHelper
 {
@@ -14,21 +13,21 @@ class BlogHelper
 
     }
 
-    public static function callApiPost($request)
+    public static function callApiPost($text, $authorId, $blog_token)
     {
-//        $client = new Client(['headers' => ['X-Client-Code' => env('KEY_CODE')]]);
-
         $client = new GuzzleHttp\Client();
 
         $request_param = [
-            'title' => $request->title,
-            'content' => $request->content,
+            'title' => explode('.', $text, 178)[0],
+            'content' => str_replace('....', "<br>", $text),
             'posted_at' => Carbon::now(),
-            'author_id' => $request->author_id,
+            'author_id' => $authorId,
             'thumbnail_id' => ''
         ];
 
         $request_data = json_encode($request_param);
+
+//        dd($request_data);
 
         $response = $client->request(
             'POST',
@@ -36,14 +35,36 @@ class BlogHelper
             [
                 'headers' => [
                     'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . env("Blog_TEST_TOKEN"),
+                    'Authorization' => 'Bearer ' . $blog_token,
                     'Content-Type' => 'application/json'
                 ],
                 'body' => $request_data
             ]
         );
-//        dd(json_decode($response->getBody(), true));
-        return json_decode($response->getBody(), true);
+
         // TODO: if slug existed
+
+        return json_decode($response->getBody(), true);
+    }
+
+
+    public static function getBlogInfo(string $type, string $chatId): array
+    {
+        $blogUser = BlogUser::query()
+            ->whereType($type)
+            ->whereChatId($chatId)
+            ->get()
+            ->first();
+        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
+    }
+
+
+    public static function getBlogInfoByMobileNumber(string $mobile): array
+    {
+        $blogUser = BlogUser::query()
+            ->whereMobileNumber($mobile)
+            ->get()
+            ->first();
+        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
     }
 }
