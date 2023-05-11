@@ -57,4 +57,14 @@ class BlogHelper
             ->first();
         return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
     }
+
+
+    public static function getBlogInfoByMobileNumber(string $mobile): array
+    {
+        $blogUser = BlogUser::query()
+            ->whereMobileNumber($mobile)
+            ->get()
+            ->first();
+        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
+    }
 }

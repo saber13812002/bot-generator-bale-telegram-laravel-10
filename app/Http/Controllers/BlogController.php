@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Helpers\BlogHelper;
 use App\Helpers\BotHelper;
 use App\Http\Requests\BotRequest;
-use App\Models\BlogUser;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;

@@ -4,6 +4,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\QuranWordController;
+use App\Http\Controllers\SmsController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -37,3 +38,4 @@ Route::post('/webhook-quran-message-to-all', [QuranWordController::class, 'messa
 Route::post('/webhook-rss', [BotController::class, 'rss']);
 
 Route::post('/webhook-blog', [BlogController::class, 'index']);
+Route::get('/webhook-sms', [SmsController::class, 'index']);
