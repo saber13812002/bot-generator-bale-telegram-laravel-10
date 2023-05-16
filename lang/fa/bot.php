@@ -43,5 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'لطفاً حداقل سرعت باد را برای ربات تعیین کنید تا هشدار مورد نظر شما را ارسال کند.حدقل سرعت باد رو با ارسال یک عدد کوچکتر از 20 تعیین کنید که پیش بینی رو براتون بفرستم',
     'previous'                                                                  => 'قبلی',
     'next'                                                                      => 'بعدی',
+    'please wait'                                                               => 'لطفا صبر کنید ...',
     'your chat id'                                                              => 'شناسه چت شما:',
+    'sending to blog api'                                                       => 'ارسال درخواست به وب سرویس وبلاگ ...',
+    'sending to blog api but nothing returned'                                  => 'ارسال درخواست به وب سرویس وبلاگ انجام شد اما چیزی برنگشت...',
 ];

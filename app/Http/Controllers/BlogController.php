@@ -52,12 +52,15 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
                     } else {
                         $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
 قبلش لطفا در سایت blog.pardisania.ir عضو بشید و پیام بدین";
-
                         BotHelper::sendMessage($bot, $message);
                     }
                 }
 
+//                if ($author_id) {
                 try {
+
+                    $message = trans('bot.sending to blog api');
+                    BotHelper::sendMessage($bot, $message);
                     $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
 
                 } catch (Exception $e) {
@@ -75,9 +78,11 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
                 if ($response['data'] && $response['data']['id']) {
                     $message = config('blog.url') . "/posts/" . $response['data']['slug'];
                     BotHelper::sendMessage($bot, $message);
+                } else {
+                    $message = trans('bot.sending to blog api but nothing returned');
+                    BotHelper::sendMessage($bot, $message);
                 }
                 return $response;
-
             }
         }
 
