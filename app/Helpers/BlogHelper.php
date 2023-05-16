@@ -18,7 +18,7 @@ class BlogHelper
         $client = new GuzzleHttp\Client();
 
         $request_param = [
-            'title' => explode('.', $text, 178)[0],
+            'title' => explode('.', $text, 118)[0],
             'content' => str_replace('....', "<br>", $text),
             'posted_at' => Carbon::now(),
             'author_id' => $authorId,
@@ -41,9 +41,7 @@ class BlogHelper
                 'body' => $request_data
             ]
         );
-
         // TODO: if slug existed
-
         return json_decode($response->getBody(), true);
     }
 

@@ -26,21 +26,27 @@ class BlogController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
-            if ($request->has('language')) {
-                $message = trans('bot.please wait');
-                BotHelper::sendMessage($bot, $message);
 
-                $type = $request->input('origin');
-                $language = $request->input('language');
+            $message = trans('bot.please wait');
+            BotHelper::sendMessage($bot, $message);
 
-                // if in blog table has success token get valid twitter phrase and save in blog
-                $response = "";
-                // if not we can get valid token and save it in blog table
+            $type = $request->input('origin');
+            $author_id = $request->input('author_id');
+
+            // if in blog table has success token get valid twitter phrase and save in blog
+            $response = "";
+            // if not we can get valid token and save it in blog table
 //                dd(explode('.', $bot->Text(), 178)[0]);
+            if (!$request->has('author_id')) {
                 [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
-                if ($bot->Text() == '/start') {
-                    if ($author_id) {
-                        $message = "توییت کنید و شروع کنید.
+            } elseif ($request->has('blog_token')) {
+                $author_id = $request->input('author_id');
+                $blog_token = $request->input('blog_token');
+            }
+
+            if ($bot->Text() == '/start') {
+                if ($author_id) {
+                    $message = "توییت کنید و شروع کنید.
 بعد از توییت لینک برای شما ساخته میشه.
  که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
  dlvr.it
@@ -48,42 +54,42 @@ class BlogController extends Controller
 لینک آر اس اس شما جهت انجام تنظیمات:
 https://blog.pardisania.ir/posts/feed/" . $author_id;
 
-                        BotHelper::sendMessage($bot, $message);
-                    } else {
-                        $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
+                } else {
+                    $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
 قبلش لطفا در سایت blog.pardisania.ir عضو بشید و پیام بدین";
-                        BotHelper::sendMessage($bot, $message);
-                    }
                 }
+                BotHelper::sendMessage($bot, $message);
+            }
 
 //                if ($author_id) {
-                try {
+            try {
 
-                    $message = trans('bot.sending to blog api');
+                $message = trans('bot.sending to blog api');
+                BotHelper::sendMessage($bot, $message);
+                $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
+
+            } catch (Exception $e) {
+                $contains = Str::contains($e->getMessage(), 'slug');
+                Log::info($e->getMessage());
+                if ($contains) {
+                    $message = "به نظر میرسه توییت شما تکراری است و قبلا مشابه این نوشته شده لطفا کمی تغییربش بدهید";
                     BotHelper::sendMessage($bot, $message);
-                    $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
-
-                } catch (Exception $e) {
-                    $contains = Str::contains($e->getMessage(), 'slug');
-                    Log::info($e->getMessage());
-                    if ($contains) {
-                        $message = "به نظر میرسه توییت شما تکراری است و قبلا مشابه این نوشته شده لطفا کمی تغییربش بدهید";
-                        BotHelper::sendMessage($bot, $message);
-                        return "{\"error\":\"slug\"}";
-                    } else {
-                        return "{\"error\":\"" . $e->getMessage() . "\"}";
-                    }
-                }
-
-                if ($response['data'] && $response['data']['id']) {
-                    $message = config('blog.url') . "/posts/" . $response['data']['slug'];
-                    BotHelper::sendMessage($bot, $message);
+                    return "{\"error\":\"slug\"}";
                 } else {
-                    $message = trans('bot.sending to blog api but nothing returned');
+                    $message = "unknown error:";
                     BotHelper::sendMessage($bot, $message);
+                    return "{\"error\":\"" . $e->getMessage() . "\"}";
                 }
-                return $response;
             }
+
+            if ($response['data'] && $response['data']['id']) {
+                $message = config('blog.url') . "/posts/" . $response['data']['slug'];
+            } else {
+                $message = trans('bot.sending to blog api but nothing returned:' . $response['data']);
+            }
+            BotHelper::sendMessage($bot, $message);
+            return $response;
+
         }
 
     }
