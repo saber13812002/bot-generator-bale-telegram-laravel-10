@@ -72,7 +72,10 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
                 $contains = Str::contains($e->getMessage(), 'slug');
                 Log::info($e->getMessage());
                 if ($contains) {
-                    $message = "به نظر میرسه توییت شما تکراری است و قبلا مشابه این نوشته شده لطفا کمی تغییربش بدهید";
+                    $message = "به نظر میرسه توییت شما تکراری است و یا اولین نقطه برای انتخاب عنوان خیلی طولانی شده است. لطفا کمی تغییربش بدهید و مجددا تلاش کنید
+                قبلش مطمئن بشید که در
+blog.pardisania.ir
+منتشر نشده؟ یا در کانال های شما منتشر نشده باشد";
                     BotHelper::sendMessage($bot, $message);
                     return "{\"error\":\"slug\"}";
                 } else {
