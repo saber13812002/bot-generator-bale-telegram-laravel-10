@@ -16,9 +16,11 @@ class BlogHelper
     public static function callApiPost($text, $authorId, $blog_token)
     {
         $client = new GuzzleHttp\Client();
-
+        $title = explode('.', $text, 118)[0];
+        if (strlen($title) > 118)
+            $title = substr($title, 0, 118);
         $request_param = [
-            'title' => explode('.', $text, 118)[0],
+            'title' => $title,
             'content' => str_replace('....', "<br>", $text),
             'posted_at' => Carbon::now(),
             'author_id' => $authorId,
