@@ -41,7 +41,7 @@ class TaskReminderCommand extends Command
         $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->count();
         $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->distinct('chat_id')->count();
 
-        $postfix_local = ' : ' . env('APP_ENV');
+        $postfix_local = env('APP_ENV');
 
         $message = "آمار کل استفاده های این روبات در تلگرام و بله امروز" . $count_daily . " آیه
 یونیک یعنی کاربران یکتای امروز:" . $count_unique_daily . "
@@ -49,7 +49,7 @@ class TaskReminderCommand extends Command
 کاربران غیر تکراری در هفته: " . $count_unique_weekly . "
 آمار آیات خوانده شده کل کاربران در یک ماه قبل: " . $count_monthly . "
 کاربران غیر تکراری در سی روز قبل: " . $count_unique_monthly . "
-" . $postfix_local == "production" ? "" : "env:" . $postfix_local . "
+" . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
 
 با انتشار توضیحات این روبات و معرفی آن به دیگران، کمک کنید مردم بیشتری با قرآن انس بگیرن و حداقل روزی یک آیه قرآن بخوانند و تدبر کنند. به امید جامعه ی بهتر و تعجیل در ظهور صلوات
 
@@ -65,7 +65,7 @@ class TaskReminderCommand extends Command
 
         BotHelper::sendMessageToSuperAdmin($message, 'bale');
 
-        $logs = BotLog::where('created_at', '>=', \Illuminate\Support\Carbon::now()->subDay(200))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
 
 
         $token = env("QURAN_HEFZ_BOT_TOKEN_BALE");
