@@ -43,13 +43,13 @@ class TaskReminderCommand extends Command
 
         $postfix_local = ' : ' . env('APP_ENV');
 
-        $message = "آمار کل استفاده های این روبات در تلگرام و بله امروز" . $count_daily . " آیه 
+        $message = "آمار کل استفاده های این روبات در تلگرام و بله امروز" . $count_daily . " آیه
 یونیک یعنی کاربران یکتای امروز:" . $count_unique_daily . "
 آمار آیات خوانده شده کل کاربران در هفته: " . $count_weekly . "
 کاربران غیر تکراری در هفته: " . $count_unique_weekly . "
 آمار آیات خوانده شده کل کاربران در یک ماه قبل: " . $count_monthly . "
 کاربران غیر تکراری در سی روز قبل: " . $count_unique_monthly . "
-" . $postfix_local == "production" ? "" ? "env:" . $postfix_local . "
+" . $postfix_local == "production" ? "" : "env:" . $postfix_local . "
 
 با انتشار توضیحات این روبات و معرفی آن به دیگران، کمک کنید مردم بیشتری با قرآن انس بگیرن و حداقل روزی یک آیه قرآن بخوانند و تدبر کنند. به امید جامعه ی بهتر و تعجیل در ظهور صلوات
 
