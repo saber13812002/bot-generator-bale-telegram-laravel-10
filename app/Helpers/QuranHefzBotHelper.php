@@ -28,7 +28,8 @@ class QuranHefzBotHelper
 //            dd($quranTranslate, $sure, $aye);
 
         if (App::getLocale() == 'fa') {
-            $message .= " :" . $quranTranslate['text'];
+            $message .= "
+:" . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
         }
 
         $index = $quranTranslate['index'];
@@ -38,11 +39,11 @@ class QuranHefzBotHelper
 
 //        if (App::getLocale() == 'fa') {
         $message .= "
-:(" . $sure . ":" . $aye . ")" . $quranTransliterationTr['quran_transliteration_tr'];
+:" . $quranTransliterationTr['quran_transliteration_tr'];
 //        }
 //        if (App::getLocale() == 'fa') {
         $message .= "
-:(" . $sure . ":" . $aye . ")" . $quranTransliterationEn['quran_transliteration_en'];
+:" . $quranTransliterationEn['quran_transliteration_en'];
 //        }
 
         if (!$message) {
