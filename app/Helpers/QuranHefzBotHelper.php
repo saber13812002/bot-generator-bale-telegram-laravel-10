@@ -4,6 +4,8 @@ namespace App\Helpers;
 
 use App\Models\QuranSurah;
 use App\Models\QuranTranslation;
+use App\Models\QuranTransliterationEn;
+use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use Illuminate\Support\Facades\App;
 
@@ -22,11 +24,25 @@ class QuranHefzBotHelper
         foreach ($quranWords as $quranWord) {
             $message .= " " . $quranWord['text'];
         }
-        if (App::getLocale() == 'fa') {
-            $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
+        $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
 //            dd($quranTranslate, $sure, $aye);
+
+        if (App::getLocale() == 'fa') {
             $message .= " :" . $quranTranslate['text'];
         }
+
+        $index = $quranTranslate['index'];
+        $quranTransliterationTr = QuranTransliterationTr::query()->whereIndex($index)->first();
+
+        $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
+
+        if (App::getLocale() == 'fa') {
+            $message .= " :" . $quranTransliterationTr['quran_transliteration_tr'];
+        }
+        if (App::getLocale() == 'fa') {
+            $message .= " :" . $quranTransliterationEn['quran_transliteration_en'];
+        }
+
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
         }

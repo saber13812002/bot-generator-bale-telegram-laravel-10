@@ -13,7 +13,7 @@ return new class extends Migration {
         Schema::create('quran_transliteration_trs', function (Blueprint $table) {
             $table->id();
 
-            $table->string('quran_transliteration_en', 1100);
+            $table->string('quran_transliteration_tr', 1100);
 
             $table->timestamps();
         });
