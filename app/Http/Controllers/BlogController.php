@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BlogHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\LogHelper;
 use App\Http\Requests\BotRequest;
 use Exception;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +27,11 @@ class BlogController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
+            try {
+                LogHelper::log($request, $type, $bot);
+            } catch (Exception $e) {
+                Log::info($e->getMessage());
+            }
 
             $message = trans('bot.please wait');
             BotHelper::sendMessage($bot, $message);
