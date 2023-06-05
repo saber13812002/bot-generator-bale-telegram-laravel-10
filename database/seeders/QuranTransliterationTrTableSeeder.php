@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 
-class TrTransliterationTableSeeder extends Seeder
+class QuranTransliterationTrTableSeeder extends Seeder
 {
 
     /**
@@ -16,9 +16,9 @@ class TrTransliterationTableSeeder extends Seeder
     {
         
 
-        \DB::table('tr_transliteration')->delete();
+        \DB::table('quran_transliteration_tr')->delete();
         
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 1,
@@ -2520,7 +2520,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'lirricâli neṣîbüm mimmâ terake-lvâlidâni vel\'aḳrabûn. velinnisâi neṣîbüm mimmâ terake-lvâlidâni vel\'aḳrabûne mimmâ ḳalle minhü ev keŝür. neṣîbem mefrûḍâ.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 501,
@@ -5022,7 +5022,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'vebeynehümâ ḥicâb. ve\\`ale-l\'a\\`râfi ricâlüy ya\\`rifûne küllem bisîmâhüm. venâdev aṣḥâbe-lcenneti en selâmün \\`aleyküm lem yedḫulûhâ vehüm yaṭme\\`ûn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 1001,
@@ -7524,7 +7524,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'feḳâle-lmeleü-lleẕîne keferû min ḳavmihî mâ nerâke illâ beşeram miŝlenâ vemâ nerâke-ttebe\\`ake ille-lleẕîne hüm erâẕilünâ bâdiye-rra\'y. vemâ nerâ leküm \\`aleynâ min faḍlim bel neżunnüküm kâẕibîn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 1501,
@@ -10026,7 +10026,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'innehû leyse lehû sülṭânün \\`ale-lleẕîne âmenû ve\\`alâ rabbihim yetevekkelûn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 2001,
@@ -12528,7 +12528,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'lev eradnâ en netteḫiẕe lehvel letteḫaẕnâhü mil ledünnâ. in künnâ fâ\\`ilîn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 2501,
@@ -15030,7 +15030,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'veinne rabbeke lehüve-l\\`azîzü-rraḥîm.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 3001,
@@ -17532,7 +17532,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'elem tera enne-lfülke tecrî fi-lbaḥri bini\\`meti-llâhi liyüriyeküm min âyâtih. inne fî ẕâlike leâyâtil likülli ṣabbârin şekûr.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 3501,
@@ -20034,7 +20034,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'vevehebnâ lidâvûde süleymân. ni\\`me-l\\`abd. innehû evvâb.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 4001,
@@ -22536,7 +22536,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'velillâhi mülkü-ssemâvâti vel\'arḍ. veyevme teḳûmü-ssâ\\`atü yevmeiẕiy yaḫseru-lmübṭilûn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 4501,
@@ -25038,7 +25038,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'velaḥmi ṭayrim mimmâ yeştehûn.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 5001,
@@ -27540,7 +27540,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'verrucze fehcür.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 5501,
@@ -30042,7 +30042,7 @@ class TrTransliterationTableSeeder extends Seeder
                 'tr-transliteration' => 'irame ẕâti-l\\`imâd.',
             ),
         ));
-        \DB::table('tr_transliteration')->insert(array (
+        \DB::table('quran_transliteration_tr')->insert(array (
             0 => 
             array (
                 'index' => 6001,
