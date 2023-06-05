@@ -38,11 +38,11 @@ class QuranHefzBotHelper
 
 //        if (App::getLocale() == 'fa') {
         $message .= "
-            :(" . $sure . ":" . $aye . ")" . $quranTransliterationTr['quran_transliteration_tr'];
+:(" . $sure . ":" . $aye . ")" . $quranTransliterationTr['quran_transliteration_tr'];
 //        }
 //        if (App::getLocale() == 'fa') {
         $message .= "
-            :(" . $sure . ":" . $aye . ")" . $quranTransliterationEn['quran_transliteration_en'];
+:(" . $sure . ":" . $aye . ")" . $quranTransliterationEn['quran_transliteration_en'];
 //        }
 
         if (!$message) {
