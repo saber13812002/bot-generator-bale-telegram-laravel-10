@@ -37,10 +37,12 @@ class QuranHefzBotHelper
         $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
 
         if (App::getLocale() == 'fa') {
-            $message .= " :" . $quranTransliterationTr['quran_transliteration_tr'];
+            $message .= "
+            :" . $quranTransliterationTr['quran_transliteration_tr'];
         }
         if (App::getLocale() == 'fa') {
-            $message .= " :" . $quranTransliterationEn['quran_transliteration_en'];
+            $message .= " :
+            " . $quranTransliterationEn['quran_transliteration_en'];
         }
 
         if (!$message) {
