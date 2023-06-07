@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\BlogController;
-use App\Http\Controllers\BotController;
+use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\SmsController;
@@ -24,10 +24,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/webhook-bot-mother', [BotController::class, 'botMotherWebhook']);
-Route::post('/webhook-bot-get-id', [BotController::class, 'getId']);
+Route::post('/webhook-bot-mother', [BotMotherController::class, 'botMotherWebhook']);
+Route::post('/webhook-bot-get-id', [BotMotherController::class, 'getIdMother']);
 
-Route::post('/webhook-bot-children', [BotController::class, 'childrenWebhook']);
+Route::post('/webhook-bot-children', [BotMotherController::class, 'childrenMessageBroadcasterWebhook']);
 Route::get('/approve', [BotUsersController::class, 'approve']);
 
 Route::post('/webhook-weather', [WeatherController::class, 'index']);
@@ -35,7 +35,7 @@ Route::post('/webhook-weather', [WeatherController::class, 'index']);
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
 Route::post('/webhook-quran-message-to-all', [QuranWordController::class, 'messageToAll']);
 
-Route::post('/webhook-rss', [BotController::class, 'rss']);
+Route::post('/webhook-rss', [BotMotherController::class, 'rss']);
 
 Route::post('/webhook-blog', [BlogController::class, 'index']);
 Route::get('/webhook-sms', [SmsController::class, 'index']);

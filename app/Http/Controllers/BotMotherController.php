@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Telegram;
 
 
-class BotController extends Controller
+class BotMotherController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -49,7 +49,7 @@ class BotController extends Controller
      * Display a listing of the resource.
      * @throws Exception
      */
-    public function getId(BotRequest $request)
+    public function getIdMother(BotRequest $request)
     {
         if ($request->has('origin') && $request->has('bot_mother_id') && $request->has('token')) {
             $type = $request->input('origin');
@@ -73,7 +73,7 @@ class BotController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function childrenWebhook(Request $request)
+    public function childrenMessageBroadcasterWebhook(Request $request)
     {
         $type = 'bale';
         $baleMotherBot = $this->getMotherBotByType($type);
