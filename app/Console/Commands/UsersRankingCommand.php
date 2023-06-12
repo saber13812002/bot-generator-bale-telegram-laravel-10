@@ -6,6 +6,7 @@ use App\Helpers\BotHelper;
 use App\Models\BotLog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Telegram;
 
 class UsersRankingCommand extends Command
@@ -37,27 +38,35 @@ class UsersRankingCommand extends Command
         $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
         $botTelegram = new Telegram($token);
 
-        foreach ($logs as $log) {
-            $this->userStatisticPerDayReport($log, $botBale, $botTelegram);
+        $rankings = $this->calculateRanking($logs);
+        $paginate = $rankings->sortBy("result_month", null, true)->forPage(1, 200);
+//        dd($paginate);
+        $rank = 1;
+        foreach ($paginate as $log) {
+//            $ranking = $rankings->where("chatId", $log["chat_id"])->first();
+            $this->userStatisticPerDayReport($log, $botBale, $botTelegram, ++$rank);
         }
-
-        //
-
     }
 
     /**
      * @param mixed $log
      * @param Telegram $botBale
      * @param Telegram $botTelegram
+     * @param $rankings
      * @return void
      */
-    public function userStatisticPerDayReport(mixed $log, Telegram $botBale, Telegram $botTelegram): void
+    public function userStatisticPerDayReport(mixed $log, Telegram $botBale, Telegram $botTelegram, $rank): void
     {
-//        if ($log['chat_id'] == "485750575") {
-        $count_today = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay())
+//        if ($log['chatId'] == "485750575") {
+        $count_today = BotLog::whereChatId($log['chatId'])
+            ->where('created_at', '>=', Carbon::now()->subDay())
             ->count();
-        $count_yesterday = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay())
+
+        $count_yesterday = BotLog::whereChatId($log['chatId'])
+            ->where('created_at', '<', Carbon::now()->subDay())
+            ->where('created_at', '>=', Carbon::now()->subDay(2))
             ->count();
+
         $result_ayat = $count_today - $count_yesterday;
         $result_ayat_if_negetive = $count_yesterday - $count_today;
 
@@ -72,18 +81,53 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
         $postfix = $result_ayat > 0 ? $result_ayat . " پیشرفت داشته اید " : $result_ayat_if_negetive . " آیه کمتر مطالعه کردید ";
 
-        $message = "آمار کل استفاده های شما از این روبات در تلگرام و بله امروز
+        $message = "رتبه شما در سی روز گذشته " . $rank . "
+            آمار کل استفاده های شما از این روبات در تلگرام و بله امروز
 :" . $count_today . "آیه
 که در مقایسه با روز قبل " . $count_yesterday . "
 " . $postfix . $postfix_hadith . $this->random_hadith();
 
-        if ($log['type'] == 'bale')
-            BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
-        else
-            BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+        if ($log['type'] == 'bale') {
+            BotHelper::sendMessageByChatId($botBale, $log['chatId'], $message);
+        } else {
+            BotHelper::sendMessageByChatId($botTelegram, $log['chatId'], $message);
+        }
+        BotHelper::sendMessageToSuperAdmin($message . ":" . $log['chatId'], $log['type']);
 //        }
     }
 
+
+    /**
+     * @param mixed $logs
+     * @return Collection
+     */
+    public function calculateRanking(mixed $logs): Collection
+    {
+        $collection = collect();
+
+        $rankings[] = array();
+
+        foreach ($logs as $log) {
+            $count_month = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
+                ->count();
+
+            $count_last_month = BotLog::whereChatId($log['chat_id'])
+                ->where('created_at', '<', Carbon::now()->subDay(30))
+                ->where('created_at', '>=', Carbon::now()->subDay(60))
+                ->count();
+
+            $newItem = array(
+                "chatId" => $log['chat_id'],
+                "type" => $log['type'],
+                "result_month" => $count_month,
+                "result_last_month" => $count_last_month
+            );
+
+            $collection->add($newItem);
+        }
+
+        return $collection;
+    }
 
     public function random_hadith()
     {

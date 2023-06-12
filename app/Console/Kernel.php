@@ -20,7 +20,7 @@ class Kernel extends ConsoleKernel
         $schedule->command(TaskReminderCommand::class)->thursdays("20:28"); //23:58 iran
 //        $schedule->command(weatherWindCommand::class, ['speed=12'])->everyFiveMinutes();
 
-                $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
+        $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
 
     }
 
