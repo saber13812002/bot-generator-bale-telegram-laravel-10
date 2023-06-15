@@ -10,7 +10,7 @@ class BotQuranAyatController
     public function ayat(Response $response, int $id)
     {
 
-        $ayat = QuranAyat::query()->whereIndex($id)->first();
+        $ayat = QuranAyat::query()->find($id)->first();
         $aye1 = $ayat["simple"];
         return $aye1;
     }
