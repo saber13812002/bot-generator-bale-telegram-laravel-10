@@ -16,6 +16,9 @@
  - extension=mbstring
 
 
+run index on ayat
+php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
+
 ### for translate:
 
 php artisan translation:sync
