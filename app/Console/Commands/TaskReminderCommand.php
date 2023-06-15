@@ -29,7 +29,6 @@ class TaskReminderCommand extends Command
      */
     public function handle()
     {
-        return 0;
         //
         $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
         $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
@@ -61,10 +60,8 @@ class TaskReminderCommand extends Command
 استغفر الله ربی و اتوب الیه";
 
 
-        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
-
-
-        BotHelper::sendMessageToSuperAdmin($message, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
+//        BotHelper::sendMessageToSuperAdmin($message, 'bale');
 
         $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
 
@@ -83,5 +80,6 @@ class TaskReminderCommand extends Command
                 BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
         }
 
+        return 0;
     }
 }
