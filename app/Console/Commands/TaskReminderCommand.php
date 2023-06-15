@@ -29,6 +29,7 @@ class TaskReminderCommand extends Command
      */
     public function handle()
     {
+        return 0;
         //
         $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
         $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
