@@ -92,6 +92,36 @@ class BotQuranAyatController
         return true;
     }
 
+
+//curl --request POST \
+//--url 'http://localhost:8000/api/webhook-quran-word?origin=bale&token=861365999%3Aq11kImnvX9KTrvMJ245zc16TugfixojAT1uzdvke&bot_mother_id=1&language=fa' \
+//--header 'Content-Type: application/json' \
+//--data '{
+//	"update_id": 2,
+//	"message": {
+//		"message_id": -687281639,
+//		"from": {
+//			"id": 485750575,
+//			"first_name": "صابر طباطبایی یزدی",
+//			"username": "sabertaba",
+//			"is_bot": false
+//		},
+//		"date": 1680438429,
+//		"chat": {
+//			"id": 485750575,
+//			"type": "private",
+//			"username": "sabertaba",
+//			"first_name": "صابر طباطبایی یزدی"
+//		},
+//		"text": "/1",
+//		"forward_from_chat": {
+//			"id": 234
+//		},
+//		"forward_from": {
+//			"id": 234
+//		}
+//	}
+//}'
     public function ayat(Response $response, int $id)
     {
 
@@ -141,3 +171,34 @@ class BotQuranAyatController
 
 
 }
+
+
+//curl --request POST \
+//  --url 'http://localhost:8000/api/webhook-quran-ayat?origin=bale&token=861365999%3Aq11kImnvX9KTrvMJ245zc16TugfixojAT1uzdvke&bot_mother_id=1&language=fa' \
+//  --header 'Content-Type: application/json' \
+//  --data '{
+//	"update_id": 2,
+//	"message": {
+//		"message_id": -687281639,
+//		"from": {
+//			"id": 485750575,
+//			"first_name": "صابر طباطبایی یزدی",
+//			"username": "sabertaba",
+//			"is_bot": false
+//		},
+//		"date": 1680438429,
+//		"chat": {
+//			"id": 485750575,
+//			"type": "private",
+//			"username": "sabertaba",
+//			"first_name": "صابر طباطبایی یزدی"
+//		},
+//		"text": "الم",
+//		"forward_from_chat": {
+//			"id": 234
+//		},
+//		"forward_from": {
+//			"id": 234
+//		}
+//	}
+//}'
