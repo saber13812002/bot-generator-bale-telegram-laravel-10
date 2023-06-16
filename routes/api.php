@@ -45,3 +45,5 @@ Route::get('/webhook-sms', [SmsController::class, 'index']);
 Route::get('/ayat/{id}', [BotQuranAyatController::class, 'ayat']);
 Route::get('/search/{phrase}', [BotQuranAyatController::class, 'search']);
 Route::get('/search2/{phrase}', [BotQuranAyatController::class, 'search2']);
+Route::get('/search3/{phrase}', [BotQuranAyatController::class, 'search3']);
+Route::post('/webhook-quran-ayat', [BotQuranAyatController::class, 'index']);

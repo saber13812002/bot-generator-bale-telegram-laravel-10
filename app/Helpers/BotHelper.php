@@ -13,7 +13,7 @@ use Telegram;
 class BotHelper
 {
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public static function switchCase(Telegram $messenger, $type, $language, $botMotherId): void
     {
@@ -34,7 +34,7 @@ class BotHelper
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     private static function newBot(Telegram $messenger, $type, $language, $botMotherId): void
     {
@@ -71,7 +71,7 @@ class BotHelper
      * @param string $language
      * @param int $botMotherId
      * @return Bot
-     * @throws \Exception
+     * @throws Exception
      */
     public static function defineBotInDbThenSetWebHook(mixed $token, Telegram $messenger, Bot $botItem, $type, string $language = 'fa', int $botMotherId = 1): Bot
     {
@@ -327,8 +327,18 @@ class BotHelper
 
     }
 
+    public static function sendQuranSearchResult(Telegram $messenger, $message, $array): void
+    {
+        $option = array(
+            array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+
+    }
+
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     private static function defineCreateBot(Telegram $messenger, $getMe, $type, $botMotherId): Bot
     {
