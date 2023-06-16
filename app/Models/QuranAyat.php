@@ -11,8 +11,11 @@ class QuranAyat extends Model
 
     use \Swis\Laravel\Fulltext\Indexable;
 
-    protected $indexContentColumns = ['simple'];
+    protected $indexContentColumns = ['text'];
     protected $indexTitleColumns = ['simple'];
 
-
+    public function suras()
+    {
+        return $this->hasOne(QuranSurah::class,'id','sura');
+    }
 }
