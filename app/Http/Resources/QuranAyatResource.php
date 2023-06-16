@@ -22,6 +22,7 @@ class QuranAyatResource extends JsonResource
             'text' => $this->text,
 //            'created_at' => (string)$this->created_at,
 //            'updated_at' => (string)$this->updated_at,
+            'suras' => $this->suras,
         ];
     }
 

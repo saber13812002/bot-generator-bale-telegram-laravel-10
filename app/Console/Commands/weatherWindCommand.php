@@ -29,6 +29,8 @@ class weatherWindCommand extends Command
 
     public function __construct(WeatherTomorrowApiService $weatherTomorrowApiService, WeatherOpenWeatherMapApiService $weatherOpenWeatherMapApiService)
     {
+        // ini_set('memory_limit', '1G');
+
         parent::__construct();
         $this->weatherTomorrowApiService = $weatherTomorrowApiService;
         $this->weatherOpenWeatherMapApiService = $weatherOpenWeatherMapApiService;

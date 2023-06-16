@@ -19,12 +19,17 @@ class BotQuranAyatController
 
     public function search(Response $response, string $phrase)
     {
-
         $search = new \Swis\Laravel\Fulltext\Search();
         $results = $search->run($phrase, QuranAyat::class);
         $firstResult = $results->first()->indexable;
 //        dd($firstResult['id'], $firstResult['sura'], $firstResult['aya'], $firstResult['text']);
 //        return QuranAyatResource::make($results->first()->indexable);
         return IndexedRecordResource::collection($results);
+    }
+
+    public function search2(Response $response, string $phrase)
+    {
+        $results = QuranAyat::query()->where('simple', 'like',  $phrase . '%')->paginate();
+        return QuranAyatResource::collection($results);
     }
 }
