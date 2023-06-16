@@ -6,6 +6,7 @@ use App\Http\Resources\IndexedRecordResource;
 use App\Http\Resources\QuranAyatResource;
 use App\Models\QuranAyat;
 use Illuminate\Http\Response;
+use Swis\Laravel\Fulltext\Search;
 
 class BotQuranAyatController
 {
@@ -19,7 +20,7 @@ class BotQuranAyatController
 
     public function search(Response $response, string $phrase)
     {
-        $search = new \Swis\Laravel\Fulltext\Search();
+        $search = new Search();
         $results = $search->run($phrase, QuranAyat::class);
         $firstResult = $results->first()->indexable;
 //        dd($firstResult['id'], $firstResult['sura'], $firstResult['aya'], $firstResult['text']);
