@@ -155,7 +155,7 @@ class QuranWordController extends Controller
 
             if ($isStartCommandShow) {
 
-                $array = [trans("bot.return to command list"), "/start"];
+                $array = [[trans("bot.return to command list"), "/start"]];
                 $message = $array[0][0];
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);

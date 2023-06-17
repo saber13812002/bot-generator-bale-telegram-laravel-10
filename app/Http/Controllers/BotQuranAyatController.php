@@ -9,6 +9,7 @@ use App\Http\Resources\IndexedRecordResource;
 use App\Http\Resources\QuranAyatResource;
 use App\Models\QuranAyat;
 use Exception;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
@@ -21,6 +22,7 @@ class BotQuranAyatController
 
     /**
      * Display a listing of the resource.
+     * @throws GuzzleException
      */
     public function index(BotRequest $request)
     {
@@ -76,13 +78,14 @@ class BotQuranAyatController
                     $message = $messageResult;
                 }
 //                dd($message,$bot->ChatID());
-                $array = ["-سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya];
+                $array = [["-سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
 //                dd($array,$token,$message,$array);
                 if ($type == 'telegram') {
                     BotHelper::sendQuranSearchResult($bot, $message, $array);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+//                    BotHelper::sendMessage($bot,$message);
                 }
             }
 
