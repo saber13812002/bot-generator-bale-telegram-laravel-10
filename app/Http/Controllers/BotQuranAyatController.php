@@ -101,7 +101,7 @@ class BotQuranAyatController
     {
         $search = new Search();
         $results = $search->run($phrase, QuranAyat::class);
-        $firstResult = $results->first()->indexable;
+//        $firstResult = $results->first()->indexable;
 //        dd($firstResult['id'], $firstResult['sura'], $firstResult['aya'], $firstResult['text']);
 //        return QuranAyatResource::make($results->first()->indexable);
         return IndexedRecordResource::collection($results);
