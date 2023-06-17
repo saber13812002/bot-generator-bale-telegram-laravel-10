@@ -229,6 +229,13 @@ class QuranHefzBotHelper
 //                    BotHelper::sendMessage($bot,$message);
             }
         }
+        $msg = "جستجوی #قرآن: " . $botText . "
+" . $bot->ChatID() . "
+" . $bot->Username() . "
+" . $bot->FirstName() . "
+" . $bot->LastName();
+        BotHelper::sendMessageToSuperAdmin($msg, 'bale');
+        BotHelper::sendMessageToSuperAdmin($msg, 'telegram');
     }
 
 }
