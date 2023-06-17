@@ -205,8 +205,8 @@ class QuranHefzBotHelper
         foreach ($results->items() as $item) {
 //                dd($item->suras);
             $messageResult = (++$count . "-
- سوره شماره " . $item->suras->id . "
-" . "" . $item->suras->arabic . "
+ سوره شماره :" . $item->suras->id . "
+" . $item->suras->arabic . "- آیه شماره " . $item->aya . "
 " . "/sure" . $item->sura . "ayah" . $item->aya . "
 
 دیدن نتیجه 👇👇👇
@@ -219,7 +219,7 @@ class QuranHefzBotHelper
                 $message = $messageResult;
             }
 //                dd($message,$bot->ChatID());
-            $array = [["-سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
+            $array = [["سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
 //                dd($array,$token,$message,$array);
             if ($type == 'telegram') {
                 BotHelper::sendQuranSearchResult($bot, $message, $array);
