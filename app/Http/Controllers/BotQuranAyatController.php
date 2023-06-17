@@ -68,7 +68,8 @@ class BotQuranAyatController
  سوره شماره " . $item->suras->id . "
 " . "" . $item->suras->arabic . "
 " . "/sure" . $item->sura . "ayah" . $item->aya . "
---------------------------
+//--------------------------
+دیدن نتیجه 👇👇👇
 ");
 //                $messageResult ="";
                 if ($count == 1) {
