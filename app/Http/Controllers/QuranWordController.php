@@ -28,7 +28,6 @@ class QuranWordController extends Controller
      */
     public function index(BotRequest $request)
     {
-
         if ($request->has('language')) {
             App::setLocale($request->input('language'));
         } else {
@@ -51,6 +50,14 @@ class QuranWordController extends Controller
                 return 200;
             }
 
+//            dd((substr($bot->Text(), 0, 2)));
+//            dd(substr($bot->Text(), 2, strlen($bot->Text())));
+            if ((substr($bot->Text(), 0, 2)) == "//")
+                $request->request->add(['command_type' => 'quran_search']);
+            else
+                $request->request->add(['command_type' => 'quran']);
+
+//            dd($request);
             try {
                 LogHelper::log($request, $type, $bot);
             } catch (Exception $e) {
@@ -148,6 +155,10 @@ class QuranWordController extends Controller
                         $this->generateJozKeyBoardThenSendIt($bot, $token);
                     }
                 }
+            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
+
+                QuranHefzBotHelper::findResultThenSend($searchPhrase, $type, $bot, $token);
             } else {
                 $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);

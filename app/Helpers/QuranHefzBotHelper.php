@@ -2,12 +2,16 @@
 
 namespace App\Helpers;
 
+use App\Models\QuranAyat;
 use App\Models\QuranSurah;
 use App\Models\QuranTranslation;
 use App\Models\QuranTransliterationEn;
 use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
+use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\App;
+use Telegram;
 
 class QuranHefzBotHelper
 {
@@ -163,4 +167,68 @@ class QuranHefzBotHelper
 
         return array($message, $messageCommands);
     }
+
+
+    /**
+     * @param LengthAwarePaginator $results
+     * @return string
+     */
+    public static function getResultCountText(LengthAwarePaginator $results): string
+    {
+        if ($results->count() == 0) {
+            $resultText = "هیچ موردی به عنوان نتیجه جستجوی شما یافت نشد.";
+        } else {
+            $resultText = $results->count() > 15 ? "بیش از 15 مورد نتیجه یافت شد" : " تعداد  " . $results->count() . " مورد یافت شد .";
+        }
+        return $resultText;
+    }
+
+    /**
+     * @param mixed $botText
+     * @param mixed $type
+     * @param Telegram $bot
+     * @param mixed $token
+     * @return void
+     * @throws GuzzleException
+     */
+    public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
+    {
+        $results = QuranAyat::query()->where('simple', 'like', $botText . '%')->paginate();
+//            $paginate = QuranAyatResource::collection($results);
+//            dd($results->count());
+//            dd($results->items());
+        $message = "";
+
+        $resultText = self::getResultCountText($results);
+
+        $count = 0;
+        foreach ($results->items() as $item) {
+//                dd($item->suras);
+            $messageResult = (++$count . "-
+ سوره شماره " . $item->suras->id . "
+" . "" . $item->suras->arabic . "
+" . "/sure" . $item->sura . "ayah" . $item->aya . "
+
+دیدن نتیجه 👇👇👇
+");
+//                $messageResult ="";
+            if ($count == 1) {
+                $message .= $resultText . "
+" . $messageResult;
+            } else {
+                $message = $messageResult;
+            }
+//                dd($message,$bot->ChatID());
+            $array = [["-سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
+//                dd($array,$token,$message,$array);
+            if ($type == 'telegram') {
+                BotHelper::sendQuranSearchResult($bot, $message, $array);
+            } else {
+                $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+//                    BotHelper::sendMessage($bot,$message);
+            }
+        }
+    }
+
 }

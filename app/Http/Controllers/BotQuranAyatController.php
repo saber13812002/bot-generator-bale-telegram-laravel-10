@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
+use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Resources\IndexedRecordResource;
 use App\Http\Resources\QuranAyatResource;
 use App\Models\QuranAyat;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -53,43 +52,7 @@ class BotQuranAyatController
 
             $botText = $bot->Text();
 
-            $results = QuranAyat::query()->where('simple', 'like', $botText . '%')->paginate();
-//            $paginate = QuranAyatResource::collection($results);
-//            dd($results->count());
-//            dd($results->items());
-            $message = "";
-
-            $resultText = $this->getResultCountText($results);
-
-            $count = 0;
-            foreach ($results->items() as $item) {
-//                dd($item->suras);
-                $messageResult = (++$count . "-
- سوره شماره " . $item->suras->id . "
-" . "" . $item->suras->arabic . "
-" . "/sure" . $item->sura . "ayah" . $item->aya . "
-//--------------------------
-دیدن نتیجه 👇👇👇
-");
-//                $messageResult ="";
-                if ($count == 1) {
-                    $message .= $resultText . "
-" . $messageResult;
-                } else {
-                    $message = $messageResult;
-                }
-//                dd($message,$bot->ChatID());
-                $array = [["-سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
-//                dd($array,$token,$message,$array);
-                if ($type == 'telegram') {
-                    BotHelper::sendQuranSearchResult($bot, $message, $array);
-                } else {
-                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-//                    BotHelper::sendMessage($bot,$message);
-                }
-            }
-
+            QuranHefzBotHelper::findResultThenSend($botText, $type, $bot, $token);
 
             return true;
         }
@@ -157,20 +120,6 @@ class BotQuranAyatController
             ->paginate();
 
         return QuranAyatResource::collection($results);
-    }
-
-    /**
-     * @param LengthAwarePaginator $results
-     * @return string
-     */
-    public function getResultCountText(LengthAwarePaginator $results): string
-    {
-        if ($results->count() == 0) {
-            $resultText = "هیچ موردی به عنوان نتیجه جستجوی شما یافت نشد.";
-        } else {
-            $resultText = $results->count() > 15 ? "بیش از 15 مورد نتیجه یافت شد" : " تعداد  " . $results->count() . " مورد یافت شد .";
-        }
-        return $resultText;
     }
 
 
