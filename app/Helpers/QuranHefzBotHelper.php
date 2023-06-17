@@ -193,7 +193,7 @@ class QuranHefzBotHelper
      */
     public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
     {
-        $results = QuranAyat::query()->where('simple', 'like', $botText . '%')->paginate();
+        $results = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
 //            $paginate = QuranAyatResource::collection($results);
 //            dd($results->count());
 //            dd($results->items());
