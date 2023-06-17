@@ -158,7 +158,10 @@ class QuranWordController extends Controller
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
 
-                QuranHefzBotHelper::findResultThenSend($searchPhrase, $type, $bot, $token);
+                try {
+                    QuranHefzBotHelper::findResultThenSend($searchPhrase, $type, $bot, $token);
+                } catch (GuzzleException $e) {
+                }
             } else {
                 $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);

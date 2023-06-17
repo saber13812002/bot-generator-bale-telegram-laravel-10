@@ -9,8 +9,8 @@ use App\Models\QuranTransliterationEn;
 use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\App;
+use Swis\Laravel\Fulltext\Search;
 use Telegram;
 
 class QuranHefzBotHelper
@@ -170,15 +170,15 @@ class QuranHefzBotHelper
 
 
     /**
-     * @param LengthAwarePaginator $results
+     * @param int $resultsCount
      * @return string
      */
-    public static function getResultCountText(LengthAwarePaginator $results): string
+    public static function getResultCountText(int $resultsCount): string
     {
-        if ($results->count() == 0) {
+        if ($resultsCount == 0) {
             $resultText = "هیچ موردی به عنوان نتیجه جستجوی شما یافت نشد.";
         } else {
-            $resultText = $results->count() > 15 ? "بیش از 15 مورد نتیجه یافت شد" : " تعداد  " . $results->count() . " مورد یافت شد .";
+            $resultText = $resultsCount > 15 ? "بیش از 15 مورد نتیجه یافت شد" : " تعداد  " . $resultsCount . " مورد یافت شد .";
         }
         return $resultText;
     }
@@ -193,17 +193,26 @@ class QuranHefzBotHelper
      */
     public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
     {
-        $results = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
+        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
+
 //            $paginate = QuranAyatResource::collection($results);
 //            dd($results->count());
 //            dd($results->items());
+
+        $search = new Search();
+        $results = $search->run($botText, QuranAyat::class);
+
         $message = "";
-
-        $resultText = self::getResultCountText($results);
-
+//        dd($results,$results0);
+//        $resultText = self::getResultCountText($results0->count());
+        $resultText = self::getResultCountText($results->count());
+//        dd($resultText);
         $count = 0;
-        foreach ($results->items() as $item) {
+//        foreach ($results0->items() as $item) {
+        foreach ($results as $item) {
 //                dd($item->suras);
+            $item = $item->indexable;
+//            dd($item);
             $messageResult = (++$count . "-
  سوره شماره :" . $item->suras->id . "
 " . $item->suras->arabic . "- آیه شماره " . $item->aya . "
