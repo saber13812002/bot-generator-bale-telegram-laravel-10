@@ -64,7 +64,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "./modules/laravel-fulltext"
+            "url": "./modules/"
         }
     ],
     "config": {
