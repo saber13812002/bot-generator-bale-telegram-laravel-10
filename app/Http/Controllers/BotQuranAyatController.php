@@ -13,7 +13,8 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
-use Swis\Laravel\Fulltext\Search;
+use Saber13812002\Laravel\Fulltext\IndexedRecord;
+use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
 
 class BotQuranAyatController
@@ -102,6 +103,8 @@ class BotQuranAyatController
 
     public function search(Response $response, string $phrase)
     {
+        $phrase = IndexedRecord::normalize($phrase);
+
         $search = new Search();
         $results = $search->run($phrase, QuranAyat::class);
 //        $firstResult = $results->first()->indexable;
@@ -112,12 +115,16 @@ class BotQuranAyatController
 
     public function search2(Response $response, string $phrase)
     {
+        $phrase = IndexedRecord::normalize($phrase);
         $results = QuranAyat::query()->where('simple', 'like', $phrase . '%')->paginate();
         return QuranAyatResource::collection($results);
     }
 
     public function search3(Response $response, string $phrase)
     {
+
+        $phrase = IndexedRecord::normalize($phrase);
+
         $results = QuranAyat::query()
             ->whereFullText('simple', $phrase . '%')
             ->paginate();

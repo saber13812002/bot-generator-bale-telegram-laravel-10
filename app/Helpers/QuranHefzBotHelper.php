@@ -10,7 +10,7 @@ use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\App;
-use Swis\Laravel\Fulltext\Search;
+use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
 
 class QuranHefzBotHelper
@@ -193,7 +193,7 @@ class QuranHefzBotHelper
      */
     public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
     {
-        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
+//        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
 
 //            $paginate = QuranAyatResource::collection($results);
 //            dd($results->count());

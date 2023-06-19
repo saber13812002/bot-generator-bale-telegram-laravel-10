@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AnalyzerController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
@@ -47,3 +48,5 @@ Route::get('/search/{phrase}', [BotQuranAyatController::class, 'search']);
 Route::get('/search2/{phrase}', [BotQuranAyatController::class, 'search2']);
 Route::get('/search3/{phrase}', [BotQuranAyatController::class, 'search3']);
 Route::post('/webhook-quran-ayat', [BotQuranAyatController::class, 'index']);
+
+Route::get('/test/analyzer/{phrase}', [AnalyzerController::class, 'testAnalyzer']);

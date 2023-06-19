@@ -4,12 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Saber13812002\Laravel\Fulltext\Indexable;
 
 class QuranAyat extends Model
 {
     use HasFactory;
 
-    use \Swis\Laravel\Fulltext\Indexable;
+    use Indexable;
 
     protected $indexContentColumns = ['text'];
     protected $indexTitleColumns = ['simple'];
