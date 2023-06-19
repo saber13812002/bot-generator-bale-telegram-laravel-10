@@ -242,6 +242,11 @@ class QuranHefzBotHelper
 //                    BotHelper::sendMessage($bot,$message);
             }
         }
+
+
+        BotHelper::sendMessage($bot, $resultText);
+
+
         $msg = "جستجوی #قرآن: " . $botText . "
 تعداد نتایج:" . $count . "
 " . $bot->ChatID() . "
