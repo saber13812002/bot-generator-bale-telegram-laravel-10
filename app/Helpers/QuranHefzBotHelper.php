@@ -10,6 +10,7 @@ use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\App;
+use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
 
@@ -198,6 +199,9 @@ class QuranHefzBotHelper
 //            $paginate = QuranAyatResource::collection($results);
 //            dd($results->count());
 //            dd($results->items());
+
+
+        $botText = IndexedRecord::normalize($botText);
 
         $search = new Search();
         $results = $search->run($botText, QuranAyat::class);
