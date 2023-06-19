@@ -14,7 +14,7 @@
         "laravel/framework": "^10.0",
         "laravel/sanctum": "^3.2",
         "laravel/tinker": "^2.8",
-        "saber13812002/laravel-fulltext": "1.0",
+        "saber13812002/laravel-fulltext": "^1.0",
         "saber13812002/telegram-bale-bot-php": "^101.1",
         "tio/laravel": "^1.22"
     },
