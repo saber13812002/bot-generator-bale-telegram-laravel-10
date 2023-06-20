@@ -136,6 +136,7 @@ class QuranWordController extends Controller
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
+                            $this->sendAudioMp3Aye($aya, $sure, $bot);
                         }
                     }
                 }
@@ -390,6 +391,20 @@ class QuranWordController extends Controller
             $message = trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6);
             BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
+    }
+
+    /**
+     * @param int $aya
+     * @param int $sure
+     * @param Telegram $bot
+     * @return void
+     */
+    public function sendAudioMp3Aye(int $aya, int $sure, Telegram $bot): void
+    {
+        if ($aya == 1 && $sure != 1 && $sure != 9) {
+            BotHelper::sendAudio($bot, 1, 1);
+        }
+        BotHelper::sendAudio($bot, $sure, $aya);
     }
 
 }

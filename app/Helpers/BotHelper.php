@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use App\Models\QuranAyat;
 use Exception;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
@@ -187,6 +188,32 @@ class BotHelper
         ];
 
         $messenger->sendMessage($content);
+    }
+
+    /**
+     * @param Telegram $messenger
+     * @param $suraId
+     * @param $ayaId
+     * @return void
+     */
+    public static function sendAudio(Telegram $messenger, $suraId, $ayaId): void
+    {
+        // TODO: cache
+        //
+        $aye = QuranAyat::query()
+            ->whereSura($suraId)
+            ->whereAya($ayaId)
+            ->first();
+//        dd($aye->id);
+
+        $chat_id = $messenger->ChatID();
+
+        $content = [
+            'chat_id' => $chat_id,
+            'audio' => "https://cdn.islamic.network/quran/audio/128/ar.alafasy/" . $aye->id . ".mp3"
+        ];
+
+        $messenger->sendAudio($content);
     }
 
     /**
