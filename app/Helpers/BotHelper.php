@@ -211,6 +211,15 @@ class BotHelper
         $content = [
             'chat_id' => $chat_id,
             'audio' => "https://cdn.islamic.network/quran/audio/128/ar.alafasy/" . $aye->id . ".mp3"
+            // TODO:
+//            'duration' => NULL,
+//            'performer' => NULL,
+//            'title' => NULL,
+//            'caption' => NULL,
+//            'disable_notification' => FALSE,
+//            'reply_to_message_id' => NULL,
+//            'reply_markup' => NULL,
+//            'parse_mode' => NULL
         ];
 
         $messenger->sendAudio($content);
