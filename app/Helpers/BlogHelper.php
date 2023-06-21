@@ -8,9 +8,23 @@ use GuzzleHttp;
 
 class BlogHelper
 {
-    public static function callApiMe(): void
+    public static function callArtisanQueueWork($blog_token): mixed
     {
 
+        $client = new GuzzleHttp\Client();
+
+        $response = $client->request(
+            'POST',
+            url(config('blog.artisan')),
+            [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Authorization' => 'Bearer ' . $blog_token,
+                    'Content-Type' => 'application/json'
+                ],
+            ]
+        );
+        return json_decode($response->getBody(), true);
     }
 
     public static function callApiPost($text, $authorId, $blog_token)

@@ -97,6 +97,8 @@ blog.pardisania.ir
                 $message = trans('bot.sending to blog api but nothing returned:' . $response['data']);
             }
             BotHelper::sendMessage($bot, $message);
+
+            BlogHelper::callArtisanQueueWork($blog_token);
             return $response;
 
         }

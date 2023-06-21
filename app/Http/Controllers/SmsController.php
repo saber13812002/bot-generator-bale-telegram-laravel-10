@@ -24,7 +24,6 @@ class SmsController
 " . $request->message_id;
             try {
                 $response = BlogHelper::callApiPost($request->message . $messageId, $author_id, $blog_token);
-
             } catch (Exception $e) {
                 $contains = Str::contains($e->getMessage(), 'slug');
                 Log::info($e->getMessage());
@@ -35,6 +34,7 @@ class SmsController
                     return "{\"error\":\"" . $e->getMessage() . "\"}";
                 }
             }
+            BlogHelper::callArtisanQueueWork($blog_token);
         }
 
     }
