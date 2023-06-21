@@ -10,7 +10,6 @@ class BlogHelper
 {
     public static function callArtisanQueueWork($blog_token): mixed
     {
-
         $client = new GuzzleHttp\Client();
 
         $response = $client->request(
