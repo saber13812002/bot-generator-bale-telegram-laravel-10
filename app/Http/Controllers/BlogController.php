@@ -18,7 +18,6 @@ class BlogController extends Controller
      */
     public function index(BotRequest $request)
     {
-//        if ($request->has('origin') && $request->has('bot_mother_id')) {
         $type = $request->input('origin');
         $botMotherId = $request->input('bot_mother_id');
         if ($type == 'bale') {
@@ -54,41 +53,21 @@ class BlogController extends Controller
             $message = $this->ifStartCommandBlog($author_id, $bot);
         }
 
+        // TODO: if author id in webhook ... users can sent via bot to another channels
 //                if ($author_id) {
         try {
-
             $message = trans('bot.sending to blog api');
             BotHelper::sendMessage($bot, $message);
             $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
 
         } catch (Exception $e) {
-            $contains = Str::contains($e->getMessage(), 'slug');
-            Log::info($e->getMessage());
-            if ($contains) {
-                $message = "به نظر میرسه توییت شما تکراری است و یا اولین نقطه برای انتخاب عنوان خیلی طولانی شده است. لطفا کمی تغییربش بدهید و مجددا تلاش کنید
-                قبلش مطمئن بشید که در
-blog.pardisania.ir
-منتشر نشده؟ یا در کانال های شما منتشر نشده باشد";
-                BotHelper::sendMessage($bot, $message);
-                return "{\"error\":\"slug\"}";
-            } else {
-                $message = "unknown error:";
-                BotHelper::sendMessage($bot, $message);
-                return "{\"error\":\"" . $e->getMessage() . "\"}";
-            }
+            return $this->handleCallApiExceptions($e, $bot);
         }
 
-        if ($response['data'] && $response['data']['id']) {
-            $message = config('blog.url') . "/posts/" . $response['data']['slug'];
-        } else {
-            $message = trans('bot.sending to blog api but nothing returned:' . $response['data']);
-        }
-        BotHelper::sendMessage($bot, $message);
+        $this->sendResultMessageToUser($response['data'], $bot);
 
         $response = BlogHelper::callArtisanQueueWork($blog_token);
         return $response;
-
-//    }
 
     }
 
@@ -114,6 +93,44 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
         }
         BotHelper::sendMessage($bot, $message);
         return $message;
+    }
+
+    /**
+     * @param Exception $e
+     * @param Telegram $bot
+     * @return string
+     */
+    public function handleCallApiExceptions(Exception $e, Telegram $bot): string
+    {
+        $contains = Str::contains($e->getMessage(), 'slug');
+        Log::info($e->getMessage());
+        if ($contains) {
+            $message = "به نظر میرسه توییت شما تکراری است و یا اولین نقطه برای انتخاب عنوان خیلی طولانی شده است. لطفا کمی تغییربش بدهید و مجددا تلاش کنید
+                قبلش مطمئن بشید که در
+blog.pardisania.ir
+منتشر نشده؟ یا در کانال های شما منتشر نشده باشد";
+            BotHelper::sendMessage($bot, $message);
+            return "{\"error\":\"slug\"}";
+        } else {
+            $message = "unknown error:";
+            BotHelper::sendMessage($bot, $message);
+            return "{\"error\":\"" . $e->getMessage() . "\"}";
+        }
+    }
+
+    /**
+     * @param $data
+     * @param Telegram $bot
+     * @return void
+     */
+    public function sendResultMessageToUser($data, Telegram $bot): void
+    {
+        if ($data && $data['id']) {
+            $message = config('blog.url') . "/posts/" . $data['slug'];
+        } else {
+            $message = trans('bot.sending to blog api but nothing returned:' . $data);
+        }
+        BotHelper::sendMessage($bot, $message);
     }
 
 }
