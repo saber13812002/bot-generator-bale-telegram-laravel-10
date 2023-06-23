@@ -18,41 +18,89 @@ class BlogController extends Controller
      */
     public function index(BotRequest $request)
     {
-        if ($request->has('origin') && $request->has('bot_mother_id')) {
-            $type = $request->input('origin');
-            $botMotherId = $request->input('bot_mother_id');
-            if ($type == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
-            } else {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
-            }
+//        if ($request->has('origin') && $request->has('bot_mother_id')) {
+        $type = $request->input('origin');
+        $botMotherId = $request->input('bot_mother_id');
+        if ($type == 'bale') {
+            $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
+        } else {
+            $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
+        }
 
-            try {
-                LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info($e->getMessage());
-            }
+        try {
+            LogHelper::log($request, $type, $bot);
+        } catch (Exception $e) {
+            Log::info($e->getMessage());
+        }
 
-            $message = trans('bot.please wait');
-            BotHelper::sendMessage($bot, $message);
+        $message = trans('bot.please wait');
+        BotHelper::sendMessage($bot, $message);
 
-            $type = $request->input('origin');
-            $author_id = $request->input('author_id');
 
-            // if in blog table has success token get valid twitter phrase and save in blog
-            $response = "";
-            // if not we can get valid token and save it in blog table
+        $author_id = $request->input('author_id');
+
+        // if in blog table has success token get valid twitter phrase and save in blog
+        $response = "";
+        // if not we can get valid token and save it in blog table
 //                dd(explode('.', $bot->Text(), 178)[0]);
-            if (!$request->has('author_id')) {
-                [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
-            } elseif ($request->has('blog_token')) {
-                $author_id = $request->input('author_id');
-                $blog_token = $request->input('blog_token');
-            }
+        if (!$request->has('author_id')) {
+            [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
+        } elseif ($request->has('blog_token')) {
+            $author_id = $request->input('author_id');
+            $blog_token = $request->input('blog_token');
+        }
 
-            if ($bot->Text() == '/start') {
-                if ($author_id) {
-                    $message = "توییت کنید و شروع کنید.
+        if ($bot->Text() == '/start') {
+            $message = $this->ifStartCommandBlog($author_id, $bot);
+        }
+
+//                if ($author_id) {
+        try {
+
+            $message = trans('bot.sending to blog api');
+            BotHelper::sendMessage($bot, $message);
+            $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
+
+        } catch (Exception $e) {
+            $contains = Str::contains($e->getMessage(), 'slug');
+            Log::info($e->getMessage());
+            if ($contains) {
+                $message = "به نظر میرسه توییت شما تکراری است و یا اولین نقطه برای انتخاب عنوان خیلی طولانی شده است. لطفا کمی تغییربش بدهید و مجددا تلاش کنید
+                قبلش مطمئن بشید که در
+blog.pardisania.ir
+منتشر نشده؟ یا در کانال های شما منتشر نشده باشد";
+                BotHelper::sendMessage($bot, $message);
+                return "{\"error\":\"slug\"}";
+            } else {
+                $message = "unknown error:";
+                BotHelper::sendMessage($bot, $message);
+                return "{\"error\":\"" . $e->getMessage() . "\"}";
+            }
+        }
+
+        if ($response['data'] && $response['data']['id']) {
+            $message = config('blog.url') . "/posts/" . $response['data']['slug'];
+        } else {
+            $message = trans('bot.sending to blog api but nothing returned:' . $response['data']);
+        }
+        BotHelper::sendMessage($bot, $message);
+
+        $response = BlogHelper::callArtisanQueueWork($blog_token);
+        return $response;
+
+//    }
+
+    }
+
+    /**
+     * @param mixed $author_id
+     * @param Telegram $bot
+     * @return string
+     */
+    public function ifStartCommandBlog(mixed $author_id, Telegram $bot): string
+    {
+        if ($author_id) {
+            $message = "توییت کنید و شروع کنید.
 بعد از توییت لینک برای شما ساخته میشه.
  که اگر آر اس اس شما به توییتر متصل باشه منتشر میشه. از سایت
  dlvr.it
@@ -60,49 +108,12 @@ class BlogController extends Controller
 لینک آر اس اس شما جهت انجام تنظیمات:
 https://blog.pardisania.ir/posts/feed/" . $author_id;
 
-                } else {
-                    $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
+        } else {
+            $message = "از ادمین @sabertaba بخواهید که تنظیمات شما رو انجام بده.
 قبلش لطفا در سایت blog.pardisania.ir عضو بشید و پیام بدین";
-                }
-                BotHelper::sendMessage($bot, $message);
-            }
-
-//                if ($author_id) {
-            try {
-
-                $message = trans('bot.sending to blog api');
-                BotHelper::sendMessage($bot, $message);
-                $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
-
-            } catch (Exception $e) {
-                $contains = Str::contains($e->getMessage(), 'slug');
-                Log::info($e->getMessage());
-                if ($contains) {
-                    $message = "به نظر میرسه توییت شما تکراری است و یا اولین نقطه برای انتخاب عنوان خیلی طولانی شده است. لطفا کمی تغییربش بدهید و مجددا تلاش کنید
-                قبلش مطمئن بشید که در
-blog.pardisania.ir
-منتشر نشده؟ یا در کانال های شما منتشر نشده باشد";
-                    BotHelper::sendMessage($bot, $message);
-                    return "{\"error\":\"slug\"}";
-                } else {
-                    $message = "unknown error:";
-                    BotHelper::sendMessage($bot, $message);
-                    return "{\"error\":\"" . $e->getMessage() . "\"}";
-                }
-            }
-
-            if ($response['data'] && $response['data']['id']) {
-                $message = config('blog.url') . "/posts/" . $response['data']['slug'];
-            } else {
-                $message = trans('bot.sending to blog api but nothing returned:' . $response['data']);
-            }
-            BotHelper::sendMessage($bot, $message);
-
-            BlogHelper::callArtisanQueueWork($blog_token);
-            return $response;
-
         }
-
+        BotHelper::sendMessage($bot, $message);
+        return $message;
     }
 
 }

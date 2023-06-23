@@ -12,6 +12,13 @@ class BlogHelper
     {
         $client = new GuzzleHttp\Client();
 
+
+        $request_param = [
+            'posted_at' => Carbon::now()
+        ];
+
+        $request_data = json_encode($request_param);
+
         $response = $client->request(
             'POST',
             url(config('blog.artisan')),
@@ -21,6 +28,7 @@ class BlogHelper
                     'Authorization' => 'Bearer ' . $blog_token,
                     'Content-Type' => 'application/json'
                 ],
+                'body' => $request_data
             ]
         );
         return json_decode($response->getBody(), true);
@@ -32,6 +40,7 @@ class BlogHelper
         $title = explode('.', $text, 118)[0];
         if (strlen($title) > 118)
             $title = substr($title, 0, 118);
+
         $request_param = [
             'title' => $title,
             'content' => str_replace('....', "<br>", $text),
