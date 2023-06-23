@@ -36,13 +36,17 @@ class BlogHelper
 
     public static function callApiPost($text, $authorId, $blog_token)
     {
-        $client = new GuzzleHttp\Client();
+//        dd($text);
+
         $title = explode('.', $text, 118)[0];
         if (strlen($title) > 118)
             $title = substr($title, 0, 118);
 
+
+//        dd($title, $text);
+
         $request_param = [
-            'title' => $title,
+            'title' => strlen($text) > 118 ? substr($text, 0, 118) : $text,
             'content' => str_replace('....', "<br>", $text),
             'posted_at' => Carbon::now(),
             'author_id' => $authorId,
@@ -53,6 +57,7 @@ class BlogHelper
 
 //        dd($request_data);
 
+        $client = new GuzzleHttp\Client();
         $response = $client->request(
             'POST',
             url(config('blog.post')),
@@ -88,5 +93,23 @@ class BlogHelper
             ->get()
             ->first();
         return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
+    }
+
+    public static function callApiGetUserMessenger($author_id, mixed $blogToken)
+    {
+        $client = new GuzzleHttp\Client();
+        $response = $client->request(
+            'GET',
+            url(config('blog.messenger') . '/' . $author_id),
+            [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Authorization' => 'Bearer ' . $blogToken,
+                    'Content-Type' => 'application/json'
+                ]
+            ]
+        );
+        // TODO: if slug existed
+        return json_decode($response->getBody(), true);
     }
 }
