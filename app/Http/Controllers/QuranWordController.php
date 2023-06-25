@@ -151,9 +151,13 @@ class QuranWordController extends Controller
                 }
                 if ($command == "Joz") {
                     if ($type == 'telegram') {
-                        $this->generateJozKeyBoardThenSendItTelegram($bot);
+//                        $this->generateJozKeyBoardThenSendItTelegram($bot);
+                        $this->generateJozLinksThenSendItTelegram($bot);
+                        $this->generateJozLinksThenSendItBale($bot);
+
                     } else {
-                        $this->generateJozKeyBoardThenSendIt($bot, $token);
+//                        $this->generateJozKeyBoardThenSendIt($bot, $token);
+                        $this->generateJozLinksThenSendItBale($bot);
                     }
                 }
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
@@ -353,6 +357,22 @@ class QuranWordController extends Controller
 
     /**
      * @param Telegram $bot
+     * @return void
+     */
+    public
+    function generateJozLinksThenSendItTelegram(Telegram $bot): void
+    {
+        $message = "";
+        for ($i = 0; $i < 30; $i += 2) {
+            $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
+" . config('juz.' . ($i + 1)) . ($i + 1) . " " . config('juz.' . ($i + 2)) . ($i + 2) . "
+";
+        }
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * @param Telegram $bot
      * @param $token
      * @return void
      * @throws GuzzleException
@@ -405,6 +425,17 @@ class QuranWordController extends Controller
             BotHelper::sendAudio($bot, 1, 1);
         }
         BotHelper::sendAudio($bot, $sure, $aya);
+    }
+
+    private function generateJozLinksThenSendItBale(Telegram $bot)
+    {
+        $message = "";
+        for ($i = 0; $i < 30; $i += 2) {
+            $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
+[" . trans("bot.Juz") . ($i + 1) . "](send:" . config('juz.' . ($i + 1)) . ") [" . trans("bot.Juz") . ($i + 2) . "](send:/" . config('juz.' . ($i + 2)) . ")
+";
+        }
+        BotHelper::sendMessage($bot, $message);
     }
 
 }
