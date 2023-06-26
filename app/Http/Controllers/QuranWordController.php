@@ -153,7 +153,6 @@ class QuranWordController extends Controller
                     if ($type == 'telegram') {
 //                        $this->generateJozKeyBoardThenSendItTelegram($bot);
                         $this->generateJozLinksThenSendItTelegram($bot);
-                        $this->generateJozLinksThenSendItBale($bot);
 
                     } else {
 //                        $this->generateJozKeyBoardThenSendIt($bot, $token);
@@ -363,9 +362,11 @@ class QuranWordController extends Controller
     function generateJozLinksThenSendItTelegram(Telegram $bot): void
     {
         $message = "";
-        for ($i = 0; $i < 30; $i += 2) {
-            $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
-" . config('juz.' . ($i + 1)) . ($i + 1) . " " . config('juz.' . ($i + 2)) . ($i + 2) . "
+        for ($i = 0; $i < 30; $i++) {
+            $message .= trans("bot.Juz") . ($i + 1) . "
+" . config('juz.' . ($i + 1)) . "
+
+<a href=\"" . config('juz.' . ($i + 1)) . "\">" . trans("bot.Juz") . "</a>
 ";
         }
         BotHelper::sendMessage($bot, $message);
@@ -432,7 +433,7 @@ class QuranWordController extends Controller
         $message = "";
         for ($i = 0; $i < 30; $i += 2) {
             $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
-[" . trans("bot.Juz") . ($i + 1) . "](send:" . config('juz.' . ($i + 1)) . ") [" . trans("bot.Juz") . ($i + 2) . "](send:/" . config('juz.' . ($i + 2)) . ")
+[" . trans("bot.Juz") . ($i + 1) . "](send:" . config('juz.' . ($i + 1)) . ") [" . trans("bot.Juz") . ($i + 2) . "](send:" . config('juz.' . ($i + 2)) . ")
 ";
         }
         BotHelper::sendMessage($bot, $message);
