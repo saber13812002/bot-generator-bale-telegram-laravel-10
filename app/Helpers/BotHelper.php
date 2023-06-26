@@ -202,7 +202,7 @@ class BotHelper
         $content = [
             'chat_id' => $chat_id,
             'text' => $message,
-            'parse_mode' => NULL
+            'parse_mode' => "HTML"
         ];
 
         $messenger->sendMessage($content);
