@@ -192,6 +192,24 @@ class BotHelper
 
     /**
      * @param Telegram $messenger
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageParseMode(Telegram $messenger, string $message): void
+    {
+        $chat_id = $messenger->ChatID();
+
+        $content = [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'parse_mode' => NULL
+        ];
+
+        $messenger->sendMessage($content);
+    }
+
+    /**
+     * @param Telegram $messenger
      * @param $suraId
      * @param $ayaId
      * @return void

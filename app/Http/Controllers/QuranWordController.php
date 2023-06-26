@@ -369,7 +369,7 @@ class QuranWordController extends Controller
 <a href=\"" . config('juz.' . ($i + 1)) . "\">" . trans("bot.Juz") . "</a>
 ";
         }
-        BotHelper::sendMessage($bot, $message);
+        BotHelper::sendMessageParseMode($bot, $message);
     }
 
     /**
