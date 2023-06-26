@@ -362,13 +362,12 @@ class QuranWordController extends Controller
     function generateJozLinksThenSendItTelegram(Telegram $bot): void
     {
         $message = "";
-        for ($i = 0; $i < 30; ++$i) {
+        for ($i = 1; $i <= 30; $i++) {
             $message .= trans("bot.Juz") . $i . "
 " . config('juz.' . $i) . "
 
-<a href=\"" . config('juz.' . $i) . "\">" . trans("bot.Juz") . $i . "</a>
-
 ";
+//            <a href=\"" . config('juz.' . $i) . "\">" . trans("bot.Juz") . $i . "</a>
         }
         BotHelper::sendMessageParseMode($bot, $message);
     }
