@@ -216,7 +216,7 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
             //            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
         }
 
-        BotHelper::sendMessage($bot, $message . "
+        BotHelper::sendMessageParseMode($bot, $message . "
 " . $resultText);
 
 //        BotHelper::sendMessage($bot, $resultText);
@@ -314,8 +314,8 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
      */
     public static function getHighlightMarker(string $type): array
     {
-        $start = $type == "bale" ? "*" : "**";
-        $end = $type == "bale" ? "*" : "**";
+        $start = $type == "bale" ? "*" : "<b>";
+        $end = $type == "bale" ? "*" : "</b>";
         return array($start, $end);
     }
 
