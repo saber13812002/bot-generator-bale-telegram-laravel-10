@@ -9,6 +9,7 @@ use App\Models\QuranTransliterationEn;
 use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\App;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
@@ -194,26 +195,17 @@ class QuranHefzBotHelper
      */
     public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
     {
-//        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
-
-//            $paginate = QuranAyatResource::collection($results);
-//            dd($results->count());
-//            dd($results->items());
 
         $botText = IndexedRecord::normalize($botText);
-
-        $search = new Search();
-        $results = $search->run($botText, QuranAyat::class);
+        $results = self::getResultSearch($botText);
 
         $message = "";
-//        dd($results,$results0);
-//        $resultText = self::getResultCountText($results0->count());
+
         $resultText = self::getResultCountText($results->count()) . "
 https://quran.inoor.ir/fa/search/?query=" . $botText . "
 ";
 //        dd($resultText);
         $count = 0;
-//        foreach ($results0->items() as $item) {
         foreach ($results as $item) {
 //                dd($item->suras);
             $item = $item->indexable;
@@ -221,35 +213,39 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
             $messageResult = (++$count . "-
  سوره شماره :" . $item->suras->id . "
 " . $item->suras->arabic . "- آیه شماره " . $item->aya . "
-" . "/sure" . $item->sura . "ayah" . $item->aya . "
+" . self::generateLinkCommandResult($type, $item->sura, $item->aya) . "
+دیدن نتیجه ☝☝☝
 
-دیدن نتیجه 👇👇👇
 ");
 //                $messageResult ="";
             if ($count == 1) {
                 $message .= $resultText . "
 " . $messageResult;
             } else {
-                $message = $messageResult;
+                $message .= $messageResult;
             }
 //                dd($message,$bot->ChatID());
-            $array = [["سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
-//                dd($array,$token,$message,$array);
-            if ($type == 'telegram') {
-                BotHelper::sendQuranSearchResult($bot, $message, $array);
-            } else {
-                $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-//                    BotHelper::sendMessage($bot,$message);
-            }
+//            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
         }
 
+        BotHelper::sendMessage($bot, $message . "
+" . $resultText);
 
-        BotHelper::sendMessage($bot, $resultText);
+//        BotHelper::sendMessage($bot, $resultText);
 
+        self::sendReportMessageToSuperAdmins($botText, $resultText, $bot);
+    }
 
+    /**
+     * @param array|string $botText
+     * @param string $resultText
+     * @param Telegram $bot
+     * @return void
+     */
+    public static function sendReportMessageToSuperAdmins(array|string $botText, string $resultText, Telegram $bot): void
+    {
         $msg = "جستجوی #قرآن: " . $botText . "
-تعداد نتایج:" . $count . "
+" . $resultText . "
 https://quran.inoor.ir/fa/search/?query=" . $botText . "
 " . $bot->ChatID() . "
 " . $bot->Username() . "
@@ -257,6 +253,59 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
 " . $bot->LastName();
         BotHelper::sendMessageToSuperAdmin($msg, 'bale');
         BotHelper::sendMessageToSuperAdmin($msg, 'telegram');
+    }
+
+    /**
+     * @param mixed $botText
+     * @return Collection|IndexedRecord[]
+     */
+    public static function getResultSearch(mixed $botText): Collection|array
+    {
+//        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
+
+//            $paginate = QuranAyatResource::collection($results);
+//            dd($results->count());
+//            dd($results->items());
+        $search = new Search();
+        return $search->run($botText, QuranAyat::class);
+    }
+
+    /**
+     * @param mixed $item
+     * @param mixed $type
+     * @param Telegram $bot
+     * @param string $message
+     * @param mixed $token
+     * @return void
+     * @throws GuzzleException
+     */
+    public static function sendMessageForEveryResult(mixed $item, mixed $type, Telegram $bot, string $message, mixed $token): void
+    {
+        $array = [["سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
+//                dd($array,$token,$message,$array);
+        if ($type == 'telegram') {
+            BotHelper::sendQuranSearchResult($bot, $message, $array);
+        } else {
+            $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+//                    BotHelper::sendMessage($bot,$message);
+        }
+    }
+
+    /**
+     * @param mixed $type
+     * @param $sure
+     * @param $ayah
+     * @return string
+     */
+    private static function generateLinkCommandResult(mixed $type, $sure, $ayah): string
+    {
+        $command = "/sure" . $sure . "ayah" . $ayah;
+
+        if ($type != 'bale')
+            return $command;
+
+        return "[" . $command . "](send:" . $command . ")";
     }
 
 }
