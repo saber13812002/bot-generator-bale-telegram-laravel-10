@@ -205,27 +205,15 @@ class QuranHefzBotHelper
 https://quran.inoor.ir/fa/search/?query=" . $botText . "
 ";
 //        dd($resultText);
-        $count = 0;
+        $index = 0;
         foreach ($results as $item) {
-//                dd($item->suras);
-            $item = $item->indexable;
-//            dd($item);
-            $messageResult = (++$count . "-
- سوره شماره :" . $item->suras->id . "
-" . $item->suras->arabic . "- آیه شماره " . $item->aya . "
-" . self::generateLinkCommandResult($type, $item->sura, $item->aya) . "
-دیدن نتیجه ☝☝☝
 
-");
-//                $messageResult ="";
-            if ($count == 1) {
-                $message .= $resultText . "
-" . $messageResult;
-            } else {
-                $message .= $messageResult;
-            }
-//                dd($message,$bot->ChatID());
-//            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
+            list($start, $end) = self::getHighlightMarker($type);
+            $highlight = self::highlighter($botText, $item->indexed_title, $start, $end);
+
+            $message = self::getResultMessage(++$index, $item->indexable, $highlight, $type, $resultText, $message);
+
+            //            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
         }
 
         BotHelper::sendMessage($bot, $message . "
@@ -306,6 +294,72 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
             return $command;
 
         return "[" . $command . "](send:" . $command . ")";
+    }
+
+    /**
+     * @param string $keyword
+     * @param mixed $longText
+     * @param $start
+     * @param $end
+     * @return string
+     */
+    public static function highlighter(string $keyword, string $longText, $start, $end): string
+    {
+        return preg_replace("/\w*?$keyword\w*/i", $start . "$0" . $end, $longText);
+    }
+
+    /**
+     * @param string $type
+     * @return string[]
+     */
+    public static function getHighlightMarker(string $type): array
+    {
+        $start = $type == "bale" ? "*" : "<b>";
+        $end = $type == "bale" ? "*" : "</b>";
+        return array($start, $end);
+    }
+
+    /**
+     * @param int $i
+     * @param mixed $item
+     * @param array|string|null $highlight
+     * @param mixed $type
+     * @return string
+     */
+    public static function getResultItemMessage(int $i, mixed $item, array|string|null $highlight, mixed $type): string
+    {
+        return ($i . "-
+ سوره شماره :" . $item->suras->id . "
+" . $item->suras->arabic . "- آیه شماره " . $item->aya . "
+--------------------
+" . $highlight . "
+--------------------
+" . self::generateLinkCommandResult($type, $item->sura, $item->aya) . "
+دیدن نتیجه ☝☝☝
+
+");
+    }
+
+    /**
+     * @param int $i
+     * @param mixed $item
+     * @param array|string|null $highlight
+     * @param mixed $type
+     * @param int $count
+     * @param string $resultText
+     * @param string $message
+     * @return string
+     */
+    public static function getResultMessage(int $count, mixed $item, array|string|null $highlight, mixed $type, string $resultText, string $message): string
+    {
+        $messageResult = self::getResultItemMessage($count, $item, $highlight, $type);
+        if ($count == 1) {
+            $message .= $resultText . "
+" . $messageResult;
+        } else {
+            $message .= $messageResult;
+        }
+        return $message;
     }
 
 }
