@@ -191,7 +191,6 @@ class QuranHefzBotHelper
      * @param Telegram $bot
      * @param mixed $token
      * @return void
-     * @throws GuzzleException
      */
     public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
     {
@@ -344,11 +343,10 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
     }
 
     /**
-     * @param int $i
+     * @param int $count
      * @param mixed $item
      * @param array|string|null $highlight
      * @param mixed $type
-     * @param int $count
      * @param string $resultText
      * @param string $message
      * @return string

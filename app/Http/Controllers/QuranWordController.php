@@ -397,7 +397,6 @@ class QuranWordController extends Controller
     /**
      * @param Telegram $bot
      * @return void
-     * @throws GuzzleException
      */
     public
     function generateTelegramFehrestThenSendIt(Telegram $bot): void
