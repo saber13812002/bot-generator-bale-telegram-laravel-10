@@ -11,6 +11,7 @@ use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Str;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
@@ -203,15 +204,16 @@ class QuranHefzBotHelper
         $resultText = self::getResultCountText($results->count()) . "
 https://quran.inoor.ir/fa/search/?query=" . $botText . "
 ";
-//        dd($resultText);
+//        dd($results);
         $index = 0;
         foreach ($results as $item) {
-
+//            dd($item);
             list($start, $end) = self::getHighlightMarker($type);
             $highlight = self::highlighter($botText, $item->indexed_title, $start, $end);
-
+//            dd($highlight, $start, $end);
             $message = self::getResultMessage(++$index, $item->indexable, $highlight, $type, $resultText, $message);
-
+//            if ($index == 14)
+//                dd($message);
             //            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
         }
 
@@ -303,8 +305,27 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
      */
     public static function highlighter(string $keyword, string $longText, $start, $end): string
     {
-        return preg_replace("/\w*?$keyword\w*/i", $start . "$0" . $end, $longText);
+        $highlight = preg_replace("/\w*?$keyword\w*/i", $start . "$0" . $end, $longText);
+        if (strlen($longText) > 200) {
+            $position = strpos($longText, $keyword);
+
+            $numStr = preg_replace("/\w*?$keyword\w*/i", '____', $longText);
+            $sum = array_sum(explode('____', $numStr));
+            if ($sum < 2) {
+                if ($position < 70) {
+                    $highlight = Str::substr($highlight, 0, 100) . "...";
+                } elseif ($position < 140) {
+                    $highlight = Str::substr($highlight, 60, 170) . "...";
+                } elseif ($position < 200) {
+                    $highlight = Str::substr($highlight, 120, 200) . "...";
+                } else {
+                    $highlight = Str::substr($highlight, 180, -1) . "...";
+                }
+            }
+        }
+        return $highlight;
     }
+
 
     /**
      * @param string $type
