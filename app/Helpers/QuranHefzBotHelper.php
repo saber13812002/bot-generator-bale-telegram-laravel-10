@@ -314,8 +314,8 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
      */
     public static function getHighlightMarker(string $type): array
     {
-        $start = $type == "bale" ? "*" : "<b>";
-        $end = $type == "bale" ? "*" : "</b>";
+        $start = $type == "bale" ? "<b>" : "<b>";
+        $end = $type == "bale" ? "</b>" : "</b>";
         return array($start, $end);
     }
 
