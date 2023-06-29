@@ -52,6 +52,9 @@ class ExampleTest extends TestCase
         $botText = "فصیام";
         assertEquals(4, $this->countResultSearchQuran($botText));
 
+        $botText = "محمد";
+        assertEquals(4, $this->countResultSearchQuran($botText));
+
         $time_end = microtime(true);
 
 //dividing with 60 will give the execution time in minutes otherwise seconds
