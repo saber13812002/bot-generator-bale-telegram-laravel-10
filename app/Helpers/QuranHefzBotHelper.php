@@ -200,7 +200,6 @@ class QuranHefzBotHelper
 //            dd($results->count());
 //            dd($results->items());
 
-
         $botText = IndexedRecord::normalize($botText);
 
         $search = new Search();
@@ -209,7 +208,9 @@ class QuranHefzBotHelper
         $message = "";
 //        dd($results,$results0);
 //        $resultText = self::getResultCountText($results0->count());
-        $resultText = self::getResultCountText($results->count());
+        $resultText = self::getResultCountText($results->count()) . "
+https://quran.inoor.ir/fa/search/?query=" . $botText . "
+";
 //        dd($resultText);
         $count = 0;
 //        foreach ($results0->items() as $item) {
@@ -249,6 +250,7 @@ class QuranHefzBotHelper
 
         $msg = "جستجوی #قرآن: " . $botText . "
 تعداد نتایج:" . $count . "
+https://quran.inoor.ir/fa/search/?query=" . $botText . "
 " . $bot->ChatID() . "
 " . $bot->Username() . "
 " . $bot->FirstName() . "
