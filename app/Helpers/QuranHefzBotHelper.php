@@ -233,7 +233,6 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
     {
         $msg = "جستجوی #قرآن: " . $botText . "
 " . $resultText . "
-https://quran.inoor.ir/fa/search/?query=" . $botText . "
 " . $bot->ChatID() . "
 " . $bot->Username() . "
 " . $bot->FirstName() . "
