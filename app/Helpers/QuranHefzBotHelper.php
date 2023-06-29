@@ -314,8 +314,11 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
      */
     public static function getHighlightMarker(string $type): array
     {
-        $start = $type == "bale" ? " <b> " : " <tg-spoiler> ";
-        $end = $type == "bale" ? " </b> " : " </tg-spoiler> ";
+        $htmlStart = array("<b>", "<i>", "<u>", "<s>", "<code>", "<pre>", "<tg-spoiler>");
+        $htmlEnd = array("</b>", "</i>", "</u>", "</s>", "</code>", "</pre>", "</tg-spoiler>");
+        $index = rand(0, 6);
+        $start = $type == "bale" ? $htmlStart[$index] : $htmlStart[$index];
+        $end = $type == "bale" ? $htmlEnd[$index] : $htmlEnd[$index];
         return array($start, $end);
     }
 
