@@ -53,10 +53,9 @@ class BotQuranAyatController
 
             $botText = $bot->Text();
 
-            try {
-                QuranHefzBotHelper::findResultThenSend($botText, $type, $bot, $token);
-            } catch (GuzzleException $e) {
-            }
+            [$searchPhrase, $pageNumber] = self::getPageNumberFromPhrase($botText);
+
+            QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
 
             return true;
         }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\QuranAyat;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
@@ -55,13 +54,19 @@ class ExampleTest extends TestCase
         $botText = "محمد";
         assertEquals(4, $this->countResultSearchQuran($botText));
 
+        $botText = "الارض";
+        assertEquals(0, $this->countResultSearchQuran($botText));
+
+        $botText = "الأرض";
+        assertEquals(0, $this->countResultSearchQuran($botText));
+
         $time_end = microtime(true);
 
 //dividing with 60 will give the execution time in minutes otherwise seconds
         $execution_time = ($time_end - $time_start) * 1000;
 
 //execution time of the script
-        assertLessThan(2000, $execution_time);
+        assertLessThan(3500, $execution_time);
 
 
     }

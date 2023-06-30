@@ -12,6 +12,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
+use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
@@ -174,42 +175,49 @@ class QuranHefzBotHelper
 
     /**
      * @param int $resultsCount
+     * @param int $pageNumber
+     * @param $searchPhrase
      * @return string
      */
-    public static function getResultCountText(int $resultsCount): string
+    public static function getResultCountText(int $resultsCount, int $pageNumber, $searchPhrase): string
     {
+        $commandNextPage = self::getCommandNextPage($searchPhrase, $pageNumber + 1);
+
         if ($resultsCount == 0) {
             $resultText = "هیچ موردی به عنوان نتیجه جستجوی شما یافت نشد.";
         } else {
-            $resultText = $resultsCount >= 15 ? "بیش از 15 مورد نتیجه یافت شد که در نسخه جاری 15 تای اول ارسال میشه و به زودی در نسخه های بعدی میتوانید صفحات بعدی را هم جستجو کنید " : " تعداد  " . $resultsCount . " مورد یافت شد .";
+            $messageWhenCountMoreThanLimit = "بیش از " . config('laravel-fulltext.limit-results-page') . " مورد نتیجه یافت شد که در نسخه جاری " . config('laravel-fulltext.limit-results') . " تای اول ارسال میشه و به زودی در نسخه های بعدی میتوانید صفحات بعدی را هم جستجو کنید ";
+            $messageWhenCountLessThanLimit = " تعداد  " . $resultsCount . " مورد یافت شد .";
+
+            $resultText = $resultsCount >= config('laravel-fulltext.limit-results-page') ? $messageWhenCountMoreThanLimit . $commandNextPage : $messageWhenCountLessThanLimit;
         }
         return $resultText;
     }
 
     /**
-     * @param mixed $botText
+     * @param mixed $searchPhrase
+     * @param int $pageNumber
      * @param mixed $type
      * @param Telegram $bot
-     * @param mixed $token
      * @return void
      */
-    public static function findResultThenSend(mixed $botText, mixed $type, Telegram $bot, mixed $token): void
+    #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, Telegram $bot): void
     {
 
-        $botText = IndexedRecord::normalize($botText);
-        $results = self::getResultSearch($botText);
-
+        $searchPhrase = IndexedRecord::normalize($searchPhrase);
+        $results = self::getResultSearch($searchPhrase, $pageNumber);
+//        dd($pageNumber,$results);
         $message = "";
 
-        $resultText = self::getResultCountText($results->count()) . "
-https://quran.inoor.ir/fa/search/?query=" . $botText . "
+        $resultText = self::getResultCountText($results->count(), $pageNumber, $searchPhrase) . "
+https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 ";
 //        dd($results);
-        $index = 0;
+        $index = ($pageNumber - 1) * config("laravel-fulltext.limit-results-page");
         foreach ($results as $item) {
 //            dd($item);
             list($start, $end) = self::getHighlightMarker($type);
-            $highlight = self::highlighter($botText, $item->indexed_title, $start, $end);
+            $highlight = self::highlighter($searchPhrase, $item->indexed_title, $start, $end);
 //            dd($highlight, $start, $end);
             $message = self::getResultMessage(++$index, $item->indexable, $highlight, $type, $resultText, $message);
 //            if ($index == 14)
@@ -217,12 +225,17 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
             //            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
         }
 
-        BotHelper::sendMessageParseMode($bot, $message . "
+        if ($type == "bale") {
+            BotHelper::sendMessage($bot, $message . "
 " . $resultText);
+        } else {
+            BotHelper::sendMessageParseMode($bot, $message . "
+" . $resultText);
+        }
 
 //        BotHelper::sendMessage($bot, $resultText);
 
-        self::sendReportMessageToSuperAdmins($botText, $resultText, $bot);
+        self::sendReportMessageToSuperAdmins($searchPhrase, $resultText, $bot);
     }
 
     /**
@@ -244,18 +257,19 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
     }
 
     /**
-     * @param mixed $botText
-     * @return Collection|IndexedRecord[]
+     * @param string $searchPhrase
+     * @param $pageNumber
+     * @return Collection|IndexedRecord
      */
-    public static function getResultSearch(mixed $botText): Collection|array
+    public static function getResultSearch(string $searchPhrase, $pageNumber): Collection|array
     {
+        $search = new Search();
+        return $search->runForClass($searchPhrase, QuranAyat::class)->forPage($pageNumber, 10);
 //        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
 
 //            $paginate = QuranAyatResource::collection($results);
 //            dd($results->count());
 //            dd($results->items());
-        $search = new Search();
-        return $search->run($botText, QuranAyat::class);
     }
 
     /**
@@ -333,11 +347,11 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
      */
     public static function getHighlightMarker(string $type): array
     {
-        $htmlStart = array("<b>", "<i>", "<u>", "<s>", "<code>", "<pre>", "<tg-spoiler>");
-        $htmlEnd = array("</b>", "</i>", "</u>", "</s>", "</code>", "</pre>", "</tg-spoiler>");
+        $htmlStart = array("*", "<b>", "<i>", "<u>", "<s>", "<code>", "<pre>", "<tg-spoiler>");
+        $htmlEnd = array("*", "</b>", "</i>", "</u>", "</s>", "</code>", "</pre>", "</tg-spoiler>");
         $index = rand(0, 6);
-        $start = $type == "bale" ? $htmlStart[$index] : $htmlStart[$index];
-        $end = $type == "bale" ? $htmlEnd[$index] : $htmlEnd[$index];
+        $start = $type == "bale" ? $htmlStart[0] : $htmlStart[1];
+        $end = $type == "bale" ? $htmlEnd[0] : $htmlEnd[1];
         return array($start, $end);
     }
 
@@ -381,6 +395,35 @@ https://quran.inoor.ir/fa/search/?query=" . $botText . "
             $message .= $messageResult;
         }
         return $message;
+    }
+
+    private static function getCommandNextPage(string $searchPhrase, int $nextPage): string
+    {
+        return "
+برای دیدن صفحه بعدی نتایج روی لینک زیر کلیک کنید
+//" . $searchPhrase . "page=" . $nextPage;
+
+    }
+
+    /**
+     * @param string $searchPhrase
+     * @return array
+     */
+    public static function getPageNumberFromPhrase(string $searchPhrase): array
+    {
+        $pageNumberPosition = strpos($searchPhrase, "page=");
+
+        if ($pageNumberPosition > 1) {
+            if (strlen($searchPhrase) > $pageNumberPosition + 5) {
+                $pageNumber = substr($searchPhrase, $pageNumberPosition + 5, strlen($searchPhrase));
+                $searchPhrase = substr($searchPhrase, 0, $pageNumberPosition);
+                return [$searchPhrase, $pageNumber];
+            } else {
+                $searchPhrase = substr($searchPhrase, 0, $pageNumberPosition);
+                return [$searchPhrase, 1];
+            }
+        }
+        return [$searchPhrase, 1];
     }
 
 }

@@ -12,7 +12,9 @@ return [
         'content' => 1,
     ],
 
-    'limit-results' => 15,
+    'limit-results' => 100,
+
+    'limit-results-page' => 10,
 
     /*
      *  Enable wildcard after words

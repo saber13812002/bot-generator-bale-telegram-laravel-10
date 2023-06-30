@@ -161,9 +161,9 @@ class QuranWordController extends Controller
                 }
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-
+                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
                 try {
-                    QuranHefzBotHelper::findResultThenSend($searchPhrase, $type, $bot, $token);
+                    QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
                 } catch (GuzzleException $e) {
                 }
             } else {
