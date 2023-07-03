@@ -9,6 +9,7 @@ use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
 use App\Models\BotLog;
+use App\Models\BotUsers;
 use App\Models\QuranSurah;
 use App\Models\QuranWord;
 use Exception;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Telegram;
+use function Webmozart\Assert\Tests\StaticAnalysis\string;
 
 class QuranWordController extends Controller
 {
@@ -49,6 +51,15 @@ class QuranWordController extends Controller
             } else {
                 return 200;
             }
+
+            if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
+                $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+            else {
+                $str_json = json_encode($request);
+                BotHelper::sendMessageToSuperAdmin("یک مورد روبات بدون شناسه یافت شد", $type);
+                BotHelper::sendMessageToSuperAdmin("یک مورد روبات بدون شناسه یافت شد" . $str_json, $type);
+            }
+//            dd($userSettings);
 
 //            dd((substr($bot->Text(), 0, 2)));
 //            dd(substr($bot->Text(), 2, strlen($bot->Text())));
@@ -158,6 +169,18 @@ class QuranWordController extends Controller
 //                        $this->generateJozKeyBoardThenSendIt($bot, $token);
                         $this->generateJozLinksThenSendItBale($bot);
                     }
+                }
+                if ($command == "mp3") {
+                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+                    $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
+                    $arrTrue = [
+                        'mp3_enable' => "true",
+                    ];
+                    $arrFalse = [
+                        'mp3_enable' => "false",
+                    ];
+                    $userSettings->settings($mp3Enable == "true" ? $arrFalse : $arrTrue);
+//                    dd($userSettings->setting('mp3_enable'));
                 }
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
