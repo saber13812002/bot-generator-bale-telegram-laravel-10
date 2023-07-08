@@ -47,4 +47,8 @@ return [
     'your chat id'                                                              => 'شناسه چت شما:',
     'sending to blog api'                                                       => 'ارسال درخواست به وب سرویس وبلاگ ...',
     'sending to blog api but nothing returned'                                  => 'ارسال درخواست به وب سرویس وبلاگ انجام شد اما چیزی برنگشت...',
+
+    'change reciter' => 'عوض کردن قاری قرآن',
+
+    'disable enable reciter' => 'غیر فعال کردن فایل صوتی'
 ];

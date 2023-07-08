@@ -83,11 +83,11 @@ class QuranWordController extends Controller
             if ($botText == '/start') {
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
-
+                $reciterCommands = BotHelper::getSettingReciter();
                 $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/commandFehrest"], [trans('bot.List of 30 Juz'), "/commandJoz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
-                    BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands, $array, true);
+                    BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);

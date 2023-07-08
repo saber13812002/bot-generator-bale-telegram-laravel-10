@@ -46,4 +46,8 @@ return [
 
     'previous' => 'Previous',
     'next' => 'Next',
+
+    'change reciter' => 'change reciter',
+
+    'disable enable reciter' => 'disable/enable reciter'
 ];

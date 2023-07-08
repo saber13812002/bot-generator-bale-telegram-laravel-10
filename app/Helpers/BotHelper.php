@@ -268,28 +268,35 @@ class BotHelper
 
 //        $userSettings = BotUsers::first($chat_id, $bot_id);
         $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
+        $mp3Enable = "false";
 
         if ($userSettings != null) {
             $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
+            $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
 
             if ($mp3Reciter == "parhizgar")
                 $base_url = "https://www.sibtayn.com/sound/ar/quran/parhizgar/";
         }
+
+        $caption = self::getSettingReciter();
+
         $content = [
             'chat_id' => $chat_id,
-            'audio' => $base_url . $aye->id . ".mp3"
+            'audio' => $base_url . $aye->id . ".mp3",
             // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
 //            'title' => NULL,
-//            'caption' => NULL,
+            'caption' => $caption,
 //            'disable_notification' => FALSE,
 //            'reply_to_message_id' => NULL,
 //            'reply_markup' => NULL,
 //            'parse_mode' => NULL
         ];
 
-        $messenger->sendAudio($content);
+        if ($mp3Enable == "true")
+            $messenger->sendAudio($content);
+
     }
 
     /**
@@ -524,6 +531,16 @@ class BotHelper
                     "text" => $array[3][0],
                     "callback_data" => $array[3][1]
                 ]
+            ],
+            [
+                [
+                    "text" => trans("bot.disable enable reciter"),
+                    "callback_data" => "/commandmp3"
+                ],
+                [
+                    "text" => trans("bot.change reciter"),
+                    "callback_data" => "/commandmp3_reciter"
+                ]
             ]
         ];
     }
@@ -597,5 +614,19 @@ class BotHelper
     public static function getMessageAdmin(mixed $Text): string
     {
         return Str::substr($Text, 3, -1);
+    }
+
+    /**
+     * @return string
+     */
+    public static function getSettingReciter(): string
+    {
+        $caption = "
+" . trans("bot.disable enable reciter") . "/commandmp3
+";
+
+        $caption .= trans("bot.change reciter") . "/commandmp3_reciter
+";
+        return $caption;
     }
 }
