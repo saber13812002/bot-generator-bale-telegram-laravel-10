@@ -184,6 +184,7 @@ class QuranWordController extends Controller
                     ];
                     $userSettings->settings($mp3Enable == "true" ? $arrFalse : $arrTrue);
 //                    dd($userSettings->setting('mp3_enable'));
+
                 }
                 if ($command == "mp3_reciter") {
                     $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
