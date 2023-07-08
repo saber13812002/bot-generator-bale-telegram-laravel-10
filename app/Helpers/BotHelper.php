@@ -277,8 +277,8 @@ class BotHelper
             if ($mp3Reciter == "parhizgar")
                 $base_url = "https://www.sibtayn.com/sound/ar/quran/parhizgar/";
         }
-
-        $caption = self::getSettingReciter();
+        $caption = "";
+//        $caption = self::getSettingReciter();
 
         $content = [
             'chat_id' => $chat_id,
@@ -295,7 +295,7 @@ class BotHelper
         ];
 
 //        if ($mp3Enable != "true")
-            $messenger->sendAudio($content);
+        $messenger->sendAudio($content);
 
     }
 
