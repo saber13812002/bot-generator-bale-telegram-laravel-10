@@ -294,7 +294,7 @@ class BotHelper
 //            'parse_mode' => NULL
         ];
 
-        if ($mp3Enable != "true")
+//        if ($mp3Enable != "true")
             $messenger->sendAudio($content);
 
     }
