@@ -212,9 +212,10 @@ class BotHelper
      * @param Telegram $messenger
      * @param $suraId
      * @param $ayaId
+     * @param null $userSettings
      * @return void
      */
-    public static function sendAudio(Telegram $messenger, $suraId, $ayaId): void
+    public static function sendAudio(Telegram $messenger, $suraId, $ayaId, $userSettings = null): void
     {
         // TODO: cache
         //
@@ -254,9 +255,29 @@ class BotHelper
         // http://3cba.houseofquran.com/01/1F_1_2.mp3
         // http://3cba.houseofquran.com/01/1S_2_3.mp3
         // http://3cba.houseofquran.com/01/1S_2_4.mp3
+
+        // ar.abdulazizazzahrani
+        // ar.abdulbariaththubaity
+        // ar.abdulbarimohammed
+        // ar.abdulbasitmujawwad
+        // ar.abdulbasitmurattal
+        // ar.abdulkareemalhazmi
+        // ar.abdullahalmatrood
+        // ar.abdullahawadaljuhani
+        // ar.abdullahbasfar
+
+//        $userSettings = BotUsers::first($chat_id, $bot_id);
+        $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
+
+        if ($userSettings != null) {
+            $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
+
+            if ($mp3Reciter == "parhizgar")
+                $base_url = "https://www.sibtayn.com/sound/ar/quran/parhizgar/";
+        }
         $content = [
             'chat_id' => $chat_id,
-            'audio' => "https://cdn.islamic.network/quran/audio/128/ar.alafasy/" . $aye->id . ".mp3"
+            'audio' => $base_url . $aye->id . ".mp3"
             // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
