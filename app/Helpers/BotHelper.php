@@ -288,7 +288,7 @@ class BotHelper
             // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
             // \/\/audio.globalquran.com\/ur.khan\/mp3\/64kbs\/
         }
-        $caption = "";
+
         $caption = self::getSettingReciter();
 
         $audio = $base_url . $aye->id . ".mp3";
@@ -299,7 +299,7 @@ class BotHelper
             // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
-//            'title' => NULL,
+            'title' => self::getAyeDescription($aye),
             'caption' => $caption,
 //            'disable_notification' => FALSE,
 //            'reply_to_message_id' => NULL,
@@ -644,5 +644,18 @@ class BotHelper
         $caption .= trans("bot.change reciter") . " /commandmp3_reciter
 ";
         return $caption;
+    }
+
+    /**
+     * @param $aye
+     * @return string
+     */
+    public static function getAyeDescription($aye): string
+    {
+        return " سوره شماره ی " . $aye->sura . "
+آیه شماره ی  " . $aye->aya . "
+جز " . $aye->juz . "
+حزب " . $aye->hezb . "
+صفحه " . $aye->page;
     }
 }
