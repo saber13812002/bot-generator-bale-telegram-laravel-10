@@ -277,7 +277,15 @@ class BotHelper
             $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
 
             if ($mp3Reciter == "parhizgar")
-                $base_url = "https://www.sibtayn.com/sound/ar/quran/parhizgar/";
+                $base_url = "http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/";
+
+            //https://github.com/GlobalQuran/docs/blob/a0543eb602bab509c366b02a571a4f480a7214ec/api.yaml#L1613
+
+            // http://cdn.alquran.cloud/media/audio/ayah/fa.hedayatfarfooladvand/
+            // http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/
+            // \/\/audio.globalquran.com\/fa.hedayatfarfooladvand\/mp3\/40kbs\/
+            // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
+            // \/\/audio.globalquran.com\/ur.khan\/mp3\/64kbs\/
         }
         $caption = "";
         $caption = self::getSettingReciter();
@@ -627,10 +635,10 @@ class BotHelper
     public static function getSettingReciter(): string
     {
         $caption = "
-" . trans("bot.disable enable reciter") . "/commandmp3
+" . trans("bot.disable enable reciter") . " /commandmp3
 ";
 
-        $caption .= trans("bot.change reciter") . "/commandmp3_reciter
+        $caption .= trans("bot.change reciter") . " /commandmp3_reciter
 ";
         return $caption;
     }
