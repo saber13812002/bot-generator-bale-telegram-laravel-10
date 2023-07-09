@@ -49,5 +49,14 @@ return [
 
     'change reciter' => 'change reciter',
 
-    'disable enable reciter' => 'disable/enable reciter'
+    'disable enable reciter' => 'disable/enable reciter',
+
+    'enable reciter' => 'enable reciter',
+
+    'disable reciter' => 'disable reciter',
+
+    'enabled' => 'enabled',
+
+    'disabled' => 'disabled',
+
 ];

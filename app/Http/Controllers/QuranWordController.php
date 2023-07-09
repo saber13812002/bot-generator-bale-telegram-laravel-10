@@ -184,6 +184,8 @@ class QuranWordController extends Controller
                     $userSettings->settings($mp3Enable == "true" ? $arrFalse : $arrTrue);
 //                    dd($userSettings->setting('mp3_enable'));
 
+                    $message = $mp3Enable == "true" ? trans("bot.disabled") : trans("bot.enabled");
+                    BotHelper::sendMessage($bot, $message);
                 }
                 if ($command == "mp3_reciter") {
                     $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
@@ -200,6 +202,13 @@ class QuranWordController extends Controller
                     ];
                     $userSettings->settings($mp3Reciter == "parhizgar" ? $arrFalse : $arrTrue);
 //                    dd($userSettings->setting('mp3_base_url'));
+                    if ($mp3Enable == "true") {
+                        $message = $mp3Reciter == "parhizgar" ? "alfasy set shod" : "parhizgar ";
+                    } else {
+                        $message = " please enable mp3 by /commandmp3";
+                    }
+
+                    BotHelper::sendMessage($bot, $message);
                 }
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
