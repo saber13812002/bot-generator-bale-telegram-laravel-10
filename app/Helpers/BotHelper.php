@@ -213,7 +213,7 @@ class BotHelper
      * @param Telegram $messenger
      * @param $suraId
      * @param $ayaId
-     * @param null $userSettings
+     * @param BotUsers|null $userSettings
      * @return void
      */
     public static function sendAudio(Telegram $messenger, $suraId, $ayaId, BotUsers $userSettings = null): void

@@ -20,7 +20,6 @@ use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Telegram;
-use function Webmozart\Assert\Tests\StaticAnalysis\string;
 
 class QuranWordController extends Controller
 {
