@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use App\Models\BotUsers;
 use App\Models\QuranAyat;
 use Exception;
 use GuzzleHttp;
@@ -215,7 +216,7 @@ class BotHelper
      * @param null $userSettings
      * @return void
      */
-    public static function sendAudio(Telegram $messenger, $suraId, $ayaId, $userSettings = null): void
+    public static function sendAudio(Telegram $messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
     {
         // TODO: cache
         //
@@ -270,6 +271,7 @@ class BotHelper
         $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
         $mp3Enable = "false";
 
+//        dd($userSettings);
         if ($userSettings != null) {
             $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
             $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
@@ -278,11 +280,13 @@ class BotHelper
                 $base_url = "https://www.sibtayn.com/sound/ar/quran/parhizgar/";
         }
         $caption = "";
-//        $caption = self::getSettingReciter();
+        $caption = self::getSettingReciter();
+
+        $audio = $base_url . $aye->id . ".mp3";
 
         $content = [
             'chat_id' => $chat_id,
-            'audio' => $base_url . $aye->id . ".mp3",
+            'audio' => $audio,
             // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
@@ -294,8 +298,9 @@ class BotHelper
 //            'parse_mode' => NULL
         ];
 
-//        if ($mp3Enable != "true")
-        $messenger->sendAudio($content);
+//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
+        if ($mp3Enable != "true")
+            $messenger->sendAudio($content);
 
     }
 

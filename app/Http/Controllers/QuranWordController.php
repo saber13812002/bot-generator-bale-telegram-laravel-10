@@ -462,7 +462,7 @@ class QuranWordController extends Controller
      * @param Telegram $bot
      * @return void
      */
-    public function sendAudioMp3Aye(int $aya, int $sure, Telegram $bot, string $userSettings = null): void
+    public function sendAudioMp3Aye(int $aya, int $sure, Telegram $bot, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             BotHelper::sendAudio($bot, 1, 1);
