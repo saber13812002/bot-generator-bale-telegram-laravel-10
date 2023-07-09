@@ -277,11 +277,12 @@ class BotHelper
             $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
 
             if ($mp3Reciter == "parhizgar")
-                $base_url = "http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/";
+                $base_url = "http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/";
 
             //https://github.com/GlobalQuran/docs/blob/a0543eb602bab509c366b02a571a4f480a7214ec/api.yaml#L1613
 
             // http://cdn.alquran.cloud/media/audio/ayah/fa.hedayatfarfooladvand/
+            // http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/
             // http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/
             // \/\/audio.globalquran.com\/fa.hedayatfarfooladvand\/mp3\/40kbs\/
             // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
@@ -307,8 +308,10 @@ class BotHelper
         ];
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
-        if ($mp3Enable != "true")
+
+        if ($mp3Enable != "true") {
             $messenger->sendAudio($content);
+        }
 
     }
 
