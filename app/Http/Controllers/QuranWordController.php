@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\BotQuranHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
@@ -14,11 +15,11 @@ use App\Models\QuranSurah;
 use App\Models\QuranWord;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 use Telegram;
 
 class QuranWordController extends Controller
@@ -213,10 +214,7 @@ class QuranWordController extends Controller
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
                 [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
-                try {
-                    QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
-                } catch (GuzzleException $e) {
-                }
+                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } else {
                 $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);
@@ -235,7 +233,7 @@ class QuranWordController extends Controller
             }
 //            return Response::HTTP_ACCEPTED;
         } else {
-            return Response::HTTP_ACCEPTED;
+            return ResponseAlias::HTTP_ACCEPTED;
         }
     }
 
@@ -266,6 +264,7 @@ class QuranWordController extends Controller
             } else {
                 return 200;
             }
+
             if (BotHelper::isAdminCommand($bot->Text())) {
                 if (BotHelper::isAdmin($bot->ChatID())) {
 
@@ -468,14 +467,15 @@ class QuranWordController extends Controller
      * @param int $aya
      * @param int $sure
      * @param Telegram $bot
+     * @param BotUsers|null $userSettings
      * @return void
      */
     public function sendAudioMp3Aye(int $aya, int $sure, Telegram $bot, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
-            BotHelper::sendAudio($bot, 1, 1);
+            BotQuranHelper::sendAudio($bot, 1, 1);
         }
-        BotHelper::sendAudio($bot, $sure, $aya, $userSettings);
+        BotQuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
     }
 
     private function generateJozLinksThenSendItBale(Telegram $bot)
