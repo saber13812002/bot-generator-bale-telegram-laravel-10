@@ -170,29 +170,29 @@ class QuranWordController extends Controller
                         $this->generateJozLinksThenSendItBale($bot);
                     }
                 }
-                if ($command == "mp3") {
+                $subCommand = substr($command, 0, strpos($command, "="));
+                $value = substr($command, strpos($command, "=") + 1);
+//                dd($command, $subCommand, $value);
+
+                if ($subCommand == "mp3") {
 //                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
-                    $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
-                    $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
-
-                    $arrTrue = [
+                    $mp3Reciter = $userSettings->setting('mp3_base_url');
+                    $mp3Enable = $userSettings->setting('mp3_enable');
+//                    dd($mp3Enable, $mp3Reciter);
+                    $arr = [
                         'mp3_base_url' => $mp3Reciter,
-                        'mp3_enable' => "true"
+                        'mp3_enable' => $value
                     ];
 
-                    $arrFalse = [
-                        'mp3_base_url' => $mp3Reciter,
-                        'mp3_enable' => "false"
-                    ];
-
-                    $userSettings->settings($mp3Enable == "true" ? $arrFalse : $arrTrue);
+                    $user = $userSettings->settings($arr);
 //                    dd($userSettings->setting('mp3_enable'));
+                    $mp3Enable = $userSettings->setting('mp3_enable');
 
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3");
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3=" . ($mp3Enable == "true" ? "false" : "true"));
                 }
-                if ($command == "mp3_reciter") {
+                if ($subCommand == "mp3_reciter") {
 //                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
                     $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
