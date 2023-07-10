@@ -171,22 +171,26 @@ class QuranWordController extends Controller
                     }
                 }
                 if ($command == "mp3") {
-                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+//                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
                     $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
+
                     $arrTrue = [
                         'mp3_base_url' => $mp3Reciter,
                         'mp3_enable' => "true"
                     ];
+
                     $arrFalse = [
                         'mp3_base_url' => $mp3Reciter,
                         'mp3_enable' => "false"
                     ];
+
                     $userSettings->settings($mp3Enable == "true" ? $arrFalse : $arrTrue);
 //                    dd($userSettings->setting('mp3_enable'));
 
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                    BotHelper::sendMessage($bot, $message . " please enable mp3 by /commandmp3");
+                    $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3");
                 }
                 if ($command == "mp3_reciter") {
                     $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
@@ -197,12 +201,16 @@ class QuranWordController extends Controller
                         'mp3_base_url' => "parhizgar",
                         'mp3_enable' => $mp3Enable
                     ];
+
                     $arrFalse = [
                         'mp3_base_url' => "alafasy",
                         'mp3_enable' => $mp3Enable
                     ];
+
                     $userSettings->settings($mp3Reciter == "parhizgar" ? $arrFalse : $arrTrue);
+
 //                    dd($userSettings->setting('mp3_base_url'));
+
                     if ($mp3Enable == "true") {
                         $message = $mp3Reciter == "parhizgar" ? "alfasy set shod" : "parhizgar ";
                     } else {
