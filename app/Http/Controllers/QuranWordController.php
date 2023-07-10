@@ -193,7 +193,7 @@ class QuranWordController extends Controller
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3");
                 }
                 if ($command == "mp3_reciter") {
-                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+//                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
                     $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
 
