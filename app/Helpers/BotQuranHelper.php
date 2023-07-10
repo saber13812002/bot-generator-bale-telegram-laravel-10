@@ -143,7 +143,7 @@ class BotQuranHelper
      */
     public static function getBaseUrl(?BotUsers $userSettings): string
     {
-        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_base_url');
+        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
 
         $base_url = self::getUrl($mp3Reciter);
         return $base_url;

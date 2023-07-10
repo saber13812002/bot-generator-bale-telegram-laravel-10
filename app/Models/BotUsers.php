@@ -51,7 +51,7 @@ class BotUsers extends Model
     {
         return array_filter([
             'mp3_enable' => $this->setting('mp3_enable'),
-            'mp3_base_url' => $this->setting('mp3_base_url'),
+            'mp3_reciter' => $this->setting('mp3_reciter'),
 
             'quran_text_or_simple' => $this->setting('quran_text_or_simple'),
             'quran_translation' => $this->setting('quran_translation'),
