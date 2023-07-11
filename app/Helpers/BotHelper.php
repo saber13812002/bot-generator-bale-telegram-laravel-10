@@ -419,7 +419,7 @@ class BotHelper
         ];
     }
 
-    public static function makeBaleKeyboard4button($array): array
+    public static function makeBaleKeyboard4button($array, $arrayCommands): array
     {
         return [
             [
@@ -442,16 +442,7 @@ class BotHelper
                     "callback_data" => $array[3][1]
                 ]
             ],
-            [
-                [
-                    "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/commandmp3"
-                ],
-                [
-                    "text" => trans("bot.change reciter"),
-                    "callback_data" => "/commandmp3_reciter"
-                ]
-            ]
+            $arrayCommands
         ];
     }
 

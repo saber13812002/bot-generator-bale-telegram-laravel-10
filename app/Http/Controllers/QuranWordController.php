@@ -52,6 +52,7 @@ class QuranWordController extends Controller
                 return 200;
             }
 
+            $userSettings = null;
             if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
                 $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
             else {
@@ -60,6 +61,8 @@ class QuranWordController extends Controller
                 BotHelper::sendMessageToSuperAdmin("یک مورد روبات بدون شناسه یافت شد" . $str_json, $type);
             }
 //            dd($userSettings);
+
+            $arrayCommands = $this->generateArrayCommands($userSettings);
 
 //            dd((substr($bot->Text(), 0, 2)));
 //            dd(substr($bot->Text(), 2, strlen($bot->Text())));
@@ -89,7 +92,7 @@ class QuranWordController extends Controller
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
                 } else {
-                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
+                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
@@ -144,7 +147,7 @@ class QuranWordController extends Controller
                             if ($type == 'telegram') {
                                 BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
                             } else {
-                                $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array);
+                                $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
                             $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
@@ -206,10 +209,12 @@ class QuranWordController extends Controller
 
 //                    dd($userSettings->setting('mp3_reciter'));
 
+//                    dd($mp3Enable, $value);
                     if ($mp3Enable == "true") {
-                        $message = $mp3Reciter == "parhizgar" ? "alfasy set shod" : "parhizgar ";
+                        $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
+" . "/commandmp3_reciter=alafasy";
                     } else {
-                        $message = " please enable mp3 by /commandmp3";
+                        $message = " " . trans('bot.please enable mp3 by') . " : /commandmp3=true";
                     }
 
                     BotHelper::sendMessage($bot, $message);
@@ -490,6 +495,61 @@ class QuranWordController extends Controller
 ";
         }
         BotHelper::sendMessage($bot, $message);
+    }
+
+    private function generateArrayCommands(\Illuminate\Database\Eloquent\Model|bool|BotUsers $userSettings)
+    {
+        if (!$userSettings) {
+            return [
+                [
+                    "text" => trans("bot.disable enable reciter"),
+                    "callback_data" => "/commandmp3"
+                ],
+                [
+                    "text" => trans("bot.change reciter"),
+                    "callback_data" => "/commandmp3_reciter"
+                ]
+            ];
+        } else {
+            $mp3Reciter = $userSettings->setting('mp3_reciter');
+            $mp3Enable = $userSettings->setting('mp3_enable');
+
+            $mp3EnalbleArray = [
+                "text" => trans("bot.enable reciter"),
+                "callback_data" => "/commandmp3=true"
+            ];
+
+            $mp3DisableArray = [
+                "text" => trans("bot.disable reciter"),
+                "callback_data" => "/commandmp3=false"
+            ];
+
+
+            $mp3ReciterParhizkarArray = [
+                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizkar')]),
+                "callback_data" => "/commandmp3_reciter=parhizkar"
+            ];
+
+            $mp3ReciterAlafasyArray = [
+                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
+                "callback_data" => "/commandmp3_reciter=alafasy"
+            ];
+
+            $resultArray = [];
+
+            if ($mp3Enable == "true") {
+                $resultArray[] = $mp3DisableArray;
+            } else {
+                $resultArray[] = $mp3EnalbleArray;
+            }
+
+            if ($mp3Reciter == "parhizkar") {
+                $resultArray[] = $mp3ReciterAlafasyArray;
+            } else {
+                $resultArray[] = $mp3ReciterParhizkarArray;
+            }
+            return $resultArray;
+        }
     }
 
 }

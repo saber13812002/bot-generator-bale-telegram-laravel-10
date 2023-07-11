@@ -63,6 +63,13 @@ return [
 
     'please disable mp3 by' => 'please disable mp3 by',
 
+    'this reciter :reciter selected' => 'this reciter :reciter selected',
+
+    'reciter :reciter' => 'change? reciter to :reciter',
+
+    'parhizkar' => 'parhizkar',
+
+    'alafasy' => 'alafasy',
 
 
 ];

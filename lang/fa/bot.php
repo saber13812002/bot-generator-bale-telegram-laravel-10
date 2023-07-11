@@ -63,4 +63,12 @@ return [
     'please enable mp3 by' => 'لطفا با دستور روبرو ارسال فایل صوتی قرائت را فعال کنید',
 
     'please disable mp3 by' => 'لطفا با دستور روبرو ارسال فایل صوتی قرائت را غیرفعال کنید',
+
+    'this reciter :reciter selected' => 'قاری :reciter انتخاب شد',
+
+    'reciter :reciter' => 'قاری :reciter بشه؟',
+
+    'parhizkar' => 'پرهیزکار',
+
+    'alafasy' => 'الفاسی',
 ];
