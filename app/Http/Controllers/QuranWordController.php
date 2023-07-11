@@ -514,7 +514,7 @@ class QuranWordController extends Controller
             $mp3Reciter = $userSettings->setting('mp3_reciter');
             $mp3Enable = $userSettings->setting('mp3_enable');
 
-            $mp3EnalbleArray = [
+            $mp3EnableArray = [
                 "text" => trans("bot.enable reciter"),
                 "callback_data" => "/commandmp3=true"
             ];
@@ -537,13 +537,13 @@ class QuranWordController extends Controller
 
             $resultArray = [];
 
-            if ($mp3Enable == "true") {
+            if ($mp3Enable != "true") {
                 $resultArray[] = $mp3DisableArray;
             } else {
-                $resultArray[] = $mp3EnalbleArray;
+                $resultArray[] = $mp3EnableArray;
             }
 
-            if ($mp3Reciter == "parhizkar") {
+            if ($mp3Reciter != "parhizkar") {
                 $resultArray[] = $mp3ReciterAlafasyArray;
             } else {
                 $resultArray[] = $mp3ReciterParhizkarArray;
