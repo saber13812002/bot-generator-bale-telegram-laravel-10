@@ -537,13 +537,13 @@ class QuranWordController extends Controller
 
             $resultArray = [];
 
-            if ($mp3Enable != "true") {
+            if ($mp3Enable == "true") {
                 $resultArray[] = $mp3DisableArray;
             } else {
                 $resultArray[] = $mp3EnableArray;
             }
 
-            if ($mp3Reciter != "parhizkar") {
+            if ($mp3Reciter == "parhizkar") {
                 $resultArray[] = $mp3ReciterAlafasyArray;
             } else {
                 $resultArray[] = $mp3ReciterParhizkarArray;
