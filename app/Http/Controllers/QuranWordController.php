@@ -173,6 +173,8 @@ class QuranWordController extends Controller
                         $this->generateJozLinksThenSendItBale($bot);
                     }
                 }
+
+
                 $subCommand = substr($command, 0, strpos($command, "="));
                 $value = substr($command, strpos($command, "=") + 1);
 //                dd($command, $subCommand, $value);
@@ -189,6 +191,7 @@ class QuranWordController extends Controller
                     $user = $userSettings->settings($arr);
 //                    dd($userSettings->setting('mp3_enable'));
                     $mp3Enable = $user->setting('mp3_enable');
+//                    dd($userSettings->setting('mp3_enable'),$mp3Enable);
 
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
@@ -525,9 +528,9 @@ class QuranWordController extends Controller
             ];
 
 
-            $mp3ReciterParhizkarArray = [
-                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizkar')]),
-                "callback_data" => "/commandmp3_reciter=parhizkar"
+            $mp3ReciterParhizgarArray = [
+                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
+                "callback_data" => "/commandmp3_reciter=parhizgar"
             ];
 
             $mp3ReciterAlafasyArray = [
@@ -543,10 +546,10 @@ class QuranWordController extends Controller
                 $resultArray[] = $mp3EnableArray;
             }
 
-            if ($mp3Reciter == "parhizkar") {
+            if ($mp3Reciter == "parhizgar") {
                 $resultArray[] = $mp3ReciterAlafasyArray;
             } else {
-                $resultArray[] = $mp3ReciterParhizkarArray;
+                $resultArray[] = $mp3ReciterParhizgarArray;
             }
             return $resultArray;
         }

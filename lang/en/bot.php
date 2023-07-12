@@ -67,7 +67,7 @@ return [
 
     'reciter :reciter' => 'change? reciter to :reciter',
 
-    'parhizkar' => 'parhizkar',
+    'parhizgar' => 'parhizgar',
 
     'alafasy' => 'alafasy',
 

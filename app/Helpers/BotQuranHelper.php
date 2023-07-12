@@ -30,7 +30,7 @@ class BotQuranHelper
 
         $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
 
-        if ($mp3Enable != "true") {
+        if ($mp3Enable == "true") {
             $base_url = self::getBaseUrl($userSettings);
 
             $audio = $base_url . $aye->id . ".mp3";
@@ -67,7 +67,7 @@ class BotQuranHelper
 " . trans("bot.disable enable reciter") . " /commandmp3=true /commandmp3=false
 ";
 
-        $caption .= trans("bot.change reciter") . " /commandmp3_reciter=parhizkar /commandmp3_reciter=alafasy
+        $caption .= trans("bot.change reciter") . " /commandmp3_reciter=parhizgar /commandmp3_reciter=alafasy
 ";
         return $caption;
     }
@@ -144,8 +144,9 @@ class BotQuranHelper
     public static function getBaseUrl(?BotUsers $userSettings): string
     {
         $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
-
+//dd($mp3Reciter);
         $base_url = self::getUrl($mp3Reciter);
+//        dd($base_url);
         return $base_url;
     }
 

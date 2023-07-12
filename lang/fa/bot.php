@@ -68,7 +68,7 @@ return [
 
     'reciter :reciter' => 'قاری :reciter بشه؟',
 
-    'parhizkar' => 'پرهیزکار',
+    'parhizgar' => 'پرهیزگار',
 
     'alafasy' => 'الفاسی',
 ];
