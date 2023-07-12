@@ -22,7 +22,6 @@ class BotQuranAyatController
 
     /**
      * Display a listing of the resource.
-     * @throws GuzzleException
      */
     public function index(BotRequest $request)
     {
@@ -53,11 +52,10 @@ class BotQuranAyatController
 
             $botText = $bot->Text();
 
-            [$searchPhrase, $pageNumber] = self::getPageNumberFromPhrase($botText);
+            [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($botText);
 
             QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
 
-            return true;
         }
         return true;
     }

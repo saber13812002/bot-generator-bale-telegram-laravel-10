@@ -211,112 +211,6 @@ class BotHelper
 
     /**
      * @param Telegram $messenger
-     * @param $suraId
-     * @param $ayaId
-     * @param BotUsers|null $userSettings
-     * @return void
-     */
-    public static function sendAudio(Telegram $messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
-    {
-        // TODO: cache
-        //
-        $aye = QuranAyat::query()
-            ->whereSura($suraId)
-            ->whereAya($ayaId)
-            ->first();
-//        dd($aye->id);
-
-        $chat_id = $messenger->ChatID();
-
-        // https://qurano.com/en/1-al-fatiha/
-        // https://static.qurano.com/dist/audio/001002.mp3
-
-        // https://quranwbw.com/1
-        // https://words.audios.quranwbw.com/1/001_001_001.mp3
-        // https://words.audios.quranwbw.com/1/001_007_009.mp3
-
-        // https://quran.com/1
-        // https://audio.qurancdn.com/wbw/001_002_004.mp3
-        // https://quran.com/3:71/tafsirs/en-tafisr-ibn-kathir
-
-        // http://audio.recitequran.com/wbw/arabic/wisam_sharieff/
-
-        // https://cors-proxy.elfsight.com/
-        // http://wbwcradio.bw.edu:8000/
-
-        // http://verses.quran.com/wbw/
-
-        // https://server7.mp3quran.net/download/basit/Almusshaf-Al-Mojawwad/001.mp3
-        // https://quranwbw.github.io/audio-words-new/001_002_001.mp3
-        // https://quranwbw.github.io/audio-ayah-english/001_002_001.mp3
-        // https://quranwbw.github.io/audio-ayah-arabic
-        // https://github.com/marwan/quranwbw.com/blob/9f916b35f591f854c53ef0c8922fe3fcc18efa91/assets/js/main.js#L25
-
-        // http://www.houseofquran.com/qsys/quranteacher1.html
-        // http://3cba.houseofquran.com/01/1F_1_2.mp3
-        // http://3cba.houseofquran.com/01/1S_2_3.mp3
-        // http://3cba.houseofquran.com/01/1S_2_4.mp3
-
-        // ar.abdulazizazzahrani
-        // ar.abdulbariaththubaity
-        // ar.abdulbarimohammed
-        // ar.abdulbasitmujawwad
-        // ar.abdulbasitmurattal
-        // ar.abdulkareemalhazmi
-        // ar.abdullahalmatrood
-        // ar.abdullahawadaljuhani
-        // ar.abdullahbasfar
-
-//        $userSettings = BotUsers::first($chat_id, $bot_id);
-        $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
-        $mp3Enable = "false";
-
-//        dd($userSettings);
-        if ($userSettings != null) {
-            $mp3Reciter = $userSettings->setting('mp3_base_url') == "parhizgar" ? "parhizgar" : "alafasy";
-            $mp3Enable = $userSettings->setting('mp3_enable') == "true" ? "true" : "false";
-
-            if ($mp3Reciter == "parhizgar")
-                $base_url = "http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/";
-
-            //https://github.com/GlobalQuran/docs/blob/a0543eb602bab509c366b02a571a4f480a7214ec/api.yaml#L1613
-
-            // http://cdn.alquran.cloud/media/audio/ayah/fa.hedayatfarfooladvand/
-            // http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/
-            // http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/
-            // \/\/audio.globalquran.com\/fa.hedayatfarfooladvand\/mp3\/40kbs\/
-            // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
-            // \/\/audio.globalquran.com\/ur.khan\/mp3\/64kbs\/
-        }
-
-        $caption = self::getSettingReciter();
-
-        $audio = $base_url . $aye->id . ".mp3";
-
-        $content = [
-            'chat_id' => $chat_id,
-            'audio' => $audio,
-            // TODO:
-//            'duration' => NULL,
-//            'performer' => NULL,
-            'title' => self::getAyeDescription($aye),
-            'caption' => $caption,
-//            'disable_notification' => FALSE,
-//            'reply_to_message_id' => NULL,
-//            'reply_markup' => NULL,
-//            'parse_mode' => NULL
-        ];
-
-//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
-
-        if ($mp3Enable != "true") {
-            $messenger->sendAudio($content);
-        }
-
-    }
-
-    /**
-     * @param Telegram $messenger
      * @param string $message
      * @param $next
      * @param $back
@@ -525,7 +419,7 @@ class BotHelper
         ];
     }
 
-    public static function makeBaleKeyboard4button($array): array
+    public static function makeBaleKeyboard4button($array, $arrayCommands): array
     {
         return [
             [
@@ -548,16 +442,7 @@ class BotHelper
                     "callback_data" => $array[3][1]
                 ]
             ],
-            [
-                [
-                    "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/commandmp3"
-                ],
-                [
-                    "text" => trans("bot.change reciter"),
-                    "callback_data" => "/commandmp3_reciter"
-                ]
-            ]
+            $arrayCommands
         ];
     }
 
@@ -622,40 +507,20 @@ class BotHelper
         return false;
     }
 
-    public static function isAdmin(mixed $ChatID): bool
+    public static function isAdmin(mixed $chatId): bool
     {
-        return true;
+        if (
+            $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
+            $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
+            $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
+            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE")
+        )
+            return true;
+        return false;
     }
 
     public static function getMessageAdmin(mixed $Text): string
     {
         return Str::substr($Text, 3, -1);
-    }
-
-    /**
-     * @return string
-     */
-    public static function getSettingReciter(): string
-    {
-        $caption = "
-" . trans("bot.disable enable reciter") . " /commandmp3
-";
-
-        $caption .= trans("bot.change reciter") . " /commandmp3_reciter
-";
-        return $caption;
-    }
-
-    /**
-     * @param $aye
-     * @return string
-     */
-    public static function getAyeDescription($aye): string
-    {
-        return " سوره شماره ی " . $aye->sura . "
-آیه شماره ی  " . $aye->aya . "
-جز " . $aye->juz . "
-حزب " . $aye->hezb . "
-صفحه " . $aye->page;
     }
 }

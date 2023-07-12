@@ -59,4 +59,17 @@ return [
 
     'disabled' => 'disabled',
 
+    'please enable mp3 by' => 'please enable mp3 by',
+
+    'please disable mp3 by' => 'please disable mp3 by',
+
+    'this reciter :reciter selected' => 'this reciter :reciter selected',
+
+    'reciter :reciter' => 'change? reciter to :reciter',
+
+    'parhizgar' => 'parhizgar',
+
+    'alafasy' => 'alafasy',
+
+
 ];
