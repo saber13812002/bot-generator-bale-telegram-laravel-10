@@ -9,6 +9,7 @@ use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreQuranWordRequest;
 use App\Http\Requests\UpdateQuranWordRequest;
+use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranSurah;
@@ -24,6 +25,14 @@ use Telegram;
 
 class QuranWordController extends Controller
 {
+
+    private QuranBotUserRankingService $quranBotUserRankingService;
+
+    public function __construct(QuranBotUserRankingService $quranBotUserRankingService)
+    {
+        $this->quranBotUserRankingService = $quranBotUserRankingService;
+    }
+
     /**
      * Display a listing of the resource.
      * @throws GuzzleException
@@ -174,6 +183,25 @@ class QuranWordController extends Controller
                     }
                 }
 
+                if ($command == "Report") {
+                    $chatId = $bot->ChatID();
+                    $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
+                }
+
+                if ($command == "ListCommands") {
+                    $message = "لیست دستورات
+: /start
+: /commandJoz
+: /commandFehrest
+: /commandReport
+: /commandMp3_true
+: /commandMp3_false
+: /commandMp3Reciter_parhizgar
+: /commandMp3Reciter_alafasy
+: /commandListCommands";
+
+                    BotHelper::sendMessage($bot, $message);
+                }
 
                 $subCommand = substr($command, 0, strpos($command, "_"));
                 $value = substr($command, strpos($command, "_") + 1);
@@ -237,6 +265,7 @@ class QuranWordController extends Controller
                 $message = $array[0][0];
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);
+                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /commandReport");
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);

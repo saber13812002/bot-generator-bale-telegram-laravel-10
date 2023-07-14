@@ -16,6 +16,7 @@ return [
     'previous surah' => 'previous surah',
     'bot cant recognized your command' => 'bot cant recognized your command.',
     'return to command list' => 'return to command list.',
+    'your ranking' => 'your ranking',
     'Juz' => 'juz',
     'and' => 'and',
     'this command not recognized' => 'this command not recognized.',

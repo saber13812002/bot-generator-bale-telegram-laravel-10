@@ -15,37 +15,15 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
 
     public function sendToAllUsers()
     {
-        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
-
         $token = env("QURAN_HEFZ_BOT_TOKEN_BALE");
         $botBale = new Telegram($token, 'bale');
 
         $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
         $botTelegram = new Telegram($token);
 
-        $unsortedRankings = $this->calculateRanking($logs);
-        $sortedRankings = $unsortedRankings->sortBy("result_month", null, true)->forPage(1, 200);
+        $requesterChatId = "485750575";
 
-        $rank = 1;
-        foreach ($sortedRankings as $sortedRanking) {
-            $rank++;
-            $chatId = $sortedRanking['chatId'];
-
-            if ($chatId == "485750575") {
-
-                $type = $sortedRanking['type'];
-
-                $bot = $type == 'bale' ? $botBale : $botTelegram;
-
-                $message = $this->userStatisticPerDayReport($chatId, $rank);
-
-                BotHelper::sendMessageByChatId($bot, $chatId, $message);
-
-                $adminChatId = $type == 'bale' ? env("CHAT_ID_ACCOUNT_1_SABER") : env("CHAT_ID_ACCOUNT_2_SABER");
-                BotHelper::sendMessageByChatId($bot, $adminChatId, $message . "
-:" . $chatId);
-            }
-        }
+        $this->generateReportThenSend($requesterChatId, $botBale, $botTelegram);
     }
 
 
@@ -119,6 +97,42 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
     public function specificUserReport($chatId, \Telegram $bot = null)
     {
-        // TODO: Implement specificUserReport() method.
+        $this->generateReportThenSend($chatId, $bot, $bot);
+    }
+
+    /**
+     * @param string $requesterChatId
+     * @param Telegram $botBale
+     * @param Telegram $botTelegram
+     * @return void
+     */
+    public function generateReportThenSend(string $requesterChatId, Telegram $botBale, Telegram $botTelegram): void
+    {
+        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+
+        // TODO: implement by cache
+        $unsortedRankings = $this->calculateRanking($logs);
+        $sortedRankings = $unsortedRankings->sortBy("result_month", null, true)->forPage(1, 200);
+
+        $rank = 1;
+        foreach ($sortedRankings as $sortedRanking) {
+            $rank++;
+            $chatId = $sortedRanking['chatId'];
+
+            if (!$requesterChatId || $chatId == $requesterChatId) {
+
+                $type = $sortedRanking['type'];
+
+                $bot = $type == 'bale' ? $botBale : $botTelegram;
+
+                $message = $this->userStatisticPerDayReport($chatId, $rank);
+
+                BotHelper::sendMessageByChatId($bot, $chatId, $message);
+
+                $adminChatId = $type == 'bale' ? env("CHAT_ID_ACCOUNT_1_SABER") : env("CHAT_ID_ACCOUNT_2_SABER");
+                BotHelper::sendMessageByChatId($bot, $adminChatId, $message . "
+:" . $chatId);
+            }
+        }
     }
 }
