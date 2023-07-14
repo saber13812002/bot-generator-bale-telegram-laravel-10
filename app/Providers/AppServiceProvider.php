@@ -4,10 +4,12 @@ namespace App\Providers;
 
 use App\Interfaces\Repositories\WeatherOpenWeatherApiRepository;
 use App\Interfaces\Repositories\WeatherTomorrowApiRepository;
+use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
 use App\Repositories\WeatherOpenWeatherApiRepositoryImpl;
 use App\Repositories\WeatherTomorrowApiRepositoryImpl;
+use App\Services\QuranBotUserRankingServiceImpl;
 use App\Services\WeatherOpenWeatherMapApiServiceImpl;
 use App\Services\WeatherTomorrowApiServiceImpl;
 use Illuminate\Support\Facades\Schema;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(WeatherTomorrowApiService::class, WeatherTomorrowApiServiceImpl::class);
         $this->app->bind(WeatherOpenWeatherMapApiService::class, WeatherOpenWeatherMapApiServiceImpl::class);
 
+        $this->app->bind(QuranBotUserRankingService::class, QuranBotUserRankingServiceImpl::class);
     }
 
     /**
