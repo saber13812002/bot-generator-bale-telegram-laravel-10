@@ -42,4 +42,9 @@ return [
     'An error occurred when admin want to approve your request'                 => 'Es ist ein Fehler aufgetreten, als der Administrator Ihre Anfrage genehmigen wollte.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Bitte bestimmen Sie die minimale Windgeschwindigkeit, damit der Bot die gewünschte Meldung senden kann.',
     'your chat id'                                                              => 'ihre Chat-ID:',
+    'change reciter'                                                            => 'wechselsprechanlage',
+    'disable enable reciter'                                                    => 'rezitator deaktivieren/aktivieren',
+    'disable reciter'                                                           => 'rekorder deaktivieren',
+    'disabled'                                                                  => 'deaktiviert',
+    'alafasy'                                                                   => 'alafasy',
 ];
