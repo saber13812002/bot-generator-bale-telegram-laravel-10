@@ -6,6 +6,6 @@ interface QuranBotUserRankingService
 {
     public function sendToAllUsers();
 
-    public function specificUserReport($chatId);
+    public function specificUserReport($chatId, \Telegram $bot = null);
 
 }

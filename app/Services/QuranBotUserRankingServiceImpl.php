@@ -23,37 +23,74 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
         $botTelegram = new Telegram($token);
 
-        $rankings = $this->calculateRanking($logs);
-        $paginate = $rankings->sortBy("result_month", null, true)->forPage(1, 200);
-//        dd($paginate);
-        $rank = 1;
-        foreach ($paginate as $log) {
-//            $ranking = $rankings->where("chatId", $log["chat_id"])->first();
-            $this->userStatisticPerDayReport($log, $botBale, $botTelegram, ++$rank);
-        }
-    }
+        $unsortedRankings = $this->calculateRanking($logs);
+        $sortedRankings = $unsortedRankings->sortBy("result_month", null, true)->forPage(1, 200);
 
-    public function specificUserReport($chatId)
-    {
-        // TODO: Implement specificUserReport() method.
+        $rank = 1;
+        foreach ($sortedRankings as $sortedRanking) {
+            $rank++;
+            $chatId = $sortedRanking['chatId'];
+
+            if ($chatId == "485750575") {
+
+                $type = $sortedRanking['type'];
+
+                $bot = $type == 'bale' ? $botBale : $botTelegram;
+
+                $message = $this->userStatisticPerDayReport($chatId, $rank);
+
+                BotHelper::sendMessageByChatId($bot, $chatId, $message);
+
+                $adminChatId = $type == 'bale' ? env("CHAT_ID_ACCOUNT_1_SABER") : env("CHAT_ID_ACCOUNT_2_SABER");
+                BotHelper::sendMessageByChatId($bot, $adminChatId, $message . "
+:" . $chatId);
+            }
+        }
     }
 
 
     /**
-     * @param mixed $log
-     * @param Telegram $botBale
-     * @param Telegram $botTelegram
-     * @param $rank
-     * @return void
+     * @param mixed $logs
+     * @return Collection
      */
-    private function userStatisticPerDayReport(mixed $log, Telegram $botBale, Telegram $botTelegram, $rank): void
+    private function calculateRanking(mixed $logs): Collection
     {
-        if ($log['chatId'] == "485750575") {
-        $count_today = BotLog::whereChatId($log['chatId'])
+        $collection = collect();
+
+        foreach ($logs as $log) {
+            $count_month = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
+                ->count();
+
+            $count_last_month = BotLog::whereChatId($log['chat_id'])
+                ->where('created_at', '<', Carbon::now()->subDay(30))
+                ->where('created_at', '>=', Carbon::now()->subDay(60))
+                ->count();
+
+            $newItem = array(
+                "chatId" => $log['chat_id'],
+                "type" => $log['type'],
+                "result_month" => $count_month,
+                "result_last_month" => $count_last_month
+            );
+
+            $collection->add($newItem);
+        }
+
+        return $collection;
+    }
+
+    /**
+     * @param $chatId
+     * @param $rank
+     * @return string
+     */
+    public function userStatisticPerDayReport($chatId, $rank): string
+    {
+        $count_today = BotLog::whereChatId($chatId)
             ->where('created_at', '>=', Carbon::now()->subDay())
             ->count();
 
-        $count_yesterday = BotLog::whereChatId($log['chatId'])
+        $count_yesterday = BotLog::whereChatId($chatId)
             ->where('created_at', '<', Carbon::now()->subDay())
             ->where('created_at', '>=', Carbon::now()->subDay(2))
             ->count();
@@ -77,49 +114,11 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 :" . $count_today . "آیه
 که در مقایسه با روز قبل " . $count_yesterday . "
 " . $postfix . $postfix_hadith . HadithHelper::random_hadith();
-
-        if ($log['type'] == 'bale') {
-            BotHelper::sendMessageByChatId($botBale, $log['chatId'], $message);
-            BotHelper::sendMessageByChatId($botBale, env("CHAT_ID_ACCOUNT_1_SABER"), $message . "
-:" . $log['chatId']);
-        } else {
-            BotHelper::sendMessageByChatId($botTelegram, $log['chatId'], $message);
-            BotHelper::sendMessageByChatId($botTelegram, env("CHAT_ID_ACCOUNT_2_SABER"), $message . "
-:" . $log['chatId']);
-        }
-        }
+        return $message;
     }
 
-
-    /**
-     * @param mixed $logs
-     * @return Collection
-     */
-    private function calculateRanking(mixed $logs): Collection
+    public function specificUserReport($chatId, \Telegram $bot = null)
     {
-        $collection = collect();
-
-        $rankings[] = array();
-
-        foreach ($logs as $log) {
-            $count_month = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
-                ->count();
-
-            $count_last_month = BotLog::whereChatId($log['chat_id'])
-                ->where('created_at', '<', Carbon::now()->subDay(30))
-                ->where('created_at', '>=', Carbon::now()->subDay(60))
-                ->count();
-
-            $newItem = array(
-                "chatId" => $log['chat_id'],
-                "type" => $log['type'],
-                "result_month" => $count_month,
-                "result_last_month" => $count_last_month
-            );
-
-            $collection->add($newItem);
-        }
-
-        return $collection;
+        // TODO: Implement specificUserReport() method.
     }
 }
