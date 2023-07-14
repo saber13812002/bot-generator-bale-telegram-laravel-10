@@ -21,6 +21,7 @@ return [
     'boolean'          => 'Поле :attribute должно быть истинным или ложным.',
     'confirmed'        => 'Подтверждение поля :attribute не совпадает.',
     'current_password' => 'Пароль введен неверно.',
+    'date'             => 'Поле :attribute должно быть действительной датой.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'пользовательское сообщение',
