@@ -163,10 +163,11 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 کاربران غیر تکراری در هفته: " . $count_unique_weekly . "
 آمار آیات خوانده شده کل کاربران در یک ماه قبل: " . $count_monthly . "
 کاربران غیر تکراری در سی روز قبل: " . $count_unique_monthly . "
-" . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
 
 آمار آیات خوانده شده کل کاربران در یکسال قبل: " . $count_yearly . "
 کاربران غیر تکراری در یکسال قبل: " . $count_unique_yearly . "
+
+" . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
 
 با انتشار توضیحات این روبات و معرفی آن به دیگران، کمک کنید مردم بیشتری با قرآن انس بگیرن و حداقل روزی یک آیه قرآن بخوانند و تدبر کنند. به امید جامعه ی بهتر و تعجیل در ظهور صلوات
 
