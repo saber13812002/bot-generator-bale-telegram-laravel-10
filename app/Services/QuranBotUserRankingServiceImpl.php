@@ -151,6 +151,10 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
         $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->count();
         $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->distinct('chat_id')->count();
 
+
+        $count_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))->count();
+        $count_unique_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))->distinct('chat_id')->count();
+
         $postfix_local = env('APP_ENV');
 
         $message = "آمار کل استفاده های این روبات در تلگرام و بله امروز" . $count_daily . " آیه
@@ -160,6 +164,9 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 آمار آیات خوانده شده کل کاربران در یک ماه قبل: " . $count_monthly . "
 کاربران غیر تکراری در سی روز قبل: " . $count_unique_monthly . "
 " . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
+
+آمار آیات خوانده شده کل کاربران در یکسال قبل: " . $count_yearly . "
+کاربران غیر تکراری در یکسال قبل: " . $count_unique_yearly . "
 
 با انتشار توضیحات این روبات و معرفی آن به دیگران، کمک کنید مردم بیشتری با قرآن انس بگیرن و حداقل روزی یک آیه قرآن بخوانند و تدبر کنند. به امید جامعه ی بهتر و تعجیل در ظهور صلوات
 
