@@ -225,6 +225,7 @@ class QuranWordController extends Controller
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3_" . ($mp3Enable == "true" ? "false" : "true"));
                 }
+
                 if ($subCommand == "mp3reciter") {
 //                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
 
@@ -250,6 +251,8 @@ class QuranWordController extends Controller
 
                     BotHelper::sendMessage($bot, $message);
                 }
+            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+                $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
                 [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
@@ -324,51 +327,6 @@ class QuranWordController extends Controller
             }
             BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
         }
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public
-    function store(StoreQuranWordRequest $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public
-    function show(QuranWord $quranWord)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public
-    function edit(QuranWord $quranWord)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public
-    function update(UpdateQuranWordRequest $request, QuranWord $quranWord)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public
-    function destroy(QuranWord $quranWord)
-    {
-        //
     }
 
     /**
