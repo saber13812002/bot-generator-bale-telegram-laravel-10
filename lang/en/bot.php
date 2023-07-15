@@ -72,5 +72,5 @@ return [
 
     'alafasy' => 'alafasy',
 
-
+    'command list is' => 'command list is',
 ];

@@ -192,7 +192,7 @@ class QuranWordController extends Controller
                 }
 
                 if ($command == "ListCommands") {
-                    $message = "لیست دستورات
+                    $message = trans("bot.command list is") . "
 : /start
 : /commandJoz
 : /commandFehrest

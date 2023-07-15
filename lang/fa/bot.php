@@ -60,4 +60,5 @@ return [
     'reciter :reciter'                                                          => 'تغییر دادن؟ تلاوت کننده به :reciter',
     'parhizgar'                                                                 => 'پرهیزگار',
     'alafasy'                                                                   => 'الفاسی',
+    'command list is'                                                           => 'لیست دستورات:',
 ];
