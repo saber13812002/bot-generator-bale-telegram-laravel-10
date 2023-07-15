@@ -8,4 +8,5 @@ interface QuranBotUserRankingService
 
     public function specificUserReport($chatId, \Telegram $bot = null);
 
+    public function allUsersReportDailyWeeklyMonthly();
 }

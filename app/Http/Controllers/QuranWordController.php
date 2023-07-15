@@ -7,13 +7,10 @@ use App\Helpers\BotQuranHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHefzBotHelper;
 use App\Http\Requests\BotRequest;
-use App\Http\Requests\StoreQuranWordRequest;
-use App\Http\Requests\UpdateQuranWordRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranSurah;
-use App\Models\QuranWord;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Carbon;
@@ -186,6 +183,12 @@ class QuranWordController extends Controller
                 if ($command == "Report") {
                     $chatId = $bot->ChatID();
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
+                }
+
+                if ($command == "ReportAll") {
+                    if (BotHelper::isAdmin($bot->ChatID())) {
+                        $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                    }
                 }
 
                 if ($command == "ListCommands") {
