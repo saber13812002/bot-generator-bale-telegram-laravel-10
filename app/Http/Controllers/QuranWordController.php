@@ -93,7 +93,7 @@ class QuranWordController extends Controller
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
                 $reciterCommands = BotQuranHelper::getSettingReciter();
-                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/commandFehrest"], [trans('bot.List of 30 Juz'), "/commandJoz"]];
+                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
@@ -160,16 +160,22 @@ class QuranWordController extends Controller
                         }
                     }
                 }
-            } elseif ((substr($bot->Text(), 1, 7)) == "command") {
-                $command = substr($botText, strpos($botText, "/command") + Str::length("/command"));
-                if ($command == "Fehrest") {
+            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+                $this->messageToAll($request);
+            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
+                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
+                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+            } elseif ((substr($bot->Text(), 0, 1)) == "/") {
+                $command = substr($botText, strpos($botText, "/") + Str::length("/"));
+                if ($command == "fehrest") {
                     if ($type == 'telegram') {
                         $this->generateTelegramFehrestThenSendIt($bot);
                     } else {
                         $this->generateBaleFehrestThenSendIt($bot, $token);
                     }
                 }
-                if ($command == "Joz") {
+                if ($command == "joz") {
                     if ($type == 'telegram') {
 //                        $this->generateJozKeyBoardThenSendItTelegram($bot);
                         $this->generateJozLinksThenSendItTelegram($bot);
@@ -180,28 +186,28 @@ class QuranWordController extends Controller
                     }
                 }
 
-                if ($command == "Report") {
+                if ($command == "report") {
                     $chatId = $bot->ChatID();
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
                 }
 
-                if ($command == "ReportAll") {
+                if ($command == "reportall") {
                     if (BotHelper::isAdmin($bot->ChatID())) {
                         $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
                     }
                 }
 
-                if ($command == "ListCommands") {
+                if ($command == "listcommands" || $command == "help") {
                     $message = trans("bot.command list is") . "
 : /start
-: /commandJoz
-: /commandFehrest
-: /commandReport
-: /commandMp3_true
-: /commandMp3_false
-: /commandMp3Reciter_parhizgar
-: /commandMp3Reciter_alafasy
-: /commandListCommands";
+: /joz
+: /fehrest
+: /report
+: /mp3_true
+: /mp3_false
+: /mp3Reciter_parhizgar
+: /mp3Reciter_alafasy
+: /listcommands";
 
                     BotHelper::sendMessage($bot, $message);
                 }
@@ -254,12 +260,6 @@ class QuranWordController extends Controller
 
                     BotHelper::sendMessage($bot, $message);
                 }
-            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
-                $this->messageToAll($request);
-            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
-                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
-                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } else {
                 $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);
