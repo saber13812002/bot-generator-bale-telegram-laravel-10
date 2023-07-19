@@ -219,7 +219,7 @@ class QuranWordController extends Controller
 /sure1ayah1
 شماره سوره و آیه را جایگزین کنید
 مثلا سوره شماره 2 آیه 3
-/sure2ahay3
+/sure2ayah3
 ";
 
 
