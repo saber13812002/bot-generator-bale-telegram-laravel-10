@@ -232,7 +232,7 @@ class QuranWordController extends Controller
 
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3_" . ($mp3Enable == "true" ? "false" : "true"));
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
                 }
 
                 if ($subCommand == "mp3reciter") {
@@ -253,9 +253,9 @@ class QuranWordController extends Controller
 //                    dd($mp3Enable, $value);
                     if ($mp3Enable == "true") {
                         $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
-" . "/commandmp3reciter_alafasy";
+" . "/mp3reciter_alafasy";
                     } else {
-                        $message = " " . trans('bot.please enable mp3 by') . " : /commandmp3_true";
+                        $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
                     }
 
                     BotHelper::sendMessage($bot, $message);
@@ -271,7 +271,7 @@ class QuranWordController extends Controller
                 $message = $array[0][0];
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);
-                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /commandReport");
+                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
@@ -496,11 +496,11 @@ class QuranWordController extends Controller
             return [
                 [
                     "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/commandmp3"
+                    "callback_data" => "/mp3"
                 ],
                 [
                     "text" => trans("bot.change reciter"),
-                    "callback_data" => "/commandmp3reciter"
+                    "callback_data" => "/mp3reciter"
                 ]
             ];
         } else {
@@ -509,23 +509,23 @@ class QuranWordController extends Controller
 
             $mp3EnableArray = [
                 "text" => trans("bot.enable reciter"),
-                "callback_data" => "/commandmp3_true"
+                "callback_data" => "/mp3_true"
             ];
 
             $mp3DisableArray = [
                 "text" => trans("bot.disable reciter"),
-                "callback_data" => "/commandmp3_false"
+                "callback_data" => "/mp3_false"
             ];
 
 
             $mp3ReciterParhizgarArray = [
                 "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
-                "callback_data" => "/commandmp3reciter_parhizgar"
+                "callback_data" => "/mp3reciter_parhizgar"
             ];
 
             $mp3ReciterAlafasyArray = [
                 "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
-                "callback_data" => "/commandmp3reciter_alafasy"
+                "callback_data" => "/mp3reciter_alafasy"
             ];
 
             $resultArray = [];
