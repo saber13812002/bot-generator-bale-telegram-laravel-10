@@ -93,7 +93,7 @@ class QuranWordController extends Controller
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
                 $reciterCommands = BotQuranHelper::getSettingReciter();
-                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/commandFehrest"], [trans('bot.List of 30 Juz'), "/commandJoz"]];
+                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
@@ -160,16 +160,22 @@ class QuranWordController extends Controller
                         }
                     }
                 }
-            } elseif ((substr($bot->Text(), 1, 7)) == "command") {
-                $command = substr($botText, strpos($botText, "/command") + Str::length("/command"));
-                if ($command == "Fehrest") {
+            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+                $this->messageToAll($request);
+            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
+                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
+                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+            } elseif ((substr($bot->Text(), 0, 1)) == "/") {
+                $command = substr($botText, strpos($botText, "/") + Str::length("/"));
+                if ($command == "fehrest") {
                     if ($type == 'telegram') {
                         $this->generateTelegramFehrestThenSendIt($bot);
                     } else {
                         $this->generateBaleFehrestThenSendIt($bot, $token);
                     }
                 }
-                if ($command == "Joz") {
+                if ($command == "joz") {
                     if ($type == 'telegram') {
 //                        $this->generateJozKeyBoardThenSendItTelegram($bot);
                         $this->generateJozLinksThenSendItTelegram($bot);
@@ -180,28 +186,43 @@ class QuranWordController extends Controller
                     }
                 }
 
-                if ($command == "Report") {
+                if ($command == "report") {
                     $chatId = $bot->ChatID();
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
                 }
 
-                if ($command == "ReportAll") {
+                if ($command == "reportall") {
                     if (BotHelper::isAdmin($bot->ChatID())) {
                         $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
                     }
                 }
 
-                if ($command == "ListCommands") {
+                if ($command == "listcommands" || $command == "help") {
                     $message = trans("bot.command list is") . "
 : /start
-: /commandJoz
-: /commandFehrest
-: /commandReport
-: /commandMp3_true
-: /commandMp3_false
-: /commandMp3Reciter_parhizgar
-: /commandMp3Reciter_alafasy
-: /commandListCommands";
+: /joz
+: /fehrest
+: /report
+: /mp3_true
+: /mp3_false
+: /mp3Reciter_parhizgar
+: /mp3Reciter_alafasy
+: /listcommands
+
+برای جستجوی یک کلمه درقرآن میتوانید
+عبارت مورد نظر خود را بعد از // تایپ کنید
+
+مثال:
+//الرحمن
+
+برای رفتن مستقیم به آیه و سوره دلخواه
+/sure1ayah1
+شماره سوره و آیه را جایگزین کنید
+مثلا سوره شماره 2 آیه 3
+/sure2ayah3
+";
+
+
 
                     BotHelper::sendMessage($bot, $message);
                 }
@@ -226,7 +247,7 @@ class QuranWordController extends Controller
 
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /commandmp3_" . ($mp3Enable == "true" ? "false" : "true"));
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
                 }
 
                 if ($subCommand == "mp3reciter") {
@@ -247,19 +268,13 @@ class QuranWordController extends Controller
 //                    dd($mp3Enable, $value);
                     if ($mp3Enable == "true") {
                         $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
-" . "/commandmp3reciter_alafasy";
+" . "/mp3reciter_alafasy";
                     } else {
-                        $message = " " . trans('bot.please enable mp3 by') . " : /commandmp3_true";
+                        $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
                     }
 
                     BotHelper::sendMessage($bot, $message);
                 }
-            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
-                $this->messageToAll($request);
-            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
-                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
-                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } else {
                 $message = trans('bot.bot cant recognized your command') . " /start";
                 BotHelper::sendMessage($bot, $message);
@@ -271,7 +286,7 @@ class QuranWordController extends Controller
                 $message = $array[0][0];
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);
-                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /commandReport");
+                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
@@ -496,11 +511,11 @@ class QuranWordController extends Controller
             return [
                 [
                     "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/commandmp3"
+                    "callback_data" => "/mp3"
                 ],
                 [
                     "text" => trans("bot.change reciter"),
-                    "callback_data" => "/commandmp3reciter"
+                    "callback_data" => "/mp3reciter"
                 ]
             ];
         } else {
@@ -509,23 +524,23 @@ class QuranWordController extends Controller
 
             $mp3EnableArray = [
                 "text" => trans("bot.enable reciter"),
-                "callback_data" => "/commandmp3_true"
+                "callback_data" => "/mp3_true"
             ];
 
             $mp3DisableArray = [
                 "text" => trans("bot.disable reciter"),
-                "callback_data" => "/commandmp3_false"
+                "callback_data" => "/mp3_false"
             ];
 
 
             $mp3ReciterParhizgarArray = [
                 "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
-                "callback_data" => "/commandmp3reciter_parhizgar"
+                "callback_data" => "/mp3reciter_parhizgar"
             ];
 
             $mp3ReciterAlafasyArray = [
                 "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
-                "callback_data" => "/commandmp3reciter_alafasy"
+                "callback_data" => "/mp3reciter_alafasy"
             ];
 
             $resultArray = [];

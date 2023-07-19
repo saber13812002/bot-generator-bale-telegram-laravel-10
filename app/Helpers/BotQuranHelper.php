@@ -64,10 +64,10 @@ class BotQuranHelper
     public static function getSettingReciter(): string
     {
         $caption = "
-" . trans("bot.disable enable reciter") . " /commandmp3_true /commandmp3_false
+" . trans("bot.disable enable reciter") . " /mp3_true /mp3_false
 ";
 
-        $caption .= trans("bot.change reciter") . " /commandmp3reciter_parhizgar /commandmp3reciter_alafasy
+        $caption .= trans("bot.change reciter") . " /mp3reciter_parhizgar /mp3reciter_alafasy
 ";
         return $caption;
     }

@@ -145,10 +145,10 @@ class QuranHefzBotHelper
 /sure2ayah2
 " .
                 trans('bot.List of 114 Surahs') . "
-/commandFehrest
+/fehrest
 " .
                 trans('bot.List of 30 Juz') . "
-/commandJoz";
+/joz";
         } else {
             $messageCommands = "
 " .
