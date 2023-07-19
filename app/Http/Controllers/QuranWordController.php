@@ -207,7 +207,22 @@ class QuranWordController extends Controller
 : /mp3_false
 : /mp3Reciter_parhizgar
 : /mp3Reciter_alafasy
-: /listcommands";
+: /listcommands
+
+برای جستجوی یک کلمه درقرآن میتوانید
+عبارت مورد نظر خود را بعد از // تایپ کنید
+
+مثال:
+//الرحمن
+
+برای رفتن مستقیم به آیه و سوره دلخواه
+/sure1ayah1
+شماره سوره و آیه را جایگزین کنید
+مثلا سوره شماره 2 آیه 3
+/sure2ahay3
+";
+
+
 
                     BotHelper::sendMessage($bot, $message);
                 }
