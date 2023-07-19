@@ -78,19 +78,19 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
 
         $postfix_hadith = "";
         if ($result_ayat == 0 && $count_today == 0) {
-            $postfix_hadith = "
-به شما توصیه میکنیم بخاطر تعداد صفر آیه مطالعه در دو روز گذشته احادیث زیر را یک مطالعه بفرمایید.
-
+            $postfix_hadith = " ✍✍✍
+" . trans("bot.your today readings is zero") . "
+👇👇👇
 https://www.imamalicenter.se/fa/20hadith_om_Koran
 ";
         }
 
         $postfix = $result_ayat > 0 ? $result_ayat . " پیشرفت داشته اید " : $result_ayat_if_negetive . " آیه کمتر مطالعه کردید ";
 
-        $message = "رتبه شما در سی روز گذشته " . $rank . "
-            آمار کل استفاده های شما از این روبات در تلگرام و بله امروز
-:" . $count_today . "آیه
-که در مقایسه با روز قبل " . $count_yesterday . "
+        $message = trans("bot.your ranking in last 30 days is") . $rank . "
+" . trans("bot.your todays usage of this bot") . "
+:" . $count_today . trans("bot.ayah") . "
+" . trans("bot.which compared to the previous day") . $count_yesterday . "
 " . $postfix . $postfix_hadith . HadithHelper::random_hadith();
         return $message;
     }
@@ -157,20 +157,21 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
         $postfix_local = env('APP_ENV');
 
-        $message = "آمار کل استفاده های این روبات در تلگرام و بله امروز" . $count_daily . " آیه
-یونیک یعنی کاربران یکتای امروز:" . $count_unique_daily . "
-آمار آیات خوانده شده کل کاربران در هفته: " . $count_weekly . "
-کاربران غیر تکراری در هفته: " . $count_unique_weekly . "
-آمار آیات خوانده شده کل کاربران در یک ماه قبل: " . $count_monthly . "
-کاربران غیر تکراری در سی روز قبل: " . $count_unique_monthly . "
+        $message = trans("bot.your todays usage of this bot") . $count_daily . trans("bot.ayah") . "
+" . trans("bot.unique users of todays statistics") . ":" . $count_unique_daily . "
 
-آمار آیات خوانده شده کل کاربران در یکسال قبل: " . $count_yearly . "
-کاربران غیر تکراری در یکسال قبل: " . $count_unique_yearly . "
+" . trans("bot.number of ayah in last week by all users") . ":" . $count_weekly . "
+" . trans("bot.unique users in last week") . ":" . $count_unique_weekly . "
+
+" . trans("bot.number of ayah in last month by all users") . ":" . $count_monthly . "
+" . trans("bot.unique users in last month") . ":" . $count_unique_monthly . "
+
+" . trans("bot.number of ayah in last year by all users") . ":" . $count_yearly . "
+" . trans("bot.unique users in last year") . ":" . $count_unique_yearly . "
 
 " . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
 
-با انتشار توضیحات این روبات و معرفی آن به دیگران، کمک کنید مردم بیشتری با قرآن انس بگیرن و حداقل روزی یک آیه قرآن بخوانند و تدبر کنند. به امید جامعه ی بهتر و تعجیل در ظهور صلوات
-
+" . trans("bot.please help us to promote this bot to other people") . "
 
 اللهم صل علی محمد و آل محمد و عجل فرجهم
 

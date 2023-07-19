@@ -45,6 +45,20 @@ return [
     'sending to blog api but nothing returned' => 'sending request to blog api but nothing returned ...',
     'your chat id' => 'your chat id:',
 
+    'your today readings is zero' => 'your today readings is zero',
+    'your ranking in last 30 days is' => 'your ranking in last 30 days is',
+    'your todays usage of this bot' => 'your todays usage of this bot',
+    'ayah' => 'ayah',
+    'which compared to the previous day' => 'which compared to the previous day',
+    'unique users of todays statistics' => 'unique users of todays statistics',
+    'number of ayah in last week by all users' => 'number of ayah in last week by all users',
+    'unique users in last week' => 'unique users in last week',
+    'number of ayah in last month by all users' => 'number of ayah in last month by all users',
+    'unique users in last month' => 'unique users in last month',
+    'number of ayah in last year by all users' => 'number of ayah in last year by all users',
+    'unique users in last year' => 'unique users in last year',
+    'please help us to promote this bot to other people' => 'please help us to promote this bot to other people',
+
     'previous' => 'Previous',
     'next' => 'Next',
 
