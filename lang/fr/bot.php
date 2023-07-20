@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => 'utilisateurs uniques l\'année dernière',
     'please help us to promote this bot to other people'                        => 'aidez-nous à promouvoir ce robot auprès d\'autres personnes',
     'command list is'                                                           => 'la liste des commandes est',
+    'you have advantage'                                                        => ' vous avez un avantage ',
+    'your readings less that yesterday activity'                                => ' vos relevés sont inférieurs à ceux de l\'activité d\'hier ',
 ];

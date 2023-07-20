@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => '去年的独立用户数',
     'please help us to promote this bot to other people'                        => '请帮助我们向其他人推广这款机器人',
     'command list is'                                                           => '命令列表为',
+    'you have advantage'                                                        => '你有优势 ',
+    'your readings less that yesterday activity'                                => '你的读数少于昨天的活动 ',
 ];

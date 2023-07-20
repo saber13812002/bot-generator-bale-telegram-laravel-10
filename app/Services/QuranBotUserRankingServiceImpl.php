@@ -85,7 +85,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 ";
         }
 
-        $postfix = $result_ayat > 0 ? $result_ayat . " پیشرفت داشته اید " : $result_ayat_if_negetive . " آیه کمتر مطالعه کردید ";
+        $postfix = $result_ayat > 0 ? $result_ayat . trans("bot.you have advantage") : $result_ayat_if_negetive . trans("bot.your readings less that yesterday activity");
 
         $message = trans("bot.your ranking in last 30 days is") . $rank . "
 " . trans("bot.your todays usage of this bot") . "

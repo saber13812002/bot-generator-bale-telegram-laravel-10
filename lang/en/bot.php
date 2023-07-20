@@ -58,6 +58,9 @@ return [
     'number of ayah in last year by all users' => 'number of ayah in last year by all users',
     'unique users in last year' => 'unique users in last year',
     'please help us to promote this bot to other people' => 'please help us to promote this bot to other people',
+    'you have advantage' => ' you have advantage ',
+    'your readings less that yesterday activity' => ' your readings less that yesterday activity ',
+    'previous' => 'Previous',
 
     'previous' => 'Previous',
     'next' => 'Next',
