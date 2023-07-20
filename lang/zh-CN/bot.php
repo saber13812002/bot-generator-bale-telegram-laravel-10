@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => '命令列表为',
     'you have advantage'                                                        => '你有优势 ',
     'your readings less that yesterday activity'                                => '你的读数少于昨天的活动 ',
+    'today usage of this bot'                                                   => '今天使用该机器人',
 ];

@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'کمانڈ کی فہرست ہے',
     'you have advantage'                                                        => 'آپ کو فائدہ ہے',
     'your readings less that yesterday activity'                                => 'آپ کی پڑھائی کل کی سرگرمی سے کم ہے۔',
+    'today usage of this bot'                                                   => 'اس بوٹ کا آج استعمال',
 ];

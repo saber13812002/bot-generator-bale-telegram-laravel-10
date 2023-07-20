@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'befehlsliste ist',
     'you have advantage'                                                        => ' sie haben einen Vorteil ',
     'your readings less that yesterday activity'                                => ' ihre Messwerte weniger als gestern Aktivität ',
+    'today usage of this bot'                                                   => 'heutige Nutzung dieses Bots',
 ];

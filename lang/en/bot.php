@@ -48,6 +48,7 @@ return [
     'your today readings is zero' => 'your today readings is zero',
     'your ranking in last 30 days is' => 'your ranking in last 30 days is',
     'your todays usage of this bot' => 'your todays usage of this bot',
+    'today usage of this bot' => 'today usage of this bot',
     'ayah' => 'ayah',
     'which compared to the previous day' => 'which compared to the previous day',
     'unique users of todays statistics' => 'unique users of todays statistics',

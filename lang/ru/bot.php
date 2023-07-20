@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'список команд',
     'you have advantage'                                                        => ' у вас есть преимущество ',
     'your readings less that yesterday activity'                                => ' ваши показания меньше, чем вчерашняя активность ',
+    'today usage of this bot'                                                   => 'сегодняшнее использование этого бота',
 ];

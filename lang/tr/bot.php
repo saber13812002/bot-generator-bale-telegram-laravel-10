@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'komut listesi',
     'you have advantage'                                                        => ' avantajınız var ',
     'your readings less that yesterday activity'                                => ' okumalarınız dünkü aktiviteden daha az ',
+    'today usage of this bot'                                                   => 'bugün bu botun kullanımı',
 ];

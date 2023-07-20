@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'لیست دستورات:',
     'you have advantage'                                                        => 'شما پیشرفت داشته اید',
     'your readings less that yesterday activity'                                => 'خواندن شما کمتر از فعالیت دیروز است',
+    'today usage of this bot'                                                   => 'کل استفاده امروز از این ربات',
 ];

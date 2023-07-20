@@ -76,4 +76,5 @@ return [
     'command list is'                                                           => 'قائمة الأوامر',
     'you have advantage'                                                        => 'لديك ميزة',
     'your readings less that yesterday activity'                                => 'قراءاتك أقل من نشاط أمس',
+    'today usage of this bot'                                                   => 'اليوم استخدام هذا الروبوت',
 ];

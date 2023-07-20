@@ -157,7 +157,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
         $postfix_local = env('APP_ENV');
 
-        $message = trans("bot.your todays usage of this bot") . $count_daily . trans("bot.ayah") . "
+        $message = trans("bot.today usage of this bot") . $count_daily . trans("bot.ayah") . "
 " . trans("bot.unique users of todays statistics") . ":" . $count_unique_daily . "
 
 " . trans("bot.number of ayah in last week by all users") . ":" . $count_weekly . "

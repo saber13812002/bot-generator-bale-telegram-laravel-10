@@ -31,6 +31,7 @@ return [
     'digits'           => ':attribute] 字段必须是 :digits 位数。',
     'digits_between'   => ':attribute] 字段必须位于 :min 和 :max 位数之间。',
     'dimensions'       => ':attribute] 字段的图像尺寸无效。',
+    'distinct'         => ':attribute] 字段有一个重复值。',
     'email'            => ':attribute] 字段必须是有效的电子邮件地址。',
     'ends_with'        => ':attribute] 字段必须以下列之一结尾：:values。',
     'custom'           => [
