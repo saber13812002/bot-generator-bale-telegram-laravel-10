@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => 'پچھلے سال کے منفرد صارفین',
     'please help us to promote this bot to other people'                        => 'براہ کرم اس بوٹ کو دوسرے لوگوں تک فروغ دینے میں ہماری مدد کریں۔',
     'command list is'                                                           => 'کمانڈ کی فہرست ہے',
+    'you have advantage'                                                        => 'آپ کو فائدہ ہے',
+    'your readings less that yesterday activity'                                => 'آپ کی پڑھائی کل کی سرگرمی سے کم ہے۔',
 ];

@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => 'son bir yıldaki tekil kullanıcılar',
     'please help us to promote this bot to other people'                        => 'lütfen bu botu diğer insanlara tanıtmamıza yardımcı olun',
     'command list is'                                                           => 'komut listesi',
+    'you have advantage'                                                        => ' avantajınız var ',
+    'your readings less that yesterday activity'                                => ' okumalarınız dünkü aktiviteden daha az ',
 ];

@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => 'количество аятов за последний год всеми пользователями',
     'please help us to promote this bot to other people'                        => 'пожалуйста, помогите нам продвинуть этот бот среди других людей',
     'command list is'                                                           => 'список команд',
+    'you have advantage'                                                        => ' у вас есть преимущество ',
+    'your readings less that yesterday activity'                                => ' ваши показания меньше, чем вчерашняя активность ',
 ];

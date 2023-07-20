@@ -74,4 +74,6 @@ return [
     'unique users in last year'                                                 => 'کاربران منحصر به فرد در سال گذشته',
     'please help us to promote this bot to other people'                        => 'لطفا به ما کمک کنید تا این ربات را به دیگران معرفی کنیم',
     'command list is'                                                           => 'لیست دستورات:',
+    'you have advantage'                                                        => 'شما پیشرفت داشته اید',
+    'your readings less that yesterday activity'                                => 'خواندن شما کمتر از فعالیت دیروز است',
 ];
