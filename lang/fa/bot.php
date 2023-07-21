@@ -77,4 +77,6 @@ return [
     'you have advantage'                                                        => 'شما پیشرفت داشته اید',
     'your readings less that yesterday activity'                                => 'خواندن شما کمتر از فعالیت دیروز است',
     'today usage of this bot'                                                   => 'کل استفاده امروز از این ربات',
+    'for direct access to sura and ayah'                                        => 'برای دسترسی مستقیم به سوره و آیات',
+    'for example if you want to go sure 2 ayah 3'                               => 'برای مثال اگر می خواهید بروید مطمئن شوید 2 آیه 3',
 ];

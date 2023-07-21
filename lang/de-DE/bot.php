@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => ' sie haben einen Vorteil ',
     'your readings less that yesterday activity'                                => ' ihre Messwerte weniger als gestern Aktivität ',
     'today usage of this bot'                                                   => 'heutige Nutzung dieses Bots',
+    'for direct access to sura and ayah'                                        => 'für direkten Zugang zu Sure und Ayah ',
+    'for example if you want to go sure 2 ayah 3'                               => 'zum Beispiel, wenn Sie sicher gehen wollen 2 ayah 3 ',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'für die Suche geben Sie bitte Ihren Suchbegriff nach Anführungszeichen ein, etwa so:',
+    ],
 ];

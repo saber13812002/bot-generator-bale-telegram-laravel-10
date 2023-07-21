@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => 'لديك ميزة',
     'your readings less that yesterday activity'                                => 'قراءاتك أقل من نشاط أمس',
     'today usage of this bot'                                                   => 'اليوم استخدام هذا الروبوت',
+    'for direct access to sura and ayah'                                        => 'للوصول المباشر إلى السورة والآية',
+    'for example if you want to go sure 2 ayah 3'                               => 'على سبيل المثال إذا كنت تريد التأكد من 2 آية 3',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'للبحث يرجى كتابة العبارة الخاصة بك بعد الاقتباس المزدوج مثل هذا:',
+    ],
 ];

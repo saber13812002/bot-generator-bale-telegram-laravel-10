@@ -209,7 +209,7 @@ class QuranWordController extends Controller
 : /mp3Reciter_alafasy
 : /listcommands
 
-" . trans("bot.for search please type your phrase after double quotation. like this") . "
+" . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن
 
 " . trans("bot.for direct access to sura and ayah") . "
