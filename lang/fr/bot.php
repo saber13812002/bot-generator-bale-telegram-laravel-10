@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'pour la recherche, veuillez taper votre phrase après la double slash comme ceci : ',
     ],
+    'please enable it by'                                                       => 'veuillez l\'activer en',
+    'please disable it by'                                                      => 'veuillez le désactiver en',
+    'to disable'                                                                => 'pour désactiver',
+    'to enable transliteration'                                                 => 'pour permettre la translittération',
 ];

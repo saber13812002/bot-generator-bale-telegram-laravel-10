@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'تلاش کے لیے براہ کرم ڈبل کوٹیشن کے بعد اپنا جملہ اس طرح ٹائپ کریں:',
     ],
+    'please enable it by'                                                       => 'براہ کرم اسے فعال کریں۔',
+    'please disable it by'                                                      => 'برائے مہربانی اسے غیر فعال کر دیں۔',
+    'to disable'                                                                => 'غیر فعال کرنے کے لئے',
+    'to enable transliteration'                                                 => 'نقل حرفی کو فعال کرنے کے لیے',
 ];

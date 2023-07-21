@@ -55,17 +55,17 @@ class QuranHefzBotHelper
             if ($trTransliteration == 'true') {
                 $message .= "
 :" . $quranTransliterationTr['quran_transliteration_tr'] . "
-to disable : /transtr_false ";
+" . trans("bot.to disable") . "/transtr_false ";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 :" . $quranTransliterationEn['quran_transliteration_en'] . "
-to disable : /transen_false ";
+" . trans("bot.to disable") . "/transen_false ";
             }
         } else {
             $message .= "
-to enable transliteration: /transen_true /transtr_true ";
+" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
         }
 
         if (!$message) {

@@ -80,6 +80,10 @@ return [
 
     'disabled' => 'disabled',
 
+    'to disable' => 'to disable',
+
+    'to enable transliteration' => 'to enable transliteration',
+
     'please enable mp3 by' => 'please enable mp3 by',
 
     'please disable mp3 by' => 'please disable mp3 by',
