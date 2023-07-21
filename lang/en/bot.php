@@ -61,7 +61,9 @@ return [
     'please help us to promote this bot to other people' => 'please help us to promote this bot to other people',
     'you have advantage' => ' you have advantage ',
     'your readings less that yesterday activity' => ' your readings less that yesterday activity ',
-    'previous' => 'Previous',
+    'for search please type your phrase after double quotation. like this' => 'for search please type your phrase after double quotation like this: ',
+    'for direct access to sura and ayah' => 'for direct access to sura and ayah ',
+    'for example if you want to go sure 2 ayah 3' => 'for example if you want to go sure 2 ayah 3 ',
 
     'previous' => 'Previous',
     'next' => 'Next',

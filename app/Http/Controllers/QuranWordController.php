@@ -87,7 +87,7 @@ class QuranWordController extends Controller
             $commandTemplateSure = '/sure';
             $commandTemplateAyah = 'ayah';
 
-            $botText = $bot->Text();
+            $botText = Str::lower($bot->Text());
 
             if ($botText == '/start') {
                 $isStartCommandShow = 0;
@@ -209,19 +209,16 @@ class QuranWordController extends Controller
 : /mp3Reciter_alafasy
 : /listcommands
 
-برای جستجوی یک کلمه درقرآن میتوانید
-عبارت مورد نظر خود را بعد از // تایپ کنید
-
-مثال:
+" . trans("bot.for search please type your phrase after double quotation. like this") . "
 //الرحمن
 
-برای رفتن مستقیم به آیه و سوره دلخواه
+" . trans("bot.for direct access to sura and ayah") . "
 /sure1ayah1
-شماره سوره و آیه را جایگزین کنید
-مثلا سوره شماره 2 آیه 3
-/sure2ayah3
-";
 
+" . trans("bot.for example if you want to go sure 2 ayah 3") . "
+/sure2ayah3
+
+";
 
 
                     BotHelper::sendMessage($bot, $message);
@@ -342,8 +339,8 @@ class QuranWordController extends Controller
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                     }
                 }
+                BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
             }
-            BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
         }
     }
 
