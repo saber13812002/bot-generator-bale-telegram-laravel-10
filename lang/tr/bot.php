@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => ' avantajınız var ',
     'your readings less that yesterday activity'                                => ' okumalarınız dünkü aktiviteden daha az ',
     'today usage of this bot'                                                   => 'bugün bu botun kullanımı',
+    'for direct access to sura and ayah'                                        => 'sure ve ayetlere doğrudan erişim için ',
+    'for example if you want to go sure 2 ayah 3'                               => 'örneğin 2. ayet 3\'e gitmek istiyorsanız ',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'arama için lütfen ifadenizi çift tırnaktan sonra şu şekilde yazın: ',
+    ],
 ];

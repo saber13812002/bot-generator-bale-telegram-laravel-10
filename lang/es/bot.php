@@ -79,5 +79,7 @@ return [
     'today usage of this bot'                                                   => 'uso actual de este bot',
     'for direct access to sura and ayah'                                        => 'para acceder directamente a sura y ayah ',
     'for example if you want to go sure 2 ayah 3'                               => 'por ejemplo si quieres ir seguro 2 ayah 3 ',
-
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'para la búsqueda por favor escriba su frase después de comillas dobles como este:',
+    ],
 ];

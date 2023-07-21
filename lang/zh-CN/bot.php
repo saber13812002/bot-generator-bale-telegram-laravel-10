@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => '你有优势 ',
     'your readings less that yesterday activity'                                => '你的读数少于昨天的活动 ',
     'today usage of this bot'                                                   => '今天使用该机器人',
+    'for direct access to sura and ayah'                                        => '直接查阅经文和圣训 ',
+    'for example if you want to go sure 2 ayah 3'                               => '例如，如果你想确定 2 ayah 3 ',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => '搜索时，请在双引号后像这样输入您的短语： ',
+    ],
 ];

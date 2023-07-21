@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => 'آپ کو فائدہ ہے',
     'your readings less that yesterday activity'                                => 'آپ کی پڑھائی کل کی سرگرمی سے کم ہے۔',
     'today usage of this bot'                                                   => 'اس بوٹ کا آج استعمال',
+    'for direct access to sura and ayah'                                        => 'سورہ اور آیت تک براہ راست رسائی کے لیے',
+    'for example if you want to go sure 2 ayah 3'                               => 'مثال کے طور پر اگر آپ یقینی طور پر جانا چاہتے ہیں 2 آیت 3',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'تلاش کے لیے براہ کرم ڈبل کوٹیشن کے بعد اپنا جملہ اس طرح ٹائپ کریں:',
+    ],
 ];

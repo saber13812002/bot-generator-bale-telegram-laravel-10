@@ -77,4 +77,9 @@ return [
     'you have advantage'                                                        => ' у вас есть преимущество ',
     'your readings less that yesterday activity'                                => ' ваши показания меньше, чем вчерашняя активность ',
     'today usage of this bot'                                                   => 'сегодняшнее использование этого бота',
+    'for direct access to sura and ayah'                                        => 'для прямого доступа к сурам и аятам ',
+    'for example if you want to go sure 2 ayah 3'                               => 'например, если вы хотите перейти к 2 аяту 3 ',
+    'for search please type your phrase after double slash'                     => [
+        ' like this' => 'для поиска, пожалуйста, наберите вашу фразу после двойной кавычки следующим образом: ',
+    ],
 ];
