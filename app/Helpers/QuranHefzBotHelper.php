@@ -54,12 +54,14 @@ class QuranHefzBotHelper
             $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
             if ($trTransliteration == 'true') {
                 $message .= "
-:" . $quranTransliterationTr['quran_transliteration_tr'];
+:" . $quranTransliterationTr['quran_transliteration_tr'] . "
+to disable : /transtr_false";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
-:" . $quranTransliterationEn['quran_transliteration_en'];
+:" . $quranTransliterationEn['quran_transliteration_en'] . "
+to disable : /transen_false";
             }
         }
 
