@@ -55,13 +55,13 @@ class QuranHefzBotHelper
             if ($trTransliteration == 'true') {
                 $message .= "
 :" . $quranTransliterationTr['quran_transliteration_tr'] . "
-to disable : /transtr_false";
+to disable : /transtr_false ";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 :" . $quranTransliterationEn['quran_transliteration_en'] . "
-to disable : /transen_false";
+to disable : /transen_false ";
             }
         }
 
