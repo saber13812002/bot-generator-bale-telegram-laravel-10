@@ -63,6 +63,9 @@ to disable : /transtr_false ";
 :" . $quranTransliterationEn['quran_transliteration_en'] . "
 to disable : /transen_false ";
             }
+        } else {
+            $message .= "
+to enable transliteration: /transen_true /transtr_true ";
         }
 
         if (!$message) {
