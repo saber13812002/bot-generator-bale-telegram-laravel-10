@@ -10,7 +10,6 @@ use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
@@ -21,6 +20,7 @@ class QuranHefzBotHelper
 {
 
     /**
+     * @param $userSettings
      * @param $sure
      * @param $aye
      * @return string

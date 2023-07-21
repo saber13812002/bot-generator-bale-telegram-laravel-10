@@ -208,6 +208,10 @@ class QuranWordController extends Controller
 : /mp3Reciter_parhizgar
 : /mp3Reciter_alafasy
 : /listcommands
+: /transen_true : to enable transliteration english
+: /transen_false
+: /transtr_true : to enable transliteration turkish
+: /transtr_false
 
 " . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن
