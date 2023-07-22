@@ -32,6 +32,20 @@ return new class extends Migration
 };
 
 
+// 0- php artisan migrate : done
+
+
+// 1- replace
+// `fa_ayati` (`
+// `quran_translations` (`
+
+// 2- set default values
+// fa
+// ayati
+// fa.ayati
+
+// 3-import
+
 //UPDATE quran_translations SET quran_translations.language = "fa"
 //WHERE language IS NULL AND translation_id = 2;
 //
