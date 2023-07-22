@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'לחיפוש אנא הקלד את הביטוי שלך לאחר מירכאות כפולות, כך:',
     ],
+    'please enable it by'                                                       => 'אנא הפעל את זה על ידי',
+    'please disable it by'                                                      => 'נא להשבית אותו על ידי',
+    'to disable'                                                                => 'להשבית',
+    'to enable transliteration'                                                 => 'כדי לאפשר תעתיק',
 ];

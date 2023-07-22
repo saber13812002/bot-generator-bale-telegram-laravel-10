@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => '搜索时，请在双引号后像这样输入您的短语： ',
     ],
+    'please enable it by'                                                       => '请通过以下方式启用',
+    'please disable it by'                                                      => '请通过以下方式禁用它',
+    'to disable'                                                                => '禁用',
+    'to enable transliteration'                                                 => '以实现音译',
 ];

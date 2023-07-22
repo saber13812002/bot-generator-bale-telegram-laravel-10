@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'für die Suche geben Sie bitte Ihren Suchbegriff nach Anführungszeichen ein, etwa so:',
     ],
+    'please enable it by'                                                       => 'aktivieren Sie es bitte durch',
+    'please disable it by'                                                      => 'deaktivieren Sie es bitte durch',
+    'to disable'                                                                => 'zu deaktivieren',
+    'to enable transliteration'                                                 => 'um die Transliteration zu ermöglichen',
 ];

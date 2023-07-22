@@ -82,4 +82,6 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'arama için lütfen ifadenizi çift tırnaktan sonra şu şekilde yazın: ',
     ],
+    'please enable it by'                                                       => 'lütfen şu şekilde etkinleştirin',
+    'please disable it by'                                                      => 'lütfen şu şekilde devre dışı bırakın',
 ];

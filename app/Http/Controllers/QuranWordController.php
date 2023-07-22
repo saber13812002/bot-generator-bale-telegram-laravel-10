@@ -130,7 +130,7 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            $message = QuranHefzBotHelper::getSureAye($sure, $aya);
+                            $message = QuranHefzBotHelper::getSureAye($userSettings, $sure, $aya);
 
                             [$maxAyah, $sureName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
                             [$maxAyahSureGhabli, $sureGhabliName] = QuranHefzBotHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
@@ -208,6 +208,10 @@ class QuranWordController extends Controller
 : /mp3Reciter_parhizgar
 : /mp3Reciter_alafasy
 : /listcommands
+: /transen_true : to enable transliteration english
+: /transen_false
+: /transtr_true : to enable transliteration turkish
+: /transtr_false
 
 " . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن
@@ -231,10 +235,14 @@ class QuranWordController extends Controller
                 if ($subCommand == "mp3") {
 //                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
+                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 //                    dd($mp3Enable, $mp3Reciter);
                     $arr = [
                         'mp3_reciter' => $mp3Reciter,
-                        'mp3_enable' => $value
+                        'mp3_enable' => $value,
+                        'quran_transliteration_tr' => $quranTransliterationTr,
+                        'quran_transliteration_en' => $quranTransliterationEn
                     ];
 
                     $user = $userSettings->settings($arr);
@@ -247,14 +255,62 @@ class QuranWordController extends Controller
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
                 }
 
-                if ($subCommand == "mp3reciter") {
-//                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+                if ($subCommand == "transtr") {
 
                     $mp3Enable = $userSettings->setting('mp3_enable');
+                    $mp3Reciter = $userSettings->setting('mp3_reciter');
+//                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+
+                    $arr = [
+                        'mp3_reciter' => $mp3Reciter,
+                        'mp3_enable' => $mp3Enable,
+                        'quran_transliteration_tr' => $value,
+                        'quran_transliteration_en' => $quranTransliterationEn
+                    ];
+
+                    $user = $userSettings->settings($arr);
+                    $quranTransliterationTr = $user->setting('quran_transliteration_tr');
+
+                    $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                    $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
+                }
+
+                if ($subCommand == "transen") {
+
+                    $mp3Enable = $userSettings->setting('mp3_enable');
+                    $mp3Reciter = $userSettings->setting('mp3_reciter');
+                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+//                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+
+                    $arr = [
+                        'mp3_reciter' => $mp3Reciter,
+                        'mp3_enable' => $mp3Enable,
+                        'quran_transliteration_tr' => $quranTransliterationTr,
+                        'quran_transliteration_en' => $value
+                    ];
+
+                    $user = $userSettings->settings($arr);
+                    $quranTransliterationEn = $user->setting('quran_transliteration_en');
+
+                    $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                    $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
+                }
+
+                if ($subCommand == "mp3reciter") {
+
+
+                    $mp3Enable = $userSettings->setting('mp3_enable');
+                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
                     $arr = [
                         'mp3_reciter' => $value,
-                        'mp3_enable' => $mp3Enable
+                        'mp3_enable' => $mp3Enable,
+                        'quran_transliteration_tr' => $quranTransliterationTr,
+                        'quran_transliteration_en' => $quranTransliterationEn
                     ];
 
                     $user = $userSettings->settings($arr);

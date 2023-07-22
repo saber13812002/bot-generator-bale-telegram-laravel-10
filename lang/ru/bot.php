@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'для поиска, пожалуйста, наберите вашу фразу после двойной кавычки следующим образом: ',
     ],
+    'please enable it by'                                                       => 'пожалуйста, включите его с помощью',
+    'please disable it by'                                                      => 'отключите его, пожалуйста, следующим образом',
+    'to disable'                                                                => 'для отключения',
+    'to enable transliteration'                                                 => 'для обеспечения возможности транслитерации',
 ];

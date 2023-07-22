@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'برای جستجو لطفا عبارت خود را بعد از دو اسلش مانند این تایپ کنید:',
     ],
+    'please enable it by'                                                       => 'لطفا آن را فعال کنید',
+    'please disable it by'                                                      => 'لطفا آن را غیرفعال کنید',
+    'to disable'                                                                => 'برای غیر فعال کردن',
+    'to enable transliteration'                                                 => 'برای فعال کردن نویسه‌گردانی',
 ];

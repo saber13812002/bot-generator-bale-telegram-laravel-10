@@ -10,7 +10,6 @@ use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
@@ -21,11 +20,12 @@ class QuranHefzBotHelper
 {
 
     /**
+     * @param $userSettings
      * @param $sure
      * @param $aye
      * @return string
      */
-    public static function getSureAye($sure, $aye): string
+    public static function getSureAye($userSettings, $sure, $aye): string
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
@@ -35,24 +35,38 @@ class QuranHefzBotHelper
         $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
 //            dd($quranTranslate, $sure, $aye);
 
-        if (App::getLocale() == 'fa') {
-            $message .= "
+//        if (App::getLocale() == 'fa') {
+//        }
+
+
+        $message .= "
 :" . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
-        }
-
         $index = $quranTranslate['index'];
-        $quranTransliterationTr = QuranTransliterationTr::query()->whereIndex($index)->first();
 
-        $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
 
-//        if (App::getLocale() == 'fa') {
-        $message .= "
-:" . $quranTransliterationTr['quran_transliteration_tr'];
-//        }
-//        if (App::getLocale() == 'fa') {
-        $message .= "
-:" . $quranTransliterationEn['quran_transliteration_en'];
-//        }
+        $trTransliteration = BotQuranHelper::getSettingsByTags($userSettings, 'quran_transliteration_tr');
+        $enTransliteration = BotQuranHelper::getSettingsByTags($userSettings, 'quran_transliteration_en');
+
+        if ($trTransliteration == 'true' || $enTransliteration == 'true') {
+
+            $quranTransliterationTr = QuranTransliterationTr::query()->whereIndex($index)->first();
+
+            $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
+            if ($trTransliteration == 'true') {
+                $message .= "
+:" . $quranTransliterationTr['quran_transliteration_tr'] . "
+" . trans("bot.to disable") . "/transtr_false ";
+            }
+
+            if ($enTransliteration == 'true') {
+                $message .= "
+:" . $quranTransliterationEn['quran_transliteration_en'] . "
+" . trans("bot.to disable") . "/transen_false ";
+            }
+        } else {
+            $message .= "
+" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
+        }
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";

@@ -82,4 +82,8 @@ return [
     'for search please type your phrase after double slash'                     => [
         ' like this' => 'للبحث يرجى كتابة العبارة الخاصة بك بعد الاقتباس المزدوج مثل هذا:',
     ],
+    'please enable it by'                                                       => 'يرجى تمكينه عن طريق',
+    'please disable it by'                                                      => 'الرجاء تعطيله',
+    'to disable'                                                                => 'الرجاء تعطيله',
+    'to enable transliteration'                                                 => 'لتمكين التحويل الصوتي',
 ];
