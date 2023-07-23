@@ -212,8 +212,8 @@ class QuranWordController extends Controller
 : /transen_false
 : /transtr_true : to enable transliteration turkish
 : /transtr_false
-: /trans_2
-: /trans_3
+: /trans_2 : translation fa.ansarian
+: /trans_3 : translation fa.ayati
 
 " . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن
@@ -327,7 +327,7 @@ class QuranWordController extends Controller
                     $translationId = $user->setting('translation_id');
 
                     $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
-                    $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_3");
+                    $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
                 }
 

@@ -65,6 +65,12 @@ return [
     'for example if you want to go sure 2 ayah 3' => 'for example if you want to go sure 2 ayah 3 ',
     'for search please type your phrase after double slash. like this' => 'for search please type your phrase after double quotation like this: ',
 
+    'trans_2' => 'change it to translation Ansarian',
+    'trans_3' => 'change it to translation Ayati',
+    'please change it to trans_2' => 'please change it to translation Ansarian',
+    'please change it to trans_3' => 'please change it to translation Ayati',
+
+
     'previous' => 'Previous',
     'next' => 'Next',
 
