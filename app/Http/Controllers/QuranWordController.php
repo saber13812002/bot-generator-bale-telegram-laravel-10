@@ -471,10 +471,11 @@ class QuranWordController extends Controller
             $message = $suraName . (($sure == 1 || $sure == 9) ? "
 " : "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-") . $message . "(" . $aya . ")";
-        } else {
-            $message .= "(" . $aya . ")";
+") . $message . " :(" . $sure . ":" . $aya . ")";
         }
+//        else {
+//            $message .= "(" . $aya . ")";
+//        }
         return $message;
     }
 

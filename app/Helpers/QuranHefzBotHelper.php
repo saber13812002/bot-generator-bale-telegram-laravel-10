@@ -65,14 +65,14 @@ class QuranHefzBotHelper
                 $message .= "
 
 " . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . "/transtr_false ";
+" . trans("bot.to disable") . " /transtr_false ";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 
 " . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . "/transen_false ";
+" . trans("bot.to disable") . " /transen_false ";
             }
         } else {
             $message .= "
