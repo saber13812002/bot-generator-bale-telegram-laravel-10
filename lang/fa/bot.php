@@ -86,4 +86,8 @@ return [
     'please disable it by'                                                      => 'لطفا آن را غیرفعال کنید',
     'to disable'                                                                => 'برای غیر فعال کردن',
     'to enable transliteration'                                                 => 'برای فعال کردن نویسه‌گردانی',
+    'trans_2'                                                                   => 'به ترجمه انصاریان تغییر کرد.',
+    'trans_3'                                                                   => 'به ترجمه آیتی تغییر کرد.',
+    'please change it to trans_2'                                               => 'لطفا آن را به ترجمه انصاریان تغییر دهید.',
+    'please change it to trans_3'                                               => 'لطفا آن را به ترجمه آیتی تغییر دهید.',
 ];
