@@ -65,6 +65,12 @@ return [
     'for example if you want to go sure 2 ayah 3' => 'for example if you want to go sure 2 ayah 3 ',
     'for search please type your phrase after double slash. like this' => 'for search please type your phrase after double quotation like this: ',
 
+    'trans_2' => 'change it to translation Ansarian',
+    'trans_3' => 'change it to translation Ayati',
+    'please change it to trans_2' => 'please change it to translation Ansarian',
+    'please change it to trans_3' => 'please change it to translation Ayati',
+
+
     'previous' => 'Previous',
     'next' => 'Next',
 
@@ -101,4 +107,30 @@ return [
     'alafasy' => 'alafasy',
 
     'command list is' => 'command list is',
+
+    'help' => [
+        'choose :reciter as reciter' => 'choose :reciter as reciter',
+        'choose :language as transliteration' => 'choose :language as transliteration',
+        'choose :translator as translation' => 'choose :translator as translation',
+        'list of this robot commands' => 'list of this robot commands',
+        'your quran readings analysis report' => 'your quran readings analysis report',
+        'dont show :language transliteration' => 'dont show :language transliteration',
+        'disable sending mp3 for every ayah' => 'disable sending mp3 for every ayah',
+        'send mp3 for selected reciter' => 'send mp3 for selected reciter',
+        'list of Surahs of the Quran' => 'list of Surahs of the Quran',
+        'list of Quran 30 parts' => 'list of Quran 30 parts',
+        'to help you for introduce all features of this robot' => 'to help you for introduce all features of this robot',
+    ],
+    'translators' => [
+        'ansarian' => 'ansarian',
+        'ayati' => 'ayati'
+    ],
+    'transliterations' => [
+        'english' => 'english',
+        'turkish' => 'turkish'
+    ],
+    'reciters' => [
+        'parhizgar' => 'parhizgar',
+        'alafasy' => 'alafasy',
+    ]
 ];

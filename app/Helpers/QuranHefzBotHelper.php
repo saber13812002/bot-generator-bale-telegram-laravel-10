@@ -32,7 +32,15 @@ class QuranHefzBotHelper
         foreach ($quranWords as $quranWord) {
             $message .= " " . $quranWord['text'];
         }
-        $quranTranslate = QuranTranslation::query()->whereTranslationId(2)->whereSura($sure)->whereAya($aye)->first();
+        $translationId = 2;
+
+        $userTranslationId = BotQuranHelper::getSettingsByTags($userSettings, 'translation_id');
+
+        if ($userTranslationId > 0) {
+            $translationId = $userTranslationId;
+        }
+
+        $quranTranslate = QuranTranslation::query()->whereTranslationId($translationId)->whereSura($sure)->whereAya($aye)->first();
 //            dd($quranTranslate, $sure, $aye);
 
 //        if (App::getLocale() == 'fa') {
@@ -40,7 +48,8 @@ class QuranHefzBotHelper
 
 
         $message .= "
-:" . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
+
+" . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
         $index = $quranTranslate['index'];
 
 
@@ -54,19 +63,26 @@ class QuranHefzBotHelper
             $quranTransliterationEn = QuranTransliterationEn::query()->whereIndex($index)->first();
             if ($trTransliteration == 'true') {
                 $message .= "
-:" . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . "/transtr_false ";
+
+" . $quranTransliterationTr['quran_transliteration_tr'] . "
+" . trans("bot.to disable") . " /transtr_false ";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
-:" . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . "/transen_false ";
+
+" . $quranTransliterationEn['quran_transliteration_en'] . "
+" . trans("bot.to disable") . " /transen_false ";
             }
         } else {
             $message .= "
 " . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
         }
+
+        $message .= "👇 👇 👇
+" . trans("bot.help.to help you for introduce all features of this robot") . "
+👇 👇 👇
+  /help ";
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";

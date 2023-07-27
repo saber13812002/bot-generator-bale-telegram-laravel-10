@@ -86,4 +86,33 @@ return [
     'please disable it by'                                                      => 'لطفا آن را غیرفعال کنید',
     'to disable'                                                                => 'برای غیر فعال کردن',
     'to enable transliteration'                                                 => 'برای فعال کردن نویسه‌گردانی',
+    'trans_2'                                                                   => 'به ترجمه انصاریان تغییر کرد.',
+    'trans_3'                                                                   => 'به ترجمه آیتی تغییر کرد.',
+    'please change it to trans_2'                                               => 'به کمک دستور زیر آن را به ترجمه انصاریان تغییر دهید.',
+    'please change it to trans_3'                                               => 'به کمک دستور زیر آن را به ترجمه آیتی تغییر دهید.',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => ':reciter را به عنوان قاری انتخاب کنید',
+        'choose :language as transliteration'                  => ':language را به عنوان نویسه گردان انتخاب کنید',
+        'choose :translator as translation'                    => ':translator را به عنوان ترجمه انتخاب کنید',
+        'list of this robot commands'                          => 'لیستی از دستورات این ربات',
+        'your quran readings analysis report'                  => 'گزارش تحلیل قرائت قرآن شما',
+        'dont show :language transliteration'                  => 'نویسه نویسی :language را نشان ندهید',
+        'disable sending mp3 for every ayah'                   => 'غیرفعال کردن ارسال mp3 برای هر آیه',
+        'send mp3 for selected reciter'                        => 'ارسال mp3 برای قاری منتخب',
+        'list of Surahs of the Quran'                          => 'فهرست سوره های قرآن',
+        'list of Quran 30 parts'                               => 'فهرست قرآن 30 جزء',
+        'to help you for introduce all features of this robot' => 'تا به شما در معرفی تمامی ویژگی های این ربات کمک کند',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'انصاریان',
+        'ayati'    => 'آیتی',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'انگلیسی',
+        'turkish' => 'ترکی',
+    ],
+    'reciters'                                                                  => [
+        'parhizgar' => 'پرهیزگار',
+        'alafasy'   => 'الفاسی',
+    ],
 ];

@@ -86,4 +86,8 @@ return [
     'please disable it by'                                                      => 'برائے مہربانی اسے غیر فعال کر دیں۔',
     'to disable'                                                                => 'غیر فعال کرنے کے لئے',
     'to enable transliteration'                                                 => 'نقل حرفی کو فعال کرنے کے لیے',
+    'reciters'                                                                  => [
+        'parhizgar' => 'پرہیزگار',
+        'alafasy'   => 'alafasy',
+    ],
 ];

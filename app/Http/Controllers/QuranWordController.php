@@ -200,18 +200,20 @@ class QuranWordController extends Controller
                 if ($command == "listcommands" || $command == "help") {
                     $message = trans("bot.command list is") . "
 : /start
-: /joz
-: /fehrest
-: /report
-: /mp3_true
-: /mp3_false
-: /mp3Reciter_parhizgar
-: /mp3Reciter_alafasy
-: /listcommands
-: /transen_true : to enable transliteration english
-: /transen_false
-: /transtr_true : to enable transliteration turkish
-: /transtr_false
+: /joz " . trans('bot.help.list of Quran 30 parts') . "
+: /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
+: /report " . trans('bot.help.your quran readings analysis report') . "
+: /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
+: /mp3_false " . trans('bot.help.disable sending mp3 for every ayah') . "
+: /mp3Reciter_parhizgar " . trans('bot.help.choose :reciter as reciter', trans('bot.parhizgar')) . "
+: /mp3Reciter_alafasy " . trans('bot.help.choose :reciter as reciter', trans('bot.alafasy')) . "
+: /listcommands " . trans('bot.help.list of this robot commands') . "
+: /transen_true :  " . trans('bot.help.choose :language as transliteration', trans('bot.transliterations.english')) . "
+: /transen_false " . trans('bot.help.dont show :language transliteration', trans('bot.transliterations.english')) . "
+: /transtr_true :  " . trans('bot.help.choose :language as transliteration', trans('bot.transliterations.turkish')) . "
+: /transtr_false " . trans('bot.help.dont show :language transliteration', trans('bot.transliterations.turkish')) . "
+: /trans_2 :  " . trans('bot.help.choose :translator as translation', trans('bot.translators.ansarian')) . "
+: /trans_3 :  " . trans('bot.help.choose :translator as translation', trans('bot.translators.ayati')) . "
 
 " . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن
@@ -235,6 +237,7 @@ class QuranWordController extends Controller
                 if ($subCommand == "mp3") {
 //                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
+                    $translationId = $userSettings->setting('translation_id');
                     $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
                     $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 //                    dd($mp3Enable, $mp3Reciter);
@@ -242,7 +245,8 @@ class QuranWordController extends Controller
                         'mp3_reciter' => $mp3Reciter,
                         'mp3_enable' => $value,
                         'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $quranTransliterationEn
+                        'quran_transliteration_en' => $quranTransliterationEn,
+                        'translation_id' => $translationId
                     ];
 
                     $user = $userSettings->settings($arr);
@@ -260,13 +264,15 @@ class QuranWordController extends Controller
                     $mp3Enable = $userSettings->setting('mp3_enable');
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
 //                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                    $translationId = $userSettings->setting('translation_id');
                     $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
                     $arr = [
                         'mp3_reciter' => $mp3Reciter,
                         'mp3_enable' => $mp3Enable,
                         'quran_transliteration_tr' => $value,
-                        'quran_transliteration_en' => $quranTransliterationEn
+                        'quran_transliteration_en' => $quranTransliterationEn,
+                        'translation_id' => $translationId
                     ];
 
                     $user = $userSettings->settings($arr);
@@ -281,6 +287,7 @@ class QuranWordController extends Controller
 
                     $mp3Enable = $userSettings->setting('mp3_enable');
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
+                    $translationId = $userSettings->setting('translation_id');
                     $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
 //                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
@@ -288,7 +295,8 @@ class QuranWordController extends Controller
                         'mp3_reciter' => $mp3Reciter,
                         'mp3_enable' => $mp3Enable,
                         'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $value
+                        'quran_transliteration_en' => $value,
+                        'translation_id' => $translationId
                     ];
 
                     $user = $userSettings->settings($arr);
@@ -299,10 +307,36 @@ class QuranWordController extends Controller
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
                 }
 
+                if ($subCommand == "trans") {
+
+                    $mp3Enable = $userSettings->setting('mp3_enable');
+                    $mp3Reciter = $userSettings->setting('mp3_reciter');
+//                    $translationId = $userSettings->setting('translation_id');
+                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+
+                    $arr = [
+                        'mp3_reciter' => $mp3Reciter,
+                        'mp3_enable' => $mp3Enable,
+                        'quran_transliteration_tr' => $quranTransliterationTr,
+                        'quran_transliteration_en' => $quranTransliterationEn,
+                        'translation_id' => $value
+                    ];
+
+                    $user = $userSettings->settings($arr);
+                    $translationId = $user->setting('translation_id');
+
+                    $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
+                    $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
+                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
+                }
+
                 if ($subCommand == "mp3reciter") {
 
 
-                    $mp3Enable = $userSettings->setting('mp3_enable');
+//                    $mp3Enable = $userSettings->setting('mp3_enable');
+                    $mp3Enable = "true";
+                    $translationId = $userSettings->setting('translation_id');
                     $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
                     $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
@@ -310,7 +344,8 @@ class QuranWordController extends Controller
                         'mp3_reciter' => $value,
                         'mp3_enable' => $mp3Enable,
                         'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $quranTransliterationEn
+                        'quran_transliteration_en' => $quranTransliterationEn,
+                        'translation_id' => $translationId
                     ];
 
                     $user = $userSettings->settings($arr);
@@ -437,10 +472,11 @@ class QuranWordController extends Controller
             $message = $suraName . (($sure == 1 || $sure == 9) ? "
 " : "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-") . $message . "(" . $aya . ")";
-        } else {
-            $message .= "(" . $aya . ")";
+") . $message . " :(" . $sure . ":" . $aya . ")";
         }
+//        else {
+//            $message .= "(" . $aya . ")";
+//        }
         return $message;
     }
 

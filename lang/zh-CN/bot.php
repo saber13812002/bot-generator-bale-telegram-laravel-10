@@ -86,4 +86,12 @@ return [
     'please disable it by'                                                      => '请通过以下方式禁用它',
     'to disable'                                                                => '禁用',
     'to enable transliteration'                                                 => '以实现音译',
+    'trans_2'                                                                   => '改为安萨里语',
+    'trans_3'                                                                   => '改为翻译 Ayati',
+    'please change it to trans_2'                                               => '请改为安萨里安语翻译',
+    'please change it to trans_3'                                               => '请改为翻译 Ayati',
+    'reciters'                                                                  => [
+        'parhizgar' => 'parhizgar',
+        'alafasy'   => '阿法什',
+    ],
 ];

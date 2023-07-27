@@ -86,4 +86,8 @@ return [
     'please disable it by'                                                      => 'الرجاء تعطيله',
     'to disable'                                                                => 'الرجاء تعطيله',
     'to enable transliteration'                                                 => 'لتمكين التحويل الصوتي',
+    'reciters'                                                                  => [
+        'parhizgar' => 'پرهیزکار',
+        'alafasy'   => 'العفاسي',
+    ],
 ];

@@ -84,4 +84,8 @@ return [
     ],
     'please enable it by'                                                       => 'lütfen şu şekilde etkinleştirin',
     'please disable it by'                                                      => 'lütfen şu şekilde devre dışı bırakın',
+    'reciters'                                                                  => [
+        'parhizgar' => 'parhizgar',
+        'alafasy'   => 'alafasy',
+    ],
 ];
