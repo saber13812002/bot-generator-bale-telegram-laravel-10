@@ -13,6 +13,7 @@ use App\Models\BotUsers;
 use App\Models\QuranSurah;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -29,6 +30,26 @@ class QuranWordController extends Controller
     public function __construct(QuranBotUserRankingService $quranBotUserRankingService)
     {
         $this->quranBotUserRankingService = $quranBotUserRankingService;
+    }
+
+    /**
+     * Display a listing of the resource.
+     * @throws Exception
+     */
+    public function gap(Request $request)
+    {
+
+        App::setLocale("fa");
+        $isStartCommandShow = 1;
+        $type = "gap";
+
+        $token = env("QURAN_HEFZ_BOT_TOKEN_GAP");
+        $bot = new GapBot($token);
+        $bot->sendText("+989196070718", "salam" . "gap:" . $request->chat_id . " : ");
+        BotHelper::sendMessageToSuperAdmin("gap:" . $request->chat_id . " : ", "bale");
+        $bot->sendText($request->chat_id, "salam" . "gap:" . $request->chat_id . " : ");
+
+        dd($request);
     }
 
     /**

@@ -17,7 +17,8 @@
         "saber13812002/laravel-fulltext": "^2.0",
         "saber13812002/telegram-bale-bot-php": "^101.1",
         "tio/laravel": "^1.22",
-        "gapafzar/gap-sdp-api": "dev-master"
+        "gapafzar/gap-sdp-api": "dev-master",
+        "ext-http": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
