@@ -86,4 +86,8 @@ return [
     'please disable it by'                                                      => 'отключите его, пожалуйста, следующим образом',
     'to disable'                                                                => 'для отключения',
     'to enable transliteration'                                                 => 'для обеспечения возможности транслитерации',
+    'reciters'                                                                  => [
+        'parhizgar' => 'parhizgar',
+        'alafasy'   => 'alafasy',
+    ],
 ];

@@ -90,4 +90,8 @@ return [
     'trans_3'                                                                   => '改为翻译 Ayati',
     'please change it to trans_2'                                               => '请改为安萨里安语翻译',
     'please change it to trans_3'                                               => '请改为翻译 Ayati',
+    'reciters'                                                                  => [
+        'parhizgar' => 'parhizgar',
+        'alafasy'   => '阿法什',
+    ],
 ];

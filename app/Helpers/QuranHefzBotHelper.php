@@ -79,6 +79,11 @@ class QuranHefzBotHelper
 " . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
         }
 
+        $message .= "👇 👇 👇
+" . trans("bot.help.to help you for introduce all features of this robot") . "
+👇 👇 👇
+  /help ";
+
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
         }
