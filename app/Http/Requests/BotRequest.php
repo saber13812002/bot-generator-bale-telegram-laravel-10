@@ -25,7 +25,7 @@ class BotRequest extends FormRequest
         return [
             'origin' => [
                 'required',
-                Rule::in(['bale', 'telegram', 'soroosh']),
+                Rule::in(['bale', 'telegram', 'soroosh', 'gap']),
             ],
             'token' => 'required',
             'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,fa,ru,es,tr,ur,he',

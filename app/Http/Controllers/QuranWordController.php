@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 use Telegram;
+use Gap\SDP\Api as GapBot;
 
 class QuranWordController extends Controller
 {
@@ -33,6 +34,7 @@ class QuranWordController extends Controller
     /**
      * Display a listing of the resource.
      * @throws GuzzleException
+     * @throws Exception
      */
     public function index(BotRequest $request)
     {
@@ -54,6 +56,12 @@ class QuranWordController extends Controller
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
                 $bot = new Telegram($token);
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
+            } elseif ($request->input('origin') == 'gap') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
+                $bot = new GapBot($token);
+//                dd($request);
+                BotHelper::sendMessageToSuperAdmin("gap:".$request->chat_id." : ","bale");
+
             } else {
                 return 200;
             }
