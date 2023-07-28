@@ -540,6 +540,7 @@ class QuranWordController extends Controller
         $message = "";
         for ($i = 1; $i <= 30; $i++) {
             $message .= trans("bot.Juz") . $i . "
+
 " . config('juz.' . $i) . "
 
 ";
