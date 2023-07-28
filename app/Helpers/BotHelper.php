@@ -465,6 +465,23 @@ class BotHelper
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
     }
 
+
+    public static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
+    {
+
+        return [
+            [
+                [
+                    $cd1 => $text1
+                ],
+                [
+                    $cd2 => $text2
+                ]
+            ]
+        ];
+
+    }
+
     public static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
     {
         return [
@@ -541,6 +558,19 @@ class BotHelper
     }
 
     /**
+     * @param $messenger
+     * @param string $message
+     * @param $inlineKeyboard
+     * @return void
+     */
+    public static function messageGapWithKeyboard($messenger, string $message, $inlineKeyboard): void
+    {
+
+        $replyKeyboard = $messenger->replyKeyboard($inlineKeyboard);
+        $messenger->sendText($messenger->ChatID(), $message, $replyKeyboard);
+    }
+
+    /**
      * @param $botToken
      * @param $chatId
      * @param string $message
@@ -558,7 +588,6 @@ class BotHelper
             "reply_markup" => [
                 "inline_keyboard" => $inlineKeyboard
             ]]]);
-//        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
     }
 
