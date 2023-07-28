@@ -198,7 +198,7 @@ class QuranWordController extends Controller
                     }
                 }
                 if ($command == "joz") {
-                    if ($type == 'telegram') {
+                    if ($type != 'bale') {
                         $this->generateJozLinksThenSendItTelegram($bot);
 
                     } else {
@@ -535,7 +535,7 @@ class QuranWordController extends Controller
      * @return void
      */
     public
-    function generateJozLinksThenSendItTelegram(Telegram $bot): void
+    function generateJozLinksThenSendItTelegram($bot): void
     {
         $message = "";
         for ($i = 1; $i <= 30; $i++) {

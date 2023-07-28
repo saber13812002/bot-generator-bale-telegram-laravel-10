@@ -195,7 +195,7 @@ class BotHelper
      * @param string $message
      * @return void
      */
-    public static function sendMessageParseMode(Telegram $messenger, string $message): void
+    public static function sendMessageParseMode($messenger, string $message): void
     {
         $chat_id = $messenger->ChatID();
 
