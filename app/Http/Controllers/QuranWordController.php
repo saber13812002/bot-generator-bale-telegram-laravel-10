@@ -172,6 +172,8 @@ class QuranWordController extends Controller
                             $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
                             if ($type == 'telegram') {
                                 BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
+                            } else if ($type == 'gap') {
+                                BotHelper::sendGap4InlineMessage($bot, $message, $array);
                             } else {
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
@@ -594,7 +596,7 @@ class QuranWordController extends Controller
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public function sendAudioMp3Aye(int $aya, int $sure, Telegram $bot, BotUsers $userSettings = null): void
+    public function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             BotQuranHelper::sendAudio($bot, 1, 1);
