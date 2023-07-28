@@ -3,9 +3,8 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
-use App\Models\BotUsers;
-use App\Models\QuranAyat;
 use Exception;
+use Gap\SDP\Api;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
@@ -228,12 +227,12 @@ class BotHelper
     }
 
     /**
-     * @param Telegram $messenger
+     * @param $messenger
      * @param $chat_id
      * @param string $message
      * @return void
      */
-    public static function sendMessageByChatId(Telegram $messenger, $chat_id, string $message): void
+    public static function sendMessageByChatId($messenger, $chat_id, string $message): void
     {
         $content = [
             'chat_id' => $chat_id,
@@ -259,14 +258,18 @@ class BotHelper
      * @param string $message
      * @param $type
      * @return void
+     * @throws Exception
      */
     public static function sendMessageToSuperAdmin(string $message, $type): void
     {
-        $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
-        BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM'), $message);
+        if ($type != "gap")
+            $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
+        else
+            $bot = new Api(env('BOT_MOTHER_TOKEN_GAP'));
+        BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : ($type == 'gap' ? env('SUPER_ADMIN_CHAT_ID_GAP') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM')), $message);
     }
 
-    public static function sendTelegram4InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
+    public static function sendTelegram4InlineMessage($messenger, string $message, $array, $isInlineKeyBoard): void
     {
 
         if (!$isInlineKeyBoard) {
@@ -292,6 +295,52 @@ class BotHelper
             $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
             self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
         }
+    }
+
+
+    public static function sendGap4InlineMessage($messenger, string $message, $array, $isInlineKeyBoard): void
+    {
+        $option = array(
+            //First row
+            array(self::buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), self::buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
+            //Second row
+            array(self::buildInlineKeyBoardButton($array[2][0], callback_data: $array[2][1]), self::buildInlineKeyBoardButton($array[3][0], callback_data: $array[3][1])),
+            //Third row
+        );
+        $replyKeyboard = $messenger->replyKeyboard($option);
+//        $replyKeyboard = $messenger->replyKeyboard([[['yes' => 'Yes'], ['no' => 'No']], [['cancel' => 'Cancel']]]);
+
+        $messenger->sendText($messenger->ChatID(), $message, $replyKeyboard);
+
+    }
+
+    public static function buildInlineKeyboardButton(
+        $text,
+        $url = '',
+        $callback_data = '',
+        $switch_inline_query = null,
+        $switch_inline_query_current_chat = null,
+        $callback_game = '',
+        $pay = ''
+    ): array {
+        $replyMarkup = [
+            'text' => $text,
+        ];
+        if ($url != '') {
+            $replyMarkup['url'] = $url;
+        } elseif ($callback_data != '') {
+            $replyMarkup['callback_data'] = $callback_data;
+        } elseif (!is_null($switch_inline_query)) {
+            $replyMarkup['switch_inline_query'] = $switch_inline_query;
+        } elseif (!is_null($switch_inline_query_current_chat)) {
+            $replyMarkup['switch_inline_query_current_chat'] = $switch_inline_query_current_chat;
+        } elseif ($callback_game != '') {
+            $replyMarkup['callback_game'] = $callback_game;
+        } elseif ($pay != '') {
+            $replyMarkup['pay'] = $pay;
+        }
+
+        return $replyMarkup;
     }
 
     public static function sendTelegram2InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void

@@ -67,7 +67,6 @@ class QuranWordController extends Controller
 
         $isStartCommandShow = 1;
         $type = $request->input('origin');
-//        BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . $type, 'bale');
         $token = "";
         if ($request->has('origin')) {
             if ($request->input('origin') == 'bale') {
@@ -76,7 +75,6 @@ class QuranWordController extends Controller
             } elseif ($request->input('origin') == 'telegram') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
                 $bot = new Telegram($token);
-//                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } elseif ($request->input('origin') == 'gap') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
                 $bot = new GapBot($token, $request);
@@ -90,23 +88,15 @@ class QuranWordController extends Controller
             $userSettings = null;
             if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
                 $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
-            else {
-                $str_json = json_encode($request);
-                BotHelper::sendMessageToSuperAdmin("یک مورد روبات بدون شناسه یافت شد", $type);
-                BotHelper::sendMessageToSuperAdmin("یک مورد روبات بدون شناسه یافت شد" . $str_json, $type);
-            }
-//            dd($userSettings);
+
 
             $arrayCommands = $this->generateArrayCommands($userSettings);
 
-//            dd((substr($bot->Text(), 0, 2)));
-//            dd(substr($bot->Text(), 2, strlen($bot->Text())));
             if ((substr($bot->Text(), 0, 2)) == "//")
                 $request->request->add(['command_type' => 'quran_search']);
             else
                 $request->request->add(['command_type' => 'quran']);
 
-//            dd($request);
             try {
                 LogHelper::log($request, $type, $bot);
             } catch (Exception $e) {
@@ -117,7 +107,6 @@ class QuranWordController extends Controller
             $commandTemplateAyah = 'ayah';
 
             $botText = Str::lower($bot->Text());
-
             if ($botText == '/start') {
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
@@ -126,13 +115,14 @@ class QuranWordController extends Controller
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
+                } else if ($type == 'gap') {
+                    BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
                 $wordId = $this->getWordId($bot);
-//                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId, 'bale');
                 [$message, $isEndAya] = QuranHefzBotHelper::getQuranWordById($wordId);
 //                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
                 $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
@@ -206,11 +196,9 @@ class QuranWordController extends Controller
                 }
                 if ($command == "joz") {
                     if ($type == 'telegram') {
-//                        $this->generateJozKeyBoardThenSendItTelegram($bot);
                         $this->generateJozLinksThenSendItTelegram($bot);
 
                     } else {
-//                        $this->generateJozKeyBoardThenSendIt($bot, $token);
                         $this->generateJozLinksThenSendItBale($bot);
                     }
                 }
@@ -264,7 +252,6 @@ class QuranWordController extends Controller
 //                dd($command, $subCommand, $value);
 
                 if ($subCommand == "mp3") {
-//                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
                     $translationId = $userSettings->setting('translation_id');
                     $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
@@ -404,12 +391,14 @@ class QuranWordController extends Controller
                 if ($type == 'telegram') {
                     BotHelper::sendStart($bot, $array);
                     BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
+                } else if ($type == 'gap') {
+//                    BotHelper::sendStart($bot, $array);
+//                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             }
-//            return Response::HTTP_ACCEPTED;
         } else {
             return ResponseAlias::HTTP_ACCEPTED;
         }
