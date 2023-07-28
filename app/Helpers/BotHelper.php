@@ -298,17 +298,29 @@ class BotHelper
     }
 
 
-    public static function sendGap4InlineMessage($messenger, string $message, $array, $isInlineKeyBoard): void
+    public static function sendGap4InlineMessage($messenger, string $message, $array): void
     {
-        $option = array(
-            //First row
-            array(self::buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]), self::buildInlineKeyBoardButton($array[1][0], callback_data: $array[1][1])),
-            //Second row
-            array(self::buildInlineKeyBoardButton($array[2][0], callback_data: $array[2][1]), self::buildInlineKeyBoardButton($array[3][0], callback_data: $array[3][1])),
-            //Third row
-        );
+
+        $option = [
+            [
+                [
+                    $array[0][1] => $array[0][0]
+                ],
+                [
+                    $array[1][1] => $array[1][0]
+                ]
+            ],
+            [
+                [
+                    $array[2][1] => $array[2][0]
+                ],
+                [
+                    $array[3][1] => $array[3][0]
+                ]
+            ]
+        ];
+
         $replyKeyboard = $messenger->replyKeyboard($option);
-//        $replyKeyboard = $messenger->replyKeyboard([[['yes' => 'Yes'], ['no' => 'No']], [['cancel' => 'Cancel']]]);
 
         $messenger->sendText($messenger->ChatID(), $message, $replyKeyboard);
 
@@ -322,7 +334,8 @@ class BotHelper
         $switch_inline_query_current_chat = null,
         $callback_game = '',
         $pay = ''
-    ): array {
+    ): array
+    {
         $replyMarkup = [
             'text' => $text,
         ];

@@ -78,8 +78,6 @@ class QuranWordController extends Controller
             } elseif ($request->input('origin') == 'gap') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
                 $bot = new GapBot($token, $request);
-                $bot->sendText("+989196070718", "salam" . "gap:" . $bot->ChatID() . " : ");
-                BotHelper::sendMessageToSuperAdmin("gap:" . $bot->ChatID() . " : ", "bale");
                 $bot->sendText($bot->ChatID(), "salam" . "gap:" . $bot->ChatID() . " : " . $bot->Text() . " : ");
             } else {
                 return 200;
@@ -116,7 +114,7 @@ class QuranWordController extends Controller
                 if ($type == 'telegram') {
                     BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
                 } else if ($type == 'gap') {
-                    BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
+                    BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
