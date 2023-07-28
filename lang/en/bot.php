@@ -132,5 +132,10 @@ return [
     'reciters' => [
         'parhizgar' => 'parhizgar',
         'alafasy' => 'alafasy',
+    ],
+    'bots' => [
+        'getchatidbot' => [
+            "our other bots" => "our other bots"
+        ]
     ]
 ];

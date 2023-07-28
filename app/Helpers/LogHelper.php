@@ -16,7 +16,7 @@ class LogHelper
      * @param Telegram $bot
      * @return void
      */
-    public static function log(BotRequest $request, mixed $type, Telegram $bot): void
+    public static function log(BotRequest $request, mixed $type, $bot): void
     {
 //        dd($request);
 //        dd($request->request->get('command_type'));

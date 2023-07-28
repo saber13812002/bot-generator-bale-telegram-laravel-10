@@ -14,6 +14,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Telegram;
+use Gap\SDP\Api as GapBot;
 
 
 class BotMotherController extends Controller
@@ -56,14 +57,16 @@ class BotMotherController extends Controller
             $botMotherId = $request->input('bot_mother_id');
             if ($type == 'bale') {
                 $bot = new Telegram($request->input('token'), 'bale');
-            } else {
+            } else if ($type == 'telegram') {
                 $bot = new Telegram($request->input('token'));
+            } else if ($type == 'gap') {
+                $bot = new GapBot($request->input('token'), $request);
             }
 
 
             if ($request->has('language')) {
-                $message = trans('bot.your chat id') . "
-: " . $bot->ChatID();
+                $message = $this->getChatIdByType($bot);
+                $message .= $this->getOtherBots();
                 BotHelper::sendMessage($bot, $message);
             }
             LogHelper::log($request, $type, $bot);
@@ -157,7 +160,6 @@ class BotMotherController extends Controller
         }
 
     }
-
 
 
     /**
@@ -264,6 +266,35 @@ class BotMotherController extends Controller
         $content = ['chat_id' => $chat_id, 'text' => $botItem->id];
         $bale->sendMessage($content);
         return $content;
+    }
+
+    /**
+     * @param mixed $bot
+     * @return string
+     */
+    public function getChatIdByType($bot): string
+    {
+        $message = trans('bot.your chat id') . "
+: " . $bot->ChatID();
+
+        return $message;
+    }
+
+    private function getOtherBots(): string
+    {
+        $configItems = config('bot.ourbots.getchatid');
+        $message = "
+
+" . trans("bot.bots.getchatidbot.our other bots") . ":
+";
+
+        foreach ($configItems as $configItemKey => $configItemValue) {
+            $message .= $configItemKey . ":" . $configItemValue . "
+";
+        }
+
+        return $message;
+
     }
 
 }

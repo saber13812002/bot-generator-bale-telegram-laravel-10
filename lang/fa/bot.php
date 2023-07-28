@@ -115,4 +115,9 @@ return [
         'parhizgar' => 'پرهیزگار',
         'alafasy'   => 'الفاسی',
     ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'ربات های دیگر ما',
+        ],
+    ],
 ];

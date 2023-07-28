@@ -179,7 +179,7 @@ class BotHelper
      * @param string $message
      * @return void
      */
-    public static function sendMessage(Telegram $messenger, string $message): void
+    public static function sendMessage($messenger, string $message): void
     {
         $chat_id = $messenger->ChatID();
 
