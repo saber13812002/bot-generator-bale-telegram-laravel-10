@@ -193,6 +193,8 @@ class QuranWordController extends Controller
                 if ($command == "fehrest") {
                     if ($type == 'telegram') {
                         $this->generateTelegramFehrestThenSendIt($bot);
+                    } else if ($type == 'gap') {
+                        $this->generateGapFehrestThenSendIt($bot);
                     } else {
                         $this->generateBaleFehrestThenSendIt($bot, $token);
                     }
@@ -588,6 +590,26 @@ class QuranWordController extends Controller
             $message = trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6);
             BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
         }
+    }
+
+    /**
+     * @param $bot
+     * @return void
+     */
+    public
+    function generateGapFehrestThenSendIt($bot): void
+    {
+        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
+            ->get();
+        $message = "";
+        for ($i = 0; $i < 114; $i++) {
+            $message .= $quranSurahs[$i]->id . ":" . $quranSurahs[$i]->arabic . ":" . $quranSurahs[$i]->ayah. ":
+
+             /sure" . ($i + 1) . "ayah1
+
+            ";
+        }
+        BotHelper::sendMessage($bot, $message);
     }
 
     /**
