@@ -79,12 +79,10 @@ class QuranWordController extends Controller
 //                BotHelper::sendMessageToSuperAdmin("یک پیام رسیده از طرف تلگرام" . ":" . $bot->Text(), 'bale');
             } elseif ($request->input('origin') == 'gap') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
-                $bot = new GapBot($token);
-                $bot->sendText("+989196070718", "salam" . "gap:" . $request->chat_id . " : ");
-                BotHelper::sendMessageToSuperAdmin("gap:" . $request->chat_id . " : ", "bale");
-                $bot->sendText($request->chat_id, "salam" . "gap:" . $request->chat_id . " : ");
-
-                dd($request);
+                $bot = new GapBot($token, $request);
+                $bot->sendText("+989196070718", "salam" . "gap:" . $bot->ChatID() . " : ");
+                BotHelper::sendMessageToSuperAdmin("gap:" . $bot->ChatID() . " : ", "bale");
+                $bot->sendText($bot->ChatID(), "salam" . "gap:" . $bot->ChatID() . " : " . $bot->Text() . " : ");
             } else {
                 return 200;
             }
