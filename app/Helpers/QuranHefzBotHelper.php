@@ -233,7 +233,6 @@ class QuranHefzBotHelper
      */
     #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, $bot): void
     {
-
         $searchPhrase = IndexedRecord::normalize($searchPhrase);
         $results = self::getResultSearch($searchPhrase, $pageNumber);
 //        dd($pageNumber,$results);
@@ -273,6 +272,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param string $resultText
      * @param $bot
      * @return void
+     * @throws \Exception
      */
     public static function sendReportMessageToSuperAdmins(array|string $botText, string $resultText, $bot): void
     {
@@ -321,7 +321,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         } else {
             $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
             BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-//                    BotHelper::sendMessage($bot,$message);
         }
     }
 

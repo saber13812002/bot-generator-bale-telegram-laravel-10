@@ -262,10 +262,11 @@ class BotHelper
      */
     public static function sendMessageToSuperAdmin(string $message, $type): void
     {
-        if ($type != "gap")
+        if ($type != "gap") {
             $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
-        else
+        } else {
             $bot = new Api(env('BOT_MOTHER_TOKEN_GAP'));
+        }
         BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : ($type == 'gap' ? env('SUPER_ADMIN_CHAT_ID_GAP') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM')), $message);
     }
 
@@ -438,7 +439,7 @@ class BotHelper
             $botItem->telegram_bot_token = $messenger->Text();
             $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
             $botItem->telegram_bot_status = 'Active';
-        }
+        }// todo:gap
         try {
             $botItem->save();
         } catch (Exception $e) {
