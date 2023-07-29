@@ -86,8 +86,38 @@ return [
     'please disable it by'                                                      => 'נא להשבית אותו על ידי',
     'to disable'                                                                => 'להשבית',
     'to enable transliteration'                                                 => 'כדי לאפשר תעתיק',
+    'trans_2'                                                                   => 'שנה אותו לתרגום Ansarian',
+    'trans_3'                                                                   => 'שנה אותו לתרגום Ayati',
+    'please change it to trans_2'                                               => 'אנא שנה אותו לתרגום Ansarian',
+    'please change it to trans_3'                                               => 'אנא שנה אותו לתרגום Ayati',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'בחר :reciter כדקלם',
+        'choose :language as transliteration'                  => 'בחר :language כתעתיק',
+        'choose :translator as translation'                    => 'בחר :translator כתרגום',
+        'list of this robot commands'                          => 'רשימה של פקודות הרובוט הזה',
+        'your quran readings analysis report'                  => 'דוח ניתוח קריאות הקוראן שלך',
+        'dont show :language transliteration'                  => 'אל תציג תעתיק :language',
+        'disable sending mp3 for every ayah'                   => 'השבת שליחת mp3 עבור כל איה',
+        'send mp3 for selected reciter'                        => 'שלח mp3 לדקלם שנבחר',
+        'list of Surahs of the Quran'                          => 'רשימת הסורות של הקוראן',
+        'list of Quran 30 parts'                               => 'רשימה של 30 חלקים בקוראן',
+        'to help you for introduce all features of this robot' => 'כדי לעזור לך להציג את כל התכונות של הרובוט הזה',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'אנסאריאן',
+        'ayati'    => 'ayati',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'אנגלית',
+        'turkish' => 'טורקי',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'פארהיזגר',
         'alafasy'   => 'אלפאסי',
+    ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'הבוטים האחרים שלנו',
+        ],
     ],
 ];

@@ -84,8 +84,40 @@ return [
     ],
     'please enable it by'                                                       => 'lütfen şu şekilde etkinleştirin',
     'please disable it by'                                                      => 'lütfen şu şekilde devre dışı bırakın',
+    'to disable'                                                                => 'devre dışı bırakmak için',
+    'to enable transliteration'                                                 => 'transliterasyonu etkinleştirmek için',
+    'trans_2'                                                                   => 'ansarian çevirisi olarak değiştirin',
+    'trans_3'                                                                   => 'ayati çevirisi olarak değiştirin',
+    'please change it to trans_2'                                               => 'lütfen Ansarian çevirisi olarak değiştirin',
+    'please change it to trans_3'                                               => 'lütfen bunu çeviri Ayati olarak değiştirin',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'reciter olarak :reciter\'ı seçin',
+        'choose :language as transliteration'                  => 'transliterasyon olarak :language seçin',
+        'choose :translator as translation'                    => 'çeviri olarak :translator seçin',
+        'list of this robot commands'                          => 'bu robot komutlarının listesi',
+        'your quran readings analysis report'                  => 'kuran okumalari anali̇z raporunuz',
+        'dont show :language transliteration'                  => 'transliterasyon olarak :language seçin',
+        'disable sending mp3 for every ayah'                   => 'her ayet için mp3 göndermeyi devre dışı bırak',
+        'send mp3 for selected reciter'                        => 'seçilen okuyucu için mp3 gönder',
+        'list of Surahs of the Quran'                          => 'kur\'an Surelerinin Listesi',
+        'list of Quran 30 parts'                               => 'kur\'an\'ın 30 bölümlük listesi',
+        'to help you for introduce all features of this robot' => 'bu robotun tüm özelliklerini tanıtmak için size yardımcı olmak için',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'ansarian',
+        'ayati'    => 'ayati',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'i̇ngilizce',
+        'turkish' => 'tÜRKÇE',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'parhizgar',
         'alafasy'   => 'alafasy',
+    ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'diğer botlarımız',
+        ],
     ],
 ];

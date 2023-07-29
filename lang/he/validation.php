@@ -22,9 +22,12 @@ return [
     'confirmed'        => 'אישור השדה :attribute אינו תואם.',
     'current_password' => 'הסיסמא לא נכונה.',
     'date'             => 'השדה :attribute חייב להיות תאריך חוקי.',
+    'date_equals'      => 'השדה :attribute חייב להיות תאריך השווה ל-:date.',
+    'date_format'      => 'השדה :attribute חייב להתאים לפורמט :format.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'הודעה מותאמת אישית',
         ],
     ],
+    'can'              => 'השדה :attribute מכיל ערך לא מורשה.',
 ];

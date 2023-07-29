@@ -86,8 +86,38 @@ return [
     'please disable it by'                                                      => 'الرجاء تعطيله',
     'to disable'                                                                => 'الرجاء تعطيله',
     'to enable transliteration'                                                 => 'لتمكين التحويل الصوتي',
+    'trans_2'                                                                   => 'تغييره إلى الترجمة الأنصارية',
+    'trans_3'                                                                   => 'قم بتغييره إلى ترجمة أياتي',
+    'please change it to trans_2'                                               => 'يرجى تغييره إلى الترجمة الأنصارية',
+    'please change it to trans_3'                                               => 'يرجى تغييره إلى ترجمة أياتي',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'اختر :reciter كقارئ',
+        'choose :language as transliteration'                  => 'اختر :language لتحويل صوتي',
+        'choose :translator as translation'                    => 'اختر :translator للترجمة',
+        'list of this robot commands'                          => 'قائمة بأوامر الروبوت هذا',
+        'your quran readings analysis report'                  => 'تقرير تحليل قراءات القرآن الخاص بك',
+        'dont show :language transliteration'                  => 'لا تظهر :language التحويل الصوتي',
+        'disable sending mp3 for every ayah'                   => 'تعطيل إرسال mp3 لكل آية',
+        'send mp3 for selected reciter'                        => 'إرسال mp3 للقارئ المختار',
+        'list of Surahs of the Quran'                          => 'قائمة سور القرآن',
+        'list of Quran 30 parts'                               => 'قائمة القرآن 30 جزء',
+        'to help you for introduce all features of this robot' => 'لمساعدتك في تقديم جميع ميزات هذا الروبوت',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'أنصاریان',
+        'ayati'    => 'آياتي',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'إنجليزي',
+        'turkish' => 'اللغة التركية',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'پرهیزکار',
         'alafasy'   => 'العفاسي',
+    ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'روبوتاتنا الأخرى',
+        ],
     ],
 ];

@@ -86,8 +86,38 @@ return [
     'please disable it by'                                                      => 'desactívelo mediante',
     'to disable'                                                                => 'para desactivar',
     'to enable transliteration'                                                 => 'para permitir la transliteración',
+    'trans_2'                                                                   => 'cámbielo por la traducción Ansarian',
+    'trans_3'                                                                   => 'cámbialo por la traducción Ayati',
+    'please change it to trans_2'                                               => 'por favor, cámbielo por la traducción Ansarian',
+    'please change it to trans_3'                                               => 'por favor, cámbielo por la traducción Ayati',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'elija :reciter como recitador',
+        'choose :language as transliteration'                  => 'elija :language como transliteración',
+        'choose :translator as translation'                    => 'elija :translator como traducción',
+        'list of this robot commands'                          => 'lista de comandos de este robot',
+        'your quran readings analysis report'                  => 'tu informe de análisis de las lecturas del corán',
+        'dont show :language transliteration'                  => 'no mostrar transliteración :language',
+        'disable sending mp3 for every ayah'                   => 'desactivar el envío de mp3 por cada ayah',
+        'send mp3 for selected reciter'                        => 'enviar mp3 para el recitador seleccionado',
+        'list of Surahs of the Quran'                          => 'lista de surahs del Corán',
+        'list of Quran 30 parts'                               => 'lista de las 30 partes del Corán',
+        'to help you for introduce all features of this robot' => 'para ayudarle a introducir todas las características de este robot',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'ansarian',
+        'ayati'    => 'ayati',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'inglés',
+        'turkish' => 'turco',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'parhizgar',
         'alafasy'   => 'alafasy',
+    ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'nuestros otros robots',
+        ],
     ],
 ];
