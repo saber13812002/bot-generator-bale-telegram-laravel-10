@@ -174,7 +174,7 @@ class BotHelper
 
 
     /**
-     * @param Telegram $messenger
+     * @param $messenger
      * @param string $message
      * @return void
      */
@@ -605,7 +605,8 @@ class BotHelper
             $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
             $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
             $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE")
+            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE") ||
+            $chatId == env("SUPER_ADMIN_CHAT_ID_GAP")
         )
             return true;
         return false;

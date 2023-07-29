@@ -216,6 +216,8 @@ class QuranWordController extends Controller
                 if ($command == "reportall") {
                     if (BotHelper::isAdmin($bot->ChatID())) {
                         $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                    } else {
+                        BotHelper::sendMessage($bot, "you are not admin");
                     }
                 }
 
@@ -603,7 +605,7 @@ class QuranWordController extends Controller
             ->get();
         $message = "";
         for ($i = 0; $i < 114; $i++) {
-            $message .= $quranSurahs[$i]->id . ":" . $quranSurahs[$i]->arabic . ":" . $quranSurahs[$i]->ayah. ":
+            $message .= $quranSurahs[$i]->id . ":" . $quranSurahs[$i]->arabic . ":" . $quranSurahs[$i]->ayah . ":
 
              /sure" . ($i + 1) . "ayah1
 
