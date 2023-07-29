@@ -78,7 +78,7 @@ class QuranWordController extends Controller
             } elseif ($request->input('origin') == 'gap') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
                 $bot = new GapBot($token, $request);
-                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+//                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
             } else {
                 return 200;
             }
