@@ -178,7 +178,9 @@ class QuranWordController extends Controller
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
-                            $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+
+                            if ($bot->BotType() != "gap")
+                                $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
                         }
                     }
                 }
