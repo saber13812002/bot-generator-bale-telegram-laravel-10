@@ -53,10 +53,10 @@ class BotQuranHelper
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
 
-            if ($messenger->type != "gap")
+//            if ($messenger->type != "gap")
                 $messenger->sendAudio($content);
-            else
-                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+//            else
+//                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
 
         }
 
