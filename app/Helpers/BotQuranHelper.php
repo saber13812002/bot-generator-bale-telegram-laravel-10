@@ -53,11 +53,14 @@ class BotQuranHelper
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
 
-//            if ($messenger->type != "gap")
+            if ($messenger->BotType() != "gap")
                 $messenger->sendAudio($content);
-//            else
-//                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            else {
+                // if not exist download then upload then deleted then save to db
 
+                // if exist and uploaded
+                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            }
         }
 
     }
