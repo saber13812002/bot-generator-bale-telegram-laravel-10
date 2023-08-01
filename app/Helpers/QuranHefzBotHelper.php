@@ -228,12 +228,11 @@ class QuranHefzBotHelper
      * @param mixed $searchPhrase
      * @param int $pageNumber
      * @param mixed $type
-     * @param Telegram $bot
+     * @param $bot
      * @return void
      */
-    #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, Telegram $bot): void
+    #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, $bot): void
     {
-
         $searchPhrase = IndexedRecord::normalize($searchPhrase);
         $results = self::getResultSearch($searchPhrase, $pageNumber);
 //        dd($pageNumber,$results);
@@ -271,10 +270,11 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     /**
      * @param array|string $botText
      * @param string $resultText
-     * @param Telegram $bot
+     * @param $bot
      * @return void
+     * @throws \Exception
      */
-    public static function sendReportMessageToSuperAdmins(array|string $botText, string $resultText, Telegram $bot): void
+    public static function sendReportMessageToSuperAdmins(array|string $botText, string $resultText, $bot): void
     {
         $msg = "جستجوی #قرآن: " . $botText . "
 " . $resultText . "
@@ -284,6 +284,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 " . $bot->LastName();
         BotHelper::sendMessageToSuperAdmin($msg, 'bale');
         BotHelper::sendMessageToSuperAdmin($msg, 'telegram');
+//        BotHelper::sendMessageToSuperAdmin($msg, 'gap');
     }
 
     /**
@@ -320,7 +321,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         } else {
             $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
             BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-//                    BotHelper::sendMessage($bot,$message);
         }
     }
 
@@ -394,12 +394,15 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      */
     public static function getResultItemMessage(int $i, mixed $item, array|string|null $highlight, mixed $type): string
     {
-        return ($i . "-
- سوره شماره :" . $item->suras->id . "
+        return ($i . "- سوره شماره :" . $item->suras->id . "
 " . $item->suras->arabic . "- آیه شماره " . $item->aya . "
+
 --------------------
+
 " . $highlight . "
+
 --------------------
+
 " . self::generateLinkCommandResult($type, $item->sura, $item->aya) . "
 دیدن نتیجه ☝☝☝
 

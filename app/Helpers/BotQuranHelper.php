@@ -10,13 +10,13 @@ class BotQuranHelper
 {
 
     /**
-     * @param Telegram $messenger
+     * @param $messenger
      * @param $suraId
      * @param $ayaId
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public static function sendAudio(Telegram $messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
+    public static function sendAudio($messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
     {
         // TODO: cache
         //
@@ -53,7 +53,14 @@ class BotQuranHelper
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
 
-            $messenger->sendAudio($content);
+            if ($messenger->BotType() != "gap")
+                $messenger->sendAudio($content);
+            else {
+                // if not exist download then upload then deleted then save to db
+
+                // if exist and uploaded
+                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            }
         }
 
     }

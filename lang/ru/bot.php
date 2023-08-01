@@ -86,8 +86,39 @@ return [
     'please disable it by'                                                      => 'отключите его, пожалуйста, следующим образом',
     'to disable'                                                                => 'для отключения',
     'to enable transliteration'                                                 => 'для обеспечения возможности транслитерации',
+    'trans_2'                                                                   => 'выбрать :translator в качестве перевода',
+    'trans_3'                                                                   => 'изменить на перевод Аяти',
+    'please change it to trans_2'                                               => 'пожалуйста, измените на перевод Ansarian',
+    'please change it to trans_3'                                               => 'пожалуйста, измените его на перевод Аяти',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'выбрать :reciter в качестве декламатора',
+        'choose :language as transliteration'                  => 'выбрать :language в качестве транслитерации',
+        'choose :translator as translation'                    => 'выбрать :translator в качестве перевода',
+        'list of this robot commands'                          => 'список команд данного робота',
+        'your quran readings analysis report'                  => 'отчет об анализе чтения корана',
+        'dont show :language transliteration'                  => 'не показывать транслитерацию :language',
+        'disable sending mp3 for every ayah'                   => 'отключение отправки mp3 для каждого аята',
+        'send mp3 for selected reciter'                        => 'отправка mp3 для выбранного рекордера',
+        'list of Surahs of the Quran'                          => 'список сур Корана',
+        'list of Quran 30 parts'                               => 'список Корана 30 частей',
+        'to help you for introduce all features of this robot' => 'поможет вам ознакомиться со всеми возможностями этого робота',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'ansarian',
+        'ayati'    => 'аяти',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'английский',
+        'turkish' => 'турция',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'parhizgar',
         'alafasy'   => 'alafasy',
     ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'другие наши боты',
+        ],
+    ],
+    'to send your daily activity report please try it with this command'        => 'для отправки ежедневного отчета об активности попробуйте воспользоваться следующей командой',
 ];

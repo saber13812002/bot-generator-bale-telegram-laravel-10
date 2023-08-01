@@ -1,10 +1,37 @@
 <?php
 return [
     'accepted'         => 'El campo :attribute debe ser aceptado.',
+    'accepted_if'      => 'El campo :attribute debe aceptarse cuando :other es :value.',
+    'active_url'       => 'El campo :attribute debe ser una URL válida.',
+    'after'            => 'El campo :attribute debe ser una fecha posterior a :date.',
+    'after_or_equal'   => 'El campo :attribute debe ser una fecha posterior o igual a :date.',
+    'alpha'            => 'El campo :attribute sólo debe contener letras.',
+    'alpha_dash'       => 'El campo :attribute sólo debe contener letras, números, guiones y guiones bajos.',
+    'alpha_num'        => 'El campo :attribute sólo debe contener letras y números.',
+    'array'            => 'El campo :attribute debe ser una matriz.',
+    'ascii'            => 'El campo :attribute sólo debe contener caracteres alfanuméricos de un byte y símbolos.',
+    'before'           => 'El campo :attribute debe ser una fecha anterior a :date.',
+    'before_or_equal'  => 'El campo :attribute debe ser una fecha anterior o igual a :date.',
+    'between'          => [
+        'array'   => 'El campo :attribute debe tener entre :min y :max elementos.',
+        'file'    => 'El campo :attribute debe estar entre :min y :max kilobytes.',
+        'numeric' => 'El campo :attribute debe estar entre :min y :max.',
+        'string'  => 'El campo :attribute debe estar entre los caracteres :min y :max.',
+    ],
+    'boolean'          => 'El campo :attribute debe ser verdadero o falso.',
+    'confirmed'        => 'La confirmación del campo :attribute no coincide.',
     'current_password' => 'La contraseña es incorrecta.',
+    'date'             => 'El campo :attribute debe ser una fecha válida.',
+    'date_equals'      => 'El campo :attribute debe ser una fecha igual a :date.',
+    'date_format'      => 'El campo :attribute debe coincidir con el formato :format.',
+    'decimal'          => 'El campo :attribute debe tener :decimal decimales.',
+    'declined'         => 'El campo :attribute debe ser rechazado.',
+    'declined_if'      => 'El campo :attribute debe rechazarse cuando :other es :value.',
+    'different'        => 'El campo :attribute y :other deben ser diferentes.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'mensaje personalizado',
         ],
     ],
+    'can'              => 'El campo :attribute contiene un valor no autorizado.',
 ];

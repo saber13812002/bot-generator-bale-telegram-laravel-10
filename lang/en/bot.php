@@ -70,6 +70,7 @@ return [
     'please change it to trans_2' => 'please change it to translation Ansarian',
     'please change it to trans_3' => 'please change it to translation Ayati',
 
+    'to send your daily activity report please try it with this command' => 'to send your daily activity report please try it with this command',
 
     'previous' => 'Previous',
     'next' => 'Next',
@@ -132,5 +133,10 @@ return [
     'reciters' => [
         'parhizgar' => 'parhizgar',
         'alafasy' => 'alafasy',
+    ],
+    'bots' => [
+        'getchatidbot' => [
+            "our other bots" => "our other bots"
+        ]
     ]
 ];

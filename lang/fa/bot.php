@@ -115,4 +115,10 @@ return [
         'parhizgar' => 'پرهیزگار',
         'alafasy'   => 'الفاسی',
     ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'ربات های دیگر ما',
+        ],
+    ],
+    'to send your daily activity report please try it with this command'        => 'برای ارسال گزارش فعالیت روزانه خود لطفا با این دستور آن را امتحان کنید',
 ];

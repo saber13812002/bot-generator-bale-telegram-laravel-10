@@ -95,18 +95,18 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
         return $message;
     }
 
-    public function specificUserReport($chatId, \Telegram $bot = null)
+    public function specificUserReport($chatId, $bot = null)
     {
         $this->generateReportThenSend($chatId, $bot, $bot);
     }
 
     /**
      * @param string $requesterChatId
-     * @param Telegram $botBale
-     * @param Telegram $botTelegram
+     * @param $botBale
+     * @param $botTelegram
      * @return void
      */
-    public function generateReportThenSend(string $requesterChatId, Telegram $botBale, Telegram $botTelegram): void
+    public function generateReportThenSend(string $requesterChatId, $botBale, $botTelegram): void
     {
         $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
 
@@ -176,7 +176,16 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 اللهم صل علی محمد و آل محمد و عجل فرجهم
 
 
-استغفر الله ربی و اتوب الیه";
+استغفر الله ربی و اتوب الیه
+
+
+
+" . trans("bot.to send your daily activity report please try it with this command") . "
+
+👇 👇 👇 👇 👇
+        /report
+";
+
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');

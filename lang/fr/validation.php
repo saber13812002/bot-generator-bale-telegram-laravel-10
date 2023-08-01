@@ -12,11 +12,22 @@ return [
     'ascii'            => 'Le champ :attribute ne doit contenir que des caractères alphanumériques et des symboles à un octet.',
     'before'           => 'Le champ :attribute doit être une date antérieure à :date.',
     'before_or_equal'  => 'Le champ :attribute doit être une date antérieure ou égale à :date.',
+    'between'          => [
+        'array'   => 'Le champ :attribute doit comporter entre :min et :max.',
+        'file'    => 'Le champ :attribute doit être compris entre :min et :max kilo-octets.',
+        'numeric' => 'Le champ :attribute doit être situé entre :min et :max.',
+        'string'  => 'Le champ :attribute doit être compris entre les caractères :min et :max.',
+    ],
+    'boolean'          => 'Le champ :attribute doit être vrai ou faux.',
     'confirmed'        => 'La confirmation du champ :attribute ne correspond pas.',
     'current_password' => 'Le mot de passe est incorrect.',
+    'date'             => 'Le champ :attribute doit être une date valide.',
+    'date_equals'      => 'Le champ :attribute doit être une date égale à :date.',
+    'date_format'      => 'Le champ :attribute doit correspondre au format :format.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'message personnalisé',
         ],
     ],
+    'can'              => 'Le champ :attribute contient une valeur non autorisée.',
 ];

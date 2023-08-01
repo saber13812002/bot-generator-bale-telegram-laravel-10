@@ -90,8 +90,35 @@ return [
     'trans_3'                                                                   => '改为翻译 Ayati',
     'please change it to trans_2'                                               => '请改为安萨里安语翻译',
     'please change it to trans_3'                                               => '请改为翻译 Ayati',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => '选择 :reciter 作为朗诵者',
+        'choose :language as transliteration'                  => '选择 :language 作为音译',
+        'choose :translator as translation'                    => '选择 :translator 作为译文',
+        'list of this robot commands'                          => '该机器人命令列表',
+        'your quran readings analysis report'                  => '您的古兰经阅读分析报告',
+        'dont show :language transliteration'                  => '不显示 :language 音译',
+        'disable sending mp3 for every ayah'                   => '禁用为每个韵节发送 mp3',
+        'send mp3 for selected reciter'                        => '为选定的朗诵者发送 mp3',
+        'list of Surahs of the Quran'                          => '古兰经》经文目录',
+        'list of Quran 30 parts'                               => '古兰经》30 部分清单',
+        'to help you for introduce all features of this robot' => '为您介绍该机器人的所有功能',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'Ansarian',
+        'ayati'    => '阿亚提',
+    ],
+    'transliterations'                                                          => [
+        'english' => '英语',
+        'turkish' => '土耳其语',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'parhizgar',
         'alafasy'   => '阿法什',
     ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => '我们的其他机器人',
+        ],
+    ],
+    'to send your daily activity report please try it with this command'        => '要发送每日活动报告，请使用以下命令进行尝试',
 ];

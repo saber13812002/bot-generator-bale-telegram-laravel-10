@@ -3,9 +3,8 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
-use App\Models\BotUsers;
-use App\Models\QuranAyat;
 use Exception;
+use Gap\SDP\Api;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Log;
@@ -175,11 +174,11 @@ class BotHelper
 
 
     /**
-     * @param Telegram $messenger
+     * @param $messenger
      * @param string $message
      * @return void
      */
-    public static function sendMessage(Telegram $messenger, string $message): void
+    public static function sendMessage($messenger, string $message): void
     {
         $chat_id = $messenger->ChatID();
 
@@ -196,7 +195,7 @@ class BotHelper
      * @param string $message
      * @return void
      */
-    public static function sendMessageParseMode(Telegram $messenger, string $message): void
+    public static function sendMessageParseMode($messenger, string $message): void
     {
         $chat_id = $messenger->ChatID();
 
@@ -228,12 +227,12 @@ class BotHelper
     }
 
     /**
-     * @param Telegram $messenger
+     * @param $messenger
      * @param $chat_id
      * @param string $message
      * @return void
      */
-    public static function sendMessageByChatId(Telegram $messenger, $chat_id, string $message): void
+    public static function sendMessageByChatId($messenger, $chat_id, string $message): void
     {
         $content = [
             'chat_id' => $chat_id,
@@ -259,14 +258,19 @@ class BotHelper
      * @param string $message
      * @param $type
      * @return void
+     * @throws Exception
      */
     public static function sendMessageToSuperAdmin(string $message, $type): void
     {
-        $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
-        BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM'), $message);
+        if ($type != "gap") {
+            $bot = new Telegram($type == 'bale' ? env('BOT_MOTHER_TOKEN_BALE') : env('BOT_MOTHER_TOKEN_TELEGRAM'), $type);
+        } else {
+            $bot = new Api(env('BOT_MOTHER_TOKEN_GAP'));
+        }
+        BotHelper::sendMessageByChatId($bot, $type == 'bale' ? env('SUPER_ADMIN_CHAT_ID_BALE') : ($type == 'gap' ? env('SUPER_ADMIN_CHAT_ID_GAP') : env('SUPER_ADMIN_CHAT_ID_TELEGRAM')), $message);
     }
 
-    public static function sendTelegram4InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
+    public static function sendTelegram4InlineMessage($messenger, string $message, $array, $isInlineKeyBoard): void
     {
 
         if (!$isInlineKeyBoard) {
@@ -292,6 +296,65 @@ class BotHelper
             $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
             self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
         }
+    }
+
+
+    public static function sendGap4InlineMessage($messenger, string $message, $array): void
+    {
+
+        $option = [
+            [
+                [
+                    $array[0][1] => $array[0][0]
+                ],
+                [
+                    $array[1][1] => $array[1][0]
+                ]
+            ],
+            [
+                [
+                    $array[2][1] => $array[2][0]
+                ],
+                [
+                    $array[3][1] => $array[3][0]
+                ]
+            ]
+        ];
+
+        $replyKeyboard = $messenger->replyKeyboard($option);
+
+        $messenger->sendText($messenger->ChatID(), $message, $replyKeyboard);
+
+    }
+
+    public static function buildInlineKeyboardButton(
+        $text,
+        $url = '',
+        $callback_data = '',
+        $switch_inline_query = null,
+        $switch_inline_query_current_chat = null,
+        $callback_game = '',
+        $pay = ''
+    ): array
+    {
+        $replyMarkup = [
+            'text' => $text,
+        ];
+        if ($url != '') {
+            $replyMarkup['url'] = $url;
+        } elseif ($callback_data != '') {
+            $replyMarkup['callback_data'] = $callback_data;
+        } elseif (!is_null($switch_inline_query)) {
+            $replyMarkup['switch_inline_query'] = $switch_inline_query;
+        } elseif (!is_null($switch_inline_query_current_chat)) {
+            $replyMarkup['switch_inline_query_current_chat'] = $switch_inline_query_current_chat;
+        } elseif ($callback_game != '') {
+            $replyMarkup['callback_game'] = $callback_game;
+        } elseif ($pay != '') {
+            $replyMarkup['pay'] = $pay;
+        }
+
+        return $replyMarkup;
     }
 
     public static function sendTelegram2InlineMessage(Telegram $messenger, string $message, $array, $isInlineKeyBoard): void
@@ -376,7 +439,7 @@ class BotHelper
             $botItem->telegram_bot_token = $messenger->Text();
             $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
             $botItem->telegram_bot_status = 'Active';
-        }
+        }// todo:gap
         try {
             $botItem->save();
         } catch (Exception $e) {
@@ -401,6 +464,23 @@ class BotHelper
         BotHelper::sendMessage($bot, $message);
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
+    }
+
+
+    public static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
+    {
+
+        return [
+            [
+                [
+                    $cd1 => $text1
+                ],
+                [
+                    $cd2 => $text2
+                ]
+            ]
+        ];
+
     }
 
     public static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
@@ -479,6 +559,19 @@ class BotHelper
     }
 
     /**
+     * @param $messenger
+     * @param string $message
+     * @param $inlineKeyboard
+     * @return void
+     */
+    public static function messageGapWithKeyboard($messenger, string $message, $inlineKeyboard): void
+    {
+
+        $replyKeyboard = $messenger->replyKeyboard($inlineKeyboard);
+        $messenger->sendText($messenger->ChatID(), $message, $replyKeyboard);
+    }
+
+    /**
      * @param $botToken
      * @param $chatId
      * @param string $message
@@ -496,7 +589,6 @@ class BotHelper
             "reply_markup" => [
                 "inline_keyboard" => $inlineKeyboard
             ]]]);
-//        echo $request->getStatusCode(); // 200
         echo $response->getBody()->getContents();
     }
 
@@ -513,7 +605,8 @@ class BotHelper
             $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
             $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
             $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE")
+            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE") ||
+            $chatId == env("SUPER_ADMIN_CHAT_ID_GAP")
         )
             return true;
         return false;

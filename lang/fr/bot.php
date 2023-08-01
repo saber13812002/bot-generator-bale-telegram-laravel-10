@@ -86,8 +86,39 @@ return [
     'please disable it by'                                                      => 'veuillez le désactiver en',
     'to disable'                                                                => 'pour désactiver',
     'to enable transliteration'                                                 => 'pour permettre la translittération',
+    'trans_2'                                                                   => 'le remplacer par la traduction Ansarian',
+    'trans_3'                                                                   => 'modifier en traduction Ayati',
+    'please change it to trans_2'                                               => 'veuillez le remplacer par la traduction Ansarian',
+    'please change it to trans_3'                                               => 'veuillez le remplacer par la traduction Ayati',
+    'help'                                                                      => [
+        'choose :reciter as reciter'                           => 'choisir :reciter comme récitant',
+        'choose :language as transliteration'                  => 'choisir :language comme translittération',
+        'choose :translator as translation'                    => 'choisir :translator comme traduction',
+        'list of this robot commands'                          => 'liste des commandes de ce robot',
+        'your quran readings analysis report'                  => 'votre rapport d\'analyse des lectures du coran',
+        'dont show :language transliteration'                  => 'ne montre pas la translittération :language',
+        'disable sending mp3 for every ayah'                   => 'désactiver l\'envoi de mp3 pour chaque ayah',
+        'send mp3 for selected reciter'                        => 'envoyer un mp3 pour le récitant sélectionné',
+        'list of Surahs of the Quran'                          => 'liste des sourates du Coran',
+        'list of Quran 30 parts'                               => 'liste des 30 parties du Coran',
+        'to help you for introduce all features of this robot' => 'pour vous aider à présenter toutes les fonctionnalités de ce robot',
+    ],
+    'translators'                                                               => [
+        'ansarian' => 'ansarian',
+        'ayati'    => 'ayati',
+    ],
+    'transliterations'                                                          => [
+        'english' => 'anglais',
+        'turkish' => 'turc',
+    ],
     'reciters'                                                                  => [
         'parhizgar' => 'parhizgar',
         'alafasy'   => 'alafasy',
     ],
+    'bots'                                                                      => [
+        'getchatidbot' => [
+            'our other bots' => 'nos autres bots',
+        ],
+    ],
+    'to send your daily activity report please try it with this command'        => 'pour envoyer votre rapport d\'activité quotidien, essayez avec la commande suivante',
 ];

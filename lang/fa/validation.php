@@ -142,4 +142,5 @@ return [
             'rule-name' => 'custom-message',
         ],
     ],
+    'can'                  => 'فیلد :attribute حاوی یک مقدار غیرمجاز است.',
 ];
