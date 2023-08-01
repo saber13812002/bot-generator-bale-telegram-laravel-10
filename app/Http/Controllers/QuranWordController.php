@@ -716,13 +716,14 @@ class QuranWordController extends Controller
             } elseif ($request->input('origin') == 'telegram') {
                 $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
                 $bot = new Telegram($token);
-            } elseif ($request->input('origin') == 'gap') {
-                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
-                $bot = new GapBot($token, $request);
-                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
-            } else {
-                return 200;
             }
+//            elseif ($request->input('origin') == 'gap') {
+//                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
+//                $bot = new GapBot($token, $request);
+//                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+//            } else {
+//                return 200;
+//            }
 
             $text = $bot->Text();
             BotHelper::sendMessage($bot, $text);
@@ -732,11 +733,11 @@ class QuranWordController extends Controller
             $chat_id = $bot->ChatID();
 
 // Generate a new invite link for the chat
-            $chat_invite_link = $bot->createChatInviteLink(["id", $chat_id]);
-
-// Send the invite link to the user
-            $content = array('chat_id' => $chat_id, 'text' => 'Here is your referral link: ' . $chat_invite_link->result->invite_link);
-            $bot->sendMessage($content);
+//            $chat_invite_link = $bot->createChatInviteLink(["id", $chat_id]);
+//
+//// Send the invite link to the user
+//            $content = array('chat_id' => $chat_id, 'text' => 'Here is your referral link: ' . $chat_invite_link->result->invite_link);
+//            $bot->sendMessage($content);
 
 
             // Get the referral code from the start command
