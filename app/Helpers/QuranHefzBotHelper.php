@@ -284,7 +284,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 " . $bot->LastName();
         BotHelper::sendMessageToSuperAdmin($msg, 'bale');
         BotHelper::sendMessageToSuperAdmin($msg, 'telegram');
-        BotHelper::sendMessageToSuperAdmin($msg, 'gap');
+//        BotHelper::sendMessageToSuperAdmin($msg, 'gap');
     }
 
     /**
