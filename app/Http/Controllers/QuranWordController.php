@@ -697,4 +697,56 @@ class QuranWordController extends Controller
         }
     }
 
+    public function test(BotRequest $request)
+    {
+
+        if ($request->has('language')) {
+            App::setLocale($request->input('language'));
+        } else {
+            App::setLocale("fa");
+        }
+
+        $isStartCommandShow = 1;
+        $type = $request->input('origin');
+        $token = "";
+        if ($request->has('origin')) {
+            if ($request->input('origin') == 'bale') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+                $bot = new Telegram($token, 'bale');
+            } elseif ($request->input('origin') == 'telegram') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                $bot = new Telegram($token);
+            } elseif ($request->input('origin') == 'gap') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
+                $bot = new GapBot($token, $request);
+                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+            } else {
+                return 200;
+            }
+
+            $text = $bot->Text();
+            BotHelper::sendMessage($bot, $text);
+
+
+// Get the chat ID of the user
+            $chat_id = $bot->ChatID();
+
+// Generate a new invite link for the chat
+            $chat_invite_link = $bot->createChatInviteLink($chat_id);
+
+// Send the invite link to the user
+            $content = array('chat_id' => $chat_id, 'text' => 'Here is your referral link: ' . $chat_invite_link->result->invite_link);
+            $bot->sendMessage($content);
+
+
+            // Get the referral code from the start command
+            $start_command = $bot->getCommand();
+            if ($start_command['command'] === 'start' && isset($start_command['text'])) {
+                $referral_code = $start_command['text'];
+                // Do something with the referral code, such as associating it with the user in your database
+
+                BotHelper::sendMessage($bot, "referral_code:" . $referral_code);
+            }
+        }
+    }
 }
