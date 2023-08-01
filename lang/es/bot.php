@@ -120,4 +120,5 @@ return [
             'our other bots' => 'nuestros otros robots',
         ],
     ],
+    'to send your daily activity report please try it with this command'        => 'para enviar su informe de actividad diario por favor inténtelo con este comando',
 ];

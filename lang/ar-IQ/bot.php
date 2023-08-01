@@ -120,4 +120,5 @@ return [
             'our other bots' => 'روبوتاتنا الأخرى',
         ],
     ],
+    'to send your daily activity report please try it with this command'        => 'لإرسال تقرير النشاط اليومي الخاص بك ، يرجى المحاولة باستخدام هذا الأمر',
 ];

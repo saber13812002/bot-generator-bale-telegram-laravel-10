@@ -21,9 +21,13 @@ return [
     'boolean'          => 'Le champ :attribute doit être vrai ou faux.',
     'confirmed'        => 'La confirmation du champ :attribute ne correspond pas.',
     'current_password' => 'Le mot de passe est incorrect.',
+    'date'             => 'Le champ :attribute doit être une date valide.',
+    'date_equals'      => 'Le champ :attribute doit être une date égale à :date.',
+    'date_format'      => 'Le champ :attribute doit correspondre au format :format.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'message personnalisé',
         ],
     ],
+    'can'              => 'Le champ :attribute contient une valeur non autorisée.',
 ];

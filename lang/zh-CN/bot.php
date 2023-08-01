@@ -120,4 +120,5 @@ return [
             'our other bots' => '我们的其他机器人',
         ],
     ],
+    'to send your daily activity report please try it with this command'        => '要发送每日活动报告，请使用以下命令进行尝试',
 ];

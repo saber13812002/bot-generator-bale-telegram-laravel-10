@@ -22,6 +22,8 @@ return [
     'confirmed'        => 'Подтверждение поля :attribute не совпадает.',
     'current_password' => 'Пароль введен неверно.',
     'date'             => 'Поле :attribute должно быть действительной датой.',
+    'date_equals'      => 'Поле :attribute должно быть датой, равной :date.',
+    'date_format'      => 'Поле :attribute должно соответствовать формату :format.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'пользовательское сообщение',
