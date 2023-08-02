@@ -725,12 +725,12 @@ class QuranWordController extends Controller
 //                return 200;
 //            }
 
-            $text = $bot->Text();
+            $text = $bot->getData();
             BotHelper::sendMessage($bot, $text);
 
 
 // Get the chat ID of the user
-            $chat_id = $bot->ChatID();
+//            $chat_id = $bot->ChatID();
 
 // Generate a new invite link for the chat
 //            $chat_invite_link = $bot->createChatInviteLink(["id", $chat_id]);
@@ -741,13 +741,13 @@ class QuranWordController extends Controller
 
 
             // Get the referral code from the start command
-            $start_command = $bot->getCommand();
-            if ($start_command['command'] === 'start' && isset($start_command['text'])) {
-                $referral_code = $start_command['text'];
-                // Do something with the referral code, such as associating it with the user in your database
-
-                BotHelper::sendMessage($bot, "referral_code:" . $referral_code);
-            }
+//            $start_command = $bot->getCommand();
+//            if ($start_command['command'] === 'start' && isset($start_command['text'])) {
+//                $referral_code = $start_command['text'];
+//                // Do something with the referral code, such as associating it with the user in your database
+//
+//                BotHelper::sendMessage($bot, "referral_code:" . $referral_code);
+//            }
         }
     }
 }
