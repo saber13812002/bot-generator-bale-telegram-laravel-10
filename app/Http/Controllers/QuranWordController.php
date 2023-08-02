@@ -726,7 +726,7 @@ class QuranWordController extends Controller
 //            }
 
             $text = $bot->getData();
-            BotHelper::sendMessage($bot, $text);
+            BotHelper::sendMessage($bot, json_encode($text,true));
 
 
 // Get the chat ID of the user
