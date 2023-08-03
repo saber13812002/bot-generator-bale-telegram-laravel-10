@@ -744,7 +744,7 @@ class QuranWordController extends Controller
             if ($start_command === 'start' && isset($chat_invite_link)) {
                 $referral_code = $chat_invite_link;
                 // Do something with the referral code, such as associating it with the user in your database
-                BotHelper::sendMessage($bot, trans('bot.referral code') . ' : ' . $referral_code);
+                BotHelper::sendMessage($bot, trans('bot.referral code') . ' : ' . $referral_code["id"]);
             }
         }
     }
