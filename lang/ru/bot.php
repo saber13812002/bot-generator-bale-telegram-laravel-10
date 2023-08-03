@@ -121,4 +121,6 @@ return [
         ],
     ],
     'to send your daily activity report please try it with this command'        => 'для отправки ежедневного отчета об активности попробуйте воспользоваться следующей командой',
+    'referral code'                                                             => 'реферальный код',
+    'here is your referral link'                                                => 'вот ваша реферальная ссылка',
 ];

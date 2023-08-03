@@ -121,4 +121,6 @@ return [
         ],
     ],
     'to send your daily activity report please try it with this command'        => 'כדי לשלוח את דוח הפעילות היומי שלך, נסה זאת עם הפקודה הזו',
+    'referral code'                                                             => 'קוד הפניה',
+    'here is your referral link'                                                => 'הנה קישור ההפניה שלך',
 ];
