@@ -466,8 +466,59 @@ class BotHelper
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
     }
 
+    public static function createChatInviteLink(string $botID, string $key, string $value, $type): string
+    {
+        $endLink = $botID . '?start=' . $key . '?' . $value;
+        return $type == 'bale' ? config('bot.base_url.bale') . $endLink : config('bot.base_url.telegram') . $endLink;
+    }
 
-    public static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
+    public static function getCommand($botText): array
+    {
+        $hashMap = array();
+        if (Str::substr($botText, 0, 1) == '/') {
+            $allCommand = Str::substr($botText, 1, Str::length($botText) - 1);
+            $split = explode(" ", $allCommand);
+
+            if (count($split) > 0) {
+                $command = $split[0];
+
+                if (count($split) > 1) {
+                    $pairs = Str::substr($botText, Str::length($command) + 2, Str::length($botText) - 1);
+
+                    $pairs = explode(' ', $pairs);
+                    # loop through each pair
+                    foreach ($pairs as $pair) {
+                        # split into name and value
+                        list($name, $value) = explode('?', $pair, 2);
+
+                        # if name already exists
+                        if (isset($hashMap[$name])) {
+                            # stick multiple values into an array
+                            if (is_array($hashMap[$name])) {
+                                $hashMap[$name][] = $value;
+                            } else {
+                                $hashMap[$name] = array($hashMap[$name], $value);
+                            }
+                        } # otherwise, simply stick it in a scalar
+                        else {
+                            $hashMap[$name] = $value;
+                        }
+                    }
+                } else {
+                    return [$command, null];
+                }
+            } else {
+                return [null, null];
+            }
+
+            return [$command, $hashMap];
+
+        }
+        return [null, null];
+    }
+
+    public
+    static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
     {
 
         return [
@@ -483,7 +534,8 @@ class BotHelper
 
     }
 
-    public static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
+    public
+    static function makeKeyboard2button($text1, $cd1, $text2, $cd2): array
     {
         return [
             [
@@ -499,7 +551,8 @@ class BotHelper
         ];
     }
 
-    public static function makeBaleKeyboard4button($array, $arrayCommands): array
+    public
+    static function makeBaleKeyboard4button($array, $arrayCommands): array
     {
         return [
             [
@@ -526,7 +579,8 @@ class BotHelper
         ];
     }
 
-    public static function makeKeyboard6button($array): array
+    public
+    static function makeKeyboard6button($array): array
     {
         $arr = [];
         for ($j = 0, $i = 0; $j < count($array); $j++) {
@@ -545,7 +599,8 @@ class BotHelper
         return $arr;
     }
 
-    public static function makeBaleKeyboard1button($array): array
+    public
+    static function makeBaleKeyboard1button($array): array
     {
         $arr = [];
         $arr[0] =
@@ -564,7 +619,8 @@ class BotHelper
      * @param $inlineKeyboard
      * @return void
      */
-    public static function messageGapWithKeyboard($messenger, string $message, $inlineKeyboard): void
+    public
+    static function messageGapWithKeyboard($messenger, string $message, $inlineKeyboard): void
     {
 
         $replyKeyboard = $messenger->replyKeyboard($inlineKeyboard);
@@ -579,7 +635,8 @@ class BotHelper
      * @return void
      * @throws GuzzleException
      */
-    public static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
+    public
+    static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
     {
         $client = new GuzzleHttp\Client();
         $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
@@ -592,14 +649,16 @@ class BotHelper
         echo $response->getBody()->getContents();
     }
 
-    public static function isAdminCommand(mixed $Text): bool
+    public
+    static function isAdminCommand(mixed $Text): bool
     {
         if (Str::start($Text, '///'))
             return true;
         return false;
     }
 
-    public static function isAdmin(mixed $chatId): bool
+    public
+    static function isAdmin(mixed $chatId): bool
     {
         if (
             $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
@@ -612,7 +671,8 @@ class BotHelper
         return false;
     }
 
-    public static function getMessageAdmin(mixed $Text): string
+    public
+    static function getMessageAdmin(mixed $Text): string
     {
         return Str::substr($Text, 3, -1);
     }

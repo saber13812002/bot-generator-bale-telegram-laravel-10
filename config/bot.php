@@ -11,5 +11,9 @@ return [
             'gap' => 'https://gap.im/getidbot  ',
 //            'soroosh' => '  ',
         ]
-    ]
+    ],
+    'base_url' => [
+        'bale' => 'https://ble.ir/',
+        'telegram' => 'https://t.me/',
+    ],
 ];
