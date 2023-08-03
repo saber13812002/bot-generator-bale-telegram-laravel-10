@@ -109,6 +109,10 @@ return [
 
     'command list is' => 'command list is',
 
+    'referral code' => 'referral code',
+
+    'here is your referral link' => 'here is your referral link',
+
     'help' => [
         'choose :reciter as reciter' => 'choose :reciter as reciter',
         'choose :language as transliteration' => 'choose :language as transliteration',
