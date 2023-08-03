@@ -468,7 +468,7 @@ class BotHelper
 
     public static function createChatInviteLink(string $botID, string $key, string $value, $type): string
     {
-        $endLink = $botID . '?start=' . $key . '=' . $value;
+        $endLink = $botID . '?start=' . $key . '?' . $value;
         return $type == 'bale' ? config('bot.base_url.bale') . $endLink : config('bot.base_url.telegram') . $endLink;
     }
 
