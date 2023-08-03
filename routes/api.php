@@ -7,6 +7,7 @@ use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\SmsController;
+use App\Http\Controllers\TestController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -36,8 +37,9 @@ Route::post('/webhook-weather', [WeatherController::class, 'index']);
 
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
 Route::post('/gap', [QuranWordController::class, 'gap']);
-Route::post('/testReferral', [QuranWordController::class, 'testReferral']);
 Route::post('/webhook-quran-message-to-all', [QuranWordController::class, 'messageToAll']);
+
+Route::post('/testReferral', [TestController::class, 'testReferral']);
 
 Route::post('/webhook-rss', [BotMotherController::class, 'rss']);
 
