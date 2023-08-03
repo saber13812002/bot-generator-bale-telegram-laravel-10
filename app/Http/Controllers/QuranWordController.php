@@ -733,7 +733,7 @@ class QuranWordController extends Controller
             $chat_id = $bot->ChatID();
 
 // Generate a new invite link for the chat
-            $chat_invite_link = BotHelper::createChatInviteLink("berimbasketbot", "id", $chat_id, $bot->type());
+            $chat_invite_link = BotHelper::createChatInviteLink("berimbasketbot", "id", $chat_id, $bot->Type());
 //
 //// Send the invite link to the user
             BotHelper::sendMessage($bot, trans('bot.here is your referral link') . $chat_invite_link);
