@@ -20,19 +20,19 @@ class ReferralLinkTest extends TestCase
         assertEquals("def", $chat_invite_link1["name"]);
 
         $command = "/start id?abc name?def name2?def2";
-        [$start_command, $chat_invite_link2] = BotHelper::getCommand($command);
+        [$start_command, $chat_invite_link2] = BotHelper::getCommand($command, '?');
         assertEquals("start", $start_command);
         assertEquals("abc", $chat_invite_link2["id"]);
         assertEquals("def", $chat_invite_link2["name"]);
         assertEquals("def2", $chat_invite_link2["name2"]);
 
-        $command = "/starting id?abc";
-        [$start_command, $chat_invite_link3] = BotHelper::getCommand($command);
+        $command = "/starting id=abc";
+        [$start_command, $chat_invite_link3] = BotHelper::getCommand($command, '=');
         assertEquals("starting", $start_command);
         assertEquals("abc", $chat_invite_link3["id"]);
 
         $command = "/start";
-        [$start_command, $chat_invite_link4] = BotHelper::getCommand($command);
+        [$start_command, $chat_invite_link4] = BotHelper::getCommand($command, '?');
         assertEquals("start", $start_command);
         assertEquals(false, isset($chat_invite_link4));
     }
