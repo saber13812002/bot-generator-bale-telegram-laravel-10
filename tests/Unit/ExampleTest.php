@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Helpers\BotHelper;
 use App\Helpers\QuranHefzBotHelper;
 use App\Helpers\TokenHelper;
 use PHPUnit\Framework\TestCase;
@@ -73,5 +74,31 @@ class ExampleTest extends TestCase
         assertEquals(1, $pageNumber);
         assertEquals("الرحمان", $searchPhrase);
 
+    }
+
+    public function test_split_command()
+    {
+        $command = "/start id?abc name?def";
+        [$start_command, $chat_invite_link1] = BotHelper::getCommand($command);
+        assertEquals("start", $start_command);
+        assertEquals($chat_invite_link1["id"], "abc");
+        assertEquals($chat_invite_link1["name"], "def");
+
+        $command = "/start id?abc name?def name2?def2";
+        [$start_command, $chat_invite_link2] = BotHelper::getCommand($command);
+        assertEquals("start", $start_command);
+        assertEquals($chat_invite_link2["id"], "abc");
+        assertEquals($chat_invite_link2["name"], "def");
+        assertEquals($chat_invite_link2["name2"], "def2");
+
+        $command = "/starting id?abc";
+        [$start_command, $chat_invite_link3] = BotHelper::getCommand($command);
+        assertEquals("starting", $start_command);
+        assertEquals($chat_invite_link3["id"], "abc");
+
+        $command = "/start";
+        [$start_command, $chat_invite_link4] = BotHelper::getCommand($command);
+        assertEquals("start", $start_command);
+        assertEquals(isset($chat_invite_link4), false);
     }
 }
