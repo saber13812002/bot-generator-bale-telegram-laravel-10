@@ -50,7 +50,9 @@ return [
         'array'   => 'يجب أن يحتوي الحقل :attribute على :value من العناصر أو أكثر.',
         'file'    => 'يجب أن يكون الحقل :attribute أكبر من أو يساوي :value كيلوبايت.',
         'numeric' => 'يجب أن يكون الحقل :attribute أكبر من أو يساوي :value.',
+        'string'  => 'يجب أن يكون الحقل :attribute أكبر من أو يساوي :value حرفًا.',
     ],
+    'image'             => 'يجب أن يكون الحقل :attribute صورة.',
     'custom'            => [
         'attribute-name' => [
             'rule-name' => 'رسالة مخصصة',

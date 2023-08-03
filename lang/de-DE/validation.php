@@ -21,7 +21,15 @@ return [
     'boolean'          => 'Das Feld :attribute muss wahr oder falsch sein.',
     'confirmed'        => 'Die Bestätigung des Feldes :attribute stimmt nicht überein.',
     'current_password' => 'Das Passwort ist falsch.',
+    'date'             => 'Das Feld :attribute muss ein gültiges Datum sein.',
     'date_equals'      => 'Das Feld :attribute muss ein Datum gleich :date sein.',
+    'date_format'      => 'Das Feld :attribute muss dem Format :format entsprechen.',
+    'decimal'          => 'Das Feld :attribute muss :decimal Dezimalstellen haben.',
+    'declined'         => 'Das Feld :attribute muss abgelehnt werden.',
+    'declined_if'      => 'Das Feld :attribute muss abgelehnt werden, wenn :other gleich :value ist.',
+    'different'        => 'Die Felder :attribute und :other müssen unterschiedlich sein.',
+    'digits_between'   => 'Das Feld :attribute muss zwischen den Ziffern :min und :max liegen.',
+    'image'            => 'Das Feld :attribute muss ein Bild sein.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'benutzerdefinierte Nachricht',

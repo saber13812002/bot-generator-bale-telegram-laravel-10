@@ -28,6 +28,8 @@ return [
     'declined'         => 'El campo :attribute debe ser rechazado.',
     'declined_if'      => 'El campo :attribute debe rechazarse cuando :other es :value.',
     'different'        => 'El campo :attribute y :other deben ser diferentes.',
+    'digits'           => 'El campo :attribute debe ser de dígitos :digits.',
+    'digits_between'   => 'El campo :attribute debe estar entre los dígitos :min y :max.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'mensaje personalizado',
