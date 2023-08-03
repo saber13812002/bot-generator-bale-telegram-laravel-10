@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\BotHelper;
 use App\Http\Requests\BotRequest;
 use Illuminate\Support\Facades\App;
+use Telegram;
 
 class TestController extends Controller
 {
