@@ -484,15 +484,12 @@ class BotHelper
 
                 if (count($split) > 1) {
                     $pairs = Str::substr($botText, Str::length($command) + 2, Str::length($botText) - 1);
-//                for ($i = 0; $i < count($split); $i = $i + 2) {
-//                    $hashMap[$split[$i]] = $split[$i + 1];
-//                }
+
                     $pairs = explode(' ', $pairs);
                     # loop through each pair
-                    foreach ($pairs as $i) {
+                    foreach ($pairs as $pair) {
                         # split into name and value
-                        list($name, $value) = explode('?', $i, 2);
-//                    list($name, $value) = explode('=', $i, 2);
+                        list($name, $value) = explode('?', $pair, 2);
 
                         # if name already exists
                         if (isset($hashMap[$name])) {
