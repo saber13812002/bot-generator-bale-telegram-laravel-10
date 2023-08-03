@@ -508,7 +508,7 @@ class BotHelper
                         }
                     }
                 } else {
-                    return [$command];
+                    return [$command, null];
                 }
             } else {
                 return [null, null];
@@ -517,7 +517,7 @@ class BotHelper
             return [$command, $hashMap];
 
         }
-        return [];
+        return [null, null];
     }
 
     public
