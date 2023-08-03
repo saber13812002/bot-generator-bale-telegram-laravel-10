@@ -52,7 +52,7 @@ class TestController extends Controller
             BotHelper::sendMessage($bot, trans('bot.here is your referral link') . ' : ' . $chatInviteLink);
 
             // Get the referral code from the start command
-            [$start_command, $params] = BotHelper::getCommand($bot->Text());
+            [$start_command, $params] = BotHelper::getCommand($bot->Text(), '?');
             if ($start_command === 'start' && isset($params)) {
                 $referralCode = $params["id"];
                 BotHelper::sendMessage($bot, trans('bot.referral code') . ' : ' . $referralCode);

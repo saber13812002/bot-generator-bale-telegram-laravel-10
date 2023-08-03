@@ -472,7 +472,7 @@ class BotHelper
         return $type == 'bale' ? config('bot.base_url.bale') . $endLink : config('bot.base_url.telegram') . $endLink;
     }
 
-    public static function getCommand($botText): array
+    public static function getCommand($botText, string $delimiterCharacter = '?'): array
     {
         $hashMap = array();
         if (Str::substr($botText, 0, 1) == '/') {
@@ -489,7 +489,7 @@ class BotHelper
                     # loop through each pair
                     foreach ($pairs as $pair) {
                         # split into name and value
-                        list($name, $value) = explode('?', $pair, 2);
+                        list($name, $value) = explode($delimiterCharacter, $pair, 2);
 
                         # if name already exists
                         if (isset($hashMap[$name])) {
