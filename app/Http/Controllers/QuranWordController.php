@@ -697,7 +697,7 @@ class QuranWordController extends Controller
         }
     }
 
-    public function test(BotRequest $request)
+    public function testReferral(BotRequest $request)
     {
 
         if ($request->has('language')) {
