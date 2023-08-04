@@ -49,6 +49,11 @@ Route::get('/webhook-sms', [SmsController::class, 'index']);
 
 
 Route::get('/daily-activity', [ReportController::class, 'dailyActivity']);
+Route::get('/daily-search', [ReportController::class, 'dailySearch']);
+Route::get('/daily-new-users', [ReportController::class, 'dailyNewUsers']);
+Route::get('/daily-referral', [ReportController::class, 'dailyReferral']);
+Route::get('/daily-recite', [ReportController::class, 'dailyRecite']);
+Route::get('/daily-active-users', [ReportController::class, 'dailyActiveUsers']);
 
 Route::get('/ayat/{id}', [BotQuranAyatController::class, 'ayat']);
 Route::get('/search/{phrase}', [BotQuranAyatController::class, 'search']);

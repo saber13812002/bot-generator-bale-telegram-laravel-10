@@ -33,7 +33,7 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(8));
 
-        $sql = $query->toSql();
+        $sql = 'daily activity : ' . $query->toSql();
 
         BotHelper::sendMessageToSuperAdmin($sql, 'bale');
         BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
