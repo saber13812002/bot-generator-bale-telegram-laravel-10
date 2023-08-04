@@ -867,7 +867,7 @@
 
                     <img
                         src="{{ url('/api/daily-search?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
-                        alt="daily activity">
+                        alt="daily search">
 
                 </a>
 
@@ -891,7 +891,7 @@
 
                         <img
                             src="{{ url('/api/daily-new-users?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
-                            alt="daily activity">
+                            alt="daily new users">
 
                     </div>
 
@@ -922,7 +922,7 @@
 
                         <img
                             src="{{ url('/api/daily-referral?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
-                            alt="daily activity">
+                            alt="daily referral">
 
                     </div>
                 </div>
@@ -948,7 +948,7 @@
 
                         <img
                             src="{{ url('/api/daily-recite?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
-                            alt="daily activity">
+                            alt="daily recite">
 
                     </div>
                 </div>
@@ -974,7 +974,7 @@
 
                         <img
                             src="{{ url('/api/daily-active-users?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
-                            alt="daily activity">
+                            alt="daily active users">
 
                     </div>
                 </div>
