@@ -108,11 +108,15 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
      */
     public function generateReportThenSend(string $requesterChatId, $botBale, $botTelegram): void
     {
-        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+        $logs = BotLog::whereLanguage('fa')
+            ->select('chat_id', 'type')
+            ->distinct('chat_id')->get();
 
         // TODO: implement by cache
         $unsortedRankings = $this->calculateRanking($logs);
-        $sortedRankings = $unsortedRankings->sortBy("result_month", null, true)->forPage(1, 200);
+        $sortedRankings = $unsortedRankings
+            ->sortBy("result_month", null, true)
+            ->forPage(1, 200);
 
         $rank = 1;
         foreach ($sortedRankings as $sortedRanking) {
