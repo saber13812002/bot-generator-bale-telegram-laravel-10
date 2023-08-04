@@ -22,9 +22,9 @@ class ReportController extends Controller
         $origin = $origin ?? "bale";
 
         $logs = BotLog::whereLanguage($language)
+            ->select('chat_id', 'created_at')
             ->whereCommandType('quran')
 //            ->select(DB::raw('DATE(created_at) as date'), 'chat_id', 'type', DB::raw('COUNT(*) as count'))
-            ->select('chat_id', 'type')
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->whereType($origin)
             ->whereChatId($chatId)
