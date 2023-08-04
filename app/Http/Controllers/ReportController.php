@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Amenadiel\JpGraph\Graph;
 use Amenadiel\JpGraph\Plot;
+use App\Helpers\BotHelper;
 use App\Models\BotLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -32,50 +33,58 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(8));
 
-//        $sql = $query->toSql();
+        $sql = $query->toSql();
 
+        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
 //        dd($sql);
 
 //        dd($query->build());
-//        $all = $query->where('created_at', '>=', now()->subDays(7))
-//            ->get()->count();
-//        $all = $all == 0 ? 1 : $all;
-
-        $today = $query->where('created_at', '>=', now()->subDays())
+        $all = $query->where('created_at', '>=', now()->subDays(7))
             ->get()->count();
 
-
-        $yesterday = $query->where('created_at', '>=', now()->subDays(2))
-            ->where('created_at', '<', now()->subDays())
-            ->get()->count();
-
-        $aDayBeforeYesterday = $query->where('created_at', '>=', now()->subDays(3))
-            ->where('created_at', '<', now()->subDays(2))
-            ->get()->count();
-
-        $twoDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(4))
-            ->where('created_at', '<', now()->subDays(3))
-            ->get()->count();
-
-        $threeDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(5))
-            ->where('created_at', '<', now()->subDays(4))
-            ->get()->count();
-
-        $fourDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(6))
-            ->where('created_at', '<', now()->subDays(5))
-            ->get()->count();
-
-        $fiveDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(7))
-            ->where('created_at', '<', now()->subDays(6))
-            ->get()->count();
-
-
-        // Create the Pie Graph.
         $graph = new Graph\PieGraph(350, 250);
-        $graph->title->Set("Your last 7 days readings");
-        $graph->SetBox(true);
+
+        if ($all > 0) {
+
+            $today = $query->where('created_at', '>=', now()->subDays())
+                ->get()->count();
+
+
+            $yesterday = $query->where('created_at', '>=', now()->subDays(2))
+                ->where('created_at', '<', now()->subDays())
+                ->get()->count();
+
+            $aDayBeforeYesterday = $query->where('created_at', '>=', now()->subDays(3))
+                ->where('created_at', '<', now()->subDays(2))
+                ->get()->count();
+
+            $twoDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(4))
+                ->where('created_at', '<', now()->subDays(3))
+                ->get()->count();
+
+            $threeDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(5))
+                ->where('created_at', '<', now()->subDays(4))
+                ->get()->count();
+
+            $fourDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(6))
+                ->where('created_at', '<', now()->subDays(5))
+                ->get()->count();
+
+            $fiveDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(7))
+                ->where('created_at', '<', now()->subDays(6))
+                ->get()->count();
+
+
+            // Create the Pie Graph.
 //        dd($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
-        $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+            $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+            $graph->title->Set("Your last 7 days readings");
+        } else {
+            $data = array(1, 0);
+            $graph->title->Set("No data available for you in last 7 days");
+        }
+        $graph->SetBox(true);
         $p1 = new Plot\PiePlot($data);
         $p1->ShowBorder();
         $p1->SetColor('black');
