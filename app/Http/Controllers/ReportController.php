@@ -35,7 +35,7 @@ class ReportController extends Controller
             ->get()->count();
         $all = $all == 0 ? 1 : $all;
 
-        $today = $logs->where('created_at', '>=', now()->subDays(1))
+        $today = $logs->where('created_at', '>=', now()->subDays())
             ->get()->count() ?? 1;
 
 
