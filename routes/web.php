@@ -21,3 +21,8 @@ Route::get('/approve', function () {
     return view('approve');
 });
 
+Route::get('/graph', function () {
+    // TODO: Generate graph
+    $ax = "/";
+    return view('graph',[$ax]);
+});
