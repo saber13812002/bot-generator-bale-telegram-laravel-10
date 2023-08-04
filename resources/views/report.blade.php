@@ -828,7 +828,7 @@
                         </p>
 
                         <img
-                            src="{{ url('/api/daily-activity?chat_id='.$chat_id.'&language='.$language.'$origin='.$origin) }}"
+                            src="{{ url('/api/daily-activity?chat_id='.$chat_id.'&language='.$language.'&origin='.$origin) }}"
                             alt="daily activity">
 
                     </div>

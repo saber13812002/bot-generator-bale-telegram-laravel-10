@@ -21,55 +21,61 @@ class ReportController extends Controller
         $origin = $request->input('origin');
         $origin = $origin ?? "bale";
 
-        $logs = BotLog::whereLanguage($language)
+//        dd($language, $origin, $chatId);
+
+        $query = BotLog::whereLanguage($language)
             ->select('chat_id', 'created_at')
             ->whereCommandType('quran')
 //            ->select(DB::raw('DATE(created_at) as date'), 'chat_id', 'type', DB::raw('COUNT(*) as count'))
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->whereType($origin)
             ->whereChatId($chatId)
-            ->distinct('chat_id')
             ->where('created_at', '>=', now()->subDays(8));
 
-        $all = $logs->where('created_at', '>=', now()->subDays(7))
+//        $sql = $query->toSql();
+
+//        dd($sql);
+
+//        dd($query->build());
+//        $all = $query->where('created_at', '>=', now()->subDays(7))
+//            ->get()->count();
+//        $all = $all == 0 ? 1 : $all;
+
+        $today = $query->where('created_at', '>=', now()->subDays())
             ->get()->count();
-        $all = $all == 0 ? 1 : $all;
-
-        $today = $logs->where('created_at', '>=', now()->subDays())
-            ->get()->count() ?? 1;
 
 
-        $yesterday = $logs->where('created_at', '>=', now()->subDays(2))
+        $yesterday = $query->where('created_at', '>=', now()->subDays(2))
             ->where('created_at', '<', now()->subDays())
-            ->get()->count() ?? 1;
+            ->get()->count();
 
-        $aDayBeforeYesterday = $logs->where('created_at', '>=', now()->subDays(3))
+        $aDayBeforeYesterday = $query->where('created_at', '>=', now()->subDays(3))
             ->where('created_at', '<', now()->subDays(2))
-            ->get()->count() ?? 1;
+            ->get()->count();
 
-        $twoDaysBeforeYesterday = $logs->where('created_at', '>=', now()->subDays(4))
+        $twoDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(4))
             ->where('created_at', '<', now()->subDays(3))
-            ->get()->count() ?? 1;
+            ->get()->count();
 
-        $threeDaysBeforeYesterday = $logs->where('created_at', '>=', now()->subDays(5))
+        $threeDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(5))
             ->where('created_at', '<', now()->subDays(4))
-            ->get()->count() ?? 1;
+            ->get()->count();
 
-        $fourDaysBeforeYesterday = $logs->where('created_at', '>=', now()->subDays(6))
+        $fourDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(6))
             ->where('created_at', '<', now()->subDays(5))
-            ->get()->count() ?? 1;
+            ->get()->count();
 
-        $fiveDaysBeforeYesterday = $logs->where('created_at', '>=', now()->subDays(7))
+        $fiveDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(7))
             ->where('created_at', '<', now()->subDays(6))
-            ->get()->count() ?? 1;
+            ->get()->count();
 
 
         // Create the Pie Graph.
         $graph = new Graph\PieGraph(350, 250);
         $graph->title->Set("Your last 7 days readings");
         $graph->SetBox(true);
-//        dd($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
-        $data = array($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+//        dd($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+        $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $p1 = new Plot\PiePlot($data);
         $p1->ShowBorder();
         $p1->SetColor('black');
