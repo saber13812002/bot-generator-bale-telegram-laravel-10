@@ -43,7 +43,7 @@ class ReportController extends Controller
         $all = $query->where('created_at', '>=', now()->subDays(7))
             ->get()->count();
 
-        $graph = new Graph\PieGraph(350, 250);
+        $graph = new Graph\Graph(350, 250);
 
         if ($all > 0) {
 
@@ -84,13 +84,31 @@ class ReportController extends Controller
             $data = array(1, 0);
             $graph->title->Set("No data available for you in last 7 days");
         }
-        $graph->SetBox(true);
-        $p1 = new Plot\PiePlot($data);
-        $p1->ShowBorder();
-        $p1->SetColor('black');
-        $p1->SetSliceColors(array('#1E90FF', '#2E8B57', '#ADFF2F', '#DC143C', '#BA55D3'));
 
+        $graph->SetScale('intlin');
+        $graph->SetMargin(30, 15, 40, 30);
+        $graph->SetMarginColor('white');
+        $graph->SetFrame(true, 'blue', 3);
+
+//        $graph->title->Set('Label background');
+        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
+
+        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
+        $graph->subtitle->SetColor('darkred');
+        $graph->subtitle->Set('last 7 days readings');
+
+        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
+
+// Use Ariel font
+        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
+        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
+        $graph->xgrid->Show();
+
+// Create the plot line
+        $p1 = new Plot\LinePlot($data);
         $graph->Add($p1);
+
+// Output graph
         $graph->Stroke();
 
         ob_start();
