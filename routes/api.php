@@ -5,7 +5,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
-use App\Http\Controllers\ChartController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\TestController;
@@ -48,7 +48,7 @@ Route::post('/webhook-blog', [BlogController::class, 'index']);
 Route::get('/webhook-sms', [SmsController::class, 'index']);
 
 
-Route::get('/chart', [ChartController::class, 'chart']);
+Route::get('/daily-activity', [ReportController::class, 'dailyActivity']);
 
 Route::get('/ayat/{id}', [BotQuranAyatController::class, 'ayat']);
 Route::get('/search/{phrase}', [BotQuranAyatController::class, 'search']);

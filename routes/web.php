@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,8 +22,11 @@ Route::get('/approve', function () {
     return view('approve');
 });
 
-Route::get('/graph', function () {
+Route::get('/report', function (Request $request) {
     // TODO: Generate graph
-    $ax = "/";
-    return view('graph',[$ax]);
+
+    $chatId = $request->input('chat_id');
+    $origin = $request->input('origin');
+    $language = $request->input('language');
+    return view('report', ['chat_id' => $chatId, 'origin' => $origin, 'language' => $language]);
 });
