@@ -142,7 +142,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
     public function allUsersReportDailyWeeklyMonthly()
     {
-
+        return 0;
         //
         $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
         $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
@@ -186,7 +186,6 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 👇 👇 👇 👇 👇
         /report
 ";
-
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
