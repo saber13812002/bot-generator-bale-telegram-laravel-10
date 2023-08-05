@@ -6,11 +6,15 @@ use Amenadiel\JpGraph\Graph;
 use Amenadiel\JpGraph\Plot;
 use App\Helpers\BotHelper;
 use App\Models\BotLog;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class ReportController extends Controller
 {
+    /**
+     * @throws Exception
+     */
     public function dailyActivity(Request $request)
     {
         $chatId = $request->input('chat_id');
@@ -30,10 +34,17 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily activity : ' . $query->toSql();
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
 
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+// Replace the question marks with the actual values
+        $fullQuery = str_replace('?', "'%s'", $sql);
+        $fullQuery = vsprintf($fullQuery, $bindings);
+//        dd($fullQuery);
+        $fullQuery = 'daily activity : ' . $fullQuery;
+
+        BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
+        BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -125,10 +136,10 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily search : ' . $query->toSql() . ' : ' . $query->getBindings();
-
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+//        $sql = 'daily search : ' . $query->toSql() . ' : ' . $query->getBindings();
+//
+//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -210,10 +221,10 @@ class ReportController extends Controller
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily new users : ' . $query->toSql();
-
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+//        $sql = 'daily new users : ' . $query->toSql();
+//
+//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -305,10 +316,10 @@ class ReportController extends Controller
             ->whereText('/start')
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily new referral : ' . $query->toSql();
-
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+//        $sql = 'daily new referral : ' . $query->toSql();
+//
+//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -401,10 +412,10 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily recite : ' . $query->toSql();
-
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+//        $sql = 'daily recite : ' . $query->toSql();
+//
+//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -486,10 +497,10 @@ class ReportController extends Controller
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'all users activity : ' . $query->toSql();
-
-        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
+//        $sql = 'all users activity : ' . $query->toSql();
+//
+//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
+//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
