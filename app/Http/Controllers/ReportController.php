@@ -105,6 +105,7 @@ class ReportController extends Controller
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
+
     public function dailySearch(Request $request)
     {
         $chatId = $request->input('chat_id');
@@ -124,7 +125,7 @@ class ReportController extends Controller
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(7));
 
-        $sql = 'daily search : ' . $query->toSql();
+        $sql = 'daily search : ' . $query->toSql() . ' : ' . $query->getBindings();
 
         BotHelper::sendMessageToSuperAdmin($sql, 'bale');
         BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
@@ -199,6 +200,7 @@ class ReportController extends Controller
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
+
     public function dailyNewUsers(Request $request)
     {
         $query = BotLog::select('created_at')
@@ -283,6 +285,7 @@ class ReportController extends Controller
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
+
     public function dailyReferral(Request $request)
     {
 
@@ -377,6 +380,7 @@ class ReportController extends Controller
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
+
     public function dailyRecite(Request $request)
     {
 
@@ -472,6 +476,7 @@ class ReportController extends Controller
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
+
     public function dailyActiveUsers(Request $request)
     {
 
