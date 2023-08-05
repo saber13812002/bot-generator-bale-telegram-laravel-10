@@ -179,10 +179,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
 اللهم صل علی محمد و آل محمد و عجل فرجهم
 
-
 استغفر الله ربی و اتوب الیه
-
-
 
 " . trans("bot.to send your daily activity report please try it with this command") . "
 
