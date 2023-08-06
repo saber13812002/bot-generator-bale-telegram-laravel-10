@@ -87,23 +87,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days readings");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days readings');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days readings');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -182,23 +166,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days searches");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days searches');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days searches');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -267,23 +235,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days new users");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days new users');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days new users');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -362,23 +314,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days new referral");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days new referral');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days new referral');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -458,23 +394,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days recites");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days recites');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days recites');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -543,23 +463,7 @@ class ReportController extends Controller
         $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days all users activities");
 
-        $graph->SetScale('intlin');
-        $graph->SetMargin(30, 15, 40, 30);
-        $graph->SetMarginColor('white');
-        $graph->SetFrame(true, 'blue', 3);
-
-        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
-
-        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
-        $graph->subtitle->SetColor('darkred');
-        $graph->subtitle->Set('last 7 days all users activities');
-
-        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
-
-        // Use Ariel font
-        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
-        $graph->xgrid->Show();
+        $this->getGraph($graph, 'last 7 days all users activities');
 
         // Create the plot line
         $p1 = new Plot\LinePlot($data);
@@ -571,5 +475,31 @@ class ReportController extends Controller
         ob_end_clean();
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
+    }
+
+    /**
+     * @param Graph\Graph $graph
+     * @return void
+     */
+    public function getGraph(Graph\Graph $graph, string $title): void
+    {
+        $graph->SetScale('intlin');
+        $graph->SetMargin(30, 15, 40, 30);
+        $graph->SetMarginColor('white');
+        $graph->SetFrame(true, 'blue', 3);
+
+        $graph->title->SetFont(FF_ARIAL, FS_BOLD, 12);
+
+        $graph->subtitle->SetFont(FF_ARIAL, FS_NORMAL, 10);
+        $graph->subtitle->SetColor('darkred');
+
+        $graph->subtitle->Set($title);
+
+        $graph->SetAxisLabelBackground(LABELBKG_NONE, 'orange', 'red', 'lightblue', 'red');
+
+        // Use Ariel font
+        $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
+        $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
+        $graph->xgrid->Show();
     }
 }
