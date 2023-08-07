@@ -200,30 +200,24 @@ class QuranWordController extends Controller
                     } else {
                         $this->generateBaleFehrestThenSendIt($bot, $token);
                     }
-                }
-                if ($command == "joz") {
+                } else if ($command == "joz") {
                     if ($type != 'bale') {
                         $this->generateJozLinksThenSendItTelegram($bot);
 
                     } else {
                         $this->generateJozLinksThenSendItBale($bot);
                     }
-                }
-
-                if ($command == "report") {
+                } else if ($command == "report") {
                     $chatId = $bot->ChatID();
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
-                }
-
-                if ($command == "reportall") {
+                    BotHelper::sendMessage($bot, "https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '$origin=' . $type);
+                } else if ($command == "reportall") {
                     if (BotHelper::isAdmin($bot->ChatID())) {
                         $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
                     } else {
                         BotHelper::sendMessage($bot, "you are not admin");
                     }
-                }
-
-                if ($command == "listcommands" || $command == "help") {
+                } else if ($command == "listcommands" || $command == "help") {
                     $message = trans("bot.command list is") . "
 : /start
 : /joz " . trans('bot.help.list of Quran 30 parts') . "
@@ -282,9 +276,7 @@ class QuranWordController extends Controller
                     $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
-                }
-
-                if ($subCommand == "transtr") {
+                } else if ($subCommand == "transtr") {
 
                     $mp3Enable = $userSettings->setting('mp3_enable');
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
@@ -306,9 +298,7 @@ class QuranWordController extends Controller
                     $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
-                }
-
-                if ($subCommand == "transen") {
+                } else if ($subCommand == "transen") {
 
                     $mp3Enable = $userSettings->setting('mp3_enable');
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
@@ -330,9 +320,7 @@ class QuranWordController extends Controller
                     $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
                     $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
-                }
-
-                if ($subCommand == "trans") {
+                } else if ($subCommand == "trans") {
 
                     $mp3Enable = $userSettings->setting('mp3_enable');
                     $mp3Reciter = $userSettings->setting('mp3_reciter');
@@ -354,9 +342,7 @@ class QuranWordController extends Controller
                     $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
                     $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
                     BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
-                }
-
-                if ($subCommand == "mp3reciter") {
+                } else if ($subCommand == "mp3reciter") {
 
 
 //                    $mp3Enable = $userSettings->setting('mp3_enable');

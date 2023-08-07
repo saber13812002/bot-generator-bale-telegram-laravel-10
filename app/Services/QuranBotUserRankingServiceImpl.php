@@ -108,11 +108,15 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
      */
     public function generateReportThenSend(string $requesterChatId, $botBale, $botTelegram): void
     {
-        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+        $logs = BotLog::whereLanguage('fa')
+            ->select('chat_id', 'type')
+            ->distinct('chat_id')->get();
 
         // TODO: implement by cache
         $unsortedRankings = $this->calculateRanking($logs);
-        $sortedRankings = $unsortedRankings->sortBy("result_month", null, true)->forPage(1, 200);
+        $sortedRankings = $unsortedRankings
+            ->sortBy("result_month", null, true)
+            ->forPage(1, 200);
 
         $rank = 1;
         foreach ($sortedRankings as $sortedRanking) {
@@ -138,7 +142,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
     public function allUsersReportDailyWeeklyMonthly()
     {
-
+//        return 0;
         //
         $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
         $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
@@ -175,17 +179,13 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
 اللهم صل علی محمد و آل محمد و عجل فرجهم
 
-
 استغفر الله ربی و اتوب الیه
-
-
 
 " . trans("bot.to send your daily activity report please try it with this command") . "
 
 👇 👇 👇 👇 👇
         /report
 ";
-
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
