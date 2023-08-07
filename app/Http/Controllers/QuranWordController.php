@@ -212,10 +212,14 @@ class QuranWordController extends Controller
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
                     BotHelper::sendMessage($bot, "https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '$origin=' . $type);
                 } else if ($command == "reportall") {
-                    if (BotHelper::isAdmin($bot->ChatID())) {
-                        $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                    if ($type == 'telegram') {
+                        BotHelper::sendMessage($bot, "this command not work in telegram");
                     } else {
-                        BotHelper::sendMessage($bot, "you are not admin");
+                        if (BotHelper::isAdmin($bot->ChatID())) {
+                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                        } else {
+                            BotHelper::sendMessage($bot, "you are not admin");
+                        }
                     }
                 } else if ($command == "listcommands" || $command == "help") {
                     $message = trans("bot.command list is") . "
