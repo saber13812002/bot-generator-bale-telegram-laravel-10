@@ -90,22 +90,20 @@ class QuranWordController extends Controller
 
             $arrayCommands = $this->generateArrayCommands($userSettings);
 
-            if ((substr($bot->Text(), 0, 2)) == "//")
-                $request->request->add(['command_type' => 'quran_search']);
-            else
-                $request->request->add(['command_type' => 'quran']);
+//            if ((substr($bot->Text(), 0, 2)) == "//")
+//                $request->request->add(['command_type' => 'quran_search']);
+//            else
+//                $request->request->add(['command_type' => 'quran']);
 
-            try {
-                LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info($e->getMessage());
-            }
+            $command_type = "";
 
             $commandTemplateSure = '/sure';
             $commandTemplateAyah = 'ayah';
 
             $botText = Str::lower($bot->Text());
             if ($botText == '/start') {
+
+                $command_type = "start";
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
                 $reciterCommands = BotQuranHelper::getSettingReciter();
@@ -120,6 +118,8 @@ class QuranWordController extends Controller
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
+
+                $command_type = "word";
                 $wordId = $this->getWordId($bot);
                 [$message, $isEndAya] = QuranHefzBotHelper::getQuranWordById($wordId);
 //                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
@@ -142,6 +142,9 @@ class QuranWordController extends Controller
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             } elseif (str_starts_with($botText, $commandTemplateSure)) {
+
+                $command_type = "ayah";
+
                 if (preg_match('/sure(.*?)ayah/', substr($botText, 1, Str::length($botText)), $match) == 1) {
                     $sure = (integer)$match[1];
                     if ($sure > 0) {
@@ -185,12 +188,19 @@ class QuranWordController extends Controller
                     }
                 }
             } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+
+                $command_type = "///";
                 $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+
+                $command_type = "//";
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
                 [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
                 QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } elseif ((substr($bot->Text(), 0, 1)) == "/") {
+
+                $command_type = "commands";
+
                 $command = substr($botText, strpos($botText, "/") + Str::length("/"));
                 if ($command == "fehrest") {
                     if ($type == 'telegram') {
@@ -383,6 +393,7 @@ class QuranWordController extends Controller
                 BotHelper::sendMessage($bot, $message);
             }
 
+
             if ($isStartCommandShow) {
 
                 $array = [[trans("bot.return to command list"), "/start"]];
@@ -398,6 +409,16 @@ class QuranWordController extends Controller
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
             }
+
+            $request->request->add(['command_type' => $command_type]);
+
+            try {
+                LogHelper::log($request, $type, $bot);
+            } catch (Exception $e) {
+                Log::info($e->getMessage());
+            }
+
+
         } else {
             return ResponseAlias::HTTP_ACCEPTED;
         }
