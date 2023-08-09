@@ -33,18 +33,6 @@ class ReportController extends Controller
             ->whereType($origin)
             ->whereChatId($chatId)
             ->where('created_at', '>=', now()->subDays(7));
-
-        $sql = $query->toSql();
-        $bindings = $query->getBindings();
-
-// Replace the question marks with the actual values
-        $fullQuery = str_replace('?', "'%s'", $sql);
-        $fullQuery = vsprintf($fullQuery, $bindings);
-//        dd($fullQuery);
-        $fullQuery = 'daily activity : ' . $fullQuery;
-
-        BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
-        BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
         //        dd($sql);
 
         //        dd($query->build());
@@ -58,27 +46,41 @@ class ReportController extends Controller
 
 
         $yesterday = $query->where('created_at', '>=', now()->subDays(2))
-            ->where('created_at', '<', now()->subDays())
+            ->where('created_at', '<=', now()->subDays())
             ->get()->count();
 
+
+
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+
+// Replace the question marks with the actual values
+        $fullQuery = str_replace('?', "'%s'", $sql);
+        $fullQuery = vsprintf($fullQuery, $bindings);
+//        dd($fullQuery);
+        $fullQuery = 'daily activity : ' . $fullQuery;
+
+        BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
+        BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
+
         $aDayBeforeYesterday = $query->where('created_at', '>=', now()->subDays(3))
-            ->where('created_at', '<', now()->subDays(2))
+            ->where('created_at', '<=', now()->subDays(2))
             ->get()->count();
 
         $twoDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(4))
-            ->where('created_at', '<', now()->subDays(3))
+            ->where('created_at', '<=', now()->subDays(3))
             ->get()->count();
 
         $threeDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(5))
-            ->where('created_at', '<', now()->subDays(4))
+            ->where('created_at', '<=', now()->subDays(4))
             ->get()->count();
 
         $fourDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(6))
-            ->where('created_at', '<', now()->subDays(5))
+            ->where('created_at', '<=', now()->subDays(5))
             ->get()->count();
 
         $fiveDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(7))
-            ->where('created_at', '<', now()->subDays(6))
+            ->where('created_at', '<=', now()->subDays(6))
             ->get()->count();
 
 
