@@ -37,65 +37,8 @@ class ReportController extends Controller
 
         $graph = new Graph\Graph(350, 250);
 
-        $startDate = Carbon::yesterday()->startOfDay(); // تاریخ 12 شب پریشب
-        $endDate = Carbon::today()->endOfDay(); // تاریخ 12 شب دیشب
+        $data = $this->getDataFor7Days($baseQuery);
 
-        $query = clone $baseQuery;
-
-        $today = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->get()->count();
-
-
-        $startDate = Carbon::yesterday()->subDays(1)->startOfDay(); // تاریخ 12 شب پریشب
-        $endDate = Carbon::today()->subDays(1)->endOfDay(); // تاریخ 12 شب دیشب
-
-        $query = clone $baseQuery;
-
-        $yesterday = $query->whereBetween('created_at', [$startDate->subDays(2), $endDate->subDays(2)])
-            ->get()->count();
-
-
-        $sql = $query->toSql();
-        $bindings = $query->getBindings();
-
-// Replace the question marks with the actual values
-        $fullQuery = str_replace('?', "'%s'", $sql);
-        $fullQuery = vsprintf($fullQuery, $bindings);
-//        dd($fullQuery);
-        $fullQuery = 'daily activity : ' . $fullQuery;
-
-        BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
-        BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
-
-        $query = clone $baseQuery;
-
-        $aDayBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(3), $endDate->subDays(3)])
-            ->get()->count();
-
-        $query = clone $baseQuery;
-
-        $twoDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(4), $endDate->subDays(4)])
-            ->get()->count();
-
-        $query = clone $baseQuery;
-
-        $threeDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(5), $endDate->subDays(5)])
-            ->get()->count();
-
-        $query = clone $baseQuery;
-
-        $fourDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(6), $endDate->subDays(6)])
-            ->get()->count();
-
-        $query = clone $baseQuery;
-
-        $fiveDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(7), $endDate->subDays(7)])
-            ->get()->count();
-
-
-        // Create the Pie Graph.
-        //        dd($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
-        $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days readings");
 
         $this->getGraph($graph, 'last 7 days readings');
@@ -112,6 +55,20 @@ class ReportController extends Controller
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
 
+
+//$sql = $query->toSql();
+//$bindings = $query->getBindings();
+//
+//// Replace the question marks with the actual values
+//$fullQuery = str_replace('?', "'%s'", $sql);
+//$fullQuery = vsprintf($fullQuery, $bindings);
+////        dd($fullQuery);
+//$fullQuery = 'daily activity : ' . $fullQuery;
+//
+//BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
+//BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
+
+
     public function dailySearch(Request $request)
     {
         $chatId = $request->input('chat_id');
@@ -122,59 +79,19 @@ class ReportController extends Controller
         $origin = $request->input('origin');
         $origin = $origin ?? "bale";
 
-        $query = BotLog::whereLanguage($language)
+        $baseQuery = BotLog::whereLanguage($language)
             ->select('chat_id', 'created_at')
             ->whereCommandType('quran_search')
 //            ->select(DB::raw('DATE(created_at) as date'), 'chat_id', 'type', DB::raw('COUNT(*) as count'))
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->whereType($origin)
-            ->whereChatId($chatId)
-            ->where('created_at', '>=', now()->subDays(7));
+            ->whereChatId($chatId);
 
-//        $sql = 'daily search : ' . $query->toSql() . ' : ' . $query->getBindings();
-//
-//        BotHelper::sendMessageToSuperAdmin($sql, 'bale');
-//        BotHelper::sendMessageToSuperAdmin($sql, 'telegram');
-        //        dd($sql);
-
-        //        dd($query->build());
-        //        $all = $query->where('created_at', '>=', now()->subDays(7))
-        //            ->get()->count();
 
         $graph = new Graph\Graph(350, 250);
 
-        $today = $query->where('created_at', '>=', now()->subDays())
-            ->get()->count();
+        $data = $this->getDataFor7Days($baseQuery);
 
-
-        $yesterday = $query->where('created_at', '>=', now()->subDays(2))
-            ->where('created_at', '<', now()->subDays())
-            ->get()->count();
-
-        $aDayBeforeYesterday = $query->where('created_at', '>=', now()->subDays(3))
-            ->where('created_at', '<', now()->subDays(2))
-            ->get()->count();
-
-        $twoDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(4))
-            ->where('created_at', '<', now()->subDays(3))
-            ->get()->count();
-
-        $threeDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(5))
-            ->where('created_at', '<', now()->subDays(4))
-            ->get()->count();
-
-        $fourDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(6))
-            ->where('created_at', '<', now()->subDays(5))
-            ->get()->count();
-
-        $fiveDaysBeforeYesterday = $query->where('created_at', '>=', now()->subDays(7))
-            ->where('created_at', '<', now()->subDays(6))
-            ->get()->count();
-
-
-        // Create the Pie Graph.
-        //        dd($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
-        $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
         $graph->title->Set("Your last 7 days searches");
 
         $this->getGraph($graph, 'last 7 days searches');
@@ -512,5 +429,60 @@ class ReportController extends Controller
         $graph->xaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
         $graph->yaxis->SetFont(FF_ARIAL, FS_NORMAL, 9);
         $graph->xgrid->Show();
+    }
+
+    /**
+     * @param $baseQuery
+     * @return array
+     */
+    public function getDataFor7Days($baseQuery): array
+    {
+        $startDate = Carbon::yesterday()->startOfDay(); // تاریخ 12 شب پریشب
+        $endDate = Carbon::today()->endOfDay(); // تاریخ 12 شب دیشب
+
+        $query = clone $baseQuery;
+
+        $today = $query->whereBetween('created_at', [$startDate, $endDate])
+            ->get()->count();
+
+
+        $startDate = Carbon::yesterday()->subDays(1)->startOfDay(); // تاریخ 12 شب پریشب
+        $endDate = Carbon::today()->subDays(1)->endOfDay(); // تاریخ 12 شب دیشب
+
+        $query = clone $baseQuery;
+
+        $yesterday = $query->whereBetween('created_at', [$startDate->subDays(2), $endDate->subDays(2)])
+            ->get()->count();
+
+        $query = clone $baseQuery;
+
+        $aDayBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(3), $endDate->subDays(3)])
+            ->get()->count();
+
+        $query = clone $baseQuery;
+
+        $twoDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(4), $endDate->subDays(4)])
+            ->get()->count();
+
+        $query = clone $baseQuery;
+
+        $threeDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(5), $endDate->subDays(5)])
+            ->get()->count();
+
+        $query = clone $baseQuery;
+
+        $fourDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(6), $endDate->subDays(6)])
+            ->get()->count();
+
+        $query = clone $baseQuery;
+
+        $fiveDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(7), $endDate->subDays(7)])
+            ->get()->count();
+
+
+        // Create the Pie Graph.
+        //        dd($all, $fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+        $data = array($fiveDaysBeforeYesterday, $fourDaysBeforeYesterday, $threeDaysBeforeYesterday, $twoDaysBeforeYesterday, $aDayBeforeYesterday, $yesterday, $today);
+        return $data;
     }
 }
