@@ -220,7 +220,7 @@ class QuranWordController extends Controller
                 } else if ($command == "report") {
                     $chatId = $bot->ChatID();
                     $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
-                    BotHelper::sendMessage($bot, "https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '$origin=' . $type);
+                    BotHelper::sendMessage($bot, "https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type);
                 } else if ($command == "reportall") {
                     if ($type == 'telegram') {
                         BotHelper::sendMessage($bot, "this command not work in telegram");
