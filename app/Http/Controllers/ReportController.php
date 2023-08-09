@@ -26,23 +26,21 @@ class ReportController extends Controller
         $origin = $request->input('origin');
         $origin = $origin ?? "bale";
 
-        $query = BotLog::whereLanguage($language)
+        $baseQuery = BotLog::whereLanguage($language)
             ->select('chat_id', 'created_at')
             ->whereCommandType('quran')
 //            ->select(DB::raw('DATE(created_at) as date'), 'chat_id', 'type', DB::raw('COUNT(*) as count'))
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->whereType($origin)
             ->whereChatId($chatId);
-        //        dd($sql);
 
-        //        dd($query->build());
-        //        $all = $query->where('created_at', '>=', now()->subDays(7))
-        //            ->get()->count();
 
         $graph = new Graph\Graph(350, 250);
 
         $startDate = Carbon::yesterday()->startOfDay(); // تاریخ 12 شب پریشب
         $endDate = Carbon::today()->endOfDay(); // تاریخ 12 شب دیشب
+
+        $query = clone $baseQuery;
 
         $today = $query->whereBetween('created_at', [$startDate, $endDate])
             ->get()->count();
@@ -50,6 +48,8 @@ class ReportController extends Controller
 
         $startDate = Carbon::yesterday()->subDays(1)->startOfDay(); // تاریخ 12 شب پریشب
         $endDate = Carbon::today()->subDays(1)->endOfDay(); // تاریخ 12 شب دیشب
+
+        $query = clone $baseQuery;
 
         $yesterday = $query->whereBetween('created_at', [$startDate->subDays(2), $endDate->subDays(2)])
             ->get()->count();
@@ -67,17 +67,27 @@ class ReportController extends Controller
         BotHelper::sendMessageToSuperAdmin($fullQuery, 'bale');
         BotHelper::sendMessageToSuperAdmin($fullQuery, 'telegram');
 
+        $query = clone $baseQuery;
+
         $aDayBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(3), $endDate->subDays(3)])
             ->get()->count();
+
+        $query = clone $baseQuery;
 
         $twoDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(4), $endDate->subDays(4)])
             ->get()->count();
 
+        $query = clone $baseQuery;
+
         $threeDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(5), $endDate->subDays(5)])
             ->get()->count();
 
+        $query = clone $baseQuery;
+
         $fourDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(6), $endDate->subDays(6)])
             ->get()->count();
+
+        $query = clone $baseQuery;
 
         $fiveDaysBeforeYesterday = $query->whereBetween('created_at', [$startDate->subDays(7), $endDate->subDays(7)])
             ->get()->count();
