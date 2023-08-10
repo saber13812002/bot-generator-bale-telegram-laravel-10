@@ -159,8 +159,7 @@ class BotQuranHelper
 
     public static function sendImage(Telegram $messenger, string $page, int $hr)
     {
-
-        $photoUrl = BotQuranHelper::getSScan($page, $hr);
+        $photoUrl = BotQuranHelper::getSScan($page, $hr, $messenger->BotType());
 
         $chat_id = $messenger->ChatID();
 
@@ -176,9 +175,12 @@ class BotQuranHelper
     }
 
 
-    public static function getSScan(string $page, int $hr)
+    public static function getSScan(string $page, int $hr, $botType)
     {
-        return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
+        if ($botType == 'telegram')
+            return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
+
+        return "https://rayed.com/Quran/img/" . $page . ".jpg";
     }
 
 
