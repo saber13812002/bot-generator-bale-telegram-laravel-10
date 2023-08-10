@@ -32,6 +32,10 @@ class QuranHefzBotHelper
         foreach ($quranWords as $quranWord) {
             $message .= " " . $quranWord['text'];
         }
+
+        $pageNumber = $quranWord['page'];
+        $threeDigitNumber = str_pad($pageNumber, 3, '0', STR_PAD_LEFT);
+
         $translationId = 2;
 
         $userTranslationId = BotQuranHelper::getSettingsByTags($userSettings, 'translation_id');
@@ -78,6 +82,11 @@ class QuranHefzBotHelper
             $message .= "
 " . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
         }
+
+        $message .= "👇 👇 👇
+" . trans("bot.help.to send scanned quran page") . "
+👇 👇 👇
+  /scan" . $threeDigitNumber . "hr1";
 
         $message .= "👇 👇 👇
 " . trans("bot.help.to help you for introduce all features of this robot") . "

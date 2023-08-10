@@ -125,6 +125,7 @@ return [
         'list of Surahs of the Quran' => 'list of Surahs of the Quran',
         'list of Quran 30 parts' => 'list of Quran 30 parts',
         'to help you for introduce all features of this robot' => 'to help you for introduce all features of this robot',
+        'to send scanned quran page' => 'to send scanned quran page',
     ],
     'translators' => [
         'ansarian' => 'ansarian',

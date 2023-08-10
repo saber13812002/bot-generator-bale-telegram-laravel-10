@@ -12,6 +12,7 @@ use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranSurah;
 use Exception;
+use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -20,7 +21,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 use Telegram;
-use Gap\SDP\Api as GapBot;
 
 class QuranWordController extends Controller
 {
@@ -100,6 +100,9 @@ class QuranWordController extends Controller
             $commandTemplateSure = '/sure';
             $commandTemplateAyah = 'ayah';
 
+            $commandTemplateScan = '/scan';
+            $commandTemplateHr = 'hr';
+
             $botText = Str::lower($bot->Text());
             if ($botText == '/start') {
 
@@ -140,6 +143,24 @@ class QuranWordController extends Controller
                 } else {
                     $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                }
+            } elseif (str_starts_with($botText, $commandTemplateScan)) {
+
+                $command_type = "hr";
+
+                if (preg_match('/scan(.*?)hr/', substr($botText, 1, Str::length($botText)), $match) == 1) {
+                    $pageNumber = $match[1];
+                    $page = (integer)$match[1];
+                    if ($page > 0) {
+                        $hr = (integer)substr($botText, strpos($botText, $commandTemplateHr) + Str::length($commandTemplateHr));
+
+                        if ($hr > 0) {
+
+                            if ($type == 'telegram' || $type == 'bale') {
+                                BotQuranHelper::sendImage($bot, $pageNumber, $hr);
+                            }
+                        }
+                    }
                 }
             } elseif (str_starts_with($botText, $commandTemplateSure)) {
 

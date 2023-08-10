@@ -157,6 +157,31 @@ class BotQuranHelper
         return $base_url;
     }
 
+    public static function sendImage(Telegram $messenger, string $page, int $hr)
+    {
+
+        $photoUrl = BotQuranHelper::getSScan($page, $hr);
+
+        $chat_id = $messenger->ChatID();
+
+        $content = [
+            'chat_id' => $chat_id,
+            'photo' => $photoUrl,
+            'title' => "page" . $page
+        ];
+
+//        dd($content);
+
+        $message_id = $messenger->sendPhoto($content);
+    }
+
+
+    public static function getSScan(string $page, int $hr)
+    {
+        return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
+    }
+
+
 }
 
 
