@@ -62,6 +62,8 @@ class ReportController extends Controller
 
             $fullUrl = $request->url();
 
+            BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
+
             BotHelper::sendPhoto($chatId, $fullUrl . "&second=true", "", $bot);
         }
 
