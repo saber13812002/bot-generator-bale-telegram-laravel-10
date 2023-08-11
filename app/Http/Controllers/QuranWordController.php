@@ -157,7 +157,7 @@ class QuranWordController extends Controller
                         if ($hr > 0) {
 
                             if ($type == 'telegram' || $type == 'bale') {
-                                BotQuranHelper::sendImage($bot, $pageNumber, $hr);
+                                BotQuranHelper::sendScanPage($bot, $pageNumber, $hr);
                             }
                         }
                     }

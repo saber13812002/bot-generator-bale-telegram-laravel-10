@@ -676,4 +676,25 @@ class BotHelper
     {
         return Str::substr($Text, 3, -1);
     }
+
+
+
+
+    /**
+     * @param mixed $chat_id
+     * @param string $photoUrl
+     * @param string $title
+     * @param Telegram $messenger
+     * @return mixed
+     */
+    public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger): mixed
+    {
+        $content = [
+            'chat_id' => $chat_id,
+            'photo' => $photoUrl,
+            'title' => $title
+        ];
+
+        return $messenger->sendPhoto($content);
+    }
 }

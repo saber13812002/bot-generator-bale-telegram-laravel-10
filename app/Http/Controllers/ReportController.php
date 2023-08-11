@@ -10,6 +10,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Telegram;
 
 class ReportController extends Controller
 {
@@ -51,6 +52,18 @@ class ReportController extends Controller
         $graph->Stroke();
         $image_data = ob_get_contents();
         ob_end_clean();
+
+
+        $second = $request->input('second');
+        if ($second != "true") {
+            $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
+            if ($origin == 'telegram')
+                $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
+
+            $fullUrl = $request->url();
+
+            BotHelper::sendPhoto($chatId, $fullUrl . "&second=true", "", $bot);
+        }
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
