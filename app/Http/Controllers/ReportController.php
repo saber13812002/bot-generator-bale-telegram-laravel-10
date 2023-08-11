@@ -60,7 +60,7 @@ class ReportController extends Controller
             if ($origin == 'telegram')
                 $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
-            $fullUrl = $request->url();
+            $fullUrl = $request->fullUrl();
 
             BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
 
