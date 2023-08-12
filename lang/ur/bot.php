@@ -102,6 +102,7 @@ return [
         'list of Surahs of the Quran'                          => 'قرآن کی سورتوں کی فہرست',
         'list of Quran 30 parts'                               => 'قرآن کے 30 حصوں کی فہرست',
         'to help you for introduce all features of this robot' => 'اس روبوٹ کی تمام خصوصیات متعارف کرانے میں آپ کی مدد کرنے کے لیے',
+        'to send scanned quran page'                           => 'سکین شدہ قرآن کا صفحہ بھیجنے کے لیے',
     ],
     'translators'                                                               => [
         'ansarian' => 'انصاریان',
@@ -123,4 +124,11 @@ return [
     'to send your daily activity report please try it with this command'        => 'اپنی روزانہ کی سرگرمی کی رپورٹ بھیجنے کے لیے اس کمانڈ کے ساتھ کوشش کریں۔',
     'referral code'                                                             => 'ریفرل کوڈ',
     'here is your referral link'                                                => 'یہ رہا آپ کا ریفرل لنک',
+    'report'                                                                    => [
+        'this is your reports' => [
+            ' your last 7 days activities' => [
+                ' click on this link:' => 'یہ آپ کی رپورٹیں ہیں۔ آپ کی آخری 7 دنوں کی سرگرمیاں۔ اس لنک پر کلک کریں:',
+            ],
+        ],
+    ],
 ];

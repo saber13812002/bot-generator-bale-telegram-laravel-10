@@ -102,6 +102,7 @@ return [
         'list of Surahs of the Quran'                          => 'список сур Корана',
         'list of Quran 30 parts'                               => 'список Корана 30 частей',
         'to help you for introduce all features of this robot' => 'поможет вам ознакомиться со всеми возможностями этого робота',
+        'to send scanned quran page'                           => 'отправить отсканированную страницу Корана',
     ],
     'translators'                                                               => [
         'ansarian' => 'ansarian',
@@ -123,4 +124,11 @@ return [
     'to send your daily activity report please try it with this command'        => 'для отправки ежедневного отчета об активности попробуйте воспользоваться следующей командой',
     'referral code'                                                             => 'реферальный код',
     'here is your referral link'                                                => 'вот ваша реферальная ссылка',
+    'report'                                                                    => [
+        'this is your reports' => [
+            ' your last 7 days activities' => [
+                ' click on this link:' => 'это ваши отчеты. Ваши действия за последние 7 дней:',
+            ],
+        ],
+    ],
 ];

@@ -123,4 +123,11 @@ return [
     'to send your daily activity report please try it with this command'        => '要发送每日活动报告，请使用以下命令进行尝试',
     'referral code'                                                             => '推荐代码',
     'here is your referral link'                                                => '这是您的推荐链接',
+    'report'                                                                    => [
+        'this is your reports' => [
+            ' your last 7 days activities' => [
+                ' click on this link:' => '这是您的报告。您最近 7 天的活动，请点击此链接：',
+            ],
+        ],
+    ],
 ];
