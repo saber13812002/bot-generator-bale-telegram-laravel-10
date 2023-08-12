@@ -131,6 +131,11 @@ class ReportController extends Controller
 
     public function dailyNewUsers(Request $request)
     {
+        $chatId = $request->input('chat_id');
+
+        $origin = $request->input('origin');
+        $origin = $origin ?? "bale";
+
         $baseQuery = BotLog::select('created_at')
             ->whereCommandType('quran')
             ->whereText('/start')
@@ -167,11 +172,11 @@ class ReportController extends Controller
 
         $chatId = $request->input('chat_id');
 
-        $language = $request->input('language');
-        $language = $language ?? "fa";
-
         $origin = $request->input('origin');
         $origin = $origin ?? "bale";
+
+        $language = $request->input('language');
+        $language = $language ?? "fa";
 
         $baseQuery = BotLog::whereLanguage($language)
             ->select('created_at')
@@ -209,11 +214,11 @@ class ReportController extends Controller
 
         $chatId = $request->input('chat_id');
 
-        $language = $request->input('language');
-        $language = $language ?? "fa";
-
         $origin = $request->input('origin');
         $origin = $origin ?? "bale";
+
+        $language = $request->input('language');
+        $language = $language ?? "fa";
 
         $baseQuery = BotLog::whereLanguage($language)
             ->select('chat_id', 'created_at')
@@ -250,6 +255,11 @@ class ReportController extends Controller
     public function dailyActiveUsers(Request $request)
     {
 
+        $chatId = $request->input('chat_id');
+
+        $origin = $request->input('origin');
+        $origin = $origin ?? "bale";
+
         $baseQuery = BotLog::select('created_at')
             ->whereCommandType('quran')
 //            ->select(DB::raw('DATE(created_at) as date'), 'chat_id', 'type', DB::raw('COUNT(*) as count'))
@@ -282,6 +292,7 @@ class ReportController extends Controller
 
     /**
      * @param Graph\Graph $graph
+     * @param string $title
      * @return void
      */
     public function getGraph(Graph\Graph $graph, string $title): void
