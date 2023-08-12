@@ -54,22 +54,24 @@ class ReportController extends Controller
         ob_end_clean();
 
 
+        $fullUrl = $request->fullUrl();
         $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
+
+        return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
+    }
+
+    public static function sendImageToUser($second, $fullUrl, $chatId, $origin)
+    {
         if ($second != "true") {
             $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
             if ($origin == 'telegram')
                 $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
-            $fullUrl = $request->fullUrl();
-
             BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
-
             BotHelper::sendPhoto($chatId, $fullUrl . "&second=true", "", $bot);
         }
-
-        return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
-
 
 //$sql = $query->toSql();
 //$bindings = $query->getBindings();
@@ -120,6 +122,10 @@ class ReportController extends Controller
         $image_data = ob_get_contents();
         ob_end_clean();
 
+        $fullUrl = $request->fullUrl();
+        $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
+
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
 
@@ -148,6 +154,10 @@ class ReportController extends Controller
         $graph->Stroke();
         $image_data = ob_get_contents();
         ob_end_clean();
+
+        $fullUrl = $request->fullUrl();
+        $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
@@ -186,6 +196,10 @@ class ReportController extends Controller
         $graph->Stroke();
         $image_data = ob_get_contents();
         ob_end_clean();
+
+        $fullUrl = $request->fullUrl();
+        $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
@@ -226,6 +240,10 @@ class ReportController extends Controller
         $image_data = ob_get_contents();
         ob_end_clean();
 
+        $fullUrl = $request->fullUrl();
+        $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
+
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
 
@@ -254,6 +272,10 @@ class ReportController extends Controller
         $graph->Stroke();
         $image_data = ob_get_contents();
         ob_end_clean();
+
+        $fullUrl = $request->fullUrl();
+        $second = $request->input('second');
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
