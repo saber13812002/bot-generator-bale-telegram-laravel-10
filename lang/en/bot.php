@@ -143,5 +143,8 @@ return [
         'getchatidbot' => [
             "our other bots" => "our other bots"
         ]
+    ],
+    'report' => [
+        "this is your reports. your last 7 days activities. click on this link:" => "this is your reports. your last 7 days activities. click on this link:"
     ]
 ];
