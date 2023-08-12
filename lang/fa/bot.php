@@ -102,7 +102,6 @@ return [
         'list of Surahs of the Quran'                          => 'فهرست سوره های قرآن',
         'list of Quran 30 parts'                               => 'فهرست قرآن 30 جزء',
         'to help you for introduce all features of this robot' => 'تا به شما در معرفی تمامی ویژگی های این ربات کمک کند',
-        'to send scanned quran page' => 'برای ارسال اسکن صفحه قرآنی با خط عثمان طاها دستور زیر بفرستید',
     ],
     'translators'                                                               => [
         'ansarian' => 'انصاریان',
