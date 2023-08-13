@@ -165,7 +165,7 @@ class BotQuranHelper
         $title = "page" . $pageNumber;
 
         $threeDigitNumber = StringHelper::get3digitNumber($pageNumber + 1);
-        $caption = $pageNumber < 604 ? trans("bot.next quran page click here") . " : /scan" . ($threeDigitNumber) : "/scan001hr1";
+        $caption = $pageNumber < 604 ? trans("bot.next quran page click here") . " : /scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
 
         return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
