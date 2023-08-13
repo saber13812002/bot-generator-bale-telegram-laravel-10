@@ -163,8 +163,9 @@ class BotQuranHelper
 
         $chat_id = $messenger->ChatID();
         $title = "page" . $page;
+        $caption = $page < 604 ? trans("bot.next quran page click here") . " : /scan" . ($page + 1) : "/scan001hr1";
 
-        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger);
+        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
 
 

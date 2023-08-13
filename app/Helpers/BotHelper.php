@@ -678,8 +678,6 @@ class BotHelper
     }
 
 
-
-
     /**
      * @param mixed $chat_id
      * @param string $photoUrl
@@ -687,12 +685,13 @@ class BotHelper
      * @param Telegram $messenger
      * @return mixed
      */
-    public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger): mixed
+    public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
         $content = [
             'chat_id' => $chat_id,
             'photo' => $photoUrl,
-            'title' => $title
+            'title' => $title,
+            'caption' => $caption
         ];
 
         return $messenger->sendPhoto($content);

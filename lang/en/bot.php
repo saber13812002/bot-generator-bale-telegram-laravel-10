@@ -113,6 +113,8 @@ return [
 
     'here is your referral link' => 'here is your referral link',
 
+    'next quran page click here' => 'next quran page click here',
+
     'help' => [
         'choose :reciter as reciter' => 'choose :reciter as reciter',
         'choose :language as transliteration' => 'choose :language as transliteration',
@@ -145,6 +147,7 @@ return [
         ]
     ],
     'report' => [
-        "this is your reports. your last 7 days activities. click on this link:" => "this is your reports. your last 7 days activities. click on this link:"
+        "this is your reports. your last 7 days activities. click on this link:" => "this is your reports. your last 7 days activities. click on this link:",
+        "last 7 days readings" => "last 7 days readings",
     ]
 ];

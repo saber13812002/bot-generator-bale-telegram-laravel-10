@@ -53,15 +53,15 @@ class ReportController extends Controller
         $image_data = ob_get_contents();
         ob_end_clean();
 
-
+        $caption = trans("bot.report.last 7 days readings");
         $fullUrl = $request->fullUrl();
         $second = $request->input('second');
-        self::sendImageToUser($second, $fullUrl, $chatId, $origin);
+        self::sendImageToUser($second, $fullUrl, $chatId, $origin, $caption);
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
 
-    public static function sendImageToUser($second, $fullUrl, $chatId, $origin)
+    public static function sendImageToUser($second, $fullUrl, $chatId, $origin, string $caption = "")
     {
         if ($second != "true") {
             $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
@@ -69,7 +69,7 @@ class ReportController extends Controller
                 $bot = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
             BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
-            BotHelper::sendPhoto($chatId, $fullUrl . "&second=true", "", $bot);
+            BotHelper::sendPhoto($chatId, $fullUrl . "&second=true", "", $bot, $caption);
         }
     }
 
