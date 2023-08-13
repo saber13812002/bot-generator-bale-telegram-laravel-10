@@ -157,13 +157,15 @@ class BotQuranHelper
         return $base_url;
     }
 
-    public static function sendScanPage(Telegram $messenger, string $page, int $hr)
+    public static function sendScanPage(Telegram $messenger, string $pageNumber, int $hr)
     {
-        $photoUrl = BotQuranHelper::getSScan($page, $hr, $messenger->BotType());
+        $photoUrl = BotQuranHelper::getSScan($pageNumber, $hr, $messenger->BotType());
 
         $chat_id = $messenger->ChatID();
-        $title = "page" . $page;
-        $caption = $page < 604 ? trans("bot.next quran page click here") . " : /scan" . ($page + 1) : "/scan001hr1";
+        $title = "page" . $pageNumber;
+
+        $threeDigitNumber = StringHelper::get3digitNumber($pageNumber + 1);
+        $caption = $pageNumber < 604 ? trans("bot.next quran page click here") . " : /scan" . ($threeDigitNumber) : "/scan001hr1";
 
         return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }

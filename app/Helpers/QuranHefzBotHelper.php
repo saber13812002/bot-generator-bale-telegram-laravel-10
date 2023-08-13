@@ -34,7 +34,7 @@ class QuranHefzBotHelper
         }
 
         $pageNumber = $quranWord['page'];
-        $threeDigitNumber = str_pad($pageNumber, 3, '0', STR_PAD_LEFT);
+        $threeDigitNumber = StringHelper::get3digitNumber($pageNumber);
 
         $translationId = 2;
 

@@ -143,4 +143,14 @@ class StringHelper
 محیط:" . env('APP_ENV') . "
 ";
     }
+
+
+    /**
+     * @param int $pageNumber
+     * @return string
+     */
+    public static function get3digitNumber(int $pageNumber): string
+    {
+        return str_pad($pageNumber, 3, '0', STR_PAD_LEFT);
+    }
 }
