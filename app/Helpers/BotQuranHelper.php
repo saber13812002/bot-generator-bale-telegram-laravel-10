@@ -222,3 +222,16 @@ class BotQuranHelper
 // ar.abdullahawadaljuhani
 // ar.abdullahbasfar
 
+// https://bonyana.com/535/%D8%AF%D8%A7%D9%86%D9%84%D9%88%D8%AF-%D9%82%D8%B1%D8%A2%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D8%A7-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2/
+// http://www.yasinmedia.com/audio/quran/download-quran-audio-translation-makarem-fooladvand
+// https://p30download.ir/fa/entry/42534/%D9%82%D8%B1%D8%A7%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D9%87-%D9%87%D9%85%D8%B1%D8%A7%D9%87-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2%DB%8C%D9%87
+// https://tanzil.ir/res/audio/fa.fooladvand/001001.mp3
+// https://tanzil.ir/res/audio/fa.makarem/001003.mp3
+// https://tanzil.ir/res/audio/bs.korkut/001003.mp3
+// https://tanzil.ir/res/audio/ur.jalandhry/001003.mp3
+// https://tanzil.ir/res/audio/az.musayev/001003.mp3
+// https://tanzil.ir/res/audio/en.sahih/001003.mp3
+// https://tanzil.ir/res/audio/en.itani/001003.mp3
+// https://everyayah.com/data/AbdulSamad_64kbps_QuranExplorer.Com/001001.mp3    https://www.versebyversequran.com/
+// https://everyayah.com/data/images_png/1_1.png
+
