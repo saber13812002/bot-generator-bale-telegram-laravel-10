@@ -66,6 +66,53 @@ class BotQuranHelper
     }
 
     /**
+     * @param $messenger
+     * @param $suraId
+     * @param $ayaId
+     * @param BotUsers|null $userSettings
+     * @return void
+     */
+    public static function sendAudioFarsi($messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
+    {
+        // TODO: cache
+        $aye = QuranAyat::query()
+            ->whereSura($suraId)
+            ->whereAya($ayaId)
+            ->first();
+
+        $chat_id = $messenger->ChatID();
+
+        $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
+
+        if ($mp3Enable == "true") {
+            $base_url = "https://tanzil.ir/res/audio/fa.makarem/";
+            //            https://tanzil.ir/res/audio/fa.makarem/001003.mp3
+            $audio = $base_url . StringHelper::get3digitNumber($suraId) . StringHelper::get3digitNumber($ayaId) . ".mp3";
+
+
+            // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
+
+            $caption = self::getSettingReciter();
+
+            $content = [
+                'chat_id' => $chat_id,
+                'audio' => $audio,
+                'title' => self::getAyeDescription($aye),
+                'caption' => $caption
+            ];
+
+//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
+
+            if ($messenger->BotType() != "gap")
+                $messenger->sendAudio($content);
+            else {
+                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            }
+        }
+
+    }
+
+    /**
      * @return string
      */
     public static function getSettingReciter(): string
@@ -257,5 +304,8 @@ class BotQuranHelper
 // https://tanzil.ir/res/audio/en.itani/001003.mp3
 // https://everyayah.com/data/AbdulSamad_64kbps_QuranExplorer.Com/001001.mp3    https://www.versebyversequran.com/
 // https://everyayah.com/data/images_png/1_1.png
+// https://ia804504.us.archive.org/21/items/588083/003-002.mp3
 
 // https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page593.mp3
+// https://quran.com/page/604
+// https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/112.mp3

@@ -665,6 +665,10 @@ class QuranWordController extends Controller
             BotQuranHelper::sendAudio($bot, 1, 1, $userSettings);
         }
         BotQuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+        if ($aya == 1 && $sure != 1 && $sure != 9) {
+            BotQuranHelper::sendAudioFarsi($bot, 1, 1, $userSettings);
+        }
+        BotQuranHelper::sendAudioFarsi($bot, $sure, $aya, $userSettings);
     }
 
     private function generateJozLinksThenSendItBale(Telegram $bot)
