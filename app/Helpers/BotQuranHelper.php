@@ -179,6 +179,29 @@ class BotQuranHelper
         return "https://rayed.com/Quran/img/" . $page . ".jpg";
     }
 
+    public static function sendAudioMp3Page($messenger, string $pageNumber)
+    {
+
+        $chat_id = $messenger->ChatID();
+
+        $base_url = "https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page";
+
+        $audio = $base_url . $pageNumber . ".mp3";
+
+        $caption = $pageNumber . "-" . ".mp3";
+
+        $content = [
+            'chat_id' => $chat_id,
+            'audio' => $audio,
+            'title' => $caption,
+            'caption' => $caption
+        ];
+
+        if ($messenger->BotType() != "gap")
+            $messenger->sendAudio($content);
+
+    }
+
 }
 
 
@@ -235,3 +258,4 @@ class BotQuranHelper
 // https://everyayah.com/data/AbdulSamad_64kbps_QuranExplorer.Com/001001.mp3    https://www.versebyversequran.com/
 // https://everyayah.com/data/images_png/1_1.png
 
+// https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page593.mp3

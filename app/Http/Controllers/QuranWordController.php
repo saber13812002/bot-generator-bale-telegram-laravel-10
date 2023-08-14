@@ -158,6 +158,7 @@ class QuranWordController extends Controller
 
                             if ($type == 'telegram' || $type == 'bale') {
                                 BotQuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                $this->sendAudioMp3Page($bot, $pageNumber);
                             }
                         }
                     }
@@ -730,6 +731,11 @@ class QuranWordController extends Controller
             }
             return $resultArray;
         }
+    }
+
+    private function sendAudioMp3Page($bot, string $pageNumber)
+    {
+        BotQuranHelper::sendAudioMp3Page($bot, $pageNumber);
     }
 
 }
