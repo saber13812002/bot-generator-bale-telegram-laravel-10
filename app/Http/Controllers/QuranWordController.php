@@ -204,8 +204,10 @@ class QuranWordController extends Controller
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
 
-                            if ($bot->BotType() != "gap")
+                            if ($bot->BotType() != "gap") {
                                 $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                $this->sendAudioMp3AyeFarsi($aya, $sure, $bot, $userSettings);
+                            }
                         }
                     }
                 }
@@ -665,6 +667,17 @@ class QuranWordController extends Controller
             BotQuranHelper::sendAudio($bot, 1, 1, $userSettings);
         }
         BotQuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+    }
+
+    /**
+     * @param int $aya
+     * @param int $sure
+     * @param Telegram $bot
+     * @param BotUsers|null $userSettings
+     * @return void
+     */
+    public function sendAudioMp3AyeFarsi(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
+    {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             BotQuranHelper::sendAudioFarsi($bot, 1, 1, $userSettings);
         }
