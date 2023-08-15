@@ -207,9 +207,9 @@ class QuranWordController extends Controller
                             if ($bot->BotType() != "gap") {
                                 $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
                                 if (App::getLocale()) {
-                                    $postfix = config("reciter.audio." . App::getLocale());
+                                    $postfix = config("reciter.audio." . App::getLocale(), '');
                                     if ($postfix) {
-                                        $this->sendAudioMp3AyeFarsi($aya, $sure, $bot, $postfix, $userSettings);
+                                        $this->sendAudioMp3AyeByLocale($aya, $sure, $bot, $postfix, $userSettings);
                                     }
                                 }
 
@@ -680,15 +680,16 @@ class QuranWordController extends Controller
      * @param int $aya
      * @param int $sure
      * @param Telegram $bot
+     * @param $postfix
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public function sendAudioMp3AyeFarsi(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
+    public function sendAudioMp3AyeByLocale(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
-            BotQuranHelper::sendAudioFarsi($bot, 1, 1, $userSettings, $postfix);
+            BotQuranHelper::sendAudioByLocale($bot, 1, 1, $userSettings, $postfix);
         }
-        BotQuranHelper::sendAudioFarsi($bot, $sure, $aya, $userSettings, $postfix);
+        BotQuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
     }
 
     private function generateJozLinksThenSendItBale(Telegram $bot)

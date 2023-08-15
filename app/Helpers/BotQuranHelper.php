@@ -72,7 +72,7 @@ class BotQuranHelper
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public static function sendAudioFarsi($messenger, $suraId, $ayaId, BotUsers $userSettings = null, $postfix): void
+    public static function sendAudioByLocale($messenger, $suraId, $ayaId, BotUsers $userSettings = null, $postfix): void
     {
         // TODO: cache
         $aye = QuranAyat::query()
