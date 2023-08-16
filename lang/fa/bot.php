@@ -124,12 +124,10 @@ return [
     'to send your daily activity report please try it with this command'        => 'برای ارسال گزارش فعالیت روزانه خود لطفا با این دستور آن را امتحان کنید',
     'referral code'                                                             => 'کد ارجاع',
     'here is your referral link'                                                => 'اینجا لینک ارجاع شماست',
-    'next quran page click here' => 'اسکن صفحه بعدی قرآن عثمان طاها اینجا کلیک کنید:',
     'report'                                                                    => [
         'this is your reports' => [
             ' your last 7 days activities' => [
                 ' click on this link:' => 'این گزارش های شماست فعالیت های 7 روز گذشته شما روی این لینک کلیک کنید:',
-                "last 7 days readings" => "مطالعه ی قرآن 7 روز قبل شما",
             ],
         ],
     ],

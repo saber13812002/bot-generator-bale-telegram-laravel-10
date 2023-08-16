@@ -102,6 +102,7 @@ return [
         'list of Surahs of the Quran'                          => '古兰经》经文目录',
         'list of Quran 30 parts'                               => '古兰经》30 部分清单',
         'to help you for introduce all features of this robot' => '为您介绍该机器人的所有功能',
+        'to send scanned quran page'                           => '发送扫描的古兰经页面',
     ],
     'translators'                                                               => [
         'ansarian' => 'Ansarian',
