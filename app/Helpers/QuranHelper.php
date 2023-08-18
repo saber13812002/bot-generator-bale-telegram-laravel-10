@@ -567,7 +567,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $array = [["سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
 //                dd($array,$token,$message,$array);
         if ($type == 'telegram') {
-            BotHelper::sendQuranSearchResult($bot, $message, $array);
+            BotHelper::send1buttonWithMessage($bot, $message, $array);
         } else {
             $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
             BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);

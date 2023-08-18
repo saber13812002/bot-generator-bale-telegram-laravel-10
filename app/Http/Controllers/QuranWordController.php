@@ -135,7 +135,7 @@ class QuranWordController extends Controller
                 }
 
                 if ($type == 'telegram')
-                    BotHelper::sendMessageAye($bot, $message, "/" . $next, "/" . $back);
+                    BotHelper::sendMessage2Button($bot, $message, "/" . $next, "/" . $back);
                 else if ($type == 'gap') {
                     $inlineKeyboard = BotHelper::makeGapKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                     BotHelper::messageGapWithKeyboard($bot, $message, $inlineKeyboard);
@@ -432,7 +432,7 @@ class QuranWordController extends Controller
                 $array = [[trans("bot.return to command list"), "/start"]];
                 $message = $array[0][0];
                 if ($type == 'telegram') {
-                    BotHelper::sendStart($bot, $array);
+                    BotHelper::send1button($bot, $array);
                     BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                 } else if ($type == 'gap') {
 //                    BotHelper::sendStart($bot, $array);

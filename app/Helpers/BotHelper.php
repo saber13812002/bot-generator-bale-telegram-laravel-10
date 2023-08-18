@@ -215,7 +215,7 @@ class BotHelper
      * @param $back
      * @return void
      */
-    public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
+    public static function sendMessage2Button(Telegram $messenger, string $message, $next, $back): void
     {
         $option = array(
             //First row
@@ -400,7 +400,7 @@ class BotHelper
         }
     }
 
-    public static function sendStart(Telegram $messenger, $array): void
+    public static function send1button(Telegram $messenger, $array): void
     {
         $option = array(
             array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
@@ -410,7 +410,7 @@ class BotHelper
 
     }
 
-    public static function sendQuranSearchResult(Telegram $messenger, $message, $array): void
+    public static function send1buttonWithMessage(Telegram $messenger, $message, $array): void
     {
         $option = array(
             array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
