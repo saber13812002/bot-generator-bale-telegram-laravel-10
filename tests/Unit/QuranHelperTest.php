@@ -1,7 +1,7 @@
 <?php
 
 
-use App\Helpers\QuranHefzBotHelper;
+use App\Helpers\QuranHelper;
 use PHPUnit\Framework\TestCase;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use function PHPUnit\Framework\assertEquals;
@@ -36,22 +36,22 @@ class QuranHelperTest extends TestCase
     public function test_pagination_command()
     {
         $command = "الرحمنpage=2";
-        [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($command);
+        [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(2, $pageNumber);
         assertEquals("الرحمن", $searchPhrase);
 
         $command = "الرحمنpage=12";
-        [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($command);
+        [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(12, $pageNumber);
         assertEquals("الرحمن", $searchPhrase);
 
         $command = "الرحمنpage=";
-        [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($command);
+        [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(1, $pageNumber);
         assertEquals("الرحمن", $searchPhrase);
 
         $command = "الرحمان";
-        [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($command);
+        [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(1, $pageNumber);
         assertEquals("الرحمان", $searchPhrase);
 
