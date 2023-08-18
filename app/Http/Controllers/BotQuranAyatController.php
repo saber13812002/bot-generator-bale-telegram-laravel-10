@@ -3,13 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\LogHelper;
-use App\Helpers\QuranHefzBotHelper;
+use App\Helpers\QuranHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Resources\IndexedRecordResource;
 use App\Http\Resources\QuranAyatResource;
 use App\Models\QuranAyat;
 use Exception;
-use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -52,9 +51,9 @@ class BotQuranAyatController
 
             $botText = $bot->Text();
 
-            [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($botText);
+            [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($botText);
 
-            QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+            QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
 
         }
         return true;

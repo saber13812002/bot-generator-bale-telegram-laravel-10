@@ -3,9 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
-use App\Helpers\BotQuranHelper;
 use App\Helpers\LogHelper;
-use App\Helpers\QuranHefzBotHelper;
+use App\Helpers\QuranHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
@@ -108,8 +107,8 @@ class QuranWordController extends Controller
 
                 $command_type = "start";
                 $isStartCommandShow = 0;
-                list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
-                $reciterCommands = BotQuranHelper::getSettingReciter();
+                list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
+                $reciterCommands = QuranHelper::getSettingReciter();
                 $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
@@ -124,12 +123,12 @@ class QuranWordController extends Controller
 
                 $command_type = "word";
                 $wordId = $this->getWordId($bot);
-                [$message, $isEndAya] = QuranHefzBotHelper::getQuranWordById($wordId);
+                [$message, $isEndAya] = QuranHelper::getQuranWordById($wordId);
 //                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
                 $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
                 $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
 
-//                $messageCommands = QuranHefzBotHelper::getStringCommandsWordByWord($next, $back);
+//                $messageCommands = QuranHelper::getStringCommandsWordByWord($next, $back);
 
                 if ($isEndAya != 1) {
                     $isStartCommandShow = 0;
@@ -157,7 +156,7 @@ class QuranWordController extends Controller
                         if ($hr > 0) {
 
                             if ($type == 'telegram' || $type == 'bale') {
-                                BotQuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                QuranHelper::sendScanPage($bot, $pageNumber, $hr);
                                 $this->sendAudioMp3Page($bot, $pageNumber);
                             }
                         }
@@ -175,10 +174,10 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            $message = QuranHefzBotHelper::getSureAye($userSettings, $sure, $aya);
+                            $message = QuranHelper::getSureAye($userSettings, $sure, $aya);
 
-                            [$maxAyah, $sureName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
-                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHefzBotHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
+                            [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
+                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
 
                             $message = $this->addAyeIdAndBesmella($aya, $sureName, $sure, $message);
 
@@ -192,7 +191,7 @@ class QuranWordController extends Controller
                             if ($aya == $maxAyah || $aya == 1) {
                                 $isStartCommandShow = true;
                             }
-//                            $messageCommands = QuranHefzBotHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
+//                            $messageCommands = QuranHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
                             $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
                             if ($type == 'telegram') {
@@ -226,8 +225,8 @@ class QuranWordController extends Controller
 
                 $command_type = "//";
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
-                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+                [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($searchPhrase);
+                QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } elseif ((substr($bot->Text(), 0, 1)) == "/") {
 
                 $command_type = "commands";
@@ -671,9 +670,9 @@ class QuranWordController extends Controller
     public function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
-            BotQuranHelper::sendAudio($bot, 1, 1, $userSettings);
+            QuranHelper::sendAudio($bot, 1, 1, $userSettings);
         }
-        BotQuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+        QuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
     }
 
     /**
@@ -687,9 +686,9 @@ class QuranWordController extends Controller
     public function sendAudioMp3AyeByLocale(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
-            BotQuranHelper::sendAudioByLocale($bot, 1, 1, $userSettings, $postfix);
+            QuranHelper::sendAudioByLocale($bot, 1, 1, $userSettings, $postfix);
         }
-        BotQuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
+        QuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
     }
 
     private function generateJozLinksThenSendItBale(Telegram $bot)
@@ -760,7 +759,7 @@ class QuranWordController extends Controller
 
     private function sendAudioMp3Page($bot, string $pageNumber)
     {
-        BotQuranHelper::sendAudioMp3Page($bot, $pageNumber);
+        QuranHelper::sendAudioMp3Page($bot, $pageNumber);
     }
 
 }
