@@ -9,10 +9,13 @@ class TokenTest extends TestCase
 
     public function test_bot_tokens(): void
     {
-        $token = env("BOT_MOTHER_TOKEN_BALE", "1234567890:abcdefghijabcdefghijabcdefghijabcdefghij");
+        $token = "1234567890:abcdefghijabcdefghijabcdefghijabcdefghij";
         $this->assertTrue(TokenHelper::isToken($token, 'bale'));
-        $token = env("BOT_MOTHER_TOKEN_BALE", "1234567890:abcdefghijabcdefghijabcdefghij12345");
+        $token = "1234567890:abcdefgh-jabcdefghijabcdefghij12345";
+        $this->assertFalse(TokenHelper::isToken($token, 'bale'));
         $this->assertTrue(TokenHelper::isToken($token, 'telegram'));
+        $token = "123456789:abcdefgh-jabcdefghijab";
+        $this->assertFalse(TokenHelper::isToken($token, 'telegram'));
     }
 
 }

@@ -17,7 +17,7 @@ class TokenHelper
         if ($type == 'bale') {
             $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{40}$/", $text);
         } else {
-            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{35}$/", $text);
+            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{35}/", $text);
         }
 //        dd($check);
         if ($check) {
