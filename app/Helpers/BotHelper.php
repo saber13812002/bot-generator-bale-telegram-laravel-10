@@ -458,6 +458,7 @@ class BotHelper
      * @param string $message
      * @param $type
      * @return void
+     * @throws Exception
      */
     public static function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
     {
@@ -520,7 +521,6 @@ class BotHelper
     public
     static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
     {
-
         return [
             [
                 [
@@ -531,7 +531,6 @@ class BotHelper
                 ]
             ]
         ];
-
     }
 
     public
@@ -649,40 +648,13 @@ class BotHelper
         echo $response->getBody()->getContents();
     }
 
-    public
-    static function isAdminCommand(mixed $Text): bool
-    {
-        if (Str::start($Text, '///'))
-            return true;
-        return false;
-    }
-
-    public
-    static function isAdmin(mixed $chatId): bool
-    {
-        if (
-            $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
-            $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_GAP")
-        )
-            return true;
-        return false;
-    }
-
-    public
-    static function getMessageAdmin(mixed $Text): string
-    {
-        return Str::substr($Text, 3, -1);
-    }
-
 
     /**
      * @param mixed $chat_id
      * @param string $photoUrl
      * @param string $title
      * @param Telegram $messenger
+     * @param string $caption
      * @return mixed
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed

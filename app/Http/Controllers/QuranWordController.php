@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
@@ -258,7 +259,7 @@ class QuranWordController extends Controller
                     if ($type == 'telegram') {
                         BotHelper::sendMessage($bot, "this command not work in telegram");
                     } else {
-                        if (BotHelper::isAdmin($bot->ChatID())) {
+                        if (AdminHelper::isAdmin($bot->ChatID())) {
                             $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
                         } else {
                             BotHelper::sendMessage($bot, "you are not admin");
@@ -485,10 +486,10 @@ class QuranWordController extends Controller
                 return 200;
             }
 
-            if (BotHelper::isAdminCommand($bot->Text())) {
-                if (BotHelper::isAdmin($bot->ChatID())) {
+            if (AdminHelper::isAdminCommand($bot->Text())) {
+                if (AdminHelper::isAdmin($bot->ChatID())) {
 
-                    $message = BotHelper::getMessageAdmin($bot->Text());
+                    $message = AdminHelper::getMessageAdmin($bot->Text());
 
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
