@@ -48,7 +48,7 @@ class QuranWordController extends Controller
         BotHelper::sendMessageToSuperAdmin("gap:" . $request->chat_id . " : ", "bale");
         $bot->sendText($request->chat_id, "salam" . "gap:" . $request->chat_id . " : ");
 
-        dd($request);
+//        dd($request);
     }
 
     /**
