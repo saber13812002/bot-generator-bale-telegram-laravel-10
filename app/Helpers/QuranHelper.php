@@ -11,6 +11,7 @@ use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
@@ -73,7 +74,6 @@ class QuranHelper
                 $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
             }
         }
-
     }
 
     /**
@@ -121,7 +121,6 @@ class QuranHelper
                 $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
             }
         }
-
     }
 
     /**
@@ -685,6 +684,256 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return [$searchPhrase, 1];
     }
 
+    /**
+     * @param Telegram $bot
+     * @return string
+     */
+    public static function getWordId($bot): string
+    {
+        $wordId = substr($bot->Text(), 1, 1);
+        if ((integer)(substr($bot->Text(), 1, 2)) > 0) {
+            $wordId = substr($bot->Text(), 1, 2);
+        }
+        if ((integer)(substr($bot->Text(), 1, 3)) > 0) {
+            $wordId = substr($bot->Text(), 1, 3);
+        }
+        if ((integer)(substr($bot->Text(), 1, 4)) > 0) {
+            $wordId = substr($bot->Text(), 1, 4);
+        }
+        if ((integer)(substr($bot->Text(), 1, 5)) > 0) {
+            $wordId = substr($bot->Text(), 1, 5);
+        }
+        return $wordId;
+    }
+
+    /**
+     * @param int $aya
+     * @param mixed $suraName
+     * @param int $sure
+     * @param string $message
+     * @return string
+     */
+    public static
+    function addAyeIdAndBesmella(int $aya, mixed $suraName, int $sure, string $message): string
+    {
+        if ($aya == 1) {
+            $message = $suraName . (($sure == 1 || $sure == 9) ? "
+" : "
+بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+") . $message . " :(" . $sure . ":" . $aya . ")";
+        }
+//        else {
+//            $message .= "(" . $aya . ")";
+//        }
+        return $message;
+    }
+
+    /**
+     * @param Telegram $bot
+     * @param $token
+     * @return void
+     * @throws GuzzleException
+     */
+    public
+    function generateJozKeyBoardThenSendIt(Telegram $bot, $token): void
+    {
+        for ($i = 0; $i < 30; $i += 2) {
+            $inlineKeyboard = BotHelper::makeKeyboard2button(trans("bot.Juz") . ($i + 1), config('juz.' . ($i + 1)), trans("bot.Juz") . ($i + 2), config('juz.' . ($i + 2)));
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2), $inlineKeyboard);
+        }
+    }
+
+    /**
+     * @param Telegram $bot
+     * @return void
+     */
+    public
+    function generateJozKeyBoardThenSendItTelegram(Telegram $bot): void
+    {
+        for ($i = 0; $i < 30; $i += 2) {
+            $message = trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2);
+            $array = [[trans("bot.Juz") . ($i + 1), config('juz.' . ($i + 1))], [trans("bot.Juz") . ($i + 2), config('juz.' . ($i + 2))]];
+            BotHelper::sendTelegram2InlineMessage($bot, $message, $array, true);
+        }
+    }
+
+    /**
+     * @param Telegram $bot
+     * @return void
+     */
+    public static
+    function generateJozLinksThenSendItTelegram($bot): void
+    {
+        $message = "";
+        for ($i = 1; $i <= 30; $i++) {
+            $message .= trans("bot.Juz") . $i . "
+
+" . config('juz.' . $i) . "
+
+";
+//            <a href=\"" . config('juz.' . $i) . "\">" . trans("bot.Juz") . $i . "</a>
+        }
+        BotHelper::sendMessageParseMode($bot, $message);
+    }
+
+    /**
+     * @param Telegram $bot
+     * @param $token
+     * @return void
+     * @throws GuzzleException
+     */
+    public static
+    function generateBaleFehrestThenSendIt(Telegram $bot, $token): void
+    {
+        $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
+            ->get();
+
+        for ($i = 0; $i < 114; $i += 6) {
+            for ($j = 0; $j < 6; $j++) {
+                $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
+            }
+
+            $inlineKeyboard = BotHelper::makeKeyboard6button($array);
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6), $inlineKeyboard);
+        }
+    }
+
+    /**
+     * @param Telegram $bot
+     * @return void
+     */
+    public static
+    function generateTelegramFehrestThenSendIt(Telegram $bot): void
+    {
+        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
+            ->get();
+
+        for ($i = 0; $i < 114; $i += 6) {
+            for ($j = 0; $j < 6; $j++) {
+                $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
+            }
+            $message = trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6);
+            BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
+        }
+    }
+
+    /**
+     * @param $bot
+     * @return void
+     */
+    public static
+    function generateGapFehrestThenSendIt($bot): void
+    {
+        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
+            ->get();
+        $message = "";
+        for ($i = 0; $i < 114; $i++) {
+            $message .= $quranSurahs[$i]->id . ":" . $quranSurahs[$i]->arabic . ":" . $quranSurahs[$i]->ayah . ":
+
+             /sure" . ($i + 1) . "ayah1
+
+            ";
+        }
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * @param int $aya
+     * @param int $sure
+     * @param Telegram $bot
+     * @param BotUsers|null $userSettings
+     * @return void
+     */
+    public static function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
+    {
+        if ($aya == 1 && $sure != 1 && $sure != 9) {
+            QuranHelper::sendAudio($bot, 1, 1, $userSettings);
+        }
+        QuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+    }
+
+    /**
+     * @param int $aya
+     * @param int $sure
+     * @param Telegram $bot
+     * @param $postfix
+     * @param BotUsers|null $userSettings
+     * @return void
+     */
+    public static function sendAudioMp3AyeByLocale(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
+    {
+        if ($aya == 1 && $sure != 1 && $sure != 9) {
+            QuranHelper::sendAudioByLocale($bot, 1, 1, $userSettings, $postfix);
+        }
+        QuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
+    }
+
+    public function generateJozLinksThenSendItBale(Telegram $bot): void
+    {
+        $message = "";
+        for ($i = 0; $i < 30; $i += 2) {
+            $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
+[" . trans("bot.Juz") . ($i + 1) . "](send:" . config('juz.' . ($i + 1)) . ") [" . trans("bot.Juz") . ($i + 2) . "](send:" . config('juz.' . ($i + 2)) . ")
+";
+        }
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    public static function generateArrayCommands(Model|bool|BotUsers $userSettings): array
+    {
+        if (!$userSettings) {
+            return [
+                [
+                    "text" => trans("bot.disable enable reciter"),
+                    "callback_data" => "/mp3"
+                ],
+                [
+                    "text" => trans("bot.change reciter"),
+                    "callback_data" => "/mp3reciter"
+                ]
+            ];
+        } else {
+            $mp3Reciter = $userSettings->setting('mp3_reciter');
+            $mp3Enable = $userSettings->setting('mp3_enable');
+
+            $mp3EnableArray = [
+                "text" => trans("bot.enable reciter"),
+                "callback_data" => "/mp3_true"
+            ];
+
+            $mp3DisableArray = [
+                "text" => trans("bot.disable reciter"),
+                "callback_data" => "/mp3_false"
+            ];
+
+
+            $mp3ReciterParhizgarArray = [
+                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
+                "callback_data" => "/mp3reciter_parhizgar"
+            ];
+
+            $mp3ReciterAlafasyArray = [
+                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
+                "callback_data" => "/mp3reciter_alafasy"
+            ];
+
+            $resultArray = [];
+
+            if ($mp3Enable == "true") {
+                $resultArray[] = $mp3DisableArray;
+            } else {
+                $resultArray[] = $mp3EnableArray;
+            }
+
+            if ($mp3Reciter == "parhizgar") {
+                $resultArray[] = $mp3ReciterAlafasyArray;
+            } else {
+                $resultArray[] = $mp3ReciterParhizgarArray;
+            }
+            return $resultArray;
+        }
+    }
+
 
     /**
      * @param mixed $type
@@ -709,6 +958,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 //" . $searchPhrase . "page=" . $nextPage;
 
     }
+
 }
 
 
