@@ -501,6 +501,7 @@ class QuranWordController extends Controller
                 BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
             }
         }
+        return true;
     }
 
 }
