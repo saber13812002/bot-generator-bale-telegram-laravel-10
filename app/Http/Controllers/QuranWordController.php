@@ -498,7 +498,7 @@ class QuranWordController extends Controller
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                     }
                 }
-                BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
+                BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
             }
         }
         return true;

@@ -149,5 +149,6 @@ return [
     'report' => [
         "this is your reports. your last 7 days activities. click on this link:" => "this is your reports. your last 7 days activities. click on this link:",
         "last 7 days readings" => "last 7 days readings",
-    ]
+    ],
+    "sent it for :count person" => "sent it for :count person"
 ];
