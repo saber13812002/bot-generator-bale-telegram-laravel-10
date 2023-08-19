@@ -265,9 +265,9 @@ class QuranHelper
      * @param $userSettings
      * @param $sure
      * @param $aye
-     * @return string
+     * @return array
      */
-    public static function getSureAye($userSettings, $sure, $aye): string
+    public static function getSureAye($userSettings, $sure, $aye): array
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
@@ -337,7 +337,7 @@ class QuranHelper
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
         }
-        return $message;
+        return [$message, $pageNumber];
 
     }
 
@@ -736,6 +736,25 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             return "/scan604hr1";
         }
         return $pageNumber < 604 ? "/scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
+    }
+
+
+    /**
+     * @param int $pageNumber
+     * @param mixed $token
+     * @param Telegram $bot
+     * @return array
+     * @throws GuzzleException
+     */
+    public static function sendScanBaleButtons(int $pageNumber, mixed $token, Telegram $bot): array
+    {
+        $nextCommand = QuranHelper::getCommandScan($pageNumber + 1);
+        $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
+        $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
+
+        $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), $nextCommand, trans('bot.previous'), $backCommand);
+        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+        return array($message, $inlineKeyboard);
     }
 
     /**

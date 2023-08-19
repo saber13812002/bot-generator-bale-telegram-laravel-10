@@ -157,13 +157,7 @@ class QuranWordController extends Controller
                             if ($type == 'telegram' || $type == 'bale') {
                                 QuranHelper::sendScanPage($bot, $pageNumber, $hr);
                                 if ($type == 'bale') {
-
-                                    $nextCommand = QuranHelper::getCommandScan($pageNumber + 1);
-                                    $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
-                                    $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
-
-                                    $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), $nextCommand, trans('bot.previous'), $backCommand);
-                                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                                 }
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
                             }
@@ -182,7 +176,7 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            $message = QuranHelper::getSureAye($userSettings, $sure, $aya);
+                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya);
 
                             [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
                             [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
@@ -209,6 +203,7 @@ class QuranWordController extends Controller
                             } else {
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                             }
 
                             if ($bot->BotType() != "gap") {
