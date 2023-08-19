@@ -878,7 +878,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         QuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
     }
 
-    public function generateJozLinksThenSendItBale(Telegram $bot): void
+    public static function generateJozLinksThenSendItBale(Telegram $bot): void
     {
         $message = "";
         for ($i = 0; $i < 30; $i += 2) {
