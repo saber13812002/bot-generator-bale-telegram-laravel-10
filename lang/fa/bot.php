@@ -131,5 +131,7 @@ return [
             ],
         ],
     ],
-    "sent it for :count person" => "برای  :count نفر ارسال شد"
+    "sent it for :count person" => "برای  :count نفر ارسال شد",
+    "next quran page click here" => "صفحه بعدی قرآن کلیک کنید",
+    "for next or previous quran page click on these buttons" => "برای دریافت اسکن صفحه قبلی و بعدی روی دکمه های زیر کلیک کنید"
 ];

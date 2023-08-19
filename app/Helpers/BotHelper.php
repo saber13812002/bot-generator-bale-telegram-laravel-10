@@ -645,7 +645,7 @@ class BotHelper
             "reply_markup" => [
                 "inline_keyboard" => $inlineKeyboard
             ]]]);
-        echo $response->getBody()->getContents();
+//        echo $response->getBody()->getContents();
     }
 
 

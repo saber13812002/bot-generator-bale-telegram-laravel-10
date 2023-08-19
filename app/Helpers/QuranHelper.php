@@ -743,10 +743,10 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param int $pageNumber
      * @param mixed $token
      * @param Telegram $bot
-     * @return array
+     * @return void
      * @throws GuzzleException
      */
-    public static function sendScanBaleButtons(int $pageNumber, mixed $token, Telegram $bot): array
+    public static function sendScanBaleButtons(int $pageNumber, mixed $token, Telegram $bot): void
     {
         $nextCommand = QuranHelper::getCommandScan($pageNumber + 1);
         $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
