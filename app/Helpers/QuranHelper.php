@@ -754,7 +754,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
         $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), $nextCommand, trans('bot.previous'), $backCommand);
         BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-        return array($message, $inlineKeyboard);
     }
 
     /**
