@@ -148,15 +148,23 @@ class QuranWordController extends Controller
                 $command_type = "hr";
 
                 if (preg_match('/scan(.*?)hr/', substr($botText, 1, Str::length($botText)), $match) == 1) {
-                    $pageNumber = $match[1];
+                    $pageNumber = (int)$match[1];
                     $page = (integer)$match[1];
                     if ($page > 0) {
                         $hr = (integer)substr($botText, strpos($botText, $commandTemplateHr) + Str::length($commandTemplateHr));
 
                         if ($hr > 0) {
-
                             if ($type == 'telegram' || $type == 'bale') {
                                 QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                if ($type == 'bale') {
+
+                                    $nextCommand = QuranHelper::getCommandScan($pageNumber + 1);
+                                    $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
+                                    $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
+
+                                    $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $nextCommand, trans('bot.previous'), "/" . $backCommand);
+                                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                }
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
                             }
                         }

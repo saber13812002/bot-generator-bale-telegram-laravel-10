@@ -215,15 +215,16 @@ class QuranHelper
         return $base_url;
     }
 
-    public static function sendScanPage(Telegram $messenger, string $pageNumber, int $hr)
+    public static function sendScanPage(Telegram $messenger, int $pageNumber, int $hr)
     {
         $photoUrl = self::getSScan($pageNumber, $hr, $messenger->BotType());
 
         $chat_id = $messenger->ChatID();
         $title = "page" . $pageNumber;
 
-        $threeDigitNumber = StringHelper::get3digitNumber($pageNumber + 1);
-        $caption = $pageNumber < 604 ? trans("bot.next quran page click here") . " : /scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
+        $command = self::getCommandScan($pageNumber);
+        $text = trans("bot.next quran page click here") . " : ";
+        $caption = $text . $command;
 
         return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
@@ -726,6 +727,15 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 //            $message .= "(" . $aya . ")";
 //        }
         return $message;
+    }
+
+    public static function getCommandScan(int $pageNumber): string
+    {
+        $threeDigitNumber = StringHelper::get3digitNumber($pageNumber);
+        if ($pageNumber == 0) {
+            return "/scan604hr1";
+        }
+        return $pageNumber < 604 ? "/scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
     }
 
     /**
