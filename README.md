@@ -128,6 +128,10 @@ list of Bot Types that you can clone it, is in next block of this document
 [http://bots.pardisania.ir](http://bots.pardisania.ir)
 
 
+## Donate this project
+
+https://hamibash.com/quran_hefz_bale_telegram_bot
+
 ## How to start
 
 - composer i
