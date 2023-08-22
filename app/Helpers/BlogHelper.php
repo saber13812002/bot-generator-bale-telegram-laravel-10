@@ -12,7 +12,6 @@ class BlogHelper
     {
         $client = new GuzzleHttp\Client();
 
-
         $request_param = [
             'posted_at' => Carbon::now()
         ];

@@ -15,5 +15,6 @@ return [
     'base_url' => [
         'bale' => 'https://ble.ir/',
         'telegram' => 'https://t.me/',
+        'gap' => 'https://gap.ir/',
     ],
 ];

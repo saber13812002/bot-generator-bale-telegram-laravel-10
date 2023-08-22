@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
-use App\Helpers\BotQuranHelper;
 use App\Helpers\LogHelper;
-use App\Helpers\QuranHefzBotHelper;
+use App\Helpers\QuranHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
-use App\Models\QuranSurah;
 use Exception;
 use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
@@ -49,7 +48,7 @@ class QuranWordController extends Controller
         BotHelper::sendMessageToSuperAdmin("gap:" . $request->chat_id . " : ", "bale");
         $bot->sendText($request->chat_id, "salam" . "gap:" . $request->chat_id . " : ");
 
-        dd($request);
+//        dd($request);
     }
 
     /**
@@ -88,7 +87,7 @@ class QuranWordController extends Controller
                 $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
 
 
-            $arrayCommands = $this->generateArrayCommands($userSettings);
+            $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
 
 //            if ((substr($bot->Text(), 0, 2)) == "//")
 //                $request->request->add(['command_type' => 'quran_search']);
@@ -108,8 +107,8 @@ class QuranWordController extends Controller
 
                 $command_type = "start";
                 $isStartCommandShow = 0;
-                list($message, $messageCommands) = QuranHefzBotHelper::getStringCommandsStartBot($type);
-                $reciterCommands = BotQuranHelper::getSettingReciter();
+                list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
+                $reciterCommands = QuranHelper::getSettingReciter();
                 $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
@@ -123,20 +122,20 @@ class QuranWordController extends Controller
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
 
                 $command_type = "word";
-                $wordId = $this->getWordId($bot);
-                [$message, $isEndAya] = QuranHefzBotHelper::getQuranWordById($wordId);
+                $wordId = QuranHelper::getWordId($bot);
+                [$message, $isEndAya] = QuranHelper::getQuranWordById($wordId);
 //                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
                 $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
                 $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
 
-//                $messageCommands = QuranHefzBotHelper::getStringCommandsWordByWord($next, $back);
+//                $messageCommands = QuranHelper::getStringCommandsWordByWord($next, $back);
 
                 if ($isEndAya != 1) {
                     $isStartCommandShow = 0;
                 }
 
                 if ($type == 'telegram')
-                    BotHelper::sendMessageAye($bot, $message, "/" . $next, "/" . $back);
+                    BotHelper::sendMessage2Button($bot, $message, "/" . $next, "/" . $back);
                 else if ($type == 'gap') {
                     $inlineKeyboard = BotHelper::makeGapKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                     BotHelper::messageGapWithKeyboard($bot, $message, $inlineKeyboard);
@@ -149,15 +148,18 @@ class QuranWordController extends Controller
                 $command_type = "hr";
 
                 if (preg_match('/scan(.*?)hr/', substr($botText, 1, Str::length($botText)), $match) == 1) {
-                    $pageNumber = $match[1];
+                    $pageNumber = (int)$match[1];
                     $page = (integer)$match[1];
                     if ($page > 0) {
                         $hr = (integer)substr($botText, strpos($botText, $commandTemplateHr) + Str::length($commandTemplateHr));
 
                         if ($hr > 0) {
-
                             if ($type == 'telegram' || $type == 'bale') {
-                                BotQuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                if ($type == 'bale') {
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                                }
+                                QuranHelper::sendAudioMp3Page($bot, $pageNumber);
                             }
                         }
                     }
@@ -174,12 +176,12 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            $message = QuranHefzBotHelper::getSureAye($userSettings, $sure, $aya);
+                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya);
 
-                            [$maxAyah, $sureName] = QuranHefzBotHelper::getLastAyeBySurehId($sure);
-                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHefzBotHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
+                            [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
+                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
 
-                            $message = $this->addAyeIdAndBesmella($aya, $sureName, $sure, $message);
+                            $message = QuranHelper::addAyeIdAndBesmella($aya, $sureName, $sure, $message);
 
                             $nextSure = $commandTemplateSure . ($sure != 114 ? $sure + 1 : 1) . $commandTemplateAyah . "1";
                             $firstAyaOfLastSure = $commandTemplateSure . ($sure - 1) . $commandTemplateAyah . "1";
@@ -191,7 +193,7 @@ class QuranWordController extends Controller
                             if ($aya == $maxAyah || $aya == 1) {
                                 $isStartCommandShow = true;
                             }
-//                            $messageCommands = QuranHefzBotHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
+//                            $messageCommands = QuranHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
                             $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
                             if ($type == 'telegram') {
@@ -201,10 +203,18 @@ class QuranWordController extends Controller
                             } else {
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                 BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                             }
 
-                            if ($bot->BotType() != "gap")
-                                $this->sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                            if ($bot->BotType() != "gap") {
+                                QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                if (App::getLocale()) {
+                                    $postfix = config("reciter.audio." . App::getLocale(), '');
+                                    if ($postfix) {
+                                        QuranHelper::sendAudioMp3AyeByLocale($aya, $sure, $bot, $postfix, $userSettings);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -216,8 +226,8 @@ class QuranWordController extends Controller
 
                 $command_type = "//";
                 $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-                [$searchPhrase, $pageNumber] = QuranHefzBotHelper::getPageNumberFromPhrase($searchPhrase);
-                QuranHefzBotHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+                [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($searchPhrase);
+                QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
             } elseif ((substr($bot->Text(), 0, 1)) == "/") {
 
                 $command_type = "commands";
@@ -225,18 +235,17 @@ class QuranWordController extends Controller
                 $command = substr($botText, strpos($botText, "/") + Str::length("/"));
                 if ($command == "fehrest") {
                     if ($type == 'telegram') {
-                        $this->generateTelegramFehrestThenSendIt($bot);
+                        QuranHelper::generateTelegramFehrestThenSendIt($bot);
                     } else if ($type == 'gap') {
-                        $this->generateGapFehrestThenSendIt($bot);
+                        QuranHelper::generateGapFehrestThenSendIt($bot);
                     } else {
-                        $this->generateBaleFehrestThenSendIt($bot, $token);
+                        QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
                     }
                 } else if ($command == "joz") {
                     if ($type != 'bale') {
-                        $this->generateJozLinksThenSendItTelegram($bot);
-
+                        QuranHelper::generateJozLinksThenSendItTelegram($bot);
                     } else {
-                        $this->generateJozLinksThenSendItBale($bot);
+                        QuranHelper::generateJozLinksThenSendItBale($bot);
                     }
                 } else if ($command == "report") {
                     $chatId = $bot->ChatID();
@@ -249,7 +258,7 @@ class QuranWordController extends Controller
                     if ($type == 'telegram') {
                         BotHelper::sendMessage($bot, "this command not work in telegram");
                     } else {
-                        if (BotHelper::isAdmin($bot->ChatID())) {
+                        if (AdminHelper::isAdmin($bot->ChatID())) {
                             $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
                         } else {
                             BotHelper::sendMessage($bot, "you are not admin");
@@ -423,7 +432,7 @@ class QuranWordController extends Controller
                 $array = [[trans("bot.return to command list"), "/start"]];
                 $message = $array[0][0];
                 if ($type == 'telegram') {
-                    BotHelper::sendStart($bot, $array);
+                    BotHelper::send1button($bot, $array);
                     BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                 } else if ($type == 'gap') {
 //                    BotHelper::sendStart($bot, $array);
@@ -476,10 +485,10 @@ class QuranWordController extends Controller
                 return 200;
             }
 
-            if (BotHelper::isAdminCommand($bot->Text())) {
-                if (BotHelper::isAdmin($bot->ChatID())) {
+            if (AdminHelper::isAdminCommand($bot->Text())) {
+                if (AdminHelper::isAdmin($bot->ChatID())) {
 
-                    $message = BotHelper::getMessageAdmin($bot->Text());
+                    $message = AdminHelper::getMessageAdmin($bot->Text());
 
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
@@ -492,244 +501,10 @@ class QuranWordController extends Controller
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                     }
                 }
-                BotHelper::sendMessage($bot, "برای جند نفر ارسال شد " . $count);
+                BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
             }
         }
-    }
-
-    /**
-     * @param Telegram $bot
-     * @return string
-     */
-    public
-    function getWordId($bot): string
-    {
-        $wordId = substr($bot->Text(), 1, 1);
-        if ((integer)(substr($bot->Text(), 1, 2)) > 0) {
-            $wordId = substr($bot->Text(), 1, 2);
-        }
-        if ((integer)(substr($bot->Text(), 1, 3)) > 0) {
-            $wordId = substr($bot->Text(), 1, 3);
-        }
-        if ((integer)(substr($bot->Text(), 1, 4)) > 0) {
-            $wordId = substr($bot->Text(), 1, 4);
-        }
-        if ((integer)(substr($bot->Text(), 1, 5)) > 0) {
-            $wordId = substr($bot->Text(), 1, 5);
-        }
-        return $wordId;
-    }
-
-    /**
-     * @param int $aya
-     * @param mixed $suraName
-     * @param int $sure
-     * @param string $message
-     * @return string
-     */
-    public
-    function addAyeIdAndBesmella(int $aya, mixed $suraName, int $sure, string $message): string
-    {
-        if ($aya == 1) {
-            $message = $suraName . (($sure == 1 || $sure == 9) ? "
-" : "
-بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-") . $message . " :(" . $sure . ":" . $aya . ")";
-        }
-//        else {
-//            $message .= "(" . $aya . ")";
-//        }
-        return $message;
-    }
-
-    /**
-     * @param Telegram $bot
-     * @param $token
-     * @return void
-     * @throws GuzzleException
-     */
-    public
-    function generateJozKeyBoardThenSendIt(Telegram $bot, $token): void
-    {
-        for ($i = 0; $i < 30; $i += 2) {
-            $inlineKeyboard = BotHelper::makeKeyboard2button(trans("bot.Juz") . ($i + 1), config('juz.' . ($i + 1)), trans("bot.Juz") . ($i + 2), config('juz.' . ($i + 2)));
-            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2), $inlineKeyboard);
-        }
-    }
-
-    /**
-     * @param Telegram $bot
-     * @return void
-     */
-    public
-    function generateJozKeyBoardThenSendItTelegram(Telegram $bot): void
-    {
-        for ($i = 0; $i < 30; $i += 2) {
-            $message = trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2);
-            $array = [[trans("bot.Juz") . ($i + 1), config('juz.' . ($i + 1))], [trans("bot.Juz") . ($i + 2), config('juz.' . ($i + 2))]];
-            BotHelper::sendTelegram2InlineMessage($bot, $message, $array, true);
-        }
-    }
-
-    /**
-     * @param Telegram $bot
-     * @return void
-     */
-    public
-    function generateJozLinksThenSendItTelegram($bot): void
-    {
-        $message = "";
-        for ($i = 1; $i <= 30; $i++) {
-            $message .= trans("bot.Juz") . $i . "
-
-" . config('juz.' . $i) . "
-
-";
-//            <a href=\"" . config('juz.' . $i) . "\">" . trans("bot.Juz") . $i . "</a>
-        }
-        BotHelper::sendMessageParseMode($bot, $message);
-    }
-
-    /**
-     * @param Telegram $bot
-     * @param $token
-     * @return void
-     * @throws GuzzleException
-     */
-    public
-    function generateBaleFehrestThenSendIt(Telegram $bot, $token): void
-    {
-        $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
-            ->get();
-
-        for ($i = 0; $i < 114; $i += 6) {
-            for ($j = 0; $j < 6; $j++) {
-                $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
-            }
-
-            $inlineKeyboard = BotHelper::makeKeyboard6button($array);
-            BotHelper::messageWithKeyboard($token, $bot->ChatID(), trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6), $inlineKeyboard);
-        }
-    }
-
-    /**
-     * @param Telegram $bot
-     * @return void
-     */
-    public
-    function generateTelegramFehrestThenSendIt(Telegram $bot): void
-    {
-        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
-            ->get();
-
-        for ($i = 0; $i < 114; $i += 6) {
-            for ($j = 0; $j < 6; $j++) {
-                $array[$j] = [$quranSurahs[$i + $j]->id . ":" . $quranSurahs[$i + $j]->arabic . ":" . $quranSurahs[$i + $j]->ayah, "/sure" . ($i + $j + 1) . "ayah1"];
-            }
-            $message = trans("bot.surah number:") . ($i + 1) . " " . trans("bot.to") . " " . ($i + 6);
-            BotHelper::sendTelegram6InlineMessage($bot, $message, $array, true);
-        }
-    }
-
-    /**
-     * @param $bot
-     * @return void
-     */
-    public
-    function generateGapFehrestThenSendIt($bot): void
-    {
-        $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
-            ->get();
-        $message = "";
-        for ($i = 0; $i < 114; $i++) {
-            $message .= $quranSurahs[$i]->id . ":" . $quranSurahs[$i]->arabic . ":" . $quranSurahs[$i]->ayah . ":
-
-             /sure" . ($i + 1) . "ayah1
-
-            ";
-        }
-        BotHelper::sendMessage($bot, $message);
-    }
-
-    /**
-     * @param int $aya
-     * @param int $sure
-     * @param Telegram $bot
-     * @param BotUsers|null $userSettings
-     * @return void
-     */
-    public function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
-    {
-        if ($aya == 1 && $sure != 1 && $sure != 9) {
-            BotQuranHelper::sendAudio($bot, 1, 1, $userSettings);
-        }
-        BotQuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
-    }
-
-    private function generateJozLinksThenSendItBale(Telegram $bot)
-    {
-        $message = "";
-        for ($i = 0; $i < 30; $i += 2) {
-            $message .= trans("bot.Juz") . ($i + 1) . " " . trans("bot.and") . " " . ($i + 2) . "
-[" . trans("bot.Juz") . ($i + 1) . "](send:" . config('juz.' . ($i + 1)) . ") [" . trans("bot.Juz") . ($i + 2) . "](send:" . config('juz.' . ($i + 2)) . ")
-";
-        }
-        BotHelper::sendMessage($bot, $message);
-    }
-
-    private function generateArrayCommands(\Illuminate\Database\Eloquent\Model|bool|BotUsers $userSettings)
-    {
-        if (!$userSettings) {
-            return [
-                [
-                    "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/mp3"
-                ],
-                [
-                    "text" => trans("bot.change reciter"),
-                    "callback_data" => "/mp3reciter"
-                ]
-            ];
-        } else {
-            $mp3Reciter = $userSettings->setting('mp3_reciter');
-            $mp3Enable = $userSettings->setting('mp3_enable');
-
-            $mp3EnableArray = [
-                "text" => trans("bot.enable reciter"),
-                "callback_data" => "/mp3_true"
-            ];
-
-            $mp3DisableArray = [
-                "text" => trans("bot.disable reciter"),
-                "callback_data" => "/mp3_false"
-            ];
-
-
-            $mp3ReciterParhizgarArray = [
-                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
-                "callback_data" => "/mp3reciter_parhizgar"
-            ];
-
-            $mp3ReciterAlafasyArray = [
-                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
-                "callback_data" => "/mp3reciter_alafasy"
-            ];
-
-            $resultArray = [];
-
-            if ($mp3Enable == "true") {
-                $resultArray[] = $mp3DisableArray;
-            } else {
-                $resultArray[] = $mp3EnableArray;
-            }
-
-            if ($mp3Reciter == "parhizgar") {
-                $resultArray[] = $mp3ReciterAlafasyArray;
-            } else {
-                $resultArray[] = $mp3ReciterParhizgarArray;
-            }
-            return $resultArray;
-        }
+        return true;
     }
 
 }

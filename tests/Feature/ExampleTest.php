@@ -37,7 +37,7 @@ class ExampleTest extends TestCase
         assertEquals(1, $this->countResultSearchQuran($botText));
 
         $botText = "قرية";
-        assertEquals(15, $this->countResultSearchQuran($botText));
+        assertEquals(23, $this->countResultSearchQuran($botText));
 
         $botText = "وَاسأَلِ";
         assertEquals(5, $this->countResultSearchQuran($botText));

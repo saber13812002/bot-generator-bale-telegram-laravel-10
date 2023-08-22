@@ -215,7 +215,7 @@ class BotHelper
      * @param $back
      * @return void
      */
-    public static function sendMessageAye(Telegram $messenger, string $message, $next, $back): void
+    public static function sendMessage2Button(Telegram $messenger, string $message, $next, $back): void
     {
         $option = array(
             //First row
@@ -400,7 +400,7 @@ class BotHelper
         }
     }
 
-    public static function sendStart(Telegram $messenger, $array): void
+    public static function send1button(Telegram $messenger, $array): void
     {
         $option = array(
             array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
@@ -410,7 +410,7 @@ class BotHelper
 
     }
 
-    public static function sendQuranSearchResult(Telegram $messenger, $message, $array): void
+    public static function send1buttonWithMessage(Telegram $messenger, $message, $array): void
     {
         $option = array(
             array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
@@ -458,6 +458,7 @@ class BotHelper
      * @param string $message
      * @param $type
      * @return void
+     * @throws Exception
      */
     public static function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
     {
@@ -520,7 +521,6 @@ class BotHelper
     public
     static function makeGapKeyboard2button($text1, $cd1, $text2, $cd2): array
     {
-
         return [
             [
                 [
@@ -531,7 +531,6 @@ class BotHelper
                 ]
             ]
         ];
-
     }
 
     public
@@ -646,35 +645,7 @@ class BotHelper
             "reply_markup" => [
                 "inline_keyboard" => $inlineKeyboard
             ]]]);
-        echo $response->getBody()->getContents();
-    }
-
-    public
-    static function isAdminCommand(mixed $Text): bool
-    {
-        if (Str::start($Text, '///'))
-            return true;
-        return false;
-    }
-
-    public
-    static function isAdmin(mixed $chatId): bool
-    {
-        if (
-            $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
-            $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE") ||
-            $chatId == env("SUPER_ADMIN_CHAT_ID_GAP")
-        )
-            return true;
-        return false;
-    }
-
-    public
-    static function getMessageAdmin(mixed $Text): string
-    {
-        return Str::substr($Text, 3, -1);
+//        echo $response->getBody()->getContents();
     }
 
 
@@ -683,6 +654,7 @@ class BotHelper
      * @param string $photoUrl
      * @param string $title
      * @param Telegram $messenger
+     * @param string $caption
      * @return mixed
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed

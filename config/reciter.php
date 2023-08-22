@@ -139,5 +139,22 @@ return [
     "aymanswoaid" => "ar.aymanswoaid",
     "wordbyword2" => "quran-wordbyword-2",
     "arabic" => "quran-unicode",
-    "uthmani_quran_academy" => "quran-uthmani-quran-academy"
+    "uthmani_quran_academy" => "quran-uthmani-quran-academy",
+    "audio" => [
+        "fa" => "fa.makarem",
+        "en" => "en.sahih",
+        "fa2" => "fa.fooladvand",
+        "en2" => "en.itani",
+        "bs" => "bs.korkut",
+        "ur" => "ur.jalandhry",
+        "az" => "az.musayev",
+    ]
 ];
+
+// https://tanzil.ir/res/audio/fa.fooladvand/001001.mp3
+// https://tanzil.ir/res/audio/fa.makarem/001003.mp3
+// https://tanzil.ir/res/audio/bs.korkut/001003.mp3
+// https://tanzil.ir/res/audio/ur.jalandhry/001003.mp3
+// https://tanzil.ir/res/audio/az.musayev/001003.mp3
+// https://tanzil.ir/res/audio/en.sahih/001003.mp3
+// https://tanzil.ir/res/audio/en.itani/001003.mp3

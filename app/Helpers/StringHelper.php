@@ -7,7 +7,6 @@ use Carbon\Carbon;
 class StringHelper
 {
 
-
     /**
      * @param $string
      * @param $subString
