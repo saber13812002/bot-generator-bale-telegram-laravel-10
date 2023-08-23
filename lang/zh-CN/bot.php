@@ -133,5 +133,6 @@ return [
         'last 7 days readings' => '最近 7 天的读数',
     ],
     'next quran page click here'                                                => '下一页古兰经 点击此处',
+    'sent it for :count person'                                                 => '发送给 :count 人',
     'for next or previous quran page click on these buttons'                    => '下一页或上一页古兰经点击这些按钮',
 ];
