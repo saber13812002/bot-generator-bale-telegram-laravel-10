@@ -23,6 +23,7 @@ class AdminHelper
             $chatId == env("CHAT_ID_ACCOUNT_2_SABER") ||
             $chatId == env("SUPER_ADMIN_CHAT_ID_TELEGRAM") ||
             $chatId == env("SUPER_ADMIN_CHAT_ID_BALE") ||
+            $chatId == env("SUPER_ADMIN_CHAT_ID_BALE2") ||
             $chatId == env("SUPER_ADMIN_CHAT_ID_GAP")
         )
             return true;
