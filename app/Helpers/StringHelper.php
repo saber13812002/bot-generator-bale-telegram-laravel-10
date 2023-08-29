@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class StringHelper
 {
@@ -151,5 +152,27 @@ class StringHelper
     public static function get3digitNumber(int $pageNumber): string
     {
         return str_pad($pageNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    public static function isContainRegex(string $message, $regex): bool
+    {
+        $check = preg_match($regex, $message);
+        return $check;
+    }
+
+    public static function getCommandByRegex(string $message, $regex): array
+    {
+        $commandTemplateAyah = 'ayah';
+        if (preg_match('/sure(.*?)ayah/', substr($message, 1, Str::length($message)), $match) == 1) {
+            $sure = (integer)$match[1];
+            if ($sure > 0) {
+                $aya = (integer)substr($message, strpos($message, $commandTemplateAyah) + Str::length($commandTemplateAyah));
+                if ($aya > 0) {
+                    return [$sure, $aya];
+                }
+            }
+        }
+
+        return [0, 0];
     }
 }

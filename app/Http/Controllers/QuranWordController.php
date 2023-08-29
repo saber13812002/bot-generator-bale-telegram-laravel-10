@@ -428,7 +428,6 @@ class QuranWordController extends Controller
 
 
             if ($isStartCommandShow) {
-
                 $array = [[trans("bot.return to command list"), "/start"]];
                 $message = $array[0][0];
                 if ($type == 'telegram') {
@@ -495,10 +494,16 @@ class QuranWordController extends Controller
                     $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
                     foreach ($logs as $log) {
                         $count = $logs->count();
-                        if ($log['type'] == 'bale')
+                        if ($log['type'] == 'bale') {
                             BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
-                        else
+                            if (QuranHelper::isContainSureAyahCommand($message)) {
+                                [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                $array = [[$messageButton, $command]];
+                                BotHelper::send1button($bot, $array);
+                            }
+                        } else {
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                        }
                     }
                 }
                 BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
