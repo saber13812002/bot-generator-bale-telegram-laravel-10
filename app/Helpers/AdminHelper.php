@@ -33,7 +33,7 @@ class AdminHelper
     public
     static function getMessageAdmin(mixed $Text): string
     {
-        return Str::substr($Text, 3, -1);
+        return Str::substr($Text, 3, Str::length($Text));
     }
 
 }
