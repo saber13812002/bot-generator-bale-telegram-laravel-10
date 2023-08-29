@@ -103,6 +103,7 @@ return [
         'list of Quran 30 parts'                               => 'فهرست قرآن 30 جزء',
         'to help you for introduce all features of this robot' => 'تا به شما در معرفی تمامی ویژگی های این ربات کمک کند',
         'to send scanned quran page'                           => 'برای ارسال صفحه قرآن اسکن شده',
+        "sent it for :count person" => "برای  :count از افراد ارسال شد",
     ],
     'translators'                                                               => [
         'ansarian' => 'انصاریان',
