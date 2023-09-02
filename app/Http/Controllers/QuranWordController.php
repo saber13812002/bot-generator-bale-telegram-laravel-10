@@ -492,7 +492,13 @@ class QuranWordController extends Controller
 
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
-                    $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+
+                    $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
+                        ->whereLanguage('fa')
+                        ->select('chat_id', 'type')
+                        ->distinct('chat_id')
+                        ->get();
+
                     foreach ($logs as $log) {
                         $count = $logs->count();
                         if ($log['type'] == 'bale') {
@@ -501,14 +507,14 @@ class QuranWordController extends Controller
                                 [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                 $array = [[$messageButton, $command]];
                                 $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
                             }
                         } else {
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                             if (QuranHelper::isContainSureAyahCommand($message)) {
                                 [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                 $array = [[$messageButton, $command]];
-                                BotHelper::send1buttonToChatId($bot, $array, $log['chat_id']);
+                                BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
                             }
                         }
                     }
