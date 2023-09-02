@@ -172,6 +172,24 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
+    /**
+     * @param Telegram $messenger
+     * @param string $message
+     * @param $keyboard
+     * @param $chat_id
+     * @return void
+     */
+    public static function sendKeyboardMessageToChatId(Telegram $messenger, string $message, $keyboard, $chat_id): void
+    {
+        $content = [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'reply_markup' => $keyboard
+        ];
+
+        $messenger->sendMessage($content);
+    }
+
 
     /**
      * @param $messenger
@@ -407,7 +425,15 @@ class BotHelper
         );
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $array[0][0], $inlineKeyboard);
+    }
 
+    public static function send1buttonToChatId(Telegram $messenger, $array, $chat_id): void
+    {
+        $option = array(
+            array($messenger->buildInlineKeyBoardButton($array[0][0], callback_data: $array[0][1]))
+        );
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessageToChatId($messenger, $array[0][0], $inlineKeyboard, $chat_id);
     }
 
     public static function send1buttonWithMessage(Telegram $messenger, $message, $array): void

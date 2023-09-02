@@ -459,6 +459,7 @@ class QuranWordController extends Controller
 
     /**
      * Show the form for creating a new resource.
+     * @throws GuzzleException
      */
     public
     function messageToAll(BotRequest $request)
@@ -499,10 +500,16 @@ class QuranWordController extends Controller
                             if (QuranHelper::isContainSureAyahCommand($message)) {
                                 [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                 $array = [[$messageButton, $command]];
-                                BotHelper::send1button($bot, $array);
+                                $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                             }
                         } else {
                             BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                            if (QuranHelper::isContainSureAyahCommand($message)) {
+                                [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                $array = [[$messageButton, $command]];
+                                BotHelper::send1buttonToChatId($bot, $array, $log['chat_id']);
+                            }
                         }
                     }
                 }
