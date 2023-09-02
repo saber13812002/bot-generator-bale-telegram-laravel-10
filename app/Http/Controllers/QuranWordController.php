@@ -501,21 +501,26 @@ class QuranWordController extends Controller
 
                     foreach ($logs as $log) {
                         $count = $logs->count();
-                        if ($log['type'] == 'bale') {
-                            BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
-                            if (QuranHelper::isContainSureAyahCommand($message)) {
-                                [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-                                $array = [[$messageButton, $command]];
-                                $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                                BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                        try {
+
+                            if ($log['type'] == 'bale') {
+                                BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
+                                if (QuranHelper::isContainSureAyahCommand($message)) {
+                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                    $array = [[$messageButton, $command]];
+                                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                                    BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                                }
+                            } else {
+                                BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                                if (QuranHelper::isContainSureAyahCommand($message)) {
+                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                    $array = [[$messageButton, $command]];
+                                    BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
+                                }
                             }
-                        } else {
-                            BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
-                            if (QuranHelper::isContainSureAyahCommand($message)) {
-                                [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-                                $array = [[$messageButton, $command]];
-                                BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
-                            }
+                        } catch (\Exception $exception) {
+                            Log::info($exception->getMessage());
                         }
                     }
                 }
