@@ -492,7 +492,7 @@ class QuranWordController extends Controller
 
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
-                    $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+                    $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(1))->whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
                     foreach ($logs as $log) {
                         $count = $logs->count();
                         if ($log['type'] == 'bale') {
