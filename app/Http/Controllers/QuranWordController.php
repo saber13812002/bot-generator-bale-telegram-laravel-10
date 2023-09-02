@@ -504,12 +504,13 @@ class QuranWordController extends Controller
                         try {
 
                             if ($log['type'] == 'bale') {
-                                BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
                                 if (QuranHelper::isContainSureAyahCommand($message)) {
                                     [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                     $array = [[$messageButton, $command]];
                                     $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
                                     BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                                } else {
+                                    BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
                                 }
                             } else {
                                 BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
