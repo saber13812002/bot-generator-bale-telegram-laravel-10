@@ -513,11 +513,12 @@ class QuranWordController extends Controller
                                     BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
                                 }
                             } else {
-                                BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                                 if (QuranHelper::isContainSureAyahCommand($message)) {
                                     [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                     $array = [[$messageButton, $command]];
                                     BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
+                                } else {
+                                    BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                                 }
                             }
                         } catch (\Exception $exception) {
