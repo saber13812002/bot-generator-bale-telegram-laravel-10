@@ -770,7 +770,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $commandTemplateAyah = 'ayah';
 
         $regex = '/\/sure[0-9]+ayah[0-9]+/';
-        [$sure, $aya] = StringHelper::getCommandByRegex($message, $regex);
+        [$sure, $aya] = StringHelper::getSureAyeByRegex($message, $regex);
 
         $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
 //        dd(env("APP_ENV"));

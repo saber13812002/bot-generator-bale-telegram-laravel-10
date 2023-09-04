@@ -160,7 +160,7 @@ class StringHelper
         return $check;
     }
 
-    public static function getCommandByRegex(string $message, $regex): array
+    public static function getSureAyeByRegex(string $message, $regex): array
     {
         $commandTemplateAyah = 'ayah';
         if (preg_match('/sure(.*?)ayah/', substr($message, 1, Str::length($message)), $match) == 1) {
