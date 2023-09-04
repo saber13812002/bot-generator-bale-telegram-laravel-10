@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
 use App\Models\QuranSurah;
@@ -756,6 +757,29 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
     }
 
+
+    public static function isContainSureAyahCommand($message): bool
+    {
+        $regex = '/ \/sure[0-9]+ayah[0-9]+ /';
+        return StringHelper::isContainRegex($message, $regex);
+    }
+
+
+    public static function getCommandByRegex(string $message): array
+    {
+        $commandTemplateSure = '/sure';
+        $commandTemplateAyah = 'ayah';
+
+        $regex = '/ \/sure[0-9]+ayah[0-9]+ /';
+        [$sure, $aya] = StringHelper::getCommandByRegex($message, $regex);
+
+        $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
+        if (App::runningUnitTests())
+            $message = trans("bot.surah number:") . $sure . ":" . trans("bot.ayah") . " : " . $aya;
+
+        return [$command, $message];
+    }
+
     /**
      * @param Telegram $bot
      * @param $token
@@ -986,7 +1010,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 //" . $searchPhrase . "page=" . $nextPage;
 
     }
-
 }
 
 
