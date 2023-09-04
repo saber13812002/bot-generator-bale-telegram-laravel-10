@@ -774,7 +774,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         [$sure, $aya] = StringHelper::getCommandByRegex($message, $regex);
 
         $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
-        if (App::runningUnitTests())
+        if (!App::runningUnitTests())
             $message = trans("bot.surah number:") . $sure . ":" . trans("bot.ayah") . " : " . $aya;
 
         return [$command, $message];
