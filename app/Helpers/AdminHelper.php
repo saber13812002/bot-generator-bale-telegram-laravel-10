@@ -31,7 +31,7 @@ class AdminHelper
     }
 
     public
-    static function getAdmins(): bool
+    static function getAdmins(): array
     {
         return [env("CHAT_ID_ACCOUNT_1_SABER"),
             env("CHAT_ID_ACCOUNT_2_SABER"),
