@@ -774,6 +774,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
         $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
 //        dd(env("APP_ENV"));
+
+        $message = $sure . ":" . $aya;
         if (!env("APP_ENV") == 'testing')
             $message = trans("bot.surah number:") . $sure . ":" . trans("bot.ayah") . " : " . $aya;
 
