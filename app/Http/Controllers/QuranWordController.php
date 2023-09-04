@@ -489,7 +489,11 @@ class QuranWordController extends Controller
             if (AdminHelper::isAdminCommand($bot->Text())) {
                 if (AdminHelper::isAdmin($bot->ChatID())) {
 
-                    $message = AdminHelper::getMessageAdmin($bot->Text());
+                    if ($request->request->get('to_admins') == "false") {
+                        $message = AdminHelper::getMessageAdmin($bot->Text());
+                    } else {
+                        $message = AdminHelper::getMessageAdmin($bot->Text(), 4);
+                    }
 
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');

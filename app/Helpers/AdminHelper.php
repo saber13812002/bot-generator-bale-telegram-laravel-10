@@ -42,9 +42,9 @@ class AdminHelper
     }
 
     public
-    static function getMessageAdmin(mixed $Text): string
+    static function getMessageAdmin(mixed $Text, $start = 3): string
     {
-        return Str::substr($Text, 3, Str::length($Text));
+        return Str::substr($Text, $start, Str::length($Text));
     }
 
 }
