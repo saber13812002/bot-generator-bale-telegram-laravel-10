@@ -33,12 +33,12 @@ class AdminHelper
     public
     static function getAdmins(): array
     {
-        return [env("CHAT_ID_ACCOUNT_1_SABER"),
+        return array(env("CHAT_ID_ACCOUNT_1_SABER"),
             env("CHAT_ID_ACCOUNT_2_SABER"),
             env("SUPER_ADMIN_CHAT_ID_TELEGRAM"),
             env("SUPER_ADMIN_CHAT_ID_BALE"),
             env("SUPER_ADMIN_CHAT_ID_BALE2"),
-            env("SUPER_ADMIN_CHAT_ID_GAP")];
+            env("SUPER_ADMIN_CHAT_ID_GAP"));
     }
 
     public
