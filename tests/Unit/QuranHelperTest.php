@@ -84,8 +84,8 @@ class QuranHelperTest extends TestCase
          /sure233ayah234 ";
         $isTrue = QuranHelper::isContainSureAyahCommand($message);
         self::assertEquals($isTrue, true);
-//        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-//        self::assertEquals($command, "/sure233ayah234");
+        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+        self::assertEquals($command, "/sure233ayah234");
 
         $message = " /sure233ayah";
         $isTrue = QuranHelper::isContainSureAyahCommand($message);
