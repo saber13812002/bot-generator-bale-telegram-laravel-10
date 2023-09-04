@@ -564,7 +564,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      */
     public static function sendMessageForEveryResult(mixed $item, mixed $type, Telegram $bot, string $message, mixed $token): void
     {
-        $array = [["سوره شماره " . $item->suras->id . "-" . $item->suras->arabic, "/sure" . $item->sura . "ayah" . $item->aya]];
+        $array = [[trans("bot.surah number:") . $item->suras->id . "-" . $item->suras->arabic, StringHelper::command_template_sure . $item->sura . StringHelper::command_template_ayah . $item->aya]];
 //                dd($array,$token,$message,$array);
         if ($type == 'telegram') {
             BotHelper::send1buttonWithMessage($bot, $message, $array);
@@ -759,21 +759,15 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
     public static function isContainSureAyahCommand($message): bool
     {
-        $regex = '/\/sure[0-9]+ayah[0-9]+/';
-        return StringHelper::isContainRegex($message, $regex);
+        return StringHelper::isContainRegex($message);
     }
 
 
     public static function getCommandByRegex(string $message): array
     {
-        $commandTemplateSure = '/sure';
-        $commandTemplateAyah = 'ayah';
+        [$sure, $aya] = StringHelper::getSureAyeByRegex($message);
 
-        $regex = '/\/sure[0-9]+ayah[0-9]+/';
-        [$sure, $aya] = StringHelper::getSureAyeByRegex($message, $regex);
-
-        $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
-//        dd(env("APP_ENV"));
+        $command = StringHelper::command_template_sure . $sure . StringHelper::command_template_ayah . $aya;
 
         $message = $sure . ":" . $aya;
         if (!env("APP_ENV") == 'testing')

@@ -64,8 +64,8 @@ class QuranHelperTest extends TestCase
         $message = " adsfasdf /sure233ayah234 asdfasdfha";
         $isTrue = QuranHelper::isContainSureAyahCommand($message);
         self::assertEquals($isTrue, true);
-        $regex = '/\/sure[0-9]+ayah[0-9]+/';
-        [$sure, $aya] = StringHelper::getSureAyeByRegex($message, $regex);
+
+        [$sure, $aya] = StringHelper::getSureAyeByRegex($message);
         self::assertEquals($sure, 233);
         self::assertEquals($aya, 234);
 
@@ -88,7 +88,7 @@ class QuranHelperTest extends TestCase
         self::assertEquals($command, "/sure233ayah234");
         self::assertEquals($messageButton, "233:234");
 
-        [$sure, $aya] = StringHelper::getSureAyeByRegex($message, $regex);
+        [$sure, $aya] = StringHelper::getSureAyeByRegex($message);
         self::assertEquals($sure, 233);
         self::assertEquals($aya, 234);
 
