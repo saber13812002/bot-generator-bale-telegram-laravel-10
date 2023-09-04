@@ -502,7 +502,7 @@ class QuranWordController extends Controller
                             ->get();
                     } else {
                         $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
-                            ->whereChatId(AdminHelper::getAdmins())
+                            ->whereIn('chat_id', AdminHelper::getAdmins())
                             ->whereLanguage('fa')
                             ->select('chat_id', 'type')
                             ->distinct('chat_id')
