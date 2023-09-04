@@ -215,12 +215,13 @@ class QuranWordController extends Controller
 
                 $command_type = "////";
 
-                $request->request->add(['to_admins' => true]);
+                $request->request->add(['to_admins' => "true"]);
 
                 $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 3)) == "///") {
 
                 $command_type = "///";
+                $request->request->add(['to_admins' => "false"]);
                 $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
 
@@ -493,7 +494,7 @@ class QuranWordController extends Controller
                     $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                     $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
-                    if (!$request->request->has('to_admins')) {
+                    if ($request->request->get('to_admins') == "false") {
                         $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
                             ->whereLanguage('fa')
                             ->select('chat_id', 'type')
@@ -501,7 +502,7 @@ class QuranWordController extends Controller
                             ->get();
                     } else {
                         $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
-                            ->whereChatId(AdminHelper::isAdmin())
+                            ->whereChatId(AdminHelper::getAdmins())
                             ->whereLanguage('fa')
                             ->select('chat_id', 'type')
                             ->distinct('chat_id')
