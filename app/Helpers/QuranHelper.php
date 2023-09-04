@@ -2,7 +2,6 @@
 
 namespace App\Helpers;
 
-use App;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
 use App\Models\QuranSurah;
@@ -760,7 +759,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
     public static function isContainSureAyahCommand($message): bool
     {
-        $regex = '/ \/sure[0-9]+ayah[0-9]+ /';
+        $regex = '/\/sure[0-9]+ayah[0-9]+/';
         return StringHelper::isContainRegex($message, $regex);
     }
 
@@ -770,7 +769,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $commandTemplateSure = '/sure';
         $commandTemplateAyah = 'ayah';
 
-        $regex = '/ \/sure[0-9]+ayah[0-9]+ /';
+        $regex = '/\/sure[0-9]+ayah[0-9]+/';
         [$sure, $aya] = StringHelper::getCommandByRegex($message, $regex);
 
         $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
