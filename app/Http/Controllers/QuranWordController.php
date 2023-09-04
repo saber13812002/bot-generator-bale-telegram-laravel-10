@@ -6,6 +6,7 @@ use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
+use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
@@ -96,12 +97,6 @@ class QuranWordController extends Controller
 
             $command_type = "";
 
-            $commandTemplateSure = '/sure';
-            $commandTemplateAyah = 'ayah';
-
-            $commandTemplateScan = '/scan';
-            $commandTemplateHr = 'hr';
-
             $botText = Str::lower($bot->Text());
             if ($botText == '/start') {
 
@@ -143,7 +138,7 @@ class QuranWordController extends Controller
                     $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
                 }
-            } elseif (str_starts_with($botText, $commandTemplateScan)) {
+            } elseif (str_starts_with($botText, StringHelper::command_template_scan)) {
 
                 $command_type = "hr";
 
@@ -151,7 +146,7 @@ class QuranWordController extends Controller
                     $pageNumber = (int)$match[1];
                     $page = (integer)$match[1];
                     if ($page > 0) {
-                        $hr = (integer)substr($botText, strpos($botText, $commandTemplateHr) + Str::length($commandTemplateHr));
+                        $hr = (integer)substr($botText, strpos($botText, StringHelper::command_template_hr) + Str::length(StringHelper::command_template_hr));
 
                         if ($hr > 0) {
                             if ($type == 'telegram' || $type == 'bale') {
@@ -164,14 +159,12 @@ class QuranWordController extends Controller
                         }
                     }
                 }
-            } elseif (str_starts_with($botText, $commandTemplateSure)) {
+            } elseif (str_starts_with($botText, StringHelper::command_template_sure)) {
 
-                $command_type = "ayah";
-
-                if (preg_match('/sure(.*?)ayah/', substr($botText, 1, Str::length($botText)), $match) == 1) {
+                if (preg_match(StringHelper::regex_sure, substr($botText, 1, Str::length($botText)), $match) == 1) {
                     $sure = (integer)$match[1];
                     if ($sure > 0) {
-                        $aya = (integer)substr($botText, strpos($botText, $commandTemplateAyah) + Str::length($commandTemplateAyah));
+                        $aya = (integer)substr($botText, strpos($botText, StringHelper::command_template_ayah) + Str::length(StringHelper::command_template_ayah));
 
                         if ($aya > 0) {
 
@@ -183,12 +176,12 @@ class QuranWordController extends Controller
 
                             $message = QuranHelper::addAyeIdAndBesmella($aya, $sureName, $sure, $message);
 
-                            $nextSure = $commandTemplateSure . ($sure != 114 ? $sure + 1 : 1) . $commandTemplateAyah . "1";
-                            $firstAyaOfLastSure = $commandTemplateSure . ($sure - 1) . $commandTemplateAyah . "1";
-                            $lastAyaOfLastSure = $commandTemplateSure . ($sure - 1) . $commandTemplateAyah . $maxAyahSureGhabli;
+                            $nextSure = StringHelper::command_template_sure . ($sure != 114 ? $sure + 1 : 1) . StringHelper::command_template_ayah . "1";
+                            $firstAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . "1";
+                            $lastAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . $maxAyahSureGhabli;
 
-                            $nextAye = ($aya == $maxAyah) ? $nextSure : $commandTemplateSure . ($sure) . $commandTemplateAyah . $aya + 1;
-                            $lastAye = ($aya == 1) ? $lastAyaOfLastSure : $commandTemplateSure . ($sure) . $commandTemplateAyah . $aya - 1;
+                            $nextAye = ($aya == $maxAyah) ? $nextSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya + 1;
+                            $lastAye = ($aya == 1) ? $lastAyaOfLastSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya - 1;
 
                             if ($aya == $maxAyah || $aya == 1) {
                                 $isStartCommandShow = true;
@@ -221,6 +214,10 @@ class QuranWordController extends Controller
             } elseif ((substr($bot->Text(), 0, 3)) == "///") {
 
                 $command_type = "///";
+                $this->messageToAll($request);
+            } elseif ((substr($bot->Text(), 0, 3)) == "////") {
+
+                $command_type = "////";
                 $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
 

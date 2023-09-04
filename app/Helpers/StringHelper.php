@@ -8,6 +8,13 @@ use Illuminate\Support\Str;
 class StringHelper
 {
 
+    const command_template_sure = "/sure";
+    const command_template_ayah = "ayah";
+    const command_template_scan = '/scan';
+    const command_template_hr = 'hr';
+    const regex_sure_ayah = "/\/sure[0-9]+ayah[0-9]+/";
+    const regex_sure = "/sure(.*?)ayah/";
+
     /**
      * @param $string
      * @param $subString
@@ -154,19 +161,17 @@ class StringHelper
         return str_pad($pageNumber, 3, '0', STR_PAD_LEFT);
     }
 
-    public static function isContainRegex(string $message, $regex): bool
+    public static function isContainRegex(string $message): bool
     {
-        $check = preg_match($regex, $message);
-        return $check;
+        return preg_match(StringHelper::regex_sure_ayah, $message);
     }
 
-    public static function getSureAyeByRegex(string $message, $regex): array
+    public static function getSureAyeByRegex(string $message): array
     {
-        $commandTemplateAyah = 'ayah';
-        if (preg_match('/sure(.*?)ayah/', substr($message, 1, Str::length($message)), $match) == 1) {
+        if (preg_match(StringHelper::regex_sure, substr($message, 1, Str::length($message)), $match) == 1) {
             $sure = (integer)$match[1];
             if ($sure > 0) {
-                $aya = (integer)substr($message, strpos($message, $commandTemplateAyah) + Str::length($commandTemplateAyah));
+                $aya = (integer)substr($message, strpos($message, StringHelper::command_template_ayah) + Str::length(StringHelper::command_template_ayah));
                 if ($aya > 0) {
                     return [$sure, $aya];
                 }
