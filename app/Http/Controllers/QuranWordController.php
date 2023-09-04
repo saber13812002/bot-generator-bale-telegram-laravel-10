@@ -211,7 +211,7 @@ class QuranWordController extends Controller
                         }
                     }
                 }
-            } elseif ((substr($bot->Text(), 0, 3)) == "////") {
+            } elseif ((substr($bot->Text(), 0, 4)) == "////") {
 
                 $command_type = "////";
 
