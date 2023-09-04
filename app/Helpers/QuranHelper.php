@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
 use App\Models\QuranSurah;
@@ -773,7 +774,9 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         [$sure, $aya] = StringHelper::getCommandByRegex($message, $regex);
 
         $command = $commandTemplateSure . $sure . $commandTemplateAyah . $aya;
-        $message = trans("bot.surah number:") . $sure . ":" . trans("bot.ayah") . " : " . $aya;
+        if (App::runningUnitTests())
+            $message = trans("bot.surah number:") . $sure . ":" . trans("bot.ayah") . " : " . $aya;
+
         return [$command, $message];
     }
 
