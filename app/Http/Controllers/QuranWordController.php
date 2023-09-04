@@ -211,16 +211,16 @@ class QuranWordController extends Controller
                         }
                     }
                 }
-            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
-
-                $command_type = "///";
-                $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 3)) == "////") {
 
                 $command_type = "////";
 
                 $request->request->add(['to_admins' => true]);
 
+                $this->messageToAll($request);
+            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+
+                $command_type = "///";
                 $this->messageToAll($request);
             } elseif ((substr($bot->Text(), 0, 2)) == "//") {
 
