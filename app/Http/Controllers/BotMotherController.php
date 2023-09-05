@@ -40,7 +40,7 @@ class BotMotherController extends Controller
                 //echo($bot->reply);
                 $type = $request->input('origin');
                 $language = $request->input('language');
-                BotHelper::switchCase($bot, $type, $language, $botMotherId);
+                BotHelper::handleRequestBotMother($bot, $type, $language, $botMotherId);
             }
         }
     }

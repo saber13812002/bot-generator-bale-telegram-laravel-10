@@ -6,17 +6,14 @@ use Illuminate\Support\Str;
 
 class AdminHelper
 {
-
-    public
-    static function isAdminCommand(mixed $Text): bool
+    public static function isAdminCommand(mixed $Text): bool
     {
         if (Str::start($Text, '///'))
             return true;
         return false;
     }
 
-    public
-    static function isAdmin(mixed $chatId): bool
+    public static function isAdmin(mixed $chatId): bool
     {
         if (
             $chatId == env("CHAT_ID_ACCOUNT_1_SABER") ||
@@ -30,8 +27,7 @@ class AdminHelper
         return false;
     }
 
-    public
-    static function getAdmins(): array
+    public static function getAdmins(): array
     {
         return array(env("CHAT_ID_ACCOUNT_1_SABER"),
             env("CHAT_ID_ACCOUNT_2_SABER"),
@@ -41,8 +37,7 @@ class AdminHelper
             env("SUPER_ADMIN_CHAT_ID_GAP"));
     }
 
-    public
-    static function getMessageAdmin(mixed $Text, $start = 3): string
+    public static function getMessageAdmin(mixed $Text, $start = 3): string
     {
         return Str::substr($Text, $start, Str::length($Text));
     }

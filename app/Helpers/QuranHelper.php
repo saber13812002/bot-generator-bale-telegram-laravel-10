@@ -548,9 +548,9 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return $search->runForClass($searchPhrase, QuranAyat::class)->forPage($pageNumber, 10);
 //        $results0 = QuranAyat::query()->where('simple', 'like', '%' . $botText . '%')->paginate();
 
-//            $paginate = QuranAyatResource::collection($results);
-//            dd($results->count());
-//            dd($results->items());
+//        $paginate = QuranAyatResource::collection($results);
+//        dd($results->count());
+//        dd($results->items());
     }
 
     /**
