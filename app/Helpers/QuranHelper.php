@@ -319,18 +319,19 @@ class QuranHelper
 " . $quranTransliterationEn['quran_transliteration_en'] . "
 " . trans("bot.to disable") . " /transen_false ";
             }
-        } else {
-            $message .= "
-" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
         }
+//        else {
+//            $message .= "
+//" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
+//        }
 
         $message .= "👇 👇 👇
 " . trans("bot.help.to send scanned quran page") . "
 👇 👇 👇
   /scan" . $threeDigitNumber . "hr1";
 
-        $message .= "👇 👇 👇
-" . trans("bot.help.to help you for introduce all features of this robot") . "
+        $message .= "
+" . trans("bot.help.help") . "
 👇 👇 👇
   /help ";
 
