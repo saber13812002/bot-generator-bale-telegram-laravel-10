@@ -129,10 +129,10 @@ class QuranHelper
     public static function getSettingReciter(): string
     {
         $caption = "
-" . trans("bot.disable enable reciter") . " /mp3_true /mp3_false
+" . trans("bot.disable enable reciter") . " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
 ";
 
-        $caption .= trans("bot.change reciter") . " /mp3reciter_parhizgar /mp3reciter_alafasy
+        $caption .= trans("bot.change reciter") . " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
 ";
         return $caption;
     }
@@ -316,14 +316,14 @@ class QuranHelper
                 $message .= "
 
 " . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . " /transtr_false ";
+" . trans("bot.to disable") . " /transtr_false [/transtr_false](send:/transtr_false)";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 
 " . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . " /transen_false ";
+" . trans("bot.to disable") . " /transen_false [/transen_false](send:/transen_false)";
             }
         }
 //        else {
