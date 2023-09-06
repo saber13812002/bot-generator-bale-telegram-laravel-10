@@ -425,16 +425,16 @@ class QuranHelper
                 trans('bot.this bot support 2 methods') . "
 " .
                 trans('bot.word by word') . "
-:/" . 1 . "
+:/" . 1 . " [/1](send:/1)
 " .
                 trans('bot.ayah after ayah') . "
-/sure2ayah2
+/sure2ayah2 [/sure2ayah2](send:/sure2ayah2)
 " .
                 trans('bot.List of 114 Surahs') . "
-/fehrest
+/fehrest [/fehrest](send:/fehrest)
 " .
                 trans('bot.List of 30 Juz') . "
-/joz";
+/joz [/joz](send:/joz)";
         } else {
             $messageCommands = "
 " .
