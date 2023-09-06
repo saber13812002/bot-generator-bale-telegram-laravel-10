@@ -271,11 +271,12 @@ class QuranHelper
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
+        $pageNumber = 0;
         foreach ($quranWords as $quranWord) {
             $message .= " " . $quranWord['text'];
+            $pageNumber = $quranWord['page'];
         }
 
-        $pageNumber = $quranWord['page'];
         $threeDigitNumber = StringHelper::get3digitNumber($pageNumber);
 
         $translationId = 2;
@@ -344,7 +345,6 @@ class QuranHelper
             $message = "این سوره و آیه پیدا نشد";
         }
         return [$message, $pageNumber];
-
     }
 
     public static function getLastAyeBySurehId(mixed $sure): array
