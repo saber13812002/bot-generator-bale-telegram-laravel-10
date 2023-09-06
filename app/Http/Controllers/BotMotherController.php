@@ -124,7 +124,7 @@ class BotMotherController extends Controller
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
                 $content = [
                     'chat_id' => $bale_owner_chat_id,
-                    'parse_mode' => "HTML",
+                    'parse_mode' => "html",
                     'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'
                 ];
                 $baleMotherBot->sendMessage($content);

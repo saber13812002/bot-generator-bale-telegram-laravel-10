@@ -52,7 +52,7 @@ class QuranHelper
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
-                'parse_mode' => "HTML",
+                'parse_mode' => "html",
                 // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
@@ -112,7 +112,7 @@ class QuranHelper
                 'audio' => $audio,
                 'title' => self::getAyeDescription($aye),
                 'caption' => $caption,
-                'parse_mode' => "HTML"
+                'parse_mode' => "html"
             ];
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
@@ -256,7 +256,7 @@ class QuranHelper
             'audio' => $audio,
             'title' => $caption,
             'caption' => $caption,
-            'parse_mode' => "HTML"
+            'parse_mode' => "html"
         ];
 
         if ($messenger->BotType() != "gap")
