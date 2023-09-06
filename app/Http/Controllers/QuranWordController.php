@@ -112,7 +112,7 @@ class QuranWordController extends Controller
                     BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
                 } else {
                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
                 }
             } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
 
