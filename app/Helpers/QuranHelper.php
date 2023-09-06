@@ -226,7 +226,7 @@ class QuranHelper
 
         $command = self::getCommandScan($pageNumber);
         $text = trans("bot.next quran page click here") . " : ";
-        $caption = $text . $command . "[" . $command . '](send:' . $command . ")";
+        $caption = $text . $command . "[" . $command . "](send:" . $command . ")";
 
         return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
