@@ -293,6 +293,11 @@ class QuranHelper
 //        }
 
 
+        $showText = false;
+        $randomNumber = rand(1, 11);
+        if ($randomNumber % 5 == 1)
+            $showText = true;
+
         $message .= "
 
 " . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
@@ -325,15 +330,16 @@ class QuranHelper
 //" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
 //        }
 
-        $message .= "👇 👇 👇
-" . trans("bot.help.to send scanned quran page") . "
+        $message .= "
 👇 👇 👇
-  /scan" . $threeDigitNumber . "hr1";
+" . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
+👇 👇 👇
+/scan" . $threeDigitNumber . "hr1";
 
         $message .= "
-" . trans("bot.help.help") . "
+" . ($showText ? trans("bot.help.help") : "") . "
 👇 👇 👇
-  /help ";
+/help ";
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
