@@ -434,7 +434,10 @@ class QuranHelper
 /fehrest [/fehrest](send:/fehrest)
 " .
                 trans('bot.List of 30 Juz') . "
-/joz [/joz](send:/joz)";
+/joz [/joz](send:/joz)
+" . trans("bot.help.help") . "
+/help [/help](send:/help)
+";
         } else {
             $messageCommands = "
 " .
