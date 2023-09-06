@@ -331,7 +331,6 @@ class QuranHelper
 //        }
 
         $message .= "
-👇 👇 👇
 " . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
 👇 👇 👇
 /scan" . $threeDigitNumber . "hr1";
