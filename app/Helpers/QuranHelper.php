@@ -995,8 +995,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     public static function getHelpMessage(): string
     {
         return trans("bot.command list is") . "
-: /start
-: /joz " . trans('bot.help.list of Quran 30 parts') . "
+: /start [/start](send:/start)
+: /joz [" . trans('bot.help.list of Quran 30 parts') . "](send:/joz)
 : /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
 : /report " . trans('bot.help.your quran readings analysis report') . "
 : /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
