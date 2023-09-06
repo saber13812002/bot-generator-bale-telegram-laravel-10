@@ -122,7 +122,11 @@ class BotMotherController extends Controller
                 $message .= 'وضعیت شما در حال بررسی است، پس از تایید مدیر روبات اطلاع داده خواهد شد';
                 BotHelper::sendMessage($bot, $message);
                 $bale_owner_chat_id = $botItem->bale_owner_chat_id;
-                $content = ['chat_id' => $bale_owner_chat_id, 'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'];
+                $content = [
+                    'chat_id' => $bale_owner_chat_id,
+                    'parse_mode' => "HTML",
+                    'text' => 'لطفا روی این دکمه کلیک کنید و فلانی را تایید کنید که بتواند از روبات استفاده کند:'
+                ];
                 $baleMotherBot->sendMessage($content);
                 $content = ['chat_id' => $bale_owner_chat_id, 'text' => config('bot.childbotapproveurl') . '?origin=' . $type . '&chat_id=' . $chat_id . '&bot_id=' . $botItem->id . '&token=' . $botItem->bale_bot_token];
                 $baleMotherBot->sendMessage($content);
