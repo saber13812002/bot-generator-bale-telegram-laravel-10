@@ -334,12 +334,12 @@ class QuranHelper
         $message .= "
 " . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
 👇 👇 👇
-/scan" . $threeDigitNumber . "hr1";
+/scan" . $threeDigitNumber . "hr1 [/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)";
 
         $message .= "
 " . ($showText ? trans("bot.help.help") : "") . "
 👇 👇 👇
-/help ";
+/help [/help](send:/help) ";
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
