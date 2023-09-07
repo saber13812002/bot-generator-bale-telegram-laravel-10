@@ -44,7 +44,8 @@ class QuranHelper
 
         if ($mp3Enable == "true") {
 
-            $audio = self::getAudioUrl($userSettings, $aye);
+            $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
+            $audio = self::getAudioUrl($mp3Reciter, $aye);
 
             $caption = self::getSettingReciter();
 
@@ -209,10 +210,10 @@ class QuranHelper
     }
 
     /**
-     * @param BotUsers|null $userSettings
+     * @param string $mp3Reciter
      * @return string
      */
-    public static function getAudioBaseUrl(?BotUsers $mp3Reciter): string
+    public static function getAudioBaseUrl(string $mp3Reciter): string
     {
 //dd($mp3Reciter);
         $base_url = self::getUrl($mp3Reciter);
@@ -792,14 +793,12 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     }
 
     /**
-     * @param BotUsers|null $userSettings
+     * @param $mp3Reciter
      * @param $aye
      * @return string
      */
-    public static function getAudioUrl(?BotUsers $userSettings, $aye): string
+    public static function getAudioUrl($mp3Reciter, $aye): string
     {
-        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
-
         $base_url = self::getAudioBaseUrl($mp3Reciter);
         $fileName = self::getAudioFileName($mp3Reciter, $aye);
 
@@ -808,7 +807,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return $audio;
     }
 
-    private static function getAudioFileName(mixed $mp3Reciter, $aye)
+    public static function getAudioFileName(mixed $mp3Reciter, $aye)
     {
         $fileName = $aye->id;
         if ($mp3Reciter == "parhizgar") {

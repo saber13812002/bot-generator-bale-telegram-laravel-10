@@ -3,7 +3,8 @@
 
 use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
-use PHPUnit\Framework\TestCase;
+use App\Models\QuranAyat;
+use Tests\TestCase;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use function PHPUnit\Framework\assertEquals;
 
@@ -103,5 +104,19 @@ class QuranHelperTest extends TestCase
         $message = "sureayah234";
         $isTrue = QuranHelper::isContainSureAyahCommand($message);
         self::assertEquals($isTrue, false);
+    }
+
+    public function test_getAudioFileName()
+    {
+        $aye = QuranAyat::query()
+            ->whereSura(6)
+            ->whereAya(36)
+            ->first();
+        $mp3Reciter = "parhizgar";
+        $fileName = QuranHelper::getAudioFileName($mp3Reciter, $aye);
+        self::assertEquals("006036", $fileName);
+        $audioUrl = QuranHelper::getAudioUrl($mp3Reciter, $aye);
+        self::assertEquals("https://tanzil.net/res/audio/parhizgar/006036.mp3", $audioUrl);
+
     }
 }
