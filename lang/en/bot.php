@@ -152,5 +152,6 @@ return [
         "last 7 days readings" => "last 7 days readings",
     ],
     "sent it for :count person" => "sent it for :count person",
-    "for next or previous quran page click on these buttons" => "for next or previous quran page click on these buttons"
+    "for next or previous quran page click on these buttons" => "for next or previous quran page click on these buttons",
+    'to sending request for next result page please click here' => 'to sending request for next result page please click here',
 ];
