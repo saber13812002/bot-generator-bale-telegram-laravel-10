@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('quran_scan_pages', function (Blueprint $table) {
-            $table->integer('page')->change();
-            $table->bigInteger('bot_chat_id')->change();
+            $table->unsignedInteger('page')->change();
+            $table->unsignedBigInteger('bot_chat_id')->change();
         });
     }
 
