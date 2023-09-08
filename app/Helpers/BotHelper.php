@@ -694,7 +694,8 @@ class BotHelper
             'chat_id' => $chat_id,
             'photo' => $photoUrl,
             'title' => $title,
-            'caption' => $caption
+            'caption' => $caption,
+            'parse_mode' => "html"
         ];
 
         return $messenger->sendPhoto($content);
