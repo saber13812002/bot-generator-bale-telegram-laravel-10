@@ -279,7 +279,7 @@ class QuranHelper
         ];
 
         if ($messenger->BotType() != "gap")
-            $messenger->sendAudio($content);
+            return $messenger->sendAudio($content);
 
     }
 

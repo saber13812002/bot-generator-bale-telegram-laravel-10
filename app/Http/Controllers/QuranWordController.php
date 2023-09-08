@@ -154,7 +154,8 @@ class QuranWordController extends Controller
                                 if ($type == 'bale') {
                                     QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                                 }
-                                QuranHelper::sendAudioMp3Page($bot, $pageNumber);
+                                $photoCallBack = QuranHelper::sendAudioMp3Page($bot, $pageNumber);
+                                BotHelper::sendMessageToSuperAdmin($photoCallBack);
                             }
                         }
                     }
