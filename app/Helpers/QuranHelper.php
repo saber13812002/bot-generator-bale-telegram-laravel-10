@@ -240,13 +240,14 @@ class QuranHelper
     public static function getSScan(string $page, int $hr, $botType)
     {
         if ($botType == 'telegram')
-            return "https://archive.org/details/ALQURANPERPAGEFORMATPNG/page" . $page . ".png";
+            return "https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page" . $page . ".png";
 //        return "https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page" . $page . ".png";
 //        return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
 //https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page001.png
         //https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page001.png
         return "https://rayed.com/Quran/img/" . $page . ".jpg";
         // https://archive.org/details/ALQURANPERPAGEFORMATPNG/page002.png
+        // https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page003.png
     }
 
     public static function sendAudioMp3Page($messenger, string $pageNumber)
