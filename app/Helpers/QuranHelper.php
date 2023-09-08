@@ -225,15 +225,14 @@ class QuranHelper
     {
         $photoUrl = self::getScanFullUrl($pageNumber, $hr, $messenger->BotType());
 
-        $chat_id = $messenger->ChatID();
-        $title = "#" . trans("bot.page") . "_" . $pageNumber;
+        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
+    }
 
-        $caption = $title;
-        if ($messenger->BotType() == 'telegram') {
-            $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
-        }
 
-        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+
+    public static function sendScanPageByUrl($messenger, string $photoUrl, int $pageNumber, int $hr)
+    {
+        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
     }
 
 
@@ -849,6 +848,26 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 <a href='" . self::getScanFullUrl($pageNumber, 3, $botType) . "'>hr3</a>". "
 <a href='" . self::getScanFullUrl($pageNumber, 4, $botType) . "'>hr4</a>";
         return $caption;
+    }
+
+    /**
+     * @param $messenger
+     * @param int $pageNumber
+     * @param int $hr
+     * @param string $photoUrl
+     * @return mixed
+     */
+    public static function createTitleCaptionSendScan($messenger, int $pageNumber, int $hr, string $photoUrl): mixed
+    {
+        $chat_id = $messenger->ChatID();
+        $title = "#" . trans("bot.page") . "_" . $pageNumber;
+
+        $caption = $title;
+        if ($messenger->BotType() == 'telegram') {
+            $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
+        }
+
+        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
 
     /**
