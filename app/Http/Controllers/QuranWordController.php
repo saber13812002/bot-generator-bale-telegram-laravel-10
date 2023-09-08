@@ -159,7 +159,7 @@ class QuranWordController extends Controller
                                     ->whereBotId(1)
                                     ->first();
 
-                                if ($quranScanPage->count() == 0) {
+                                if ($quranScanPage == null || $quranScanPage->count() == 0) {
                                     $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
                                     $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
                                 } else {
