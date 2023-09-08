@@ -115,6 +115,10 @@ return [
 
     'next quran page click here' => 'next quran page click here',
 
+    'previous quran page click here' => 'previous quran page click here',
+
+    'page' => 'page',
+
     'help' => [
         'choose :reciter as reciter' => 'choose :reciter as reciter',
         'choose :language as transliteration' => 'choose :language as transliteration',

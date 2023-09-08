@@ -223,29 +223,38 @@ class QuranHelper
 
     public static function sendScanPage(Telegram $messenger, int $pageNumber, int $hr)
     {
-        $photoUrl = self::getSScan($pageNumber, $hr, $messenger->BotType());
+        $photoUrl = self::getScanFullUrl($pageNumber, $hr, $messenger->BotType());
 
         $chat_id = $messenger->ChatID();
-        $title = "page" . $pageNumber;
+        $title = "#" . trans("bot.page") . "_" . $pageNumber;
 
-        $command = self::getCommandScan($pageNumber);
-        $text = trans("bot.next quran page click here") . " : ";
-        $caption = $text . $command . "[" . $command . "](send:" . $command . ")
-<a href='" . $command . "'>link</a>";
+        $caption = $title;
+        if ($messenger->BotType() == 'telegram') {
+            $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
+        }
 
         return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
     }
 
 
-    public static function getSScan(string $page, int $hr, $botType)
+    public static function getScanFullUrl(string $pageNumber, int $hr, $botType)
     {
+        return self::getBaseUrlScan($hr, $botType) . $pageNumber . ".png";
 //        if ($botType == 'telegram')
-//            return "https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page" . $page . ".png";
-//        return "https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page" . $page . ".png";
-//        return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
-//https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page001.png
+    }
+
+    public static function getBaseUrlScan(int $hr, $botType)
+    {
+        if ($hr == 1)
+            return "https://rayed.com/Quran/img/";
+        else if ($hr == 2)
+            return "https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page";
+        else if ($hr == 3)
+            return "https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page";
+        else if ($hr == 4)
+            return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page";
+        //https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page001.png
         //https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page001.png
-        return "https://rayed.com/Quran/img/" . $page . ".jpg";
         // https://archive.org/details/ALQURANPERPAGEFORMATPNG/page002.png
         // https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page003.png
     }
@@ -820,6 +829,26 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             $fileName = StringHelper::get3digitNumber($aye->sura) . StringHelper::get3digitNumber($aye->aya);
         }
         return $fileName;
+    }
+
+    /**
+     * @param int $pageNumber
+     * @return string
+     */
+    public static function getCaptionTelegram(int $pageNumber, int $hr, $botType): string
+    {
+        $commandNext = self::getCommandScan($pageNumber + 1);
+        $textNext = trans("bot.next quran page click here") . " : ";
+        $commandPrevious = self::getCommandScan($pageNumber - 1);
+        $textPrevious = trans("bot.previous quran page click here") . " : ";
+
+        $fullUrl = self::getScanFullUrl($pageNumber, $hr, $botType);
+        $caption = $textNext . $commandNext . " " . $textPrevious . $commandPrevious . "
+<a href='" . $fullUrl . "'>hr1</a>". "
+<a href='" . self::getScanFullUrl($pageNumber, 2, $botType) . "'>hr2</a>". "
+<a href='" . self::getScanFullUrl($pageNumber, 3, $botType) . "'>hr3</a>". "
+<a href='" . self::getScanFullUrl($pageNumber, 4, $botType) . "'>hr4</a>";
+        return $caption;
     }
 
     /**
