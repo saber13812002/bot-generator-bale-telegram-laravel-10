@@ -695,7 +695,7 @@ class BotHelper
             'photo' => $photoUrl,
             'title' => $title,
             'caption' => $caption,
-            'parse_mode' => "html"
+            'parse_mode' => "MarkdownV2"
         ];
 
         return $messenger->sendPhoto($content);
