@@ -157,8 +157,24 @@ class QuranWordController extends Controller
                                 }
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
 
-                                $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                $quranScanPage = QuranScanPage::query()
+                                    ->whereHr($hr)
+                                    ->whereType($type)
+                                    ->wherePage($page)
+                                    ->whereBotId(1)
+                                    ->first();
 
+                                if ($quranScanPage->count() == 0)
+                                    $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+
+                                $file_id = $quranScanPage->file_id;
+                                $file = $bot->getFile($file_id);
+                                $filePath = '/scan/' . $hr . '/' . $page . '.png';
+                                $bot->downloadFile($file['result']['file_path'], '.' . $filePath);
+                                $url = 'https://bots.pardisania.ir/storage' . $filePath;
+
+
+                                BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
                             }
                         }
                     }
