@@ -10,6 +10,7 @@ use App\Models\QuranScanPage;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Response as Respo;
 use Illuminate\Support\Carbon;
 use Telegram;
 
@@ -72,7 +73,7 @@ class ReportController extends Controller
         $quranScanPage = QuranScanPage::query()
             ->find($qsp_id);
         $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . $quranScanPage->page . '.png';;
-        return Response::download($path);
+        return Respo::download($path);
     }
 
     public static function sendImageToUser($second, $fullUrl, $chatId, $origin, string $caption = "")
