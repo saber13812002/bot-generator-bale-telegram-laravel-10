@@ -160,7 +160,7 @@ class QuranWordController extends Controller
 
 //                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['ok']), $type);
 
-                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo']['file_id']), $type);
+                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
 
                             }
                         }
