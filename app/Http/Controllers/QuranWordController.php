@@ -161,7 +161,10 @@ class QuranWordController extends Controller
 
                                 if ($quranScanPage == null || $quranScanPage->count() == 0) {
                                     $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
-                                    $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                    if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
+                                        $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                    else
+                                        BotHelper::sendMessage($bot,"error to find image scan quran");
                                 } else {
                                     $file_id = $quranScanPage->file_id;
                                     $file = $bot->getFile($file_id);
