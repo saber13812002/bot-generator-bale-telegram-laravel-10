@@ -169,7 +169,7 @@ class QuranWordController extends Controller
 
                                 $file_id = $quranScanPage->file_id;
                                 $file = $bot->getFile($file_id);
-                                $filePath = '/scan/' . $hr . '/' . $page . '.png';
+                                $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
                                 $bot->downloadFile($file['result']['file_path'], '.' . $filePath);
                                 $url = 'https://bots.pardisania.ir/storage' . $filePath;
 
