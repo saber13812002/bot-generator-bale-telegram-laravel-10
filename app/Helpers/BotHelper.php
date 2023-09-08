@@ -708,8 +708,8 @@ class BotHelper
             'chat_id' => $chat_id,
             'photo' => $photoUrl,
             'title' => $title,
-            'caption' => $caption,
-            "caption_entities"=> $caption_entities
+            'caption' => $caption
+//            "caption_entities"=> $caption_entities
         ];
 
         return $messenger->sendPhoto($content);
