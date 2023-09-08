@@ -690,26 +690,13 @@ class BotHelper
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
-        $caption_entities = [
-            [
-                "offset"=> 0,
-                "length"=> 9,
-                "type"=> "text_link",
-                "url"=> "http://telegre.at/"
-            ],
-            [
-                "offset"=> 10,
-                "length"=> 4,
-                "type"=> "bold"
-            ]
-        ];
 
         $content = [
             'chat_id' => $chat_id,
             'photo' => $photoUrl,
             'title' => $title,
-            'caption' => $caption
-//            "caption_entities"=> $caption_entities
+            'caption' => $caption,
+            'parse_mode' => "HTML"
         ];
 
         return $messenger->sendPhoto($content);
