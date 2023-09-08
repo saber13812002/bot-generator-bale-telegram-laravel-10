@@ -6,6 +6,7 @@ use Amenadiel\JpGraph\Graph;
 use Amenadiel\JpGraph\Plot;
 use App\Helpers\BotHelper;
 use App\Models\BotLog;
+use App\Models\QuranScanPage;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -59,6 +60,19 @@ class ReportController extends Controller
         self::sendImageToUser($second, $fullUrl, $chatId, $origin, $caption);
 
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function scan(Request $request)
+    {
+        $qsp_id = $request->input('qsp');
+
+        $quranScanPage = QuranScanPage::query()
+            ->find($qsp_id);
+        $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . $quranScanPage->page . '.png';;
+        return Response::download($path);
     }
 
     public static function sendImageToUser($second, $fullUrl, $chatId, $origin, string $caption = "")

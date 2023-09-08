@@ -47,6 +47,7 @@ Route::post('/webhook-rss', [BotMotherController::class, 'rss']);
 Route::post('/webhook-blog', [BlogController::class, 'index']);
 Route::get('/webhook-sms', [SmsController::class, 'index']);
 
+Route::get('/scan', [ReportController::class, 'scan']);
 
 Route::get('/daily-activity', [ReportController::class, 'dailyActivity']);
 Route::get('/daily-search', [ReportController::class, 'dailySearch']);

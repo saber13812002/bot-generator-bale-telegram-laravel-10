@@ -165,14 +165,13 @@ class QuranWordController extends Controller
                                     ->first();
 
                                 if ($quranScanPage->count() == 0)
-                                    $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                    $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
 
                                 $file_id = $quranScanPage->file_id;
                                 $file = $bot->getFile($file_id);
                                 $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
                                 $bot->downloadFile($file['result']['file_path'], $filePath);
-                                $url = 'https://bots.pardisania.ir/storage' . $filePath;
-
+                                $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id;
 
                                 BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
                             }
@@ -545,7 +544,7 @@ class QuranWordController extends Controller
      * @param $result
      * @return void
      */
-    public function saveToQuranScanPagesTable(int $hr, int $page, mixed $type, $result): void
+    public function saveToQuranScanPagesTable(int $hr, int $page, mixed $type, $result): QuranScanPage
     {
 //                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack), $type);
 
@@ -565,6 +564,7 @@ class QuranWordController extends Controller
         $quranScanPage->bot_chat_id = $result['from']['id'];
         $quranScanPage->bot_id = 1;
         $quranScanPage->save();
+        return $quranScanPage;
     }
 
 
