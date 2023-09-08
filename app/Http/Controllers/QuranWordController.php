@@ -11,6 +11,7 @@ use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
+use App\Models\QuranScanPage;
 use Exception;
 use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
@@ -156,11 +157,7 @@ class QuranWordController extends Controller
                                 }
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
 
-                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack), $type);
-
-//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['ok']), $type);
-
-                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
+                                $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
 
                             }
                         }
@@ -523,6 +520,35 @@ class QuranWordController extends Controller
             }
         }
         return true;
+    }
+
+    /**
+     * @param int $hr
+     * @param int $page
+     * @param mixed $type
+     * @param $result
+     * @return void
+     */
+    public function saveToQuranScanPagesTable(int $hr, int $page, mixed $type, $result): void
+    {
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack), $type);
+
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['ok']), $type);
+
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
+
+        $quranScanPage = new QuranScanPage();
+        $quranScanPage->hr = $hr;
+        $quranScanPage->page = $page;
+        $quranScanPage->type = $type;
+        $quranScanPage->file_id = $result['photo'][0]['file_id'];
+        $quranScanPage->file_unique_id = $result['photo'][0]['file_id'];
+        $quranScanPage->width = $result['photo'][0]['width'];
+        $quranScanPage->height = $result['photo'][0]['height'];
+        $quranScanPage->file_size = $result['photo'][0]['file_size'];
+        $quranScanPage->bot_chat_id = $result['from']['id'];
+        $quranScanPage->bot_id = 1;
+        $quranScanPage->save();
     }
 
 
