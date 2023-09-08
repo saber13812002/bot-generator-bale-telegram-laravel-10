@@ -156,7 +156,7 @@ class QuranWordController extends Controller
                                 }
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
 
-                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack));
+                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack), $type);
                             }
                         }
                     }
