@@ -240,8 +240,10 @@ class QuranHelper
     public static function getSScan(string $page, int $hr, $botType)
     {
         if ($botType == 'telegram')
-            return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
-
+            return "https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page" . $page . ".png";
+//        return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
+//https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page001.png
+        //https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page001.png
         return "https://rayed.com/Quran/img/" . $page . ".jpg";
     }
 
