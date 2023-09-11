@@ -484,60 +484,64 @@ class QuranWordController extends Controller
                 return 200;
             }
 
+
             if (AdminHelper::isAdminCommand($bot->Text())) {
                 if (AdminHelper::isAdmin($bot->ChatID())) {
-
-                    if ($request->request->get('to_admins') == "false") {
-                        $message = AdminHelper::getMessageAdmin($bot->Text());
+                    if ($type == 'telegram') {
+                        BotHelper::sendMessage($bot, "لطفا از روبات پیام رسان بله، این پیام را برای همه بفرستید");
                     } else {
-                        $message = AdminHelper::getMessageAdmin($bot->Text(), 4);
-                    }
+                        if ($request->request->get('to_admins') == "false") {
+                            $message = AdminHelper::getMessageAdmin($bot->Text());
+                        } else {
+                            $message = AdminHelper::getMessageAdmin($bot->Text(), 4);
+                        }
 
-                    $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
-                    $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
+                        $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
+                        $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
-                    if ($request->request->get('to_admins') == "false") {
-                        $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
-                            ->whereLanguage('fa')
-                            ->select('chat_id', 'type')
-                            ->distinct('chat_id')
-                            ->get();
-                    } else {
-                        $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
-                            ->whereIn('chat_id', AdminHelper::getAdmins())
-                            ->whereLanguage('fa')
-                            ->select('chat_id', 'type')
-                            ->distinct('chat_id')
-                            ->get();
-                    }
+                        if ($request->request->get('to_admins') == "false") {
+                            $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
+                                ->whereLanguage('fa')
+                                ->select('chat_id', 'type')
+                                ->distinct('chat_id')
+                                ->get();
+                        } else {
+                            $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
+                                ->whereIn('chat_id', AdminHelper::getAdmins())
+                                ->whereLanguage('fa')
+                                ->select('chat_id', 'type')
+                                ->distinct('chat_id')
+                                ->get();
+                        }
 
-                    foreach ($logs as $log) {
-                        $count = $logs->count();
-                        try {
+                        foreach ($logs as $log) {
+                            $count = $logs->count();
+                            try {
 
-                            if ($log['type'] == 'bale') {
-                                if (QuranHelper::isContainSureAyahCommand($message)) {
-                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-                                    $array = [[$messageButton, $command]];
-                                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                                    BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                                if ($log['type'] == 'bale') {
+                                    if (QuranHelper::isContainSureAyahCommand($message)) {
+                                        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                        $array = [[$messageButton, $command]];
+                                        $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                                        BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                                    } else {
+                                        BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
+                                    }
                                 } else {
-                                    BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
+                                    BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                                    if (QuranHelper::isContainSureAyahCommand($message)) {
+                                        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                        $array = [[$messageButton, $command]];
+                                        BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
+                                    }
                                 }
-                            } else {
-//                                BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
-//                                if (QuranHelper::isContainSureAyahCommand($message)) {
-//                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-//                                    $array = [[$messageButton, $command]];
-//                                    BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
-//                                }
+                            } catch (\Exception $exception) {
+                                Log::info($exception->getMessage());
                             }
-                        } catch (\Exception $exception) {
-                            Log::info($exception->getMessage());
                         }
                     }
+                    BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
                 }
-                BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
             }
         }
         return true;
