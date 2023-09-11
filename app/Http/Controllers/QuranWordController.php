@@ -164,7 +164,7 @@ class QuranWordController extends Controller
                                     if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
                                         $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
                                     else
-                                        BotHelper::sendMessage($bot,"error to find image scan quran");
+                                        BotHelper::sendMessage($bot, "error to find image scan quran");
                                 } else {
                                     $file_id = $quranScanPage->file_id;
                                     $file = $bot->getFile($file_id);
@@ -525,12 +525,11 @@ class QuranWordController extends Controller
                                     BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
                                 }
                             } else {
+                                BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                                 if (QuranHelper::isContainSureAyahCommand($message)) {
                                     [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
                                     $array = [[$messageButton, $command]];
                                     BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
-                                } else {
-                                    BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
                                 }
                             }
                         } catch (\Exception $exception) {
