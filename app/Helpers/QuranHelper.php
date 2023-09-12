@@ -317,7 +317,10 @@ class QuranHelper
 //        }
 
         if (!$quranTranslate) {
-            Log::error("quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye);
+            $logMessage = "quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye;
+            BotHelper::sendMessageToSuperAdmin($logMessage, 'bale');
+            BotHelper::sendMessageToSuperAdmin($logMessage, 'telegram');
+            Log::error($logMessage);
         }
 
         $showText = false;
