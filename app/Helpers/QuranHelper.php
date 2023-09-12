@@ -189,7 +189,7 @@ class QuranHelper
         if ($userSettings != null) {
             $mp3Reciter = $userSettings->setting($tag);
 //            dd($mp3Reciter);
-            if (!$mp3Reciter)
+            if (!$mp3Reciter && $tag == "mp3_reciter")
                 $mp3Reciter = "parhizgar";
             return $mp3Reciter;
         }
