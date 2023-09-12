@@ -316,7 +316,7 @@ class QuranHelper
 //        if (App::getLocale() == 'fa') {
 //        }
 
-        if ($quranTranslate) {
+        if (!$quranTranslate) {
             Log::error("quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye);
         }
 
