@@ -43,7 +43,6 @@ class QuranHelper
         $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
 
         if ($mp3Enable == "true") {
-
             $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
             $audio = self::getAudioUrl($mp3Reciter, $aye);
 
@@ -189,8 +188,11 @@ class QuranHelper
         if ($userSettings != null) {
             $mp3Reciter = $userSettings->setting($tag);
 //            dd($mp3Reciter);
+            if (!$mp3Reciter)
+                $mp3Reciter = "parhizgar";
+            return $mp3Reciter;
         }
-        return $mp3Reciter;
+        return "";
     }
 
 
@@ -227,7 +229,6 @@ class QuranHelper
 
         return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
     }
-
 
 
     public static function sendScanPageByUrl($messenger, string $photoUrl, int $pageNumber, int $hr)
@@ -843,9 +844,9 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
         $fullUrl = self::getScanFullUrl($pageNumber, $hr, $botType);
         $caption = $textNext . $commandNext . " " . $textPrevious . $commandPrevious . "
-<a href='" . $fullUrl . "'>hr1</a>". "
-<a href='" . self::getScanFullUrl($pageNumber, 2, $botType) . "'>hr2</a>". "
-<a href='" . self::getScanFullUrl($pageNumber, 3, $botType) . "'>hr3</a>". "
+<a href='" . $fullUrl . "'>hr1</a>" . "
+<a href='" . self::getScanFullUrl($pageNumber, 2, $botType) . "'>hr2</a>" . "
+<a href='" . self::getScanFullUrl($pageNumber, 3, $botType) . "'>hr3</a>" . "
 <a href='" . self::getScanFullUrl($pageNumber, 4, $botType) . "'>hr4</a>";
         return $caption;
     }
