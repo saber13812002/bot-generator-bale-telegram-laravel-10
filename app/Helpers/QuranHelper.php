@@ -12,6 +12,7 @@ use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
@@ -315,6 +316,9 @@ class QuranHelper
 //        if (App::getLocale() == 'fa') {
 //        }
 
+        if ($quranTranslate['text']) {
+            Log::error("quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye);
+        }
 
         $showText = false;
         $randomNumber = rand(1, 11);
@@ -324,6 +328,7 @@ class QuranHelper
         $message .= "
 
 " . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
+
         $index = $quranTranslate['index'];
 
         $trTransliteration = self::getSettingsByTags($userSettings, 'quran_transliteration_tr');
