@@ -69,10 +69,14 @@ class ReportController extends Controller
     public function scan(Request $request)
     {
         $qsp_id = $request->input('qsp');
+        $type = $request->input('type');
 
         $quranScanPage = QuranScanPage::query()
             ->find($qsp_id);
-        $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . $quranScanPage->page . '.png';;
+
+        $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . $quranScanPage->page . '.png';
+        if ($type == 'bale')
+            $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . StringHelper::get3digitNumber($quranScanPage->page) . '.png';
         return Respo::download($path);
     }
 
