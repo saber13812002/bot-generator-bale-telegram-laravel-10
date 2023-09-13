@@ -240,6 +240,8 @@ class QuranHelper
 
     public static function getScanFullUrl(string $pageNumber, int $hr, $botType)
     {
+        if ($hr == 1)
+            return self::getBaseUrlScan($hr, $botType) . StringHelper::get3digitNumber($pageNumber) . ".jpg";
         return self::getBaseUrlScan($hr, $botType) . $pageNumber . ".png";
 //        if ($botType == 'telegram')
     }
