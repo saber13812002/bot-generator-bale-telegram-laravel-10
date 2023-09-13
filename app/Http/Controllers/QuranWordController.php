@@ -296,7 +296,7 @@ class QuranWordController extends Controller
                         }
                     }
                 } else if ($command == "listcommands" || $command == "help") {
-                    $message = QuranHelper::getHelpMessage();
+                    $message = QuranHelper::getHelpMessage($type);
                     BotHelper::sendMessage($bot, $message);
                 }
 

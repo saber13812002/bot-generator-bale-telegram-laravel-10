@@ -762,7 +762,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             $message = $suraName . (($sure == 1 || $sure == 9) ? "
 " : "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-") . $message . " :(" . $sure . ":" . $aya . ")";
+") . $message . " : (" . $sure . " : " . $aya . " ) ";
         }
 //        else {
 //            $message .= "(" . $aya . ")";
@@ -1101,9 +1101,10 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @return string
      */
     public
-    static function getHelpMessage(): string
+    static function getHelpMessage($type): string
     {
-        return trans("bot.command list is") . "
+        if ($type == "bale")
+            return trans("bot.command list is") . "
 : /start [/start](send:/start)
 : /joz [" . trans('bot.help.list of Quran 30 parts') . "](send:/joz)
 : /fehrest [" . trans('bot.help.list of Surahs of the Quran') . "](send:/fehrest)
@@ -1127,6 +1128,33 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 /sure1ayah1
 
 [" . trans("bot.for example if you want to go sure 2 ayah 3") . "](send:/sure2ayah3)
+/sure2ayah3
+
+";
+        return trans("bot.command list is") . "
+: /start
+: /joz " . trans('bot.help.list of Quran 30 parts') . "
+: /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
+: /report " . trans('bot.help.your quran readings analysis report') . "
+: /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
+: /mp3_false " . trans('bot.help.disable sending mp3 for every ayah') . "
+: /mp3Reciter_parhizgar " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.parhizgar')]) . "
+: /mp3Reciter_alafasy " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.alafasy')]) . "
+: /listcommands " . trans('bot.help.list of this robot commands') . "](send:/listcommands)
+: /transen_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.english')]) . "
+: /transen_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.english')]) . "
+: /transtr_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
+: /transtr_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
+: /trans_2 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "
+: /trans_3 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "
+
+" . trans("bot.for search please type your phrase after double slash. like this") . "
+//الرحمن
+
+" . trans("bot.for direct access to sura and ayah") . "
+/sure1ayah1
+
+" . trans("bot.for example if you want to go sure 2 ayah 3") . "
 /sure2ayah3
 
 ";
