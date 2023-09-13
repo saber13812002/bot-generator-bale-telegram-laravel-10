@@ -568,7 +568,7 @@ class QuranWordController extends Controller
         $quranScanPage->page = $page;
         $quranScanPage->type = $type;
 
-        $index = 1;
+        $index = 2;
         if($type == 'bale')
             $index = 0;
 
