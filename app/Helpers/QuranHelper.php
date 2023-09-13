@@ -293,9 +293,11 @@ class QuranHelper
      * @param $userSettings
      * @param $sure
      * @param $aye
+     * @param $type
      * @return array
+     * @throws \Exception
      */
-    public static function getSureAye($userSettings, $sure, $aye): array
+    public static function getSureAye($userSettings, $sure, $aye, $type): array
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
@@ -351,14 +353,14 @@ class QuranHelper
                 $message .= "
 
 " . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . " /transtr_false [/transtr_false](send:/transtr_false)";
+" . trans("bot.to disable") . ($type == 'bale' ? " /transtr_false [/transtr_false](send:/transtr_false)" : " /transtr_false ");
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 
 " . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . " /transen_false [/transen_false](send:/transen_false)";
+" . trans("bot.to disable") . ($type == 'bale' ? " /transen_false [/transen_false](send:/transen_false)" : " /transen_false ");
             }
         }
 //        else {
@@ -369,12 +371,12 @@ class QuranHelper
         $message .= "
 " . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
 👇 👇 👇
-/scan" . $threeDigitNumber . "hr1 [/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)";
+/scan" . $threeDigitNumber . "hr1 " . ($type == 'bale' ? "[/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)" : "");
 
         $message .= "
 " . ($showText ? trans("bot.help.help") : "") . "
 👇 👇 👇
-/help [/help](send:/help) ";
+/help " . ($type == 'bale' ? "[/help](send:/help) " : "");
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";

@@ -199,7 +199,7 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya);
+                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type);
 
                             [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
                             [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
