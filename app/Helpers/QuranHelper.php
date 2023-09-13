@@ -47,7 +47,7 @@ class QuranHelper
             $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
             $audio = self::getAudioUrl($mp3Reciter, $aye);
 
-            $caption = self::getSettingReciter();
+            $caption = self::getSettingReciter($messenger->BotType());
 
             $content = [
                 'chat_id' => $chat_id,
@@ -105,7 +105,7 @@ class QuranHelper
 
             // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
 
-            $caption = self::getSettingReciter();
+            $caption = self::getSettingReciter($messenger->BotType());
 
             $content = [
                 'chat_id' => $chat_id,
@@ -126,16 +126,19 @@ class QuranHelper
     }
 
     /**
+     * @param string $type
      * @return string
      */
-    public static function getSettingReciter(): string
+    public static function getSettingReciter(string $type = 'bale'): string
     {
         $caption = "
-" . trans("bot.disable enable reciter") . " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
-";
+" . trans("bot.disable enable reciter") . ($type == 'bale' ? " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
+" : " /mp3_true  /mp3_false
+");
 
-        $caption .= trans("bot.change reciter") . " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
-";
+        $caption .= trans("bot.change reciter") . ($type == 'bale' ? " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
+" : " /mp3reciter_parhizgar  /mp3reciter_alafasy
+");
         return $caption;
     }
 

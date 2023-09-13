@@ -104,7 +104,7 @@ class QuranWordController extends Controller
                 $command_type = "start";
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
-                $reciterCommands = QuranHelper::getSettingReciter();
+                $reciterCommands = QuranHelper::getSettingReciter($type);
                 $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
