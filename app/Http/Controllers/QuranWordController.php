@@ -168,7 +168,11 @@ class QuranWordController extends Controller
                                 } else {
                                     $file_id = $quranScanPage->file_id;
                                     $file = $bot->getFile($file_id);
+
                                     $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+                                    if ($type = 'bale')
+                                        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
+
                                     $bot->downloadFile($file['result']['file_path'], $filePath);
                                     $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id;
 
@@ -569,7 +573,7 @@ class QuranWordController extends Controller
         $quranScanPage->type = $type;
 
         $index = 2;
-        if($type == 'bale')
+        if ($type == 'bale')
             $index = 0;
 
         $quranScanPage->file_id = $result['photo'][$index]['file_id'];
