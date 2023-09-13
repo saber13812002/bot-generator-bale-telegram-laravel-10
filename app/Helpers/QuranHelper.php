@@ -242,7 +242,7 @@ class QuranHelper
     {
         if ($hr == 1)
             return self::getBaseUrlScan($hr, $botType) . StringHelper::get3digitNumber($pageNumber) . ".jpg";
-        return self::getBaseUrlScan($hr, $botType) . $pageNumber . ".png";
+        return self::getBaseUrlScan($hr, $botType) . StringHelper::get3digitNumber($pageNumber) . ".png";
 //        if ($botType == 'telegram')
     }
 
