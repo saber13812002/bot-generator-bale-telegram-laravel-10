@@ -290,7 +290,7 @@ class QuranWordController extends Controller
                         BotHelper::sendMessage($bot, "this command not work in telegram");
                     } else {
                         if (AdminHelper::isAdmin($bot->ChatID())) {
-                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
                         } else {
                             BotHelper::sendMessage($bot, "you are not admin");
                         }
