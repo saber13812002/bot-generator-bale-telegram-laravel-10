@@ -557,7 +557,7 @@ class QuranWordController extends Controller
     public
     function saveToQuranScanPagesTable(int $hr, int $page, mixed $type, $result): QuranScanPage
     {
-                                BotHelper::sendMessageToSuperAdmin(json_encode($result), $type);
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($result), $type);
 
 //                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['ok']), $type);
 
