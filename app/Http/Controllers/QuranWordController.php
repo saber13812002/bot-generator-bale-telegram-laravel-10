@@ -170,7 +170,7 @@ class QuranWordController extends Controller
                                     $file = $bot->getFile($file_id);
 
                                     $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
-                                    if ($type = 'bale')
+                                    if ($type == 'bale')
                                         $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
 
                                     $bot->downloadFile($file['result']['file_path'], $filePath);
