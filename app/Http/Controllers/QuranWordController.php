@@ -567,11 +567,16 @@ class QuranWordController extends Controller
         $quranScanPage->hr = $hr;
         $quranScanPage->page = $page;
         $quranScanPage->type = $type;
-        $quranScanPage->file_id = $result['photo'][0]['file_id'];
-        $quranScanPage->file_unique_id = $result['photo'][0]['file_id'];
-        $quranScanPage->width = $result['photo'][0]['width'];
-        $quranScanPage->height = $result['photo'][0]['height'];
-        $quranScanPage->file_size = $result['photo'][0]['file_size'];
+
+        $index = 3;
+        if($type == 'bale')
+            $index = 0;
+
+        $quranScanPage->file_id = $result['photo'][$index]['file_id'];
+        $quranScanPage->file_unique_id = $result['photo'][$index]['file_id'];
+        $quranScanPage->width = $result['photo'][$index]['width'];
+        $quranScanPage->height = $result['photo'][$index]['height'];
+        $quranScanPage->file_size = $result['photo'][$index]['file_size'];
         $quranScanPage->bot_chat_id = $result['from']['id'];
         $quranScanPage->bot_id = 1;
         $quranScanPage->save();
