@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Amenadiel\JpGraph\Graph;
 use Amenadiel\JpGraph\Plot;
 use App\Helpers\BotHelper;
+use App\Helpers\StringHelper;
 use App\Models\BotLog;
 use App\Models\QuranScanPage;
 use Exception;
@@ -77,6 +78,7 @@ class ReportController extends Controller
         $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . $quranScanPage->page . '.png';
         if ($type == 'bale')
             $path = '/home/pardisa2/bots/storage/app/public/scan/' . $quranScanPage->hr . '/' . StringHelper::get3digitNumber($quranScanPage->page) . '.png';
+
         return Respo::download($path);
     }
 
