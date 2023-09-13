@@ -851,6 +851,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $textPrevious = trans("bot.previous quran page click here") . " : ";
 
         $fullUrl = self::getScanFullUrl($pageNumber, $hr, $botType);
+        BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
         $caption = $textNext . $commandNext . " " . $textPrevious . $commandPrevious . "
 <a href='" . $fullUrl . "'>hr1</a>" . "
 <a href='" . self::getScanFullUrl($pageNumber, 2, $botType) . "'>hr2</a>" . "
