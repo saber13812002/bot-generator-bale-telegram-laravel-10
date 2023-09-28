@@ -11,6 +11,7 @@ use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
+use App\Models\QuranScanPage;
 use Exception;
 use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
@@ -103,7 +104,7 @@ class QuranWordController extends Controller
                 $command_type = "start";
                 $isStartCommandShow = 0;
                 list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
-                $reciterCommands = QuranHelper::getSettingReciter();
+                $reciterCommands = QuranHelper::getSettingReciter($type);
                 $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
                 if ($type == 'telegram') {
@@ -150,7 +151,36 @@ class QuranWordController extends Controller
 
                         if ($hr > 0) {
                             if ($type == 'telegram' || $type == 'bale') {
-                                QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+
+                                $quranScanPage = QuranScanPage::query()
+                                    ->whereHr($hr)
+                                    ->whereType($type)
+                                    ->wherePage($page)
+                                    ->whereBotId(1)
+                                    ->first();
+
+                                if ($quranScanPage == null || $quranScanPage->count() == 0) {
+                                    $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                    if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
+                                        $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                    else
+                                        BotHelper::sendMessage($bot, "error to find image scan quran");
+                                } else {
+                                    $file_id = $quranScanPage->file_id;
+                                    $file = $bot->getFile($file_id);
+
+                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+                                    if ($type == 'bale')
+                                        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
+
+                                    $bot->downloadFile($file['result']['file_path'], $filePath);
+                                    $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
+
+//                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
+
+                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
+                                }
+
                                 if ($type == 'bale') {
                                     QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                                 }
@@ -169,7 +199,7 @@ class QuranWordController extends Controller
                         if ($aya > 0) {
 
                             $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya);
+                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type);
 
                             [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
                             [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
@@ -260,13 +290,13 @@ class QuranWordController extends Controller
                         BotHelper::sendMessage($bot, "this command not work in telegram");
                     } else {
                         if (AdminHelper::isAdmin($bot->ChatID())) {
-                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly();
+                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
                         } else {
                             BotHelper::sendMessage($bot, "you are not admin");
                         }
                     }
                 } else if ($command == "listcommands" || $command == "help") {
-                    $message = QuranHelper::getHelpMessage();
+                    $message = QuranHelper::getHelpMessage($type);
                     BotHelper::sendMessage($bot, $message);
                 }
 
@@ -458,64 +488,103 @@ class QuranWordController extends Controller
                 return 200;
             }
 
+
             if (AdminHelper::isAdminCommand($bot->Text())) {
                 if (AdminHelper::isAdmin($bot->ChatID())) {
-
-                    if ($request->request->get('to_admins') == "false") {
-                        $message = AdminHelper::getMessageAdmin($bot->Text());
+                    if ($type == 'telegram') {
+                        BotHelper::sendMessage($bot, "لطفا از روبات پیام رسان بله، این پیام را برای همه بفرستید");
                     } else {
-                        $message = AdminHelper::getMessageAdmin($bot->Text(), 4);
-                    }
+                        if ($request->request->get('to_admins') == "false") {
+                            $message = AdminHelper::getMessageAdmin($bot->Text());
+                        } else {
+                            $message = AdminHelper::getMessageAdmin($bot->Text(), 4);
+                        }
 
-                    $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
-                    $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
+                        $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
+                        $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
-                    if ($request->request->get('to_admins') == "false") {
-                        $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
-                            ->whereLanguage('fa')
-                            ->select('chat_id', 'type')
-                            ->distinct('chat_id')
-                            ->get();
-                    } else {
-                        $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
-                            ->whereIn('chat_id', AdminHelper::getAdmins())
-                            ->whereLanguage('fa')
-                            ->select('chat_id', 'type')
-                            ->distinct('chat_id')
-                            ->get();
-                    }
+                        if ($request->request->get('to_admins') == "false") {
+                            $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
+                                ->whereLanguage('fa')
+                                ->select('chat_id', 'type')
+                                ->distinct('chat_id')
+                                ->get();
+                        } else {
+                            $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
+                                ->whereIn('chat_id', AdminHelper::getAdmins())
+                                ->whereLanguage('fa')
+                                ->select('chat_id', 'type')
+                                ->distinct('chat_id')
+                                ->get();
+                        }
 
-                    foreach ($logs as $log) {
-                        $count = $logs->count();
-                        try {
+                        foreach ($logs as $log) {
+                            $count = $logs->count();
+                            try {
 
-                            if ($log['type'] == 'bale') {
-                                if (QuranHelper::isContainSureAyahCommand($message)) {
-                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-                                    $array = [[$messageButton, $command]];
-                                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                                    BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
-                                } else {
-                                    BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
-                                }
-                            } else {
-                                if (QuranHelper::isContainSureAyahCommand($message)) {
-                                    [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
-                                    $array = [[$messageButton, $command]];
-                                    BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
+                                if ($log['type'] == 'bale') {
+                                    if (QuranHelper::isContainSureAyahCommand($message)) {
+                                        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                        $array = [[$messageButton, $command]];
+                                        $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                                        BotHelper::messageWithKeyboard($token, $log['chat_id'], $message, $inlineKeyboard);
+                                    } else {
+                                        BotHelper::sendMessageByChatId($botBale, $log['chat_id'], $message);
+                                    }
                                 } else {
                                     BotHelper::sendMessageByChatId($botTelegram, $log['chat_id'], $message);
+                                    if (QuranHelper::isContainSureAyahCommand($message)) {
+                                        [$command, $messageButton] = QuranHelper::getCommandByRegex($message);
+                                        $array = [[$messageButton, $command]];
+                                        BotHelper::send1buttonToChatId($botTelegram, $array, $log['chat_id']);
+                                    }
                                 }
+                            } catch (\Exception $exception) {
+                                Log::info($exception->getMessage());
                             }
-                        } catch (\Exception $exception) {
-                            Log::info($exception->getMessage());
                         }
                     }
+                    BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
                 }
-                BotHelper::sendMessage($bot, trans("bot.sent it for :count person", ["count" => $count]));
             }
         }
         return true;
+    }
+
+    /**
+     * @param int $hr
+     * @param int $page
+     * @param mixed $type
+     * @param $result
+     * @return void
+     */
+    public
+    function saveToQuranScanPagesTable(int $hr, int $page, mixed $type, $result): QuranScanPage
+    {
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($result), $type);
+
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['ok']), $type);
+
+//                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
+
+        $quranScanPage = new QuranScanPage();
+        $quranScanPage->hr = $hr;
+        $quranScanPage->page = $page;
+        $quranScanPage->type = $type;
+
+        $index = 2;
+        if ($type == 'bale')
+            $index = 0;
+
+        $quranScanPage->file_id = $result['photo'][$index]['file_id'];
+        $quranScanPage->file_unique_id = $result['photo'][$index]['file_id'];
+        $quranScanPage->width = $result['photo'][$index]['width'];
+        $quranScanPage->height = $result['photo'][$index]['height'];
+        $quranScanPage->file_size = $result['photo'][$index]['file_size'];
+        $quranScanPage->bot_chat_id = $result['from']['id'];
+        $quranScanPage->bot_id = 1;
+        $quranScanPage->save();
+        return $quranScanPage;
     }
 
 

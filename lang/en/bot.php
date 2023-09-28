@@ -115,6 +115,10 @@ return [
 
     'next quran page click here' => 'next quran page click here',
 
+    'previous quran page click here' => 'previous quran page click here',
+
+    'page' => 'page',
+
     'help' => [
         'choose :reciter as reciter' => 'choose :reciter as reciter',
         'choose :language as transliteration' => 'choose :language as transliteration',
@@ -152,5 +156,6 @@ return [
         "last 7 days readings" => "last 7 days readings",
     ],
     "sent it for :count person" => "sent it for :count person",
-    "for next or previous quran page click on these buttons" => "for next or previous quran page click on these buttons"
+    "for next or previous quran page click on these buttons" => "for next or previous quran page click on these buttons",
+    'to sending request for next result page please click here' => 'to sending request for next result page please click here',
 ];

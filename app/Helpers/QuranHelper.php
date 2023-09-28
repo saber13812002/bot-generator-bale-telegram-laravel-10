@@ -12,6 +12,7 @@ use App\Models\QuranWord;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
@@ -43,15 +44,15 @@ class QuranHelper
         $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
 
         if ($mp3Enable == "true") {
-            $base_url = self::getBaseUrl($userSettings);
+            $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
+            $audio = self::getAudioUrl($mp3Reciter, $aye);
 
-            $audio = $base_url . $aye->id . ".mp3";
-
-            $caption = self::getSettingReciter();
+            $caption = self::getSettingReciter($messenger->BotType());
 
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
+//                'parse_mode' => "html",
                 // TODO:
 //            'duration' => NULL,
 //            'performer' => NULL,
@@ -104,13 +105,14 @@ class QuranHelper
 
             // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
 
-            $caption = self::getSettingReciter();
+            $caption = self::getSettingReciter($messenger->BotType());
 
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
                 'title' => self::getAyeDescription($aye),
                 'caption' => $caption
+//                'parse_mode' => "html"
             ];
 
 //        dd($mp3Enable, $caption, $audio, $mp3Reciter);
@@ -124,16 +126,19 @@ class QuranHelper
     }
 
     /**
+     * @param string $type
      * @return string
      */
-    public static function getSettingReciter(): string
+    public static function getSettingReciter(string $type = 'bale'): string
     {
         $caption = "
-" . trans("bot.disable enable reciter") . " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
-";
+" . trans("bot.disable enable reciter") . ($type == 'bale' ? " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
+" : " /mp3_true  /mp3_false
+");
 
-        $caption .= trans("bot.change reciter") . " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
-";
+        $caption .= trans("bot.change reciter") . ($type == 'bale' ? " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
+" : " /mp3reciter_parhizgar  /mp3reciter_alafasy
+");
         return $caption;
     }
 
@@ -158,17 +163,22 @@ class QuranHelper
     {
         $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
         if ($mp3Reciter == "parhizgar")
-            $base_url = "http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/";
+            $base_url = "https://tanzil.net/res/audio/parhizgar/";
         return $base_url;
 
         //https://github.com/GlobalQuran/docs/blob/a0543eb602bab509c366b02a571a4f480a7214ec/api.yaml#L1613
 
         // http://cdn.alquran.cloud/media/audio/ayah/fa.hedayatfarfooladvand/
         // http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/
+        //https://tanzil.net/res/audio/parhizgar/
         // http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/
         // \/\/audio.globalquran.com\/fa.hedayatfarfooladvand\/mp3\/40kbs\/
         // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
         // \/\/audio.globalquran.com\/ur.khan\/mp3\/64kbs\/
+
+        // juz
+
+        https://www.sibtayn.com/sound/ar/quran/parhizgar/
     }
 
     /**
@@ -182,8 +192,11 @@ class QuranHelper
         if ($userSettings != null) {
             $mp3Reciter = $userSettings->setting($tag);
 //            dd($mp3Reciter);
+            if (!$mp3Reciter && $tag == "mp3_reciter")
+                $mp3Reciter = "parhizgar";
+            return $mp3Reciter;
         }
-        return $mp3Reciter;
+        return "";
     }
 
 
@@ -203,12 +216,11 @@ class QuranHelper
     }
 
     /**
-     * @param BotUsers|null $userSettings
+     * @param string $mp3Reciter
      * @return string
      */
-    public static function getBaseUrl(?BotUsers $userSettings): string
+    public static function getAudioBaseUrl(string $mp3Reciter): string
     {
-        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
 //dd($mp3Reciter);
         $base_url = self::getUrl($mp3Reciter);
 //        dd($base_url);
@@ -217,25 +229,40 @@ class QuranHelper
 
     public static function sendScanPage(Telegram $messenger, int $pageNumber, int $hr)
     {
-        $photoUrl = self::getSScan($pageNumber, $hr, $messenger->BotType());
+        $photoUrl = self::getScanFullUrl($pageNumber, $hr, $messenger->BotType());
 
-        $chat_id = $messenger->ChatID();
-        $title = "page" . $pageNumber;
-
-        $command = self::getCommandScan($pageNumber);
-        $text = trans("bot.next quran page click here") . " : ";
-        $caption = $text . $command;
-
-        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
     }
 
 
-    public static function getSScan(string $page, int $hr, $botType)
+    public static function sendScanPageByUrl($messenger, string $photoUrl, int $pageNumber, int $hr)
     {
-        if ($botType == 'telegram')
-            return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page" . $page . ".png";
+        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
+    }
 
-        return "https://rayed.com/Quran/img/" . $page . ".jpg";
+
+    public static function getScanFullUrl(string $pageNumber, int $hr, $botType)
+    {
+        if ($hr == 1)
+            return self::getBaseUrlScan($hr, $botType) . StringHelper::get3digitNumber($pageNumber) . ".jpg";
+        return self::getBaseUrlScan($hr, $botType) . StringHelper::get3digitNumber($pageNumber) . ".png";
+//        if ($botType == 'telegram')
+    }
+
+    public static function getBaseUrlScan(int $hr, $botType)
+    {
+        if ($hr == 1)
+            return "https://rayed.com/Quran/img/";
+        else if ($hr == 2)
+            return "https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page";
+        else if ($hr == 3)
+            return "https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page";
+        else if ($hr == 4)
+            return "https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page";
+        //https://cdn.jsdelivr.net/gh/tarekeldeeb/madina_images@w1024/w1024_page001.png
+        //https://raw.githubusercontent.com/tarekeldeeb/madina_images/w1024/w1024_page001.png
+        // https://archive.org/details/ALQURANPERPAGEFORMATPNG/page002.png
+        // https://ia802709.us.archive.org/6/items/ALQURANPERPAGEFORMATPNG/page003.png
     }
 
     public static function sendAudioMp3Page($messenger, string $pageNumber)
@@ -253,11 +280,12 @@ class QuranHelper
             'chat_id' => $chat_id,
             'audio' => $audio,
             'title' => $caption,
-            'caption' => $caption
+            'caption' => $caption,
+            'parse_mode' => "html"
         ];
 
         if ($messenger->BotType() != "gap")
-            $messenger->sendAudio($content);
+            return $messenger->sendAudio($content);
 
     }
 
@@ -265,9 +293,11 @@ class QuranHelper
      * @param $userSettings
      * @param $sure
      * @param $aye
+     * @param $type
      * @return array
+     * @throws \Exception
      */
-    public static function getSureAye($userSettings, $sure, $aye): array
+    public static function getSureAye($userSettings, $sure, $aye, $type): array
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
@@ -293,6 +323,12 @@ class QuranHelper
 //        if (App::getLocale() == 'fa') {
 //        }
 
+        if (!$quranTranslate) {
+            $logMessage = "quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye;
+            BotHelper::sendMessageToSuperAdmin($logMessage, 'bale');
+            BotHelper::sendMessageToSuperAdmin($logMessage, 'telegram');
+            Log::error($logMessage);
+        }
 
         $showText = false;
         $randomNumber = rand(1, 11);
@@ -302,6 +338,7 @@ class QuranHelper
         $message .= "
 
 " . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
+
         $index = $quranTranslate['index'];
 
         $trTransliteration = self::getSettingsByTags($userSettings, 'quran_transliteration_tr');
@@ -316,14 +353,14 @@ class QuranHelper
                 $message .= "
 
 " . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . " /transtr_false [/transtr_false](send:/transtr_false)";
+" . trans("bot.to disable") . ($type == 'bale' ? " /transtr_false [/transtr_false](send:/transtr_false)" : " /transtr_false ");
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 
 " . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . " /transen_false [/transen_false](send:/transen_false)";
+" . trans("bot.to disable") . ($type == 'bale' ? " /transen_false [/transen_false](send:/transen_false)" : " /transen_false ");
             }
         }
 //        else {
@@ -334,12 +371,12 @@ class QuranHelper
         $message .= "
 " . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
 👇 👇 👇
-/scan" . $threeDigitNumber . "hr1 [/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)";
+/scan" . $threeDigitNumber . "hr1 " . ($type == 'bale' ? "[/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)" : "");
 
         $message .= "
 " . ($showText ? trans("bot.help.help") : "") . "
 👇 👇 👇
-/help [/help](send:/help) ";
+/help " . ($type == 'bale' ? "[/help](send:/help) " : "");
 
         if (!$message) {
             $message = "این سوره و آیه پیدا نشد";
@@ -730,7 +767,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             $message = $suraName . (($sure == 1 || $sure == 9) ? "
 " : "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
-") . $message . " :(" . $sure . ":" . $aya . ")";
+") . $message . " : (" . $sure . " : " . $aya . " ) ";
         }
 //        else {
 //            $message .= "(" . $aya . ")";
@@ -786,6 +823,71 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     }
 
     /**
+     * @param $mp3Reciter
+     * @param $aye
+     * @return string
+     */
+    public static function getAudioUrl($mp3Reciter, $aye): string
+    {
+        $base_url = self::getAudioBaseUrl($mp3Reciter);
+        $fileName = self::getAudioFileName($mp3Reciter, $aye);
+
+        $audio = $base_url . $fileName . ".mp3";
+
+        return $audio;
+    }
+
+    public static function getAudioFileName(mixed $mp3Reciter, $aye)
+    {
+        $fileName = $aye->id;
+        if ($mp3Reciter == "parhizgar") {
+            $fileName = StringHelper::get3digitNumber($aye->sura) . StringHelper::get3digitNumber($aye->aya);
+        }
+        return $fileName;
+    }
+
+    /**
+     * @param int $pageNumber
+     * @return string
+     */
+    public static function getCaptionTelegram(int $pageNumber, int $hr, $botType): string
+    {
+        $commandNext = self::getCommandScan($pageNumber + 1);
+        $textNext = trans("bot.next quran page click here") . " : ";
+        $commandPrevious = self::getCommandScan($pageNumber - 1);
+        $textPrevious = trans("bot.previous quran page click here") . " : ";
+
+        $fullUrl = self::getScanFullUrl($pageNumber, $hr, $botType);
+//        BotHelper::sendMessageToSuperAdmin($fullUrl, 'bale');
+        $caption = $textNext . $commandNext . " " . $textPrevious . $commandPrevious . "
+<a href='" . $fullUrl . "'>hr1</a>" . "
+<a href='" . self::getScanFullUrl($pageNumber, 2, $botType) . "'>hr2</a>" . "
+<a href='" . self::getScanFullUrl($pageNumber, 3, $botType) . "'>hr3</a>" . "
+<a href='" . self::getScanFullUrl($pageNumber, 4, $botType) . "'>hr4</a>";
+        return $caption;
+    }
+
+    /**
+     * @param $messenger
+     * @param int $pageNumber
+     * @param int $hr
+     * @param string $photoUrl
+     * @return mixed
+     */
+    public static function createTitleCaptionSendScan($messenger, int $pageNumber, int $hr, string $photoUrl): mixed
+    {
+        $chat_id = $messenger->ChatID();
+        $title = "#" . trans("bot.page") . "_" . $pageNumber;
+
+        $caption = $title;
+        if ($messenger->BotType() == 'telegram') {
+            $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
+        }
+
+        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+    }
+
+    /**
      * @param Telegram $bot
      * @param $token
      * @return void
@@ -818,7 +920,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param Telegram $bot
      * @return void
      */
-    public static
+    public
+    static
     function generateJozLinksThenSendItTelegram($bot): void
     {
         $message = "";
@@ -839,7 +942,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @return void
      * @throws GuzzleException
      */
-    public static
+    public
+    static
     function generateBaleFehrestThenSendIt(Telegram $bot, $token): void
     {
         $quranSurahs = QuranSurah::select(['id', 'ayah', 'arabic', 'sajda', 'location'])
@@ -859,7 +963,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param Telegram $bot
      * @return void
      */
-    public static
+    public
+    static
     function generateTelegramFehrestThenSendIt(Telegram $bot): void
     {
         $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
@@ -878,7 +983,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param $bot
      * @return void
      */
-    public static
+    public
+    static
     function generateGapFehrestThenSendIt($bot): void
     {
         $quranSurahs = QuranSurah::select('id', 'ayah', 'arabic', 'sajda', 'location')
@@ -901,7 +1007,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public static function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
+    public
+    static function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             QuranHelper::sendAudio($bot, 1, 1, $userSettings);
@@ -917,7 +1024,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param BotUsers|null $userSettings
      * @return void
      */
-    public static function sendAudioMp3AyeByLocale(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
+    public
+    static function sendAudioMp3AyeByLocale(int $aya, int $sure, $bot, $postfix, BotUsers $userSettings = null): void
     {
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             QuranHelper::sendAudioByLocale($bot, 1, 1, $userSettings, $postfix);
@@ -925,7 +1033,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         QuranHelper::sendAudioByLocale($bot, $sure, $aya, $userSettings, $postfix);
     }
 
-    public static function generateJozLinksThenSendItBale(Telegram $bot): void
+    public
+    static function generateJozLinksThenSendItBale(Telegram $bot): void
     {
         $message = "";
         for ($i = 0; $i < 30; $i += 2) {
@@ -936,7 +1045,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         BotHelper::sendMessage($bot, $message);
     }
 
-    public static function generateArrayCommands(Model|bool|BotUsers $userSettings): array
+    public
+    static function generateArrayCommands(Model|bool|BotUsers $userSettings): array
     {
         if (!$userSettings) {
             return [
@@ -995,9 +1105,11 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     /**
      * @return string
      */
-    public static function getHelpMessage(): string
+    public
+    static function getHelpMessage($type): string
     {
-        return trans("bot.command list is") . "
+        if ($type == "bale")
+            return trans("bot.command list is") . "
 : /start [/start](send:/start)
 : /joz [" . trans('bot.help.list of Quran 30 parts') . "](send:/joz)
 : /fehrest [" . trans('bot.help.list of Surahs of the Quran') . "](send:/fehrest)
@@ -1024,6 +1136,33 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 /sure2ayah3
 
 ";
+        return trans("bot.command list is") . "
+: /start
+: /joz " . trans('bot.help.list of Quran 30 parts') . "
+: /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
+: /report " . trans('bot.help.your quran readings analysis report') . "
+: /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
+: /mp3_false " . trans('bot.help.disable sending mp3 for every ayah') . "
+: /mp3Reciter_parhizgar " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.parhizgar')]) . "
+: /mp3Reciter_alafasy " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.alafasy')]) . "
+: /listcommands " . trans('bot.help.list of this robot commands') . "](send:/listcommands)
+: /transen_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.english')]) . "
+: /transen_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.english')]) . "
+: /transtr_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
+: /transtr_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
+: /trans_2 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "
+: /trans_3 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "
+
+" . trans("bot.for search please type your phrase after double slash. like this") . "
+//الرحمن
+
+" . trans("bot.for direct access to sura and ayah") . "
+/sure1ayah1
+
+" . trans("bot.for example if you want to go sure 2 ayah 3") . "
+/sure2ayah3
+
+";
     }
 
     /**
@@ -1032,7 +1171,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param $ayah
      * @return string
      */
-    private static function generateLinkCommandResult(mixed $type, $sure, $ayah): string
+    private
+    static function generateLinkCommandResult(mixed $type, $sure, $ayah): string
     {
         $command = "/sure" . $sure . "ayah" . $ayah;
 
@@ -1042,11 +1182,12 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return "[" . $command . "](send:" . $command . ")";
     }
 
-    private static function getCommandNextPage(string $searchPhrase, int $nextPage): string
+    private
+    static function getCommandNextPage(string $searchPhrase, int $nextPage): string
     {
         return "
-برای دیدن صفحه بعدی نتایج روی لینک زیر کلیک کنید
-//" . $searchPhrase . "page=" . $nextPage;
+" . trans("bot.to sending request for next result page please click here") . "
+[//" . $searchPhrase . "page=" . $nextPage . "](send://" . $searchPhrase . "page=" . $nextPage . ")";
 
     }
 }

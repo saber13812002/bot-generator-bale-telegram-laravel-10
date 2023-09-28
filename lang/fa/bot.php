@@ -133,6 +133,12 @@ return [
         'last 7 days readings' => 'آمار مطالعه شما در 7 روز گذشته',
     ],
     'next quran page click here'                                                => 'برای صفحه بعدی قرآن اینجا کلیک کنید',
+
+    'previous quran page click here' => 'صفحه قبلی',
+
+    'page' => 'صفحه',
+
     'sent it for :count person'                                                 => 'آن را برای :count از افراد ارسال کردم.',
     'for next or previous quran page click on these buttons'                    => 'برای صفحه قرآن بعدی یا قبلی روی این دکمه ها کلیک کنید',
+    'to sending request for next result page please click here' => 'برای دیدن صفحه بعدی نتایج روی لینک زیر کلیک کنید',
 ];

@@ -166,7 +166,8 @@ class BotHelper
         $content = [
             'chat_id' => $chat_id,
             'text' => $message,
-            'reply_markup' => $keyboard
+            'reply_markup' => $keyboard,
+            'parse_mode' => "html"
         ];
 
         $messenger->sendMessage($content);
@@ -184,7 +185,8 @@ class BotHelper
         $content = [
             'chat_id' => $chat_id,
             'text' => $message,
-            'reply_markup' => $keyboard
+            'reply_markup' => $keyboard,
+            'parse_mode' => "html"
         ];
 
         $messenger->sendMessage($content);
@@ -202,7 +204,8 @@ class BotHelper
 
         $content = [
             'chat_id' => $chat_id,
-            'text' => $message
+            'text' => $message,
+            'parse_mode' => "html"
         ];
 
         $messenger->sendMessage($content);
@@ -220,7 +223,7 @@ class BotHelper
         $content = [
             'chat_id' => $chat_id,
             'text' => $message,
-            'parse_mode' => "HTML"
+            'parse_mode' => "html"
         ];
 
         $messenger->sendMessage($content);
@@ -254,7 +257,8 @@ class BotHelper
     {
         $content = [
             'chat_id' => $chat_id,
-            'text' => $message
+            'text' => $message,
+            'parse_mode' => "html"
         ];
 
         $messenger->sendMessage($content);
@@ -668,6 +672,7 @@ class BotHelper
         $response = $client->post($uri, ['json' => [
             "chat_id" => $chatId,
             "text" => $message,
+            'parse_mode' => "html",
             "reply_markup" => [
                 "inline_keyboard" => $inlineKeyboard
             ]]]);
@@ -685,11 +690,13 @@ class BotHelper
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
+
         $content = [
             'chat_id' => $chat_id,
             'photo' => $photoUrl,
             'title' => $title,
-            'caption' => $caption
+            'caption' => $caption,
+            'parse_mode' => "HTML"
         ];
 
         return $messenger->sendPhoto($content);

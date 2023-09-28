@@ -140,7 +140,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
         }
     }
 
-    public function allUsersReportDailyWeeklyMonthly()
+    public function allUsersReportDailyWeeklyMonthly($type = null)
     {
 //        return 0;
         //
@@ -184,8 +184,9 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 " . trans("bot.to send your daily activity report please try it with this command") . "
 
 👇 👇 👇 👇 👇
-        /report
-";
+" . ($type == 'bale' ? "/report [/report](send:/report)
+" : "/report
+");
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');

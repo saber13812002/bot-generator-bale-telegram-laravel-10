@@ -8,5 +8,5 @@ interface QuranBotUserRankingService
 
     public function specificUserReport($chatId, $bot = null);
 
-    public function allUsersReportDailyWeeklyMonthly();
+    public function allUsersReportDailyWeeklyMonthly($type = null);
 }
