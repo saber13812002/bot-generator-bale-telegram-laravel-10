@@ -701,4 +701,17 @@ class BotHelper
 
         return $messenger->sendPhoto($content);
     }
+
+
+    /**
+     * @param mixed $chat_id
+     * @param string $photoUrl
+     * @param $messenger
+     * @param string $caption
+     * @return mixed
+     */
+    public static function sendPhotoGap(mixed $chat_id, string $photoUrl, $messenger, string $caption): mixed
+    {
+        return $messenger->sendImage($chat_id, $photoUrl, $caption);
+    }
 }

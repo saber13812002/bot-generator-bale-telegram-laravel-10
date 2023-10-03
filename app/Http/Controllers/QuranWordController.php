@@ -151,7 +151,6 @@ class QuranWordController extends Controller
 
                         if ($hr > 0) {
                             if ($type == 'telegram' || $type == 'bale') {
-
                                 $quranScanPage = QuranScanPage::query()
                                     ->whereHr($hr)
                                     ->whereType($type)
@@ -177,13 +176,28 @@ class QuranWordController extends Controller
                                     $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
 
 //                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
-
                                     $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
-                                }
 
-                                if ($type == 'bale') {
-                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
                                 }
+                            } else {
+
+                                // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
+//                                $quranScanPage = QuranScanPage::query()
+//                                    ->whereHr($hr)
+//                                    ->wherePage($page)
+                                //    ->whereFileIsInLocalCached
+//                                    ->whereBotId(1)
+//                                    ->first();
+
+                                $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+//                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
+//                                dd($bot, $filePath, $pageNumber, $hr);
+                                $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+                            }
+                            if ($type == 'bale') {
+                                QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                            }
+                            if ($type == 'telegram' || $type == 'bale') {
                                 QuranHelper::sendAudioMp3Page($bot, $pageNumber);
                             }
                         }

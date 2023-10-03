@@ -880,11 +880,13 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $title = "#" . trans("bot.page") . "_" . $pageNumber;
 
         $caption = $title;
-        if ($messenger->BotType() == 'telegram') {
+        if ($messenger->BotType() != 'bale') {
             $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
         }
-
-        return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+        if ($messenger->BotType() != 'gap') {
+            return BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+        }
+        return BotHelper::sendPhotoGap($chat_id, $photoUrl, $messenger, $caption);
     }
 
     /**
