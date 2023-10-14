@@ -166,19 +166,18 @@ class QuranWordController extends Controller
                             } else {
 
                                 // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
-//                                $quranScanPage = QuranScanPage::query()
-//                                    ->whereHr($hr)
-//                                    ->wherePage($page)
-////                                    ->whereFileIsInLocalCached
-//                                    ->whereBotId(1)
-//                                    ->first();
+                                $quranScanPage = $this->getScanPageGap($hr, $page);
 
-//                                if ($quranScanPage->count() > 0) {
-                                $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+                                if ($quranScanPage->count() > 0) {
+                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
 //                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
 //                                dd($bot, $filePath, $pageNumber, $hr);
-                                $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
-//                                }
+                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+                                } else {
+                                    $this->ifScanNotInDb($bot, $pageNumber, $hr, $page, $type);
+                                    $quranScanPage = $this->getScanPageGap($hr, $page);
+                                    $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
+                                }
 
                             }
                             if ($type == 'bale') {
@@ -660,6 +659,22 @@ class QuranWordController extends Controller
             $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
         else
             BotHelper::sendMessage($bot, "error to find image scan quran");
+    }
+
+    /**
+     * @param int $hr
+     * @param int $page
+     * @return mixed
+     */
+    public function getScanPageGap(int $hr, int $page)
+    {
+        $quranScanPage = QuranScanPage::query()
+            ->whereHr($hr)
+            ->wherePage($page)
+//                                    ->whereFileIsInLocalCached
+            ->whereBotId(1)
+            ->first();
+        return $quranScanPage;
     }
 
 
