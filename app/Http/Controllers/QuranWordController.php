@@ -168,7 +168,7 @@ class QuranWordController extends Controller
                                 // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
                                 $quranScanPage = $this->getScanPageGap($hr, $page);
 
-                                if ($quranScanPage == null || $quranScanPage->count() > 0) {
+                                if ($quranScanPage != null || $quranScanPage->count() > 0) {
                                     $this->ifScanInDbGap($hr, $page, $bot, $pageNumber);
                                 } else {
                                     $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
