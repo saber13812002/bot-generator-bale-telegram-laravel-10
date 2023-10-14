@@ -227,11 +227,11 @@ class QuranHelper
         return $base_url;
     }
 
-    public static function sendScanPage(Telegram $messenger, int $pageNumber, int $hr)
+    public static function sendScanPage(Telegram $messenger, int $pageNumber, int $hr, $fake = false)
     {
         $photoUrl = self::getScanFullUrl($pageNumber, $hr, $messenger->BotType());
 
-        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
+        return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl, $fake);
     }
 
 
@@ -872,11 +872,12 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param int $pageNumber
      * @param int $hr
      * @param string $photoUrl
+     * @param bool $fake
      * @return mixed
      */
-    public static function createTitleCaptionSendScan($messenger, int $pageNumber, int $hr, string $photoUrl): mixed
+    public static function createTitleCaptionSendScan($messenger, int $pageNumber, int $hr, string $photoUrl, bool $fake = false): mixed
     {
-        $chat_id = $messenger->ChatID() ?? env("SUPER_ADMIN_CHAT_ID_TELEGRAM");
+        $chat_id = !$fake ? $messenger->ChatID() : env("SUPER_ADMIN_CHAT_ID_TELEGRAM");
         $title = "#" . trans("bot.page") . "_" . $pageNumber;
 
         $caption = $title;

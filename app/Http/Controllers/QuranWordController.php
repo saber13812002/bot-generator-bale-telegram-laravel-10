@@ -173,7 +173,7 @@ class QuranWordController extends Controller
                                 } else {
                                     $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
                                     $botTelegram = new Telegram($token);
-                                    $this->ifScanNotInDb($botTelegram, $pageNumber, $hr, $page, $botTelegram->BotType());
+                                    $this->ifScanNotInDb($botTelegram, $pageNumber, $hr, $page, $botTelegram->BotType(), true);
                                     $quranScanPage = $this->getScanPageGap($hr, $page);
                                     $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
                                     $this->ifScanInDbGap($hr, $page, $bot, $pageNumber);
@@ -650,11 +650,12 @@ class QuranWordController extends Controller
      * @param int $hr
      * @param int $page
      * @param mixed $type
+     * @param bool $fake
      * @return void
      */
-    public function ifScanNotInDb(GapBot|Telegram $bot, int $pageNumber, int $hr, int $page, mixed $type): void
+    public function ifScanNotInDb(GapBot|Telegram $bot, int $pageNumber, int $hr, int $page, mixed $type, $fake = false): void
     {
-        $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+        $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr, $fake);
         if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
             $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
         else
