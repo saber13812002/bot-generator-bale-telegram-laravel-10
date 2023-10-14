@@ -159,25 +159,9 @@ class QuranWordController extends Controller
                                     ->first();
 
                                 if ($quranScanPage == null || $quranScanPage->count() == 0) {
-                                    $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
-                                    if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
-                                        $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
-                                    else
-                                        BotHelper::sendMessage($bot, "error to find image scan quran");
+                                    $this->ifScanNotInDb($bot, $pageNumber, $hr, $page, $type);
                                 } else {
-                                    $file_id = $quranScanPage->file_id;
-                                    $file = $bot->getFile($file_id);
-
-                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
-                                    if ($type == 'bale')
-                                        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
-
-                                    $bot->downloadFile($file['result']['file_path'], $filePath);
-                                    $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
-
-//                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
-                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
-
+                                    $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
                                 }
                             } else {
 
@@ -185,14 +169,17 @@ class QuranWordController extends Controller
 //                                $quranScanPage = QuranScanPage::query()
 //                                    ->whereHr($hr)
 //                                    ->wherePage($page)
-                                //    ->whereFileIsInLocalCached
+////                                    ->whereFileIsInLocalCached
 //                                    ->whereBotId(1)
 //                                    ->first();
 
+//                                if ($quranScanPage->count() > 0) {
                                 $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
 //                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
 //                                dd($bot, $filePath, $pageNumber, $hr);
                                 $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+//                                }
+
                             }
                             if ($type == 'bale') {
                                 QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
@@ -599,6 +586,80 @@ class QuranWordController extends Controller
         $quranScanPage->bot_id = 1;
         $quranScanPage->save();
         return $quranScanPage;
+    }
+
+    /**
+     * @param int $hr
+     * @param int $page
+     * @param mixed $type
+     * @return string
+     */
+    public function getFilePath(int $hr, int $page, mixed $type): string
+    {
+        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+        if ($type == 'bale')
+            $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
+        return $filePath;
+    }
+
+    /**
+     * @param $quranScanPage
+     * @param GapBot|Telegram $bot
+     * @return mixed
+     */
+    public function getBotFilePath($quranScanPage, GapBot|Telegram $bot): mixed
+    {
+        $file_id = $quranScanPage->file_id;
+        $file = $bot->getFile($file_id);
+        $botFilePath = $file['result']['file_path'];
+        return $botFilePath;
+    }
+
+    /**
+     * @param $quranScanPage
+     * @param mixed $type
+     * @return string
+     */
+    public function getUrl($quranScanPage, mixed $type): string
+    {
+        $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
+        return $url;
+    }
+
+    /**
+     * @param $quranScanPage
+     * @param GapBot|Telegram $bot
+     * @param int $hr
+     * @param int $page
+     * @param mixed $type
+     * @param int $pageNumber
+     * @return void
+     */
+    public function ifScanInDb($quranScanPage, GapBot|Telegram $bot, int $hr, int $page, mixed $type, int $pageNumber): void
+    {
+        $botFilePath = $this->getBotFilePath($quranScanPage, $bot);
+        $filePath = $this->getFilePath($hr, $page, $type);
+        $bot->downloadFile($botFilePath, $filePath);
+        $url = $this->getUrl($quranScanPage, $type);
+//                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
+        $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
+    }
+
+    /**
+     * @param GapBot|Telegram $bot
+     * @param int $pageNumber
+     * @param int $hr
+     * @param int $page
+     * @param mixed $type
+     * @return void
+     */
+    public function ifScanNotInDb(GapBot|Telegram $bot, int $pageNumber, int $hr, int $page, mixed $type): void
+    {
+        $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+        if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
+            $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+        else
+            BotHelper::sendMessage($bot, "error to find image scan quran");
     }
 
 
