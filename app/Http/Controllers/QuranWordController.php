@@ -169,14 +169,14 @@ class QuranWordController extends Controller
                                 $quranScanPage = $this->getScanPageGap($hr, $page);
 
                                 if ($quranScanPage->count() > 0) {
-                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
-//                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
-//                                dd($bot, $filePath, $pageNumber, $hr);
-                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+                                    $this->ifScanInDbGap($hr, $page, $bot, $pageNumber);
                                 } else {
-                                    $this->ifScanNotInDb($bot, $pageNumber, $hr, $page, $type);
+                                    $token = env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                                    $botTelegram = new Telegram($token);
+                                    $this->ifScanNotInDb($botTelegram, $pageNumber, $hr, $page, $botTelegram->BotType());
                                     $quranScanPage = $this->getScanPageGap($hr, $page);
-                                    $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
+//                                    $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
+                                    $this->ifScanInDbGap($hr, $page, $bot, $pageNumber);
                                 }
 
                             }
@@ -675,6 +675,21 @@ class QuranWordController extends Controller
             ->whereBotId(1)
             ->first();
         return $quranScanPage;
+    }
+
+    /**
+     * @param int $hr
+     * @param int $page
+     * @param GapBot|Telegram $bot
+     * @param int $pageNumber
+     * @return void
+     */
+    public function ifScanInDbGap(int $hr, int $page, GapBot|Telegram $bot, int $pageNumber): void
+    {
+        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+//                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
+//                                dd($bot, $filePath, $pageNumber, $hr);
+        $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
     }
 
 
