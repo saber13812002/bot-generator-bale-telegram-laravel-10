@@ -876,7 +876,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      */
     public static function createTitleCaptionSendScan($messenger, int $pageNumber, int $hr, string $photoUrl): mixed
     {
-        $chat_id = $messenger->ChatID();
+        $chat_id = $messenger->ChatID() ?? env("SUPER_ADMIN_CHAT_ID_TELEGRAM");
         $title = "#" . trans("bot.page") . "_" . $pageNumber;
 
         $caption = $title;
