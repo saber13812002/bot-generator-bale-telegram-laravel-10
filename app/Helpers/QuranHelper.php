@@ -9,9 +9,9 @@ use App\Models\QuranTranslation;
 use App\Models\QuranTransliterationEn;
 use App\Models\QuranTransliterationTr;
 use App\Models\QuranWord;
+use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
@@ -295,7 +295,7 @@ class QuranHelper
      * @param $aye
      * @param $type
      * @return array
-     * @throws \Exception
+     * @throws Exception
      */
     public static function getSureAye($userSettings, $sure, $aye, $type): array
     {
@@ -526,6 +526,7 @@ class QuranHelper
      * @param mixed $type
      * @param $bot
      * @return void
+     * @throws Exception
      */
     #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, $bot): void
     {
@@ -568,7 +569,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @param string $resultText
      * @param $bot
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
     public static function sendReportMessageToSuperAdmins(array|string $botText, string $resultText, $bot): void
     {
@@ -848,6 +849,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
     /**
      * @param int $pageNumber
+     * @param int $hr
+     * @param $botType
      * @return string
      */
     public static function getCaptionTelegram(int $pageNumber, int $hr, $botType): string
@@ -1049,7 +1052,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     }
 
     public
-    static function generateArrayCommands(Model|bool|BotUsers $userSettings): array
+    static function generateArrayCommands($userSettings): array
     {
         if (!$userSettings) {
             return [
@@ -1106,6 +1109,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
 
     /**
+     * @param $type
      * @return string
      */
     public

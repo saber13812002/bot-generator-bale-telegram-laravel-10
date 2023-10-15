@@ -175,6 +175,7 @@ class QuranWordController extends Controller
                                     $botTelegram = new Telegram($token);
                                     $this->ifScanNotInDb($botTelegram, $pageNumber, $hr, $page, $botTelegram->BotType(), true);
                                     $quranScanPage = $this->getScanPageGap($hr, $page);
+//                                    dd($hr, $page);
                                     $this->ifScanInDb($quranScanPage, $bot, $hr, $page, $type, $pageNumber);
                                     $this->ifScanInDbGap($hr, $page, $bot, $pageNumber);
                                 }
