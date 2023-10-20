@@ -143,7 +143,7 @@ class StringHelper
  کتاب:' . $book . '
  بخش:' . $part . '
  فصل:' . $chapter . '
- متن عربی:' . strip_tags($arabic) . '...' . (App::getLocale() != 'fa' ? '
+ متن عربی:' . strip_tags($arabic) . (App::getLocale() != 'fa' ? '
  متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
  شناسه:' . $_id . '
  ';
