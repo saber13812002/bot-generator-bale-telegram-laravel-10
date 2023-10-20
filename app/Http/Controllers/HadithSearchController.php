@@ -48,8 +48,8 @@ class HadithSearchController extends Controller
 
             $command_type = "";
 
-            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
-            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
+//            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
+//            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
 
             $commands = StringHelper::getHadithCommandsAsPostfixForMessages();
             if (str_starts_with($bot->Text(), "/")) {
@@ -63,13 +63,10 @@ class HadithSearchController extends Controller
                 } else {
                     $message = $this->hadithApiService->help($bot);
                 }
-            } else if ($ifStatusAndPhraseValid) {
-                if ($lastStatus == "search") {
-                    [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
-                    $message = $this->hadithApiService->search($phrase, $page, $limit);
-                }
-            } else {
-                $message = $this->hadithApiService->help($bot);
+            } else if (true) {
+                [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
+                BotHelper::sendMessageToSuperAdmin("hadith: " . $phrase, $bot->BotType());
+                $message = $this->hadithApiService->search($phrase, $page, $limit);
             }
 
             BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
