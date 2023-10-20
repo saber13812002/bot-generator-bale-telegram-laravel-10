@@ -5,6 +5,7 @@ namespace App\Helpers;
 use App\Http\Requests\BotRequest;
 use App\Models\BotLog;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 use Telegram;
 
 class LogHelper
@@ -25,7 +26,7 @@ class LogHelper
         $log->command_type = $request->request->get('command_type');
         $log->locale = App::getLocale();
         $log->type = $type;
-        $log->text = substr($bot->Text(), 0, 19);
+        $log->text = DB::connection()->getPdo()->quote(utf8_encode(substr($bot->Text(), 0, 199)));
         $log->is_command = str_starts_with($bot->Text(), "/");
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         $log->bot_id = 1;
@@ -55,9 +56,9 @@ class LogHelper
 
         $phrase = $bot->Text();
         $lastStatus = '';
-            if ($log) {
-                $lastStatus = 'search';
-            }
+        if ($log) {
+            $lastStatus = 'search';
+        }
         return [$lastStatus, $phrase];
     }
 }
