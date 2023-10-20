@@ -18,11 +18,9 @@ class LogHelper
      */
     public static function log(BotRequest $request, mixed $type, $bot): void
     {
-//        dd($request);
-//        dd($request->request->get('command_type'));
         $log = new BotLog();
         $log->webhook_endpoint_uri = request()->segment(2);
-        $log->bot_mother_id = 0;
+        $log->bot_mother_id = $request->input('bot_mother_id') ?? 0;
         $log->language = $request->input('language');
         $log->command_type = $request->request->get('command_type');
         $log->locale = App::getLocale();
@@ -38,5 +36,28 @@ class LogHelper
 
 //        dd($log->attributesToArray());
         $log->save();
+    }
+
+    public static function isLastLogAvailable(BotRequest $request, Telegram $bot): array
+    {
+        $log = BotLog::query()
+            ->whereWebhookEndpointUri(request()->segment(2))
+            ->whereBotMotherId($request->input('bot_mother_id'))
+            ->whereLanguage($request->input('language'))
+            ->whereCommandType('search')
+            ->whereLocale(App::getLocale())
+            ->whereType($bot->BotType())
+            ->whereIsCommand(1)
+            ->whereChannelGroupType($bot->ChatID() < 0 ? $bot->ChatID() : 0)
+            ->whereChatId($bot->ChatID())
+            ->orderby('created_at', 'desc')
+            ->first();
+
+        $phrase = $bot->Text();
+        $lastStatus = '';
+            if ($log) {
+                $lastStatus = 'search';
+            }
+        return [$lastStatus, $phrase];
     }
 }

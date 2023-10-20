@@ -490,7 +490,7 @@ class BotHelper
      * @return void
      * @throws Exception
      */
-    public static function sendMessageToUserAndAdmin(Telegram $bot, string $message, $type): void
+    public static function sendMessageToUserAndAdmins(Telegram $bot, string $message, $type): void
     {
         BotHelper::sendMessage($bot, $message);
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
