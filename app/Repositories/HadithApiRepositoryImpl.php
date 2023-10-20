@@ -12,22 +12,22 @@ class HadithApiRepositoryImpl implements HadithApiRepository
     /**
      * @throws GuzzleException
      */
-    public function call()
+    public function call(string $phrase, string $currentPage, string $pageSize)
     {
-        return self::callHadithAcademyOfIslam();
+        return self::callHadithAcademyOfIslam($phrase, $currentPage, $pageSize);
     }
 
 
     /**
      * @throws GuzzleException
      */
-    private static function callHadithAcademyOfIslam()
+    private static function callHadithAcademyOfIslam(string $phrase, string $currentPage, string $pageSize)
     {
 //        $api_key = env("HADITH_API_TOKEN");
 
         $client = new GuzzleHttp\Client();
         $baseUrl = env("APP_ENV") != "local" ? "https://hadith.academyofislam.com" : "http://localhost:3000";
-        $uri = $baseUrl . '/v1/narrations'.'?q=%D8%A7%D8%A8%D9%88%D8%A8%DA%A9%D8%B1&page=1&per_page=5';
+        $uri = $baseUrl . '/v1/narrations' . '?q=' . $phrase . '&page=' . $currentPage . '&per_page=' . $pageSize;
 
         $response = $client->get($uri);
 //        echo $request->getStatusCode(); // 200

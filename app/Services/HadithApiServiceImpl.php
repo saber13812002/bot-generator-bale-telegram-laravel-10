@@ -45,7 +45,7 @@ class HadithApiServiceImpl implements HadithApiService
     public function getMessageFromHadithApi(string $phrase, string $currentPage, string $pageSize): string
     {
         try {
-            $academyOfIslamData = $this->hadithApiRepository->call();
+            $academyOfIslamData = $this->hadithApiRepository->call($phrase, $currentPage, $pageSize);
         } catch (Exception $e) {
             Log::warning($e->getMessage());
 //            throw $e;
