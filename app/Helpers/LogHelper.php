@@ -26,7 +26,7 @@ class LogHelper
         $log->command_type = $request->request->get('command_type');
         $log->locale = App::getLocale();
         $log->type = $type;
-        $log->text = DB::connection()->getPdo()->quote(utf8_encode(substr($bot->Text(), 0, 199)));
+        $log->text = substr($bot->Text(), 0, 199);
         $log->is_command = str_starts_with($bot->Text(), "/");
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         $log->bot_id = 1;
