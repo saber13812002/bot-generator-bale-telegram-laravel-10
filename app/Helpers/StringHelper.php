@@ -140,9 +140,9 @@ class StringHelper
 
         return '
  شماره:' . $number . '
- کتاب:' . $book . '
- بخش:' . $part . '
- فصل:' . $chapter . '
+ کتاب:' . strip_tags($book) . '
+ بخش:' . strip_tags($part) . '
+ فصل:' . strip_tags($chapter) . '
  متن عربی:' . strip_tags($arabic) . (App::getLocale() != 'fa' ? '
  متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
  شناسه:' . $_id . '
