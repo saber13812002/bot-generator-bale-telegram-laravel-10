@@ -115,7 +115,7 @@ return [
     ],
     'reciters'                                                                  => [
         'parhizgar' => 'پرهیزگار',
-        'alafasy'   => 'الفاسی',
+        'alafasy'   => 'العفاسی',
     ],
     'bots'                                                                      => [
         'getchatidbot' => [
