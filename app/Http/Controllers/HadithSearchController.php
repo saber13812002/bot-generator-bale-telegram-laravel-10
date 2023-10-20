@@ -68,6 +68,9 @@ class HadithSearchController extends Controller
                 BotHelper::sendMessageToSuperAdmin("hadith: " . $phrase, $bot->BotType());
                 BotHelper::sendMessage($bot, trans("bot.please wait"));
                 $message = $this->hadithApiService->search($phrase, $page, $limit);
+                $message .= trans("hadith.for more result click this link:") .
+                    "
+https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);;
             }
 
             BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);

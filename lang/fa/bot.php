@@ -59,7 +59,7 @@ return [
     'this reciter :reciter selected'                                            => 'این قاری :reciter انتخاب شد',
     'reciter :reciter'                                                          => 'تغییر دادن؟ تلاوت کننده به :reciter',
     'parhizgar'                                                                 => 'پرهیزگار',
-    'alafasy'                                                                   => 'العفاسی',
+    'alafasy'                                                                   => 'الفاسی',
     'your today readings is zero'                                               => 'خواندن امروز شما صفر است',
     'your ranking in last 30 days is'                                           => 'رتبه شما در 30 روز گذشته است',
     'your todays usage of this bot'                                             => 'استفاده امروزی شما از این ربات',
