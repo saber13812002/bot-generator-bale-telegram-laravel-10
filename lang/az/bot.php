@@ -107,6 +107,7 @@ return [
         'list of Quran 30 parts'                               => 'Quran 30 hissənin siyahısı',
         'to help you for introduce all features of this robot' => 'bu robotun bütün xüsusiyyətlərini təqdim etmək üçün sizə kömək etmək',
         'to send scanned quran page'                           => 'skan edilmiş Quran səhifəsini göndərmək',
+        'help'                                                 => 'kömək',
     ],
     'translators'                                                               => [
         'ansarian' => 'ansarian',
@@ -135,4 +136,7 @@ return [
     ],
     'sent it for :count person'                                                 => 'onu :count şəxs üçün göndərdi',
     'for next or previous quran page click on these buttons'                    => 'növbəti və ya əvvəlki Quran səhifəsi üçün bu düymələrə klikləyin',
+    'previous quran page click here'                                            => 'əvvəlki Quran səhifəsi bura klikləyin',
+    'page'                                                                      => 'səhifə',
+    'to sending request for next result page please click here'                 => 'Növbəti nəticə səhifəsi üçün sorğu göndərmək üçün bura klikləyin',
 ];

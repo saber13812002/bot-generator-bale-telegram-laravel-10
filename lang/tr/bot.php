@@ -103,6 +103,7 @@ return [
         'list of Quran 30 parts'                               => 'kur\'an\'ın 30 bölümlük listesi',
         'to help you for introduce all features of this robot' => 'bu robotun tüm özelliklerini tanıtmak için size yardımcı olmak için',
         'to send scanned quran page'                           => 'taranmış kuran sayfası göndermek için',
+        'help'                                                 => 'yardım',
     ],
     'translators'                                                               => [
         'ansarian' => 'ansarian',
@@ -130,5 +131,11 @@ return [
                 ' click on this link:' => 'bu sizin raporlarınız. son 7 günlük faaliyetleriniz. bu bağlantıya tıklayın:',
             ],
         ],
+        'last 7 days readings' => 'son 7 günlük okumalar',
     ],
+    'next quran page click here'                                                => 'sonraki̇ kuran sayfasi i̇çi̇n tiklayiniz',
+    'for next or previous quran page click on these buttons'                    => 'sonraki̇ veya önceki̇ kuran sayfasi i̇çi̇n bu butonlara tiklayin',
+    'previous quran page click here'                                            => 'önceki̇ kuran sayfasi i̇çi̇n tiklayiniz',
+    'page'                                                                      => 'sayfa',
+    'to sending request for next result page please click here'                 => 'sonraki sonuç sayfası için talep göndermek için lütfen buraya tıklayın',
 ];

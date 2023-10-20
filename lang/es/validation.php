@@ -30,6 +30,8 @@ return [
     'different'        => 'El campo :attribute y :other deben ser diferentes.',
     'digits'           => 'El campo :attribute debe ser de dígitos :digits.',
     'digits_between'   => 'El campo :attribute debe estar entre los dígitos :min y :max.',
+    'dimensions'       => 'El campo :attribute tiene dimensiones de imagen no válidas.',
+    'distinct'         => 'El campo :attribute tiene un valor duplicado.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'mensaje personalizado',

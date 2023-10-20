@@ -24,6 +24,8 @@ return [
     'date'             => 'Le champ :attribute doit être une date valide.',
     'date_equals'      => 'Le champ :attribute doit être une date égale à :date.',
     'date_format'      => 'Le champ :attribute doit correspondre au format :format.',
+    'decimal'          => 'Le champ :attribute doit comporter :decimal décimales.',
+    'declined'         => 'Le champ :attribute doit être décliné.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'message personnalisé',

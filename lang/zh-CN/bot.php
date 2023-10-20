@@ -103,6 +103,7 @@ return [
         'list of Quran 30 parts'                               => '古兰经》30 部分清单',
         'to help you for introduce all features of this robot' => '为您介绍该机器人的所有功能',
         'to send scanned quran page'                           => '发送扫描的古兰经页面',
+        'help'                                                 => '帮助',
     ],
     'translators'                                                               => [
         'ansarian' => 'Ansarian',
@@ -135,4 +136,7 @@ return [
     'next quran page click here'                                                => '下一页古兰经 点击此处',
     'sent it for :count person'                                                 => '发送给 :count 人',
     'for next or previous quran page click on these buttons'                    => '下一页或上一页古兰经点击这些按钮',
+    'previous quran page click here'                                            => '上一页古兰经 点击此处',
+    'page'                                                                      => '页码',
+    'to sending request for next result page please click here'                 => '发送下一结果页面的请求，请单击此处',
 ];
