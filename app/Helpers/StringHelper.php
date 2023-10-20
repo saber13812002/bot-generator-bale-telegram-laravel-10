@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 
 class StringHelper
@@ -142,8 +143,8 @@ class StringHelper
  کتاب:' . $book . '
  بخش:' . $part . '
  فصل:' . $chapter . '
- متن عربی:' . substr($arabic, 0, 100) . '...' . '
- متن انگلیسی:' . substr($english, 0, 100) . '...' . '
+ متن عربی:' . substr($arabic, 0, 300) . '...' . (App::getLocale() != 'fa' ? '
+ متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
  شناسه:' . $_id . '
  ';
     }
