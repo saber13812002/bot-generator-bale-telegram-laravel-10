@@ -103,6 +103,7 @@ return [
         'list of Quran 30 parts'                               => 'فهرست قرآن 30 جزء',
         'to help you for introduce all features of this robot' => 'تا به شما در معرفی تمامی ویژگی های این ربات کمک کند',
         'to send scanned quran page'                           => 'برای ارسال صفحه قرآن اسکن شده',
+        'help'                                                 => 'کمک',
     ],
     'translators'                                                               => [
         'ansarian' => 'انصاریان',
@@ -133,12 +134,9 @@ return [
         'last 7 days readings' => 'آمار مطالعه شما در 7 روز گذشته',
     ],
     'next quran page click here'                                                => 'برای صفحه بعدی قرآن اینجا کلیک کنید',
-
-    'previous quran page click here' => 'صفحه قبلی',
-
-    'page' => 'صفحه',
-
     'sent it for :count person'                                                 => 'آن را برای :count از افراد ارسال کردم.',
     'for next or previous quran page click on these buttons'                    => 'برای صفحه قرآن بعدی یا قبلی روی این دکمه ها کلیک کنید',
-    'to sending request for next result page please click here' => 'برای دیدن صفحه بعدی نتایج روی لینک زیر کلیک کنید',
+    'previous quran page click here'                                            => 'برای دریافت صفحه قبل قرآن اینجا را کلیک کنید',
+    'page'                                                                      => 'صفحه',
+    'to sending request for next result page please click here'                 => 'برای ارسال درخواست برای صفحه نتیجه بعدی لطفا اینجا را کلیک کنید',
 ];

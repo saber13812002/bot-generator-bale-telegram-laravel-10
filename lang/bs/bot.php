@@ -107,6 +107,7 @@ return [
         'list of Quran 30 parts'                               => 'lista Kur\'ana od 30 dijelova',
         'to help you for introduce all features of this robot' => 'da vam pomognem da upoznate sve karakteristike ovog robota',
         'to send scanned quran page'                           => 'za slanje skenirane stranice Kur\'ana',
+        'help'                                                 => 'pomoć',
     ],
     'translators'                                                               => [
         'ansarian' => 'ansarian',
@@ -135,4 +136,7 @@ return [
     ],
     'sent it for :count person'                                                 => 'poslao za :count osobu',
     'for next or previous quran page click on these buttons'                    => 'za sljedeću ili prethodnu stranicu Kur\'ana kliknite na ove tipke',
+    'previous quran page click here'                                            => 'prethodna stranica Kur\'ana kliknite ovdje',
+    'page'                                                                      => 'stranica',
+    'to sending request for next result page please click here'                 => 'za slanje zahtjeva za sljedeću stranicu sa rezultatima kliknite ovdje',
 ];

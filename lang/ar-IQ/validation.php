@@ -53,6 +53,7 @@ return [
         'string'  => 'يجب أن يكون الحقل :attribute أكبر من أو يساوي :value حرفًا.',
     ],
     'image'             => 'يجب أن يكون الحقل :attribute صورة.',
+    'in'                => 'يجب أن يكون الحقل :attribute عنوان URL صالحًا.',
     'custom'            => [
         'attribute-name' => [
             'rule-name' => 'رسالة مخصصة',

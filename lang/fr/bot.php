@@ -103,6 +103,7 @@ return [
         'list of Quran 30 parts'                               => 'liste des 30 parties du Coran',
         'to help you for introduce all features of this robot' => 'pour vous aider à présenter toutes les fonctionnalités de ce robot',
         'to send scanned quran page'                           => 'pour envoyer une page de Coran scannée',
+        'help'                                                 => 'aider',
     ],
     'translators'                                                               => [
         'ansarian' => 'ansarian',
@@ -130,5 +131,12 @@ return [
                 ' click on this link:' => 'il s\'agit de vos rapports, de vos activités des 7 derniers jours. Cliquez sur ce lien :',
             ],
         ],
+        'last 7 days readings' => 'relevés des 7 derniers jours',
     ],
+    'next quran page click here'                                                => 'page suivante du quran cliquez ici',
+    'sent it for :count person'                                                 => 'l\'a envoyé pour la personne :count',
+    'for next or previous quran page click on these buttons'                    => 'pour la page suivante ou précédente du quran, cliquez sur ces boutons',
+    'previous quran page click here'                                            => 'page précédente du Coran cliquez ici',
+    'page'                                                                      => 'page',
+    'to sending request for next result page please click here'                 => 'pour envoyer une demande d\'accès à la page de résultats suivante, veuillez cliquer ici',
 ];

@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 
 class StringHelper
@@ -32,12 +33,25 @@ class StringHelper
     /**
      * @return string
      */
-    public static function getCommandsAsPostfixForMessages(): string
+    public static function getWeatherBotCommandsAsPostfixForMessages(): string
     {
         return self::getStringMessageDivider() . "
 برای استعلام
 وضعیت هواشناسی فعلی دستور /current
 و برای پیش بینی باد در 16 ساعت آینده /forecasting
+را کلیک یا ارسال کنید.";
+    }
+
+
+    /**
+     * @return string
+     */
+    public static function getHadithCommandsAsPostfixForMessages(): string
+    {
+        return self::getStringMessageDivider() . "
+برای جستجو
+در کل احادیث کتب شیعه دستور /search
+و برای نمایش جستجوهای دیگران در کتب شیعی /history
 را کلیک یا ارسال کنید.";
     }
 
@@ -99,6 +113,40 @@ class StringHelper
  💨 سرعت  :' . $windSpeed . " km/s کیلومتر بر ساعت- " . ($windSpeed > 13 ? " 🌪 " : " ⚡ ") . '
 🧭 زاویه  : ' . $weatherDataItem["values"]['windDirection'] . '
  🌪 وزش شدید  :' . $weatherDataItem["values"]['windGust'];
+    }
+
+
+    /**
+     * @param $academyOfIslamDataItem
+     * @return string
+     */
+    public static function generateDetailHadithMessage($academyOfIslamDataItem): string
+    {
+//        dd($academyOfIslamDataItem);
+//        dd(array_key_exists('book', $academyOfIslamDataItem));
+//        dd(isset($academyOfIslamDataItem['book']));
+        $book = $academyOfIslamDataItem['book'] ?? "";
+        $number = isset($academyOfIslamDataItem['number']) ? $academyOfIslamDataItem["number"] : "";
+        $part = isset($academyOfIslamDataItem['part']) ? $academyOfIslamDataItem["part"] : "";
+        $chapter = isset($academyOfIslamDataItem['chapter']) ? $academyOfIslamDataItem["chapter"] : "";
+//        $tags = $academyOfIslamDataItem["tags"][0];
+        $arabic = isset($academyOfIslamDataItem['arabic']) ? $academyOfIslamDataItem["arabic"] : "";
+//        $highlight = $academyOfIslamDataItem["highlight"];
+        $english = isset($academyOfIslamDataItem['english']) ? $academyOfIslamDataItem["english"] : "";
+//        $gradings = $academyOfIslamDataItem["gradings"][0];
+//        $related = $academyOfIslamDataItem["related"][0];
+//        $history = $academyOfIslamDataItem["history"][0];
+        $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
+
+        return '
+ شماره:' . $number . '
+ کتاب:' . strip_tags($book) . '
+ بخش:' . strip_tags($part) . '
+ فصل:' . strip_tags($chapter) . '
+ متن عربی:' . strip_tags($arabic) . (App::getLocale() != 'fa' ? '
+ متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
+ شناسه:' . $_id . '
+ ';
     }
 
 

@@ -37,7 +37,7 @@ class WeatherController extends Controller
             } else {
                 $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
             }
-            $commands = StringHelper::getCommandsAsPostfixForMessages();
+            $commands = StringHelper::getWeatherBotCommandsAsPostfixForMessages();
             if ($bot->Text() == "/current") {
                 $message = $this->weatherOpenWeatherMapApiService->getMessage();
             } else if ($bot->Text() == "/forecasting") {
@@ -48,7 +48,7 @@ class WeatherController extends Controller
                 $message = $this->weatherTomorrowApiService->getMessage(20);
             }
 
-            BotHelper::sendMessageToUserAndAdmin($bot, $message . $commands, $type);
+            BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
         }
     }
 
