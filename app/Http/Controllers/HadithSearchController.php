@@ -8,6 +8,7 @@ use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\HadithApiService;
+use App\Models\Bot;
 use App\Models\BotHadithItem;
 use Exception;
 use Illuminate\Support\Facades\App;
@@ -50,6 +51,8 @@ class HadithSearchController extends Controller
             config()->set('config.bot.type', $bot->BotType());
 
             $command_type = "";
+
+            self::ifBotTextIsTooLong($bot, $bot->Text());
 
 //            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
 //            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
@@ -109,6 +112,13 @@ https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);;
     private function checkStatusAndPhrase(mixed $lastStatus, mixed $phrase)
     {
         return true;
+    }
+
+    private static function ifBotTextIsTooLong($bot, string $botText)
+    {
+        if (Str::length($botText) > 70) {
+            BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
+        }
     }
 
 }
