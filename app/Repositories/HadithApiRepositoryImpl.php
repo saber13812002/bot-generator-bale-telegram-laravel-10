@@ -30,6 +30,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
 
         $response = Http::get($uri);
 
+
 //        $response = $client->get($uri);
 //        echo $request->getStatusCode(); // 200
 //        echo $response->getBody()->getContents();

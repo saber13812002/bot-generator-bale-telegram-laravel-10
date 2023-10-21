@@ -2,8 +2,10 @@
 
 namespace App\Helpers;
 
+use App\Models\BotHadithItem;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
 
 class StringHelper
@@ -125,28 +127,26 @@ class StringHelper
 //        dd($academyOfIslamDataItem);
 //        dd(array_key_exists('book', $academyOfIslamDataItem));
 //        dd(isset($academyOfIslamDataItem['book']));
-        $book = $academyOfIslamDataItem['book'] ?? "";
-        $number = isset($academyOfIslamDataItem['number']) ? $academyOfIslamDataItem["number"] : "";
-        $part = isset($academyOfIslamDataItem['part']) ? $academyOfIslamDataItem["part"] : "";
-        $chapter = isset($academyOfIslamDataItem['chapter']) ? $academyOfIslamDataItem["chapter"] : "";
-//        $tags = $academyOfIslamDataItem["tags"][0];
-        $arabic = isset($academyOfIslamDataItem['arabic']) ? $academyOfIslamDataItem["arabic"] : "";
-//        $highlight = $academyOfIslamDataItem["highlight"];
-        $english = isset($academyOfIslamDataItem['english']) ? $academyOfIslamDataItem["english"] : "";
-//        $gradings = $academyOfIslamDataItem["gradings"][0];
-//        $related = $academyOfIslamDataItem["related"][0];
-//        $history = $academyOfIslamDataItem["history"][0];
-        $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
+        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
+
+        $botType = Config::get('config.bot.type', 'bale');
+
+        $isLong = Str::length(strip_tags($arabic)) > 1000;
+
+        if ($isLong && $_id) {
+            self::saveLongTextToDB($academyOfIslamDataItem);
+        }
 
         return '
  شماره:' . $number . '
  کتاب:' . strip_tags($book) . '
  بخش:' . strip_tags($part) . '
  فصل:' . strip_tags($chapter) . '
- متن عربی:' . strip_tags($arabic) . (App::getLocale() != 'fa' ? '
+ متن عربی:' . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
  متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
  شناسه:' . $_id . '
- ';
+ ' . '
+ ' . ($isLong ? self::generateLink($_id, $botType) : '');
     }
 
 
@@ -227,5 +227,56 @@ class StringHelper
         }
 
         return [0, 0];
+    }
+
+    private static function generateLink(mixed $_id, mixed $botType): string
+    {
+        $cmd = "/_id=" . $_id;
+        if ($botType == 'bale') {
+            return "[" . $cmd . "](send:" . $cmd . ")";
+        }
+        return $cmd;
+    }
+
+    private static function saveLongTextToDB(mixed $academyOfIslamDataItem): void
+    {
+        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
+//        dd($_id);
+        $botHadithItem = BotHadithItem::firstOrNew([
+            '_id' => $_id
+        ], [
+            'book' => $book,
+            'number' => $number,
+            'part' => $part,
+            'chapter' => $chapter,
+            'arabic' => $arabic,
+            'english' => $english
+//            'arabic' => $arabic,
+//            'arabic' => $arabic,
+//            'arabic' => $arabic
+        ]);
+
+
+    }
+
+    /**
+     * @param mixed $academyOfIslamDataItem
+     * @return array|string[]
+     */
+    public static function getItemFields(mixed $academyOfIslamDataItem): array
+    {
+        $book = $academyOfIslamDataItem['book'] ?? "";
+        $number = isset($academyOfIslamDataItem['number']) ? $academyOfIslamDataItem["number"] : "";
+        $part = isset($academyOfIslamDataItem['part']) ? $academyOfIslamDataItem["part"] : "";
+        $chapter = isset($academyOfIslamDataItem['chapter']) ? $academyOfIslamDataItem["chapter"] : "";
+//        $tags = $academyOfIslamDataItem["tags"][0];
+        $arabic = isset($academyOfIslamDataItem['arabic']) ? $academyOfIslamDataItem["arabic"] : "";
+//        $highlight = $academyOfIslamDataItem["highlight"];
+        $english = isset($academyOfIslamDataItem['english']) ? $academyOfIslamDataItem["english"] : "";
+//        $gradings = $academyOfIslamDataItem["gradings"][0];
+//        $related = $academyOfIslamDataItem["related"][0];
+//        $history = $academyOfIslamDataItem["history"][0];
+        $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
+        return array($book, $number, $part, $chapter, $arabic, $english, $_id);
     }
 }

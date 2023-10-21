@@ -8,6 +8,7 @@ use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\HadithApiService;
+use App\Models\BotHadithItem;
 use Exception;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -46,20 +47,32 @@ class HadithSearchController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_HADITH_TOKEN_TELEGRAM"), 'telegram');
             }
 
+            config()->set('config.bot.type', $bot->BotType());
+
             $command_type = "";
 
 //            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
 //            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
 
             $commands = StringHelper::getHadithCommandsAsPostfixForMessages();
-            if (str_starts_with($bot->Text(), "/")) {
-                $command = substr($bot->Text(), strpos($bot->Text(), "/") + Str::length("/"));
-                $command_type = $command;
+            if (str_starts_with($bot->Text(), "/")) {///_id=82Y5Ln0BGWfjTl3qHQNp
+                $offset = strpos($bot->Text(), "/") + Str::length("/");
+                $command = substr($bot->Text(), $offset);
+                $isHadithIdRequested = substr($bot->Text(), $offset, 3) == "_id";
+                $command_type = $isHadithIdRequested ? "_id" : $command;
                 if ($command == "start") {
                     $message = trans("hadith.in the name of God . you can use /help command to start.");
                 } else if ($command == "search") {
                     // TODO : saveLastCommandInDb($bot); performance said we need to have lastStatus log for any bot mother
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
+                } else if ($isHadithIdRequested) {
+//                    echo '_id';
+                    $_id = substr($bot->Text(), 5);
+                    $hadith = BotHadithItem::query()->where("_id", $_id)->first();
+                    if ($hadith && count($hadith) > 0)
+                        BotHelper::sendMessage($bot, $hadith);
+                    else
+                        BotHelper::sendMessage($bot, trans("bot.not found"));
                 } else {
                     $message = $this->hadithApiService->help($bot);
                 }
