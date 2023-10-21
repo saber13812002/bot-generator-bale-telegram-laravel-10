@@ -52,7 +52,8 @@ class HadithSearchController extends Controller
 
             $command_type = "";
 
-            self::ifBotTextIsTooLong($bot, $bot->Text());
+            if (self::ifBotTextIsTooLong($bot, $bot->Text()))
+                return 1;
 
 //            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
 //            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
@@ -114,12 +115,13 @@ https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);;
         return true;
     }
 
-    private static function ifBotTextIsTooLong($bot, string $botText)
+    private static function ifBotTextIsTooLong($bot, string $botText): bool
     {
         if (Str::length($botText) > 70) {
             BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
-            return 1;
+            return true;
         }
+        return false;
     }
 
 }
