@@ -118,6 +118,7 @@ https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);;
     {
         if (Str::length($botText) > 70) {
             BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
+            return 1;
         }
     }
 
