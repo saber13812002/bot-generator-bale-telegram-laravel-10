@@ -139,4 +139,6 @@ return [
     'sent it for :count person'                                                 => 'enviou-o para a pessoa :count',
     'for next or previous quran page click on these buttons'                    => 'para ver a página seguinte ou anterior do Alcorão, clique nestes botões',
     'to sending request for next result page please click here'                 => 'para enviar uma solicitação para a próxima página de resultados, clique aqui',
+    'not found'                                                                 => 'não encontrado',
+    'command is too long for process'                                           => 'o comando é muito longo para o processo',
 ];

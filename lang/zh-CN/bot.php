@@ -139,4 +139,6 @@ return [
     'previous quran page click here'                                            => '上一页古兰经 点击此处',
     'page'                                                                      => '页码',
     'to sending request for next result page please click here'                 => '发送下一结果页面的请求，请单击此处',
+    'not found'                                                                 => '未找到',
+    'command is too long for process'                                           => '命令过长',
 ];

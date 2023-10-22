@@ -138,13 +138,13 @@ class StringHelper
         }
 
         return '
- شماره:' . $number . '
- کتاب:' . strip_tags($book) . '
- بخش:' . strip_tags($part) . '
- فصل:' . strip_tags($chapter) . '
- متن عربی:' . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
- متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
- شناسه:' . $_id . '
+' . trans("hadith.result.number: ") . $number . '
+' . trans("hadith.result.book: ") . strip_tags($book) . '
+' . trans("hadith.result.part: ") . strip_tags($part) . '
+' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
+' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("hadith.result.id: ") . $_id . '
  ' . '
  ' . ($isLong ? self::generateLink($_id, $botType) : '');
     }
@@ -238,25 +238,11 @@ class StringHelper
         return $cmd;
     }
 
-    private static function saveLongTextToDB(mixed $academyOfIslamDataItem): void
+    private static function saveLongTextToDB(mixed $academyOfIslamDataItem)
     {
         list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
 //        dd($_id);
-        $botHadithItem = BotHadithItem::firstOrNew([
-            '_id' => $_id
-        ], [
-            'book' => $book,
-            'number' => $number,
-            'part' => $part,
-            'chapter' => $chapter,
-            'arabic' => $arabic,
-            'english' => $english
-//            'arabic' => $arabic,
-//            'arabic' => $arabic,
-//            'arabic' => $arabic
-        ]);
-
-
+        return self::firstOrCreate($_id, $book, $number, $part, $chapter, $arabic, $english);
     }
 
     /**
@@ -278,5 +264,34 @@ class StringHelper
 //        $history = $academyOfIslamDataItem["history"][0];
         $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
         return array($book, $number, $part, $chapter, $arabic, $english, $_id);
+    }
+
+    /**
+     * @param string $_id
+     * @param string $book
+     * @param string $number
+     * @param string $part
+     * @param string $chapter
+     * @param string $arabic
+     * @param string $english
+     * @return void
+     */
+    public static function firstOrCreate(string $_id, string $book, string $number, string $part, string $chapter, string $arabic, string $english)
+    {
+        $botHadithItem = BotHadithItem::firstOrNew([
+            '_id' => $_id
+        ], [
+            'book' => $book,
+            'number' => $number,
+            'part' => $part,
+            'chapter' => $chapter,
+            'arabic' => $arabic,
+            'english' => $english
+//            'arabic' => $arabic,
+//            'arabic' => $arabic,
+//            'arabic' => $arabic
+        ]);
+        $botHadithItem->save();
+        return $botHadithItem;
     }
 }

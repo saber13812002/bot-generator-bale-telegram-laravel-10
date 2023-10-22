@@ -139,4 +139,6 @@ return [
     'previous quran page click here'                                            => 'vorherige Koranseite hier klicken',
     'page'                                                                      => 'seite',
     'to sending request for next result page please click here'                 => 'zum Senden der Anfrage für die nächste Ergebnisseite bitte hier klicken',
+    'not found'                                                                 => 'nicht gefunden',
+    'command is too long for process'                                           => 'befehl ist zu lang für den Prozess',
 ];
