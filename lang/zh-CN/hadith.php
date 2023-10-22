@@ -14,4 +14,12 @@ return [
         ],
     ],
     'for more result click this link:'                           => '更多结果请点击此链接：',
+    'result'                                                     => [
+        'number: '      => '号 ',
+        'book: '        => '书： ',
+        'chapter: '     => '章： ',
+        'arabic text: ' => '阿拉伯文本： ',
+        'english text: ' => '英文文本： ',
+        'id: '          => 'id： ',
+    ],
 ];

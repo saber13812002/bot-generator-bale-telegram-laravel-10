@@ -14,4 +14,13 @@ return [
         ],
     ],
     'for more result click this link:'                           => 'para más resultados haga clic en este enlace:',
+    'result'                                                     => [
+        'number: '      => 'número: ',
+        'book: '        => 'libro: ',
+        'part: '        => 'parte: ',
+        'chapter: '     => 'capítulo: ',
+        'arabic text: ' => 'texto en árabe: ',
+        'english text: ' => 'texto en inglés: ',
+        'id: '          => 'id: ',
+    ],
 ];
