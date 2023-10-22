@@ -23,8 +23,9 @@ class HadithApiServiceImpl implements HadithApiService
      */
     public function search(string $phrase, string $currentPage, string $pageSize): string
     {
+        $phrase = $this->normalizer($phrase);
         $message = $this->getMessageFromHadithApi($phrase, $currentPage, $pageSize);
-        if ($message == "")
+        if ($message == "0")
             return "هیچ حدیث یافت نشد";
         else
             return $message;
@@ -75,7 +76,16 @@ class HadithApiServiceImpl implements HadithApiService
         if ($raiseLimitCount > 0) {
             return $message;
         }
-        return "";
+        return "0";
+    }
+
+    private function normalizer(string $phrase): array|string
+    {
+        $phrase = str_replace("ک", "ك", $phrase);
+        $phrase = str_replace("ی", "ي", $phrase);
+//        $phrase = str_replace("ی", "ﯼ", $phrase);
+//        $phrase = str_replace("ی", "ى", $phrase);
+        return str_replace("ه", "ة", $phrase);
     }
 
 
