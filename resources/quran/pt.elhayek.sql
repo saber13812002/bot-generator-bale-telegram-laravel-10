@@ -7,7 +7,7 @@
 #
 #  Quran Translation
 #  Name: El-Hayek
-#  Translator: Samir El-Hayek 
+#  Translator: Samir El-Hayek
 #  Language: Portuguese
 #  ID: pt.elhayek
 #  Last Update: June 4, 2010
@@ -30,7 +30,7 @@
 -- Table structure for table `pt_elhayek`
 --
 
-DROP TABLE IF EXISTS `pt_elhayek`;
+DROP TABLE IF EXISTS `translation_..elhayek`;
 CREATE TABLE `pt_elhayek` (
   `index` int(4) NOT NULL auto_increment,
   `sura` int(3) NOT NULL default '0',

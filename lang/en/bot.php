@@ -19,6 +19,8 @@ return [
     'your ranking' => 'your ranking',
     'Juz' => 'juz',
     'and' => 'and',
+    'not found' => 'not found',
+    'command is too long for process' => 'command is too long for process',
     'this command not recognized' => 'this command not recognized.',
     'this is not correct bot token' => 'this is not correct bot token.',
     'send your token to turn on your bot' => 'send your token to turn on your bot.',
