@@ -26,7 +26,9 @@ class HadithApiServiceImpl implements HadithApiService
         $phrase = $this->normalizer($phrase);
         $message = $this->getMessageFromHadithApi($phrase, $currentPage, $pageSize);
         if ($message == "0")
-            return "هیچ حدیث یافت نشد";
+            return "هیچ حدیث یافت نشد.
+
+";
         else
             return $message;
     }
