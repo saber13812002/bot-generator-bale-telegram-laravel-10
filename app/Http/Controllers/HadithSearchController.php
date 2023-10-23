@@ -84,11 +84,10 @@ class HadithSearchController extends Controller
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                 BotHelper::sendMessageToSuperAdmin("hadith:
 " . $phrase, $bot->BotType());
-                BotHelper::sendMessage($bot, trans("bot.please wait"));
+                BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase));
                 $message = $this->hadithApiService->search($phrase, $page, $limit);
                 $message .= trans("hadith.for more result click this link:") .
-                    "
-https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
+                    $this->getSearchWebUrl($phrase);
             }
 
             BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
@@ -126,6 +125,12 @@ https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
             return true;
         }
         return false;
+    }
+
+    private function getSearchWebUrl($phrase)
+    {
+        return "
+https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
     }
 
 }
