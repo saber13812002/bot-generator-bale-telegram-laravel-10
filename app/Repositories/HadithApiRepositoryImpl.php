@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Interfaces\Repositories\HadithApiRepository;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 class HadithApiRepositoryImpl implements HadithApiRepository
@@ -11,6 +12,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
 
     /**
      * @throws GuzzleException
+     * @throws RequestException
      */
     public function call(string $phrase, string $currentPage, string $pageSize)
     {
@@ -20,6 +22,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
 
     /**
      * @throws GuzzleException
+     * @throws RequestException
      */
     private static function callHadithAcademyOfIslam(string $phrase, string $currentPage, string $pageSize)
     {
@@ -28,7 +31,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
         $baseUrl = env("APP_ENV") != "local" ? "https://hadith.academyofislam.com" : "http://localhost:3000";
         $uri = $baseUrl . '/v1/narrations' . '?q=' . $phrase . '&page=' . $currentPage . '&per_page=' . $pageSize;
 //        dd($uri);
-        $response = Http::get($uri);
+        $response = Http::get($uri)->throw();
 
 
 //        $response = $client->get($uri);

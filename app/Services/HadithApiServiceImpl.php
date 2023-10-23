@@ -20,6 +20,7 @@ class HadithApiServiceImpl implements HadithApiService
     }
 
     /**
+     * @throws Exception
      */
     public function search(string $phrase, string $currentPage, string $pageSize): string
     {
