@@ -31,7 +31,7 @@ class WeatherOpenWeatherApiRepositoryImpl implements WeatherOpenWeatherApiReposi
         $client = new GuzzleHttp\Client();
         $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=' . $city_name . '&lang=' . $language . '&units=metric&appid=' . $api_key);
 //        echo $request->getStatusCode(); // 200
-        echo $response->getBody()->getContents();
+//        echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
     }
 }
