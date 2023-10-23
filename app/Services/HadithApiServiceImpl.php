@@ -50,7 +50,7 @@ class HadithApiServiceImpl implements HadithApiService
         try {
             $academyOfIslamData = $this->hadithApiRepository->call($phrase, $currentPage, $pageSize);
         } catch (Exception $e) {
-            Log::warning($e->getMessage());
+            Log::error($e->getMessage());
 //            throw $e;
             return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : " خطای ناشناخته " . substr($e->getMessage(), -180) . "
 ";

@@ -101,7 +101,7 @@ class BotMotherController extends Controller
                     ->firstOrFail();
             } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
-                Log::warning($e->getMessage());
+                Log::error($e->getMessage());
 //                throw $e;
             }
             // TODO: count check
