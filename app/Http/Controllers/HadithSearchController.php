@@ -10,6 +10,8 @@ use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\HadithApiService;
 use App\Models\BotHadithItem;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -74,7 +76,7 @@ class HadithSearchController extends Controller
                     $id2 = substr($bot->Text(), 5);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
                     if ($hadith->count() > 0)
-                        BotHelper::sendMessage($bot, $hadith);
+                        BotHelper::sendMessage($bot, $this->getHadith($hadith));
                     else
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                 } else {
@@ -131,6 +133,11 @@ class HadithSearchController extends Controller
     {
         return "
 https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
+    }
+
+    private function getHadith(Model|Builder|null $hadith)
+    {
+        return StringHelper::getStringHadith($hadith->book, $hadith->number, $hadith->part, $hadith->chapter, $hadith->arabic, $hadith->english, $hadith->id2, false);
     }
 
 }

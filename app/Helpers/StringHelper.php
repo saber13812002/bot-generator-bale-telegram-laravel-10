@@ -137,14 +137,7 @@ class StringHelper
             self::saveLongTextToDB($academyOfIslamDataItem);
         }
 
-        return '
-' . trans("hadith.result.number: ") . $number . '
-' . trans("hadith.result.book: ") . strip_tags($book) . '
-' . trans("hadith.result.part: ") . strip_tags($part) . '
-' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
-' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
-' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
-' . trans("hadith.result.id: ") . $id2 . '
+        return self::getStringHadith($book, $number, $part, $chapter, $arabic, $english, $id2, $isLong) . '
  ' . '
  ' . ($isLong ? self::generateLink($id2, $botType) : '');
     }
@@ -294,5 +287,17 @@ class StringHelper
         ]);
 //        $botHadithItem->save();
         return $botHadithItem;
+    }
+
+    public static function getStringHadith($book, $number, $part, $chapter, $arabic, $english, $id2, $isLong): string
+    {
+        return '
+' . trans("hadith.result.number: ") . $number . '
+' . trans("hadith.result.book: ") . strip_tags($book) . '
+' . trans("hadith.result.part: ") . strip_tags($part) . '
+' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
+' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("hadith.result.id: ") . $id2;
     }
 }
