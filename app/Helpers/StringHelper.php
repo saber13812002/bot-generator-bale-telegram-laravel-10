@@ -281,6 +281,7 @@ class StringHelper
         $botHadithItem = BotHadithItem::firstOrNew([
             '_id' => $_id
         ], [
+            '_id' => $_id,
             'book' => $book,
             'number' => $number,
             'part' => $part,
