@@ -127,13 +127,13 @@ class StringHelper
 //        dd($academyOfIslamDataItem);
 //        dd(array_key_exists('book', $academyOfIslamDataItem));
 //        dd(isset($academyOfIslamDataItem['book']));
-        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
+        list($book, $number, $part, $chapter, $arabic, $english, $id2) = self::getItemFields($academyOfIslamDataItem);
 
         $botType = Config::get('config.bot.type', 'bale');
 
         $isLong = Str::length(strip_tags($arabic)) > 1000;
 
-        if ($isLong && $_id) {
+        if ($isLong && $id2) {
             self::saveLongTextToDB($academyOfIslamDataItem);
         }
 
@@ -144,9 +144,9 @@ class StringHelper
 ' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
 ' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
 ' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
-' . trans("hadith.result.id: ") . $_id . '
+' . trans("hadith.result.id: ") . $id2 . '
  ' . '
- ' . ($isLong ? self::generateLink($_id, $botType) : '');
+ ' . ($isLong ? self::generateLink($id2, $botType) : '');
     }
 
 
@@ -229,9 +229,9 @@ class StringHelper
         return [0, 0];
     }
 
-    private static function generateLink(mixed $_id, mixed $botType): string
+    private static function generateLink(mixed $id2, mixed $botType): string
     {
-        $cmd = "/_id=" . $_id;
+        $cmd = "/_id=" . $id2;
         if ($botType == 'bale') {
             return "[" . $cmd . "](send:" . $cmd . ")";
         }
@@ -240,9 +240,9 @@ class StringHelper
 
     private static function saveLongTextToDB(mixed $academyOfIslamDataItem)
     {
-        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
-//        dd($_id);
-        return self::firstOrCreate($_id, $book, $number, $part, $chapter, $arabic, $english);
+        list($book, $number, $part, $chapter, $arabic, $english, $id2) = self::getItemFields($academyOfIslamDataItem);
+//        dd($id2);
+        return self::firstOrCreate($id2, $book, $number, $part, $chapter, $arabic, $english);
     }
 
     /**
@@ -262,12 +262,12 @@ class StringHelper
 //        $gradings = $academyOfIslamDataItem["gradings"][0];
 //        $related = $academyOfIslamDataItem["related"][0];
 //        $history = $academyOfIslamDataItem["history"][0];
-        $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
-        return array($book, $number, $part, $chapter, $arabic, $english, $_id);
+        $id2 = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
+        return array($book, $number, $part, $chapter, $arabic, $english, $id2);
     }
 
     /**
-     * @param string $_id
+     * @param string $id2
      * @param string $book
      * @param string $number
      * @param string $part
@@ -276,12 +276,12 @@ class StringHelper
      * @param string $english
      * @return void
      */
-    public static function firstOrCreate(string $_id, string $book, string $number, string $part, string $chapter, string $arabic, string $english)
+    public static function firstOrCreate(string $id2, string $book, string $number, string $part, string $chapter, string $arabic, string $english)
     {
         $botHadithItem = BotHadithItem::firstOrNew([
-            '_id' => $_id
+            'id2' => $id2
         ], [
-            '_id' => $_id,
+//            'id2' => $id2,
             'book' => $book,
             'number' => $number,
             'part' => $part,

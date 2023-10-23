@@ -12,7 +12,7 @@ return new class extends Migration {
     {
         Schema::create('bot_hadith_items', function (Blueprint $table) {
             $table->id();
-            $table->string("_id")->index('_id');
+            $table->string("id2")->index('id2');
             $table->text("arabic")->nullable();
             $table->text("persian")->nullable();
             $table->text("english")->nullable();

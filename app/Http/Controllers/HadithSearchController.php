@@ -70,9 +70,9 @@ class HadithSearchController extends Controller
                     // TODO : saveLastCommandInDb($bot); performance said we need to have lastStatus log for any bot mother
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
                 } else if ($isHadithIdRequested) {
-//                    echo '_id';
-                    $_id = substr($bot->Text(), 5);
-                    $hadith = BotHadithItem::query()->where("_id", $_id)->first();
+//                    echo 'id2';
+                    $id2 = substr($bot->Text(), 5);
+                    $hadith = BotHadithItem::query()->where("id2", $id2)->first();
                     if ($hadith && count($hadith) > 0)
                         BotHelper::sendMessage($bot, $hadith);
                     else
