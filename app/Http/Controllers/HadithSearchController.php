@@ -86,7 +86,8 @@ class HadithSearchController extends Controller
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                 BotHelper::sendMessageToSuperAdmin("hadith:
 " . $phrase, $bot->BotType());
-                BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase));
+                BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase) . "
+    " . trans("bot.if there is no results please try again with non long query with less words. thank you"));
                 $message = $this->hadithApiService->search($phrase, $page, $limit);
                 $message .= trans("hadith.for more result click this link:") .
                     $this->getSearchWebUrl($phrase);

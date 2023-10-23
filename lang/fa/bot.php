@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'قبلی',
     'next'                                                                      => 'بعدی',
     'please wait'                                                               => 'لطفا صبر کنید ...',
+    'if there is no results please try again with non long query with less words. thank you'=>' اگر پاسخی دریافت نکردید با عبارت های خاص تر جستجو را تکرار کنید. کلمات مثل من علی فی بن بسیار پرتکرار است و فعلا در این روبات این نوع کوئری ها پشتیبانی نمیشود. کوئری خود را بهینه کنید.',
     'your chat id'                                                              => 'شناسه چت شما:',
     'sending to blog api'                                                       => 'ارسال درخواست به وب سرویس وبلاگ ...',
     'sending to blog api but nothing returned'                                  => 'ارسال درخواست به وب سرویس وبلاگ انجام شد اما چیزی برنگشت...',
