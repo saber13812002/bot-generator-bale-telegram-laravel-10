@@ -278,7 +278,7 @@ class StringHelper
      */
     public static function firstOrCreate(string $id2, string $book, string $number, string $part, string $chapter, string $arabic, string $english)
     {
-        $botHadithItem = BotHadithItem::firstOrNew([
+        $botHadithItem = BotHadithItem::firstOrCreate([
             'id2' => $id2
         ], [
 //            'id2' => $id2,
@@ -292,7 +292,7 @@ class StringHelper
 //            'arabic' => $arabic,
 //            'arabic' => $arabic
         ]);
-        $botHadithItem->save();
+//        $botHadithItem->save();
         return $botHadithItem;
     }
 }
