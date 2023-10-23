@@ -73,7 +73,7 @@ class HadithSearchController extends Controller
 //                    echo 'id2';
                     $id2 = substr($bot->Text(), 5);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
-                    if ($hadith && count($hadith) > 0)
+                    if ($hadith->count() > 0)
                         BotHelper::sendMessage($bot, $hadith);
                     else
                         BotHelper::sendMessage($bot, trans("bot.not found"));
