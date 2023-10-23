@@ -300,4 +300,9 @@ class StringHelper
 ' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
 ' . trans("hadith.result.id: ") . $id2;
     }
+
+    public static function normalizer($phrase): array|string
+    {
+        return str_replace(' ', '%20', $phrase);
+    }
 }

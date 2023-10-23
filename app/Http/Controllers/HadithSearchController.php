@@ -132,7 +132,7 @@ class HadithSearchController extends Controller
     private function getSearchWebUrl($phrase)
     {
         return "
-https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
+https://hadith.academyofislam.com/?q=" . StringHelper::normalizer($phrase);
     }
 
     private function getHadith(Model|Builder|null $hadith)
