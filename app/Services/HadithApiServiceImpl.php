@@ -52,7 +52,8 @@ class HadithApiServiceImpl implements HadithApiService
         } catch (Exception $e) {
             Log::warning($e->getMessage());
 //            throw $e;
-            return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";
+            return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : " خطای ناشناخته " . substr($e->getMessage(), -180) . "
+";
         }
         return self::generateMessageByHadithData($phrase, $academyOfIslamData);
     }

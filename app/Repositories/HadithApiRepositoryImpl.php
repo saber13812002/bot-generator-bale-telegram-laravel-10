@@ -27,7 +27,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
 //        $client = new GuzzleHttp\Client();
         $baseUrl = env("APP_ENV") != "local" ? "https://hadith.academyofislam.com" : "http://localhost:3000";
         $uri = $baseUrl . '/v1/narrations' . '?q=' . $phrase . '&page=' . $currentPage . '&per_page=' . $pageSize;
-
+//        dd($uri);
         $response = Http::get($uri);
 
 
