@@ -146,7 +146,7 @@ class StringHelper
 
         $isLong = Str::length(strip_tags($arabic)) > 1000;
 
-        if ($isLong && $id2) {
+        if ($id2) {
             self::saveLongTextToDB($academyOfIslamDataItem);
         }
 
