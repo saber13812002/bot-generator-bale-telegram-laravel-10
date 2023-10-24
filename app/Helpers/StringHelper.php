@@ -61,6 +61,19 @@ class StringHelper
     /**
      * @return string
      */
+    public static function getNahjCommandsAsPostfixForMessages(): string
+    {
+        return self::getStringMessageDivider() . "
+برای جستجو
+در کل متن نهج البلاغه دستور /search
+و برای نمایش جستجوهای دیگران /history
+را کلیک یا ارسال کنید.";
+    }
+
+
+    /**
+     * @return string
+     */
     public static function getStringMessageDivider(): string
     {
         return '
