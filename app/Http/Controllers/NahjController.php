@@ -7,11 +7,8 @@ use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
-use App\Interfaces\Services\NahjApiService;
-use App\Models\Nahj;
+use App\Interfaces\Services\NahjService;
 use Exception;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,11 +17,11 @@ use Telegram;
 
 class NahjController extends Controller
 {
-    private NahjApiService $nahjApiService;
+    private NahjService $nahjService;
 
-    public function __construct(NahjApiService $nahjApiService)
+    public function __construct(NahjService $nahjService)
     {
-        $this->nahjApiService = $nahjApiService;
+        $this->nahjService = $nahjService;
     }
 
     /**
@@ -67,46 +64,20 @@ class NahjController extends Controller
                     $message = trans("nahj.in the name of God you can use /help command to start.");
                 } else if ($command == "search") {
                     $message = trans("nahj.Please send your phrase to search in all Nahj ul balagha texts.");
+                } else if ($command == "help") {
+                    $message = $this->nahjService->help($bot);
+                    return 1;
+                } else if ($command == "fehrest") {
+                    [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
+                    $this->nahjService->list($bot, "", $page, $limit);
+                    return 1;
                 } else if ($isItemRequested) { // /_id=3
                     $id2 = substr($bot->Text(), 5);
-                    $nahj = Nahj::query()->where("id", $id2)->first();
-//                    dd($nahj);
-                    if ($nahj->count() > 0) {
-//                        dd($this->getNahj($nahj));
-                        $nahjMessage = $this->getNahj($nahj);
-                        if (strlen($nahjMessage) > 4000) {
-//                            $longString = explode("", wordwrap($nahjMessage, 1000));
-                            $words = explode(' ', $nahjMessage);
+                    [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
+                    $this->nahjService->item($bot, $id2, $page, $limit);
 
-                            $maxLineLength = 4000;
-
-                            $currentLength = 0;
-                            $index = 0;
-                            $output[] = null;
-
-                            foreach ($words as $word) {
-                                // +1 because the word will receive back the space in the end that it loses in explode()
-                                $wordLength = strlen($word) + 1;
-
-                                if (($currentLength + $wordLength) <= $maxLineLength) {
-                                    $output[$index] .= $word . ' ';
-                                    $currentLength += $wordLength;
-                                } else {
-                                    $index += 1;
-                                    $currentLength = $wordLength;
-                                    $output[$index] = $word;
-                                }
-                            }
-//                            dd($output);
-                            foreach ($output as $o)
-                                BotHelper::sendMessage($bot, $o);
-                        } else
-                            BotHelper::sendMessage($bot, $this->getNahj($nahj));
-                    } else {
-                        BotHelper::sendMessage($bot, trans("bot.not found"));
-                    }
                 } else {
-                    $message = $this->nahjApiService->help($bot);
+                    $message = $this->nahjService->help($bot);
                 }
             } else if (true) {
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
@@ -114,7 +85,7 @@ class NahjController extends Controller
 " . $phrase, $bot->BotType());
                 BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase) . "
     " . trans("bot.if there is no results please try again with non long query with less words. thank you"));
-                $message = $this->nahjApiService->search($phrase, $page, $limit);
+                $message = $this->nahjService->search($phrase, $page, $limit);
                 $message .= trans("nahj.for more result click this link:") .
                     $this->getSearchWebUrl($phrase);
             }
@@ -153,11 +124,6 @@ class NahjController extends Controller
     {
         return "
 https://hadith.academyofislam.com/?q=" . StringHelper::normalizer($phrase);
-    }
-
-    private function getNahj(Model|Builder|null $nahj): string
-    {
-        return StringHelper::getStringNahj($nahj->category, $nahj->number, $nahj->title, $nahj->persian, $nahj->arabic, $nahj->english, $nahj->dashti, $nahj->id, false);
     }
 
 }

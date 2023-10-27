@@ -2,7 +2,7 @@
 
 namespace App\Interfaces\Repositories;
 
-interface NahjApiRepository
+interface NahjRepository
 {
     public function list(string $phrase, string $currentPage, string $pageSize);
 
