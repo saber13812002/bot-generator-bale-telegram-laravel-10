@@ -50,10 +50,12 @@ class StringHelper
      */
     public static function getHadithCommandsAsPostfixForMessages(): string
     {
+        // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل احادیث کتب شیعه دستور /search
 و برای نمایش جستجوهای دیگران در کتب شیعی /history
+و برای ارسال یک حدیث تصادفی /random
 را کلیک یا ارسال کنید.";
     }
 
@@ -63,10 +65,12 @@ class StringHelper
      */
     public static function getNahjCommandsAsPostfixForMessages(): string
     {
+        // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل متن نهج البلاغه دستور /search
 و برای نمایش جستجوهای دیگران /history
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی /random
 را کلیک یا ارسال کنید.";
     }
 

@@ -20,12 +20,12 @@ use Telegram;
 
 class NahjController extends Controller
 {
-//    private NahjApiService $nahjApiService;
-//
-//    public function __construct(NahjApiService $nahjApiService)
-//    {
-//        $this->nahjApiService = $nahjApiService;
-//    }
+    private NahjApiService $nahjApiService;
+
+    public function __construct(NahjApiService $nahjApiService)
+    {
+        $this->nahjApiService = $nahjApiService;
+    }
 
     /**
      * Display a listing of the resource.
@@ -64,7 +64,7 @@ class NahjController extends Controller
                 $isItemRequested = substr($bot->Text(), $offset, 3) == "_id";
                 $command_type = $isItemRequested ? "_id" : $command;
                 if ($command == "start") {
-                    $message = trans("nahj.In the name of God . you can use /help command to start.");
+                    $message = trans("nahj.in the name of God you can use /help command to start.");
                 } else if ($command == "search") {
                     $message = trans("nahj.Please send your phrase to search in all Nahj ul balagha texts.");
                 } else if ($isItemRequested) { // /_id=3
