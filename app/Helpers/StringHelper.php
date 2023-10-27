@@ -318,4 +318,16 @@ class StringHelper
     {
         return str_replace(' ', '%20', $phrase);
     }
+
+    public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian=null, mixed $arabic=null, mixed $english=null, mixed $dashti=null, mixed $id, bool $isLong): string
+    {
+        return '
+' . trans("nahj.result.number: ") . $number . '
+' . trans("nahj.result.category: ") . strip_tags($category) . '
+' . trans("nahj.result.title: ") . strip_tags($title) . (App::getLocale() == 'fa' ? '
+' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
+' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("nahj.result.id: ") . $id;
+    }
 }

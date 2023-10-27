@@ -8,9 +8,9 @@ return [
     "" => "",
     "result" => [
         "number: " => "number: ",
-        "book: " => "book: ",
-        "part: " => "part: ",
-        "chapter: " => "chapter: ",
+        "category: " => "category: ",
+        "title: " => "title: ",
+        "translate: " => "translate: ",
         "arabic text: " => "arabic text: ",
         "english text: " => "english text: ",
         "id: " => "id: ",

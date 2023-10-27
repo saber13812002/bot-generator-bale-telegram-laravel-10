@@ -20,12 +20,12 @@ use Telegram;
 
 class NahjController extends Controller
 {
-    private NahjApiService $nahjApiService;
-
-    public function __construct(NahjApiService $nahjApiService)
-    {
-        $this->nahjApiService = $nahjApiService;
-    }
+//    private NahjApiService $nahjApiService;
+//
+//    public function __construct(NahjApiService $nahjApiService)
+//    {
+//        $this->nahjApiService = $nahjApiService;
+//    }
 
     /**
      * Display a listing of the resource.
@@ -67,11 +67,41 @@ class NahjController extends Controller
                     $message = trans("nahj.In the name of God . you can use /help command to start.");
                 } else if ($command == "search") {
                     $message = trans("nahj.Please send your phrase to search in all Nahj ul balagha texts.");
-                } else if ($isItemRequested) {
+                } else if ($isItemRequested) { // /_id=3
                     $id2 = substr($bot->Text(), 5);
-                    $nahj = Nahj::query()->where("id2", $id2)->first();
+                    $nahj = Nahj::query()->where("id", $id2)->first();
+//                    dd($nahj);
                     if ($nahj->count() > 0) {
-                        BotHelper::sendMessage($bot, $this->getNahj($nahj));
+//                        dd($this->getNahj($nahj));
+                        $nahjMessage = $this->getNahj($nahj);
+                        if (strlen($nahjMessage) > 4000) {
+//                            $longString = explode("", wordwrap($nahjMessage, 1000));
+                            $words = explode(' ', $nahjMessage);
+
+                            $maxLineLength = 4000;
+
+                            $currentLength = 0;
+                            $index = 0;
+                            $output[] = null;
+
+                            foreach ($words as $word) {
+                                // +1 because the word will receive back the space in the end that it loses in explode()
+                                $wordLength = strlen($word) + 1;
+
+                                if (($currentLength + $wordLength) <= $maxLineLength) {
+                                    $output[$index] .= $word . ' ';
+                                    $currentLength += $wordLength;
+                                } else {
+                                    $index += 1;
+                                    $currentLength = $wordLength;
+                                    $output[$index] = $word;
+                                }
+                            }
+//                            dd($output);
+                            foreach ($output as $o)
+                                BotHelper::sendMessage($bot, $o);
+                        } else
+                            BotHelper::sendMessage($bot, $this->getNahj($nahj));
                     } else {
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                     }
@@ -125,9 +155,9 @@ class NahjController extends Controller
 https://hadith.academyofislam.com/?q=" . StringHelper::normalizer($phrase);
     }
 
-    private function getNahj(Model|Builder|null $hadith): string
+    private function getNahj(Model|Builder|null $nahj): string
     {
-        return StringHelper::getStringHadith($hadith->book, $hadith->number, $hadith->part, $hadith->chapter, $hadith->arabic, $hadith->english, $hadith->id2, false);
+        return StringHelper::getStringNahj($nahj->category, $nahj->number, $nahj->title, $nahj->persian, $nahj->arabic, $nahj->english, $nahj->dashti, $nahj->id, false);
     }
 
 }
