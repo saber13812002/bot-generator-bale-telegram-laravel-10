@@ -6,6 +6,7 @@ use App\Helpers\BlogHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
 use App\Http\Requests\BotRequest;
+use App\Http\Resources\UserMessengerResource;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -42,32 +43,51 @@ class BlogController extends Controller
         $response = "";
         // if not we can get valid token and save it in blog table
 //                dd(explode('.', $bot->Text(), 178)[0]);
+
+        $blogToken = "";
         if (!$request->has('author_id')) {
-            [$author_id, $blog_token] = BlogHelper::getBlogInfo($type, $bot->ChatID());
+            [$author_id, $blogToken] = BlogHelper::getBlogInfo($type, $bot->ChatID());
         } elseif ($request->has('blog_token')) {
-            $author_id = $request->input('author_id');
-            $blog_token = $request->input('blog_token');
+            [$author_id, $blogToken] = array($request->input('author_id'), $request->input('blog_token'));
         }
 
         if ($bot->Text() == '/start') {
-            $message = $this->ifStartCommandBlog($author_id, $bot);
+            $this->ifStartCommandBlog($author_id, $bot);
         }
 
         // TODO: if author id in webhook ... users can sent via bot to another channels
-//                if ($author_id) {
-        try {
-            $message = trans('bot.sending to blog api');
-            BotHelper::sendMessage($bot, $message);
-            $response = BlogHelper::callApiPost($bot->Text(), $author_id, $blog_token);
+        // if ($author_id) {
 
+
+        try {
+            $response = BlogHelper::callApiGetUserMessenger($author_id, $blogToken);
+            $userMessenger = UserMessengerResource::make($response["data"]);
+
+//            dd($userMessenger->collection["id"]);
+            dd($userMessenger->resource["id"]);
+        } catch (Exception $e) {
+            return $this->handleCallApiExceptions($e, $bot);
+        }
+
+        $userText = $bot->Text();
+        if ($bot->Caption()) {
+            $userText = $bot->Caption();
+            $file = $bot->File();
+
+        }
+
+        $message = trans('bot.sending to blog api');
+        BotHelper::sendMessage($bot, $message);
+        try {
+            $response = BlogHelper::callApiPost($userText, $author_id, $blogToken);
         } catch (Exception $e) {
             return $this->handleCallApiExceptions($e, $bot);
         }
 
         $this->sendResultMessageToUser($response['data'], $bot);
 
-        $response = BlogHelper::callArtisanQueueWork($blog_token);
-        return $response;
+//        $response = BlogHelper::callArtisanQueueWork($blogToken);
+//        return $response;
 
     }
 
@@ -76,7 +96,7 @@ class BlogController extends Controller
      * @param Telegram $bot
      * @return string
      */
-    public function ifStartCommandBlog(mixed $author_id, Telegram $bot): string
+    public function ifStartCommandBlog(mixed $author_id, Telegram $bot): void
     {
         if ($author_id) {
             $message = "توییت کنید و شروع کنید.
@@ -92,7 +112,6 @@ https://blog.pardisania.ir/posts/feed/" . $author_id;
 قبلش لطفا در سایت blog.pardisania.ir عضو بشید و پیام بدین";
         }
         BotHelper::sendMessage($bot, $message);
-        return $message;
     }
 
     /**
