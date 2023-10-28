@@ -57,9 +57,11 @@ class NahjController extends Controller
             $commands = StringHelper::getNahjCommandsAsPostfixForMessages();
             if (str_starts_with($bot->Text(), "/")) {
                 $offset = strpos($bot->Text(), "/") + Str::length("/");
-                $command = substr($bot->Text(), $offset);
+                $pageIndex = strpos($bot->Text(), 'page=');
+                $command = !$pageIndex ? substr($bot->Text(), $offset) : substr($bot->Text(), $offset, $pageIndex - 1);
                 $isItemRequested = substr($bot->Text(), $offset, 3) == "_id";
                 $command_type = $isItemRequested ? "_id" : $command;
+//                dd($offset, $command, $isItemRequested, $command_type, $pageIndex);
                 if ($command == "start") {
                     $message = trans("nahj.in the name of God you can use /help command to start.");
                 } else if ($command == "search") {

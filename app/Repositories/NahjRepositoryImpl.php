@@ -14,7 +14,8 @@ class NahjRepositoryImpl implements NahjRepository
     public function list(string $phrase, string $currentPage, string $pageSize)
     {
         $items = Nahj::query()
-            ->orderByDesc('category', 'number')
+            ->orderBy('category', 'asc')
+            ->orderBy( 'number','asc')
             ->paginate(perPage: $pageSize, page: $currentPage);
         return $items;
     }

@@ -91,11 +91,18 @@ class NahjServiceImpl implements NahjService
 
     public function list($bot, string $phrase, string $currentPage, string $pageSize)
     {
+        $commandNext = "/fehrestpage=" . ((int)$currentPage + 1);
+        $commandBack = "/fehrestpage=" . ((int)$currentPage - 1);
         $items = $this->nahjRepository->list($phrase, $currentPage, $pageSize);
 //        dd($items);
+        $message = "";
         foreach ($items as $item) {
-            $this->sendItem($item, $bot);
+            $message .= $this->getFehrestItems($item);
         }
+        $message .= "
+" . ((int)$currentPage != 163 ? $this->generateLink($commandNext, $bot->BotType()) : $this->generateLink("/fehrest", $bot->BotType())) . "
+" . ((int)$currentPage > 1 ? $this->generateLink($commandBack, $bot->BotType()) : "");
+        $this->sendFehrest($message, $bot);
     }
 
     public function item($bot, int $id, string $currentPage, string $pageSize)
@@ -163,5 +170,31 @@ class NahjServiceImpl implements NahjService
         } else {
             BotHelper::sendMessage($bot, $this->getNahj($item));
         }
+    }
+
+    /**
+     * @param $message
+     * @param $bot
+     * @return void
+     */
+    public function sendFehrest($message, $bot): void
+    {
+        $maxCharacterPerMessage = 4000;
+        if (strlen($message) > $maxCharacterPerMessage) {
+            $this->sendMessageWhenLong($message, $maxCharacterPerMessage, $bot);
+        } else {
+            BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    private function getFehrestItems(mixed $item)
+    {
+//        dd($item);
+        return $item->category . "-" . $item->number . "-" . $item->title . "\n";
+    }
+
+    private function generateLink(string $command, $botType): string
+    {
+        return ($botType == 'bale') ? "[" . $command . "](send:" . $command . ")" : $command;
     }
 }
