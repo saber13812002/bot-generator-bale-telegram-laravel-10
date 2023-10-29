@@ -728,6 +728,6 @@ class BotHelper
 
     public static function generateTextLink(string $text, string $command, $botType): string
     {
-        return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . "->" . $command;
+        return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . " -> " . $command;
     }
 }
