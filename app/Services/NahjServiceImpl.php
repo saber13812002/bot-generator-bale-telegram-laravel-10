@@ -100,8 +100,8 @@ class NahjServiceImpl implements NahjService
             $message .= $this->getFehrestItems($item, $bot->BotType());
         }
         $message .= "
-" . ((int)$currentPage != 163 ? $this->generateLink($commandNext, $bot->BotType()) : $this->generateLink("/fehrest", $bot->BotType())) . "
-" . ((int)$currentPage > 1 ? $this->generateLink($commandBack, $bot->BotType()) : "");
+" . ((int)$currentPage != 163 ? BotHelper::generateLink($commandNext, $bot->BotType()) : BotHelper::generateLink("/fehrest", $bot->BotType())) . "
+" . ((int)$currentPage > 1 ? BotHelper::generateLink($commandBack, $bot->BotType()) : "");
         $this->sendFehrest($message, $bot);
     }
 
@@ -190,21 +190,6 @@ class NahjServiceImpl implements NahjService
     private function getFehrestItems(mixed $item, string $botType): string
     {
         $text = $item->category . "-" . $item->number . "-" . $item->title;
-        return $this->generateTextLink($text, $this->linkArticle($item->id), $botType) . "\n";
-    }
-
-    private function linkArticle($itemId): string
-    {
-        return "/_id" . $itemId;
-    }
-
-    private function generateLink(string $command, $botType): string
-    {
-        return ($botType == 'bale') ? "[" . $command . "](send:" . $command . ")" : $command;
-    }
-
-    private function generateTextLink(string $text, string $command, $botType): string
-    {
-        return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . "->" . $command;
+        return BotHelper::generateTextLink($text, BotHelper::linkArticle($item->id), $botType) . "\n";
     }
 }

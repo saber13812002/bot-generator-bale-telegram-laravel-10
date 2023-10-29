@@ -65,14 +65,17 @@ class StringHelper
      */
     public static function getNahjCommandsAsPostfixForMessages(): string
     {
+        $botType = Config::get('config.bot.type', 'bale');
         // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
-در کل متن نهج البلاغه دستور /search
-و برای نمایش جستجوهای دیگران /history
-و برای ارسال یک حکمت یا خطبه یا نامه تصادفی /random
-و برای نمایش فهرست /fehrest
+در کل متن نهج البلاغه دستور / search
+و برای نمایش جستجوهای دیگران / history
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی " . " " . BotHelper::generateLink("/random", $botType) . "
+ و برای نمایش فهرست.    " . BotHelper::generateLink("/fehrest", $botType) .
+            "
 را کلیک یا ارسال کنید.";
+
     }
 
 
@@ -147,7 +150,7 @@ class StringHelper
 //        dd(isset($academyOfIslamDataItem['book']));
         list($book, $number, $part, $chapter, $arabic, $english, $id2) = self::getItemFields($academyOfIslamDataItem);
 
-        $botType = Config::get('config.bot.type', 'bale');
+        $botType = Config::get('config.bot.type', 'bale'); //bottype
 
         $isLong = Str::length(strip_tags($arabic)) > 1000;
 
@@ -155,9 +158,11 @@ class StringHelper
             self::saveLongTextToDB($academyOfIslamDataItem);
         }
 
+        $cmd = "/_id" . $id2;
+
         return self::getStringHadith($book, $number, $part, $chapter, $arabic, $english, $id2, $isLong) . '
  ' . '
- ' . ($isLong ? self::generateLink($id2, $botType) : '');
+ ' . ($isLong ? BotHelper::generateTextLink($cmd, $cmd, $botType) : '');
     }
 
 
@@ -240,14 +245,6 @@ class StringHelper
         return [0, 0];
     }
 
-    private static function generateLink(mixed $id2, mixed $botType): string
-    {
-        $cmd = "/_id=" . $id2;
-        if ($botType == 'bale') {
-            return "[" . $cmd . "](send:" . $cmd . ")";
-        }
-        return $cmd;
-    }
 
     private static function saveLongTextToDB(mixed $academyOfIslamDataItem)
     {
@@ -324,15 +321,22 @@ class StringHelper
         return str_replace(' ', '%20', $phrase);
     }
 
-    public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian=null, mixed $arabic=null, mixed $english=null, mixed $dashti=null, mixed $id, bool $isLong): string
+    public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian = null, mixed $arabic = null, mixed $english = null, mixed $dashti = null, mixed $id, bool $isLong): string
     {
+        $botType = Config::get('config.bot.type', 'bale');
         return '
+' . trans("nahj.result.category: ") . self::getCategory($category) . '
 ' . trans("nahj.result.number: ") . $number . '
-' . trans("nahj.result.category: ") . strip_tags($category) . '
 ' . trans("nahj.result.title: ") . strip_tags($title) . (App::getLocale() == 'fa' ? '
 ' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
 ' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
 ' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
-' . trans("nahj.result.id: ") . $id;
+' . trans("nahj.result.id: ") . $id . " -> " . BotHelper::generateTextLink("/_id" . $id, "/_id" . $id, $botType) . "
+" . trans("bot.next") . " -> " . BotHelper::generateTextLink("/_id" . $id + 1, "/_id" . $id + 1, $botType);
+    }
+
+    private static function getCategory(mixed $category)
+    {
+        return $category == 1 ? "خطبه" : ($category == 2 ? "نامه" : "حکمت");
     }
 }

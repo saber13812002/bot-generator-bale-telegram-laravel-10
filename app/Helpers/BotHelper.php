@@ -714,4 +714,20 @@ class BotHelper
     {
         return $messenger->sendImage($chat_id, $photoUrl, $caption);
     }
+
+
+    public static function linkArticle($itemId): string
+    {
+        return "/_id" . $itemId;
+    }
+
+    public static function generateLink(string $command, $botType): string
+    {
+        return ($botType == 'bale') ? "[" . $command . "](send:" . $command . ")" : $command;
+    }
+
+    public static function generateTextLink(string $text, string $command, $botType): string
+    {
+        return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . " -> " . $command;
+    }
 }
