@@ -57,7 +57,7 @@ class NahjController extends Controller
             $commands = StringHelper::getNahjCommandsAsPostfixForMessages();
             if (str_starts_with($bot->Text(), "/")) {
                 $offset = strpos($bot->Text(), "/") + Str::length("/");
-                $pageIndex = strpos($bot->Text(), 'page=');
+                $pageIndex = strpos($bot->Text(), 'page');
                 $command = !$pageIndex ? substr($bot->Text(), $offset) : substr($bot->Text(), $offset, $pageIndex - 1);
                 $isItemRequested = substr($bot->Text(), $offset, 3) == "_id";
                 $command_type = $isItemRequested ? "_id" : $command;
@@ -73,8 +73,8 @@ class NahjController extends Controller
                     [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                     $this->nahjService->list($bot, "", $page, $limit);
                     return 1;
-                } else if ($isItemRequested) { // /_id=3
-                    $id2 = substr($bot->Text(), 5);
+                } else if ($isItemRequested) { // /_id3
+                    $id2 = substr($bot->Text(), 4);
                     [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                     $this->nahjService->item($bot, $id2, $page, $limit);
 

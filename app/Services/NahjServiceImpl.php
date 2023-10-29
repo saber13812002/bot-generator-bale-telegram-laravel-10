@@ -91,13 +91,13 @@ class NahjServiceImpl implements NahjService
 
     public function list($bot, string $phrase, string $currentPage, string $pageSize)
     {
-        $commandNext = "/fehrestpage=" . ((int)$currentPage + 1);
-        $commandBack = "/fehrestpage=" . ((int)$currentPage - 1);
+        $commandNext = "/fehrestpage" . ((int)$currentPage + 1);
+        $commandBack = "/fehrestpage" . ((int)$currentPage - 1);
         $items = $this->nahjRepository->list($phrase, $currentPage, $pageSize);
 //        dd($items);
         $message = "";
         foreach ($items as $item) {
-            $message .= $this->getFehrestItems($item);
+            $message .= $this->getFehrestItems($item, $bot->BotType());
         }
         $message .= "
 " . ((int)$currentPage != 163 ? $this->generateLink($commandNext, $bot->BotType()) : $this->generateLink("/fehrest", $bot->BotType())) . "
@@ -187,14 +187,24 @@ class NahjServiceImpl implements NahjService
         }
     }
 
-    private function getFehrestItems(mixed $item)
+    private function getFehrestItems(mixed $item, string $botType): string
     {
-//        dd($item);
-        return $item->category . "-" . $item->number . "-" . $item->title . "\n";
+        $text = $item->category . "-" . $item->number . "-" . $item->title;
+        return $this->generateTextLink($text, $this->linkArticle($item->id), $botType) . "\n";
+    }
+
+    private function linkArticle($itemId): string
+    {
+        return "/_id" . $itemId;
     }
 
     private function generateLink(string $command, $botType): string
     {
         return ($botType == 'bale') ? "[" . $command . "](send:" . $command . ")" : $command;
+    }
+
+    private function generateTextLink(string $text, string $command, $botType): string
+    {
+        return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . "->" . $command;
     }
 }
