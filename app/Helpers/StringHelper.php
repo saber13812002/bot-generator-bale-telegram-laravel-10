@@ -50,10 +50,12 @@ class StringHelper
      */
     public static function getHadithCommandsAsPostfixForMessages(): string
     {
+        // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل احادیث کتب شیعه دستور /search
 و برای نمایش جستجوهای دیگران در کتب شیعی /history
+و برای ارسال یک حدیث تصادفی /random
 را کلیک یا ارسال کنید.";
     }
 
@@ -63,10 +65,12 @@ class StringHelper
      */
     public static function getNahjCommandsAsPostfixForMessages(): string
     {
+        // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل متن نهج البلاغه دستور /search
 و برای نمایش جستجوهای دیگران /history
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی /random
 و برای نمایش فهرست /fehrest
 را کلیک یا ارسال کنید.";
     }
@@ -318,5 +322,17 @@ class StringHelper
     public static function normalizer($phrase): array|string
     {
         return str_replace(' ', '%20', $phrase);
+    }
+
+    public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian=null, mixed $arabic=null, mixed $english=null, mixed $dashti=null, mixed $id, bool $isLong): string
+    {
+        return '
+' . trans("nahj.result.number: ") . $number . '
+' . trans("nahj.result.category: ") . strip_tags($category) . '
+' . trans("nahj.result.title: ") . strip_tags($title) . (App::getLocale() == 'fa' ? '
+' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
+' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("nahj.result.id: ") . $id;
     }
 }

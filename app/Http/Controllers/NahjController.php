@@ -7,11 +7,8 @@ use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
-use App\Interfaces\Services\NahjApiService;
-use App\Models\Nahj;
+use App\Interfaces\Services\NahjService;
 use Exception;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,11 +17,11 @@ use Telegram;
 
 class NahjController extends Controller
 {
-    private NahjApiService $nahjApiService;
+    private NahjService $nahjService;
 
-    public function __construct(NahjApiService $nahjApiService)
+    public function __construct(NahjService $nahjService)
     {
-        $this->nahjApiService = $nahjApiService;
+        $this->nahjService = $nahjService;
     }
 
     /**
@@ -60,23 +57,29 @@ class NahjController extends Controller
             $commands = StringHelper::getNahjCommandsAsPostfixForMessages();
             if (str_starts_with($bot->Text(), "/")) {
                 $offset = strpos($bot->Text(), "/") + Str::length("/");
-                $command = substr($bot->Text(), $offset);
+                $pageIndex = strpos($bot->Text(), 'page=');
+                $command = !$pageIndex ? substr($bot->Text(), $offset) : substr($bot->Text(), $offset, $pageIndex - 1);
                 $isItemRequested = substr($bot->Text(), $offset, 3) == "_id";
                 $command_type = $isItemRequested ? "_id" : $command;
+//                dd($offset, $command, $isItemRequested, $command_type, $pageIndex);
                 if ($command == "start") {
-                    $message = trans("nahj.In the name of God . you can use /help command to start.");
+                    $message = trans("nahj.in the name of God you can use /help command to start.");
                 } else if ($command == "search") {
                     $message = trans("nahj.Please send your phrase to search in all Nahj ul balagha texts.");
-                } else if ($isItemRequested) {
+                } else if ($command == "help") {
+                    $message = $this->nahjService->help($bot);
+                    return 1;
+                } else if ($command == "fehrest") {
+                    [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
+                    $this->nahjService->list($bot, "", $page, $limit);
+                    return 1;
+                } else if ($isItemRequested) { // /_id=3
                     $id2 = substr($bot->Text(), 5);
-                    $nahj = Nahj::query()->where("id2", $id2)->first();
-                    if ($nahj->count() > 0) {
-                        BotHelper::sendMessage($bot, $this->getNahj($nahj));
-                    } else {
-                        BotHelper::sendMessage($bot, trans("bot.not found"));
-                    }
+                    [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
+                    $this->nahjService->item($bot, $id2, $page, $limit);
+
                 } else {
-                    $message = $this->nahjApiService->help($bot);
+                    $message = $this->nahjService->help($bot);
                 }
             } else if (true) {
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
@@ -84,7 +87,7 @@ class NahjController extends Controller
 " . $phrase, $bot->BotType());
                 BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase) . "
     " . trans("bot.if there is no results please try again with non long query with less words. thank you"));
-                $message = $this->nahjApiService->search($phrase, $page, $limit);
+                $message = $this->nahjService->search($phrase, $page, $limit);
                 $message .= trans("nahj.for more result click this link:") .
                     $this->getSearchWebUrl($phrase);
             }
@@ -123,11 +126,6 @@ class NahjController extends Controller
     {
         return "
 https://hadith.academyofislam.com/?q=" . StringHelper::normalizer($phrase);
-    }
-
-    private function getNahj(Model|Builder|null $hadith): string
-    {
-        return StringHelper::getStringHadith($hadith->book, $hadith->number, $hadith->part, $hadith->chapter, $hadith->arabic, $hadith->english, $hadith->id2, false);
     }
 
 }
