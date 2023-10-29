@@ -77,7 +77,6 @@ class NahjController extends Controller
                     $id2 = substr($bot->Text(), 4);
                     [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                     $this->nahjService->item($bot, $id2, $page, $limit);
-
                 } else {
                     $message = $this->nahjService->help($bot);
                 }
