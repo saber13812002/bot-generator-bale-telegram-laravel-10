@@ -323,6 +323,7 @@ class StringHelper
 
     public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian = null, mixed $arabic = null, mixed $english = null, mixed $dashti = null, mixed $id, bool $isLong): string
     {
+        $botType = Config::get('config.bot.type', 'bale');
         return '
 ' . trans("nahj.result.number: ") . $number . '
 ' . trans("nahj.result.category: ") . strip_tags($category) . '
@@ -330,6 +331,7 @@ class StringHelper
 ' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
 ' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
 ' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
-' . trans("nahj.result.id: ") . $id;
+' . trans("nahj.result.id: ") . $id . " -> " . BotHelper::generateTextLink("/_id" . $id, "/_id" . $id, $botType) . "
+" . trans("bot.next") . " -> " . BotHelper::generateTextLink("/_id" . $id + 1, "/_id" . $id + 1, $botType);
     }
 }
