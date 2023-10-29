@@ -8,7 +8,7 @@ use App\Http\Requests\StoreweatherRequest;
 use App\Http\Requests\UpdateweatherRequest;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
-use App\Models\weather;
+use App\Models\Weather;
 use Illuminate\Http\Request;
 use Telegram;
 
@@ -66,7 +66,7 @@ class WeatherController extends Controller
      * Display the specified resource.
      */
     public
-    function show(weather $weather)
+    function show(Weather $weather)
     {
         //
     }
@@ -75,7 +75,7 @@ class WeatherController extends Controller
      * Show the form for editing the specified resource.
      */
     public
-    function edit(weather $weather)
+    function edit(Weather $weather)
     {
         //
     }
@@ -84,7 +84,7 @@ class WeatherController extends Controller
      * Update the specified resource in storage.
      */
     public
-    function update(UpdateweatherRequest $request, weather $weather)
+    function update(UpdateweatherRequest $request, Weather $weather)
     {
         //
     }
@@ -93,7 +93,7 @@ class WeatherController extends Controller
      * Remove the specified resource from storage.
      */
     public
-    function destroy(weather $weather)
+    function destroy(Weather $weather)
     {
         //
     }

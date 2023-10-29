@@ -10,6 +10,8 @@ use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\HadithApiService;
 use App\Models\BotHadithItem;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -70,11 +72,11 @@ class HadithSearchController extends Controller
                     // TODO : saveLastCommandInDb($bot); performance said we need to have lastStatus log for any bot mother
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
                 } else if ($isHadithIdRequested) {
-//                    echo '_id';
-                    $_id = substr($bot->Text(), 5);
-                    $hadith = BotHadithItem::query()->where("_id", $_id)->first();
-                    if ($hadith && count($hadith) > 0)
-                        BotHelper::sendMessage($bot, $hadith);
+//                    echo 'id2';
+                    $id2 = substr($bot->Text(), 5);
+                    $hadith = BotHadithItem::query()->where("id2", $id2)->first();
+                    if ($hadith)
+                        BotHelper::sendMessage($bot, $this->getHadith($hadith));
                     else
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                 } else {
@@ -84,11 +86,11 @@ class HadithSearchController extends Controller
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                 BotHelper::sendMessageToSuperAdmin("hadith:
 " . $phrase, $bot->BotType());
-                BotHelper::sendMessage($bot, trans("bot.please wait"));
+                BotHelper::sendMessage($bot, trans("bot.please wait") . $this->getSearchWebUrl($phrase) . "
+    " . trans("bot.if there is no results please try again with non long query with less words. thank you"));
                 $message = $this->hadithApiService->search($phrase, $page, $limit);
                 $message .= trans("hadith.for more result click this link:") .
-                    "
-https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
+                    $this->getSearchWebUrl($phrase);
             }
 
             BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
@@ -126,6 +128,17 @@ https://hadith.academyofislam.com/?q=" . str_replace(' ', '%20', $phrase);
             return true;
         }
         return false;
+    }
+
+    private function getSearchWebUrl($phrase)
+    {
+        return "
+https://hadith.academyofislam.com/?q=" . StringHelper::normalizer($phrase);
+    }
+
+    private function getHadith(Model|Builder|null $hadith)
+    {
+        return StringHelper::getStringHadith($hadith->book, $hadith->number, $hadith->part, $hadith->chapter, $hadith->arabic, $hadith->english, $hadith->id2, false);
     }
 
 }

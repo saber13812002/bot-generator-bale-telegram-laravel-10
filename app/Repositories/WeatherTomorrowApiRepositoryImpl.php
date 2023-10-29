@@ -31,7 +31,7 @@ class WeatherTomorrowApiRepositoryImpl implements WeatherTomorrowApiRepository
 
         $response = $client->get($uri);
 //        echo $request->getStatusCode(); // 200
-        echo $response->getBody()->getContents();
+//        echo $response->getBody()->getContents();
         return json_decode($response->getBody(), true);
     }
 }

@@ -26,6 +26,7 @@ return [
     'date_format'      => 'Le champ :attribute doit correspondre au format :format.',
     'decimal'          => 'Le champ :attribute doit comporter :decimal décimales.',
     'declined'         => 'Le champ :attribute doit être décliné.',
+    'declined_if'      => 'Le champ :attribute doit être décliné lorsque :other est :value.',
     'custom'           => [
         'attribute-name' => [
             'rule-name' => 'message personnalisé',

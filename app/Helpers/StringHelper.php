@@ -50,10 +50,28 @@ class StringHelper
      */
     public static function getHadithCommandsAsPostfixForMessages(): string
     {
+        // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل احادیث کتب شیعه دستور /search
 و برای نمایش جستجوهای دیگران در کتب شیعی /history
+و برای ارسال یک حدیث تصادفی /random
+را کلیک یا ارسال کنید.";
+    }
+
+
+    /**
+     * @return string
+     */
+    public static function getNahjCommandsAsPostfixForMessages(): string
+    {
+        // TODO: random implementation
+        return self::getStringMessageDivider() . "
+برای جستجو
+در کل متن نهج البلاغه دستور /search
+و برای نمایش جستجوهای دیگران /history
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی /random
+و برای نمایش فهرست /fehrest
 را کلیک یا ارسال کنید.";
     }
 
@@ -127,26 +145,19 @@ class StringHelper
 //        dd($academyOfIslamDataItem);
 //        dd(array_key_exists('book', $academyOfIslamDataItem));
 //        dd(isset($academyOfIslamDataItem['book']));
-        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
+        list($book, $number, $part, $chapter, $arabic, $english, $id2) = self::getItemFields($academyOfIslamDataItem);
 
         $botType = Config::get('config.bot.type', 'bale');
 
         $isLong = Str::length(strip_tags($arabic)) > 1000;
 
-        if ($isLong && $_id) {
+        if ($id2) {
             self::saveLongTextToDB($academyOfIslamDataItem);
         }
 
-        return '
- شماره:' . $number . '
- کتاب:' . strip_tags($book) . '
- بخش:' . strip_tags($part) . '
- فصل:' . strip_tags($chapter) . '
- متن عربی:' . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
- متن انگلیسی:' . substr($english, 0, 100) . '...' : "") . '
- شناسه:' . $_id . '
+        return self::getStringHadith($book, $number, $part, $chapter, $arabic, $english, $id2, $isLong) . '
  ' . '
- ' . ($isLong ? self::generateLink($_id, $botType) : '');
+ ' . ($isLong ? self::generateLink($id2, $botType) : '');
     }
 
 
@@ -229,34 +240,20 @@ class StringHelper
         return [0, 0];
     }
 
-    private static function generateLink(mixed $_id, mixed $botType): string
+    private static function generateLink(mixed $id2, mixed $botType): string
     {
-        $cmd = "/_id=" . $_id;
+        $cmd = "/_id=" . $id2;
         if ($botType == 'bale') {
             return "[" . $cmd . "](send:" . $cmd . ")";
         }
         return $cmd;
     }
 
-    private static function saveLongTextToDB(mixed $academyOfIslamDataItem): void
+    private static function saveLongTextToDB(mixed $academyOfIslamDataItem)
     {
-        list($book, $number, $part, $chapter, $arabic, $english, $_id) = self::getItemFields($academyOfIslamDataItem);
-//        dd($_id);
-        $botHadithItem = BotHadithItem::firstOrNew([
-            '_id' => $_id
-        ], [
-            'book' => $book,
-            'number' => $number,
-            'part' => $part,
-            'chapter' => $chapter,
-            'arabic' => $arabic,
-            'english' => $english
-//            'arabic' => $arabic,
-//            'arabic' => $arabic,
-//            'arabic' => $arabic
-        ]);
-
-
+        list($book, $number, $part, $chapter, $arabic, $english, $id2) = self::getItemFields($academyOfIslamDataItem);
+//        dd($id2);
+        return self::firstOrCreate($id2, $book, $number, $part, $chapter, $arabic, $english);
     }
 
     /**
@@ -276,7 +273,66 @@ class StringHelper
 //        $gradings = $academyOfIslamDataItem["gradings"][0];
 //        $related = $academyOfIslamDataItem["related"][0];
 //        $history = $academyOfIslamDataItem["history"][0];
-        $_id = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
-        return array($book, $number, $part, $chapter, $arabic, $english, $_id);
+        $id2 = isset($academyOfIslamDataItem['_id']) ? $academyOfIslamDataItem["_id"] : "";
+        return array($book, $number, $part, $chapter, $arabic, $english, $id2);
+    }
+
+    /**
+     * @param string $id2
+     * @param string $book
+     * @param string $number
+     * @param string $part
+     * @param string $chapter
+     * @param string $arabic
+     * @param string $english
+     * @return void
+     */
+    public static function firstOrCreate(string $id2, string $book, string $number, string $part, string $chapter, string $arabic, string $english)
+    {
+        $botHadithItem = BotHadithItem::firstOrCreate([
+            'id2' => $id2
+        ], [
+//            'id2' => $id2,
+            'book' => $book,
+            'number' => $number,
+            'part' => $part,
+            'chapter' => $chapter,
+            'arabic' => $arabic,
+            'english' => $english
+//            'arabic' => $arabic,
+//            'arabic' => $arabic,
+//            'arabic' => $arabic
+        ]);
+//        $botHadithItem->save();
+        return $botHadithItem;
+    }
+
+    public static function getStringHadith($book, $number, $part, $chapter, $arabic, $english, $id2, $isLong): string
+    {
+        return '
+' . trans("hadith.result.number: ") . $number . '
+' . trans("hadith.result.book: ") . strip_tags($book) . '
+' . trans("hadith.result.part: ") . strip_tags($part) . '
+' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
+' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("hadith.result.id: ") . $id2;
+    }
+
+    public static function normalizer($phrase): array|string
+    {
+        return str_replace(' ', '%20', $phrase);
+    }
+
+    public static function getStringNahj(mixed $category, mixed $number, mixed $title, mixed $persian=null, mixed $arabic=null, mixed $english=null, mixed $dashti=null, mixed $id, bool $isLong): string
+    {
+        return '
+' . trans("nahj.result.number: ") . $number . '
+' . trans("nahj.result.category: ") . strip_tags($category) . '
+' . trans("nahj.result.title: ") . strip_tags($title) . (App::getLocale() == 'fa' ? '
+' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
+' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
+' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("nahj.result.id: ") . $id;
     }
 }

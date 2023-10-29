@@ -6,6 +6,7 @@ use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\HadithSearchController;
+use App\Http\Controllers\NahjController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\SmsController;
@@ -66,3 +67,5 @@ Route::post('/webhook-quran-ayat', [BotQuranAyatController::class, 'index']);
 Route::get('/test/analyzer/{phrase}', [AnalyzerController::class, 'testAnalyzer']);
 
 Route::post('/webhook-hadith', [HadithSearchController::class, 'index']);
+
+Route::post('/webhook-nahj', [NahjController::class, 'index']);

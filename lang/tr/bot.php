@@ -134,8 +134,11 @@ return [
         'last 7 days readings' => 'son 7 günlük okumalar',
     ],
     'next quran page click here'                                                => 'sonraki̇ kuran sayfasi i̇çi̇n tiklayiniz',
+    'sent it for :count person'                                                 => ' kişisi için gönderdi :count',
     'for next or previous quran page click on these buttons'                    => 'sonraki̇ veya önceki̇ kuran sayfasi i̇çi̇n bu butonlara tiklayin',
     'previous quran page click here'                                            => 'önceki̇ kuran sayfasi i̇çi̇n tiklayiniz',
     'page'                                                                      => 'sayfa',
     'to sending request for next result page please click here'                 => 'sonraki sonuç sayfası için talep göndermek için lütfen buraya tıklayın',
+    'not found'                                                                 => 'bulunamadı',
+    'command is too long for process'                                           => 'komutu işlem için çok uzun',
 ];

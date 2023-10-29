@@ -139,4 +139,6 @@ return [
     'previous quran page click here'                                            => 'prethodna stranica Kur\'ana kliknite ovdje',
     'page'                                                                      => 'stranica',
     'to sending request for next result page please click here'                 => 'za slanje zahtjeva za sljedeću stranicu sa rezultatima kliknite ovdje',
+    'not found'                                                                 => 'nije pronađeno',
+    'command is too long for process'                                           => 'komanda je preduga za proces',
 ];

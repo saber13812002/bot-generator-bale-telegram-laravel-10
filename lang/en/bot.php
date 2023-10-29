@@ -43,6 +43,7 @@ return [
     'An error occurred when admin want to approve your request' => 'An error occurred when admin want to approve your request.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Please determine the minimum wind speed for bot to send you desired alert.',
     'please wait' => 'please wait ...',
+    'if there is no results please try again with non long query with less words. thank you' => 'if there is no results please try again with non long query with less words. thank you',
     'sending to blog api' => 'sending request to blog api ...',
     'sending to blog api but nothing returned' => 'sending request to blog api but nothing returned ...',
     'your chat id' => 'your chat id:',

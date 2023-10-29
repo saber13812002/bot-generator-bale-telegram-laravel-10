@@ -76,7 +76,7 @@ class BlogHelper
             ->whereChatId($chatId)
             ->get()
             ->first();
-        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
+        return ($blogUser && $blogUser->count() > 0) ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
     }
 
 
@@ -86,6 +86,6 @@ class BlogHelper
             ->whereMobileNumber($mobile)
             ->get()
             ->first();
-        return $blogUser->count() > 0 ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
+        return ($blogUser && $blogUser->count() > 0) ? [$blogUser['blog_user_id'], $blogUser['blog_token']] : [null, null];
     }
 }

@@ -20,6 +20,7 @@ class HadithApiServiceImpl implements HadithApiService
     }
 
     /**
+     * @throws Exception
      */
     public function search(string $phrase, string $currentPage, string $pageSize): string
     {
@@ -44,16 +45,11 @@ class HadithApiServiceImpl implements HadithApiService
      * @param string $currentPage
      * @param string $pageSize
      * @return string
+     * @throws Exception
      */
     public function getMessageFromHadithApi(string $phrase, string $currentPage, string $pageSize): string
     {
-        try {
-            $academyOfIslamData = $this->hadithApiRepository->call($phrase, $currentPage, $pageSize);
-        } catch (Exception $e) {
-            Log::warning($e->getMessage());
-//            throw $e;
-            return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : "خطای ناشناخته";
-        }
+        $academyOfIslamData = $this->hadithApiRepository->call($phrase, $currentPage, $pageSize);
         return self::generateMessageByHadithData($phrase, $academyOfIslamData);
     }
 

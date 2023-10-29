@@ -35,7 +35,7 @@ class BotUsersController extends Controller
                     ->firstOrFail();
             } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin(trans("bot.An error occurred when admin want to approve your request"), $type);
-                Log::warning($e->getMessage());
+                Log::error($e->getMessage());
 //                throw $e;
             }
 
@@ -52,7 +52,7 @@ class BotUsersController extends Controller
             } catch (Exception $e) {
                 $message = 'یا این روبات قبلا تایید شده است و الان دارد دوباره تایید میشود';
                 BotHelper::sendMessageToBotAdmin($bot, $message);
-                Log::warning($e->getMessage());
+                Log::error($e->getMessage());
 //                throw $e;
             }
 

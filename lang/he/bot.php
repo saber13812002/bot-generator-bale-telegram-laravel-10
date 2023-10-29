@@ -139,4 +139,6 @@ return [
     'previous quran page click here'                                            => 'דף הקוראן הקודם לחץ כאן',
     'page'                                                                      => 'עמוד',
     'to sending request for next result page please click here'                 => 'לשליחת בקשה לדף התוצאות הבא לחץ כאן',
+    'not found'                                                                 => 'לא נמצא',
+    'command is too long for process'                                           => 'הפקודה ארוכה מדי לתהליך',
 ];

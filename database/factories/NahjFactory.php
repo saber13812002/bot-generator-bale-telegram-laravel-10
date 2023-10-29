@@ -5,9 +5,9 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Weather>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\nahj>
  */
-class WeatherFactory extends Factory
+class NahjFactory extends Factory
 {
     /**
      * Define the model's default state.

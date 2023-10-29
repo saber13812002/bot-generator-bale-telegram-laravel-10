@@ -134,8 +134,11 @@ return [
         'last 7 days readings' => 'показания за последние 7 дней',
     ],
     'next quran page click here'                                                => 'следующая страница корана нажмите здесь',
+    'sent it for :count person'                                                 => 'отправлено для :count человека',
     'for next or previous quran page click on these buttons'                    => 'для просмотра следующей или предыдущей страницы корана нажмите на эти кнопки',
     'previous quran page click here'                                            => 'предыдущая страница корана нажмите здесь',
     'page'                                                                      => 'страница',
     'to sending request for next result page please click here'                 => 'для отправки запроса на следующую страницу результатов нажмите здесь',
+    'not found'                                                                 => 'не найден',
+    'command is too long for process'                                           => 'команда слишком длинная для процесса',
 ];

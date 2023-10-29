@@ -28,9 +28,10 @@ class BotRequest extends FormRequest
                 Rule::in(['bale', 'telegram', 'soroosh', 'gap']),
             ],
             'token' => 'required',
-            'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,fa,ru,es,tr,ur,he',
+            'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,ru,es,tr,ur,he,az,bs,pt-BR,pt-PT',
             'bot_mother_id' => 'required',
             'command_type' => 'string'
         ];
     }
 }
+//'target_locales' => ['ar-IQ', 'az', 'bs', 'zh-CN', 'fr', 'de-DE', 'he', 'fa', 'pt-BR', 'pt-PT', 'ru', 'es', 'tr', 'ur']

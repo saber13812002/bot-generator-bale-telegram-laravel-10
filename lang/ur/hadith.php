@@ -14,4 +14,13 @@ return [
         ],
     ],
     'for more result click this link:'                           => 'مزید نتائج کے لیے اس لنک پر کلک کریں:',
+    'result'                                                     => [
+        'number: '      => 'نمبر:',
+        'book: '        => 'کتاب:',
+        'part: '        => 'حصہ:',
+        'chapter: '     => 'باب:',
+        'arabic text: ' => 'عربی متن:',
+        'english text: ' => 'انگریزی متن:',
+        'id: '          => 'id:',
+    ],
 ];

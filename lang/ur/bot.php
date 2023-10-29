@@ -134,8 +134,11 @@ return [
         'last 7 days readings' => 'آخری 7 دنوں کی ریڈنگ',
     ],
     'next quran page click here'                                                => 'اگلا قرآن صفحہ یہاں کلک کریں۔',
+    'sent it for :count person'                                                 => 'اسے :count شخص کے لیے بھیجا ہے۔',
     'for next or previous quran page click on these buttons'                    => 'اگلے یا پچھلے قرآن کے صفحہ کے لیے ان بٹنوں پر کلک کریں۔',
     'previous quran page click here'                                            => 'گزشتہ قرآن کا صفحہ یہاں کلک کریں۔',
     'page'                                                                      => 'صفحہ',
     'to sending request for next result page please click here'                 => 'اگلے رزلٹ پیج کے لیے درخواست بھیجنے کے لیے یہاں کلک کریں۔',
+    'not found'                                                                 => 'نہیں ملا',
+    'command is too long for process'                                           => 'کمانڈ عمل کے لیے بہت لمبا ہے۔',
 ];
