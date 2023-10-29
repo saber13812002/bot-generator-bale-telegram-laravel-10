@@ -69,9 +69,9 @@ class StringHelper
         // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
-در کل متن نهج البلاغه دستور /search
-و برای نمایش جستجوهای دیگران /history
-و برای ارسال یک حکمت یا خطبه یا نامه تصادفی /random
+در کل متن نهج البلاغه دستور / search
+و برای نمایش جستجوهای دیگران / history
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی "." ". BotHelper::generateLink("/random", $botType)."
  و برای نمایش فهرست.    " . BotHelper::generateLink("/fehrest", $botType) .
             "
 را کلیک یا ارسال کنید.";
