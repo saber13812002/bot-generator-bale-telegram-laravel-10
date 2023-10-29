@@ -66,6 +66,12 @@ class NahjController extends Controller
                     $message = trans("nahj.in the name of God you can use /help command to start.");
                 } else if ($command == "search") {
                     $message = trans("nahj.Please send your phrase to search in all Nahj ul balagha texts.");
+                } else if ($command == "random") {
+                    $page = 1;
+                    $limit = 1;
+                    $id = rand(1, 815);
+                    $message = $this->nahjService->item($bot, $id, $page, $limit);
+                    return 1;
                 } else if ($command == "help") {
                     $message = $this->nahjService->help($bot);
                     return 1;
