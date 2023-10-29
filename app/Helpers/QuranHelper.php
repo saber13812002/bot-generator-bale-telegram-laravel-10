@@ -716,11 +716,14 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      */
     public static function getPageNumberFromPhrase(string $searchPhrase): array
     {
-        $pageNumberPosition = strpos($searchPhrase, "page=");
+        $page = "page";
+        $pageNumberPosition = strpos($searchPhrase, $page);
+
+        $offset = strlen($page);
 
         if ($pageNumberPosition > 1) {
-            if (strlen($searchPhrase) > $pageNumberPosition + 5) {
-                $pageNumber = substr($searchPhrase, $pageNumberPosition + 5, strlen($searchPhrase));
+            if (strlen($searchPhrase) > $pageNumberPosition + $offset) {
+                $pageNumber = substr($searchPhrase, $pageNumberPosition + $offset, strlen($searchPhrase));
                 $searchPhrase = substr($searchPhrase, 0, $pageNumberPosition);
                 return [$searchPhrase, $pageNumber];
             } else {
