@@ -71,7 +71,7 @@ class StringHelper
 برای جستجو
 در کل متن نهج البلاغه دستور / search
 و برای نمایش جستجوهای دیگران / history
-و برای ارسال یک حکمت یا خطبه یا نامه تصادفی "." ". BotHelper::generateLink("/random", $botType)."
+و برای ارسال یک حکمت یا خطبه یا نامه تصادفی " . " " . BotHelper::generateLink("/random", $botType) . "
  و برای نمایش فهرست.    " . BotHelper::generateLink("/fehrest", $botType) .
             "
 را کلیک یا ارسال کنید.";
@@ -325,13 +325,18 @@ class StringHelper
     {
         $botType = Config::get('config.bot.type', 'bale');
         return '
+' . trans("nahj.result.category: ") . self::getCategory($category) . '
 ' . trans("nahj.result.number: ") . $number . '
-' . trans("nahj.result.category: ") . strip_tags($category) . '
 ' . trans("nahj.result.title: ") . strip_tags($title) . (App::getLocale() == 'fa' ? '
 ' . trans("nahj.result.translate: ") . strip_tags($persian) : "") . '
 ' . trans("nahj.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
 ' . trans("nahj.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
 ' . trans("nahj.result.id: ") . $id . " -> " . BotHelper::generateTextLink("/_id" . $id, "/_id" . $id, $botType) . "
 " . trans("bot.next") . " -> " . BotHelper::generateTextLink("/_id" . $id + 1, "/_id" . $id + 1, $botType);
+    }
+
+    private static function getCategory(mixed $category)
+    {
+        return $category == 1 ? "خطبه" : ($category == 2 ? "نامه" : "حکمت");
     }
 }
