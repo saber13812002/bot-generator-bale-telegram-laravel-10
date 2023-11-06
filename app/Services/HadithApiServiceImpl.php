@@ -7,7 +7,6 @@ use App\Helpers\StringHelper;
 use App\Interfaces\Repositories\HadithApiRepository;
 use App\Interfaces\Services\HadithApiService;
 use Exception;
-use Illuminate\Support\Facades\Log;
 
 class HadithApiServiceImpl implements HadithApiService
 {
