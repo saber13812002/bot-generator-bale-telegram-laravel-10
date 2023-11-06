@@ -9,7 +9,6 @@ use App\Interfaces\Services\NahjService;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Telegram;
 
 class NahjServiceImpl implements NahjService
 {
@@ -102,7 +101,7 @@ class NahjServiceImpl implements NahjService
         $message .= "
 " . ((int)$currentPage != 163 ? BotHelper::generateLink($commandNext, $bot->BotType()) : BotHelper::generateLink("/fehrest", $bot->BotType())) . "
 " . ((int)$currentPage > 1 ? BotHelper::generateLink($commandBack, $bot->BotType()) : "");
-        $this->sendFehrest($message, $bot);
+        BotHelper::sendLongMessage($message, $bot);
     }
 
     public function item($bot, int $id, string $currentPage, string $pageSize)
@@ -121,40 +120,6 @@ class NahjServiceImpl implements NahjService
         return StringHelper::getStringNahj($nahj->category, $nahj->number, $nahj->title, $nahj->persian, $nahj->arabic, $nahj->english, $nahj->dashti, $nahj->id, false);
     }
 
-    /**
-     * @param string $message
-     * @param int $maxCharacterPerMessage
-     * @param Telegram $bot
-     * @return void
-     */
-    public function sendMessageWhenLong(string $message, int $maxCharacterPerMessage, Telegram $bot): void
-    {
-//                            $longString = explode("", wordwrap($nahjMessage, 1000));
-        $words = explode(' ', $message);
-
-        $maxLineLength = $maxCharacterPerMessage;
-
-        $currentLength = 0;
-        $index = 0;
-        $pages[] = null;
-
-        foreach ($words as $word) {
-            // +1 because the word will receive back the space in the end that it loses in explode()
-            $wordLength = strlen($word) + 1;
-
-            if (($currentLength + $wordLength) <= $maxLineLength) {
-                $pages[$index] .= $word . ' ';
-                $currentLength += $wordLength;
-            } else {
-                $index += 1;
-                $currentLength = $wordLength;
-                $pages[$index] = $word;
-            }
-        }
-//                            dd($pages);
-        foreach ($pages as $page)
-            BotHelper::sendMessage($bot, $page);
-    }
 
     /**
      * @param $item
@@ -166,24 +131,9 @@ class NahjServiceImpl implements NahjService
         $nahjMessage = $this->getNahj($item);
         $maxCharacterPerMessage = 4000;
         if (strlen($nahjMessage) > $maxCharacterPerMessage) {
-            $this->sendMessageWhenLong($nahjMessage, $maxCharacterPerMessage, $bot);
+            BotHelper::sendMessageWhenLong($nahjMessage, $maxCharacterPerMessage, $bot);
         } else {
             BotHelper::sendMessage($bot, $this->getNahj($item));
-        }
-    }
-
-    /**
-     * @param $message
-     * @param $bot
-     * @return void
-     */
-    public function sendFehrest($message, $bot): void
-    {
-        $maxCharacterPerMessage = 4000;
-        if (strlen($message) > $maxCharacterPerMessage) {
-            $this->sendMessageWhenLong($message, $maxCharacterPerMessage, $bot);
-        } else {
-            BotHelper::sendMessage($bot, $message);
         }
     }
 

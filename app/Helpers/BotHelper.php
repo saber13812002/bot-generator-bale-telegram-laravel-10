@@ -492,7 +492,9 @@ class BotHelper
      */
     public static function sendMessageToUserAndAdmins(Telegram $bot, string $message, $type): void
     {
-        BotHelper::sendMessage($bot, $message);
+//        BotHelper::sendMessage($bot, $message);
+        BotHelper::sendLongMessage($message, $bot);
+        $message = strlen($message) > 4000 ? substr($message, 4000) : $message;
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
     }
@@ -729,5 +731,56 @@ class BotHelper
     public static function generateTextLink(string $text, string $command, $botType): string
     {
         return ($botType == 'bale') ? "[" . $text . "](send:" . $command . ")" : $text . " -> " . $command;
+    }
+
+
+    /**
+     * @param $message
+     * @param $bot
+     * @return void
+     */
+    public function sendLongMessage($message, $bot): void
+    {
+        $maxCharacterPerMessage = 4000;
+        if (strlen($message) > $maxCharacterPerMessage) {
+            self::sendMessageWhenLong($message, $maxCharacterPerMessage, $bot);
+        } else {
+            self::sendMessage($bot, $message);
+        }
+    }
+
+    /**
+     * @param string $message
+     * @param int $maxCharacterPerMessage
+     * @param Telegram $bot
+     * @return void
+     */
+    public function sendMessageWhenLong(string $message, int $maxCharacterPerMessage, Telegram $bot): void
+    {
+//                            $longString = explode("", wordwrap($nahjMessage, 1000));
+        $words = explode(' ', $message);
+
+        $maxLineLength = $maxCharacterPerMessage;
+
+        $currentLength = 0;
+        $index = 0;
+        $pages[] = null;
+
+        foreach ($words as $word) {
+            // +1 because the word will receive back the space in the end that it loses in explode()
+            $wordLength = strlen($word) + 1;
+
+            if (($currentLength + $wordLength) <= $maxLineLength) {
+                $pages[$index] .= $word . ' ';
+                $currentLength += $wordLength;
+            } else {
+                $index += 1;
+                $currentLength = $wordLength;
+                $pages[$index] = $word;
+            }
+        }
+//                            dd($pages);
+        foreach ($pages as $page)
+            BotHelper::sendMessage($bot, $page);
     }
 }
