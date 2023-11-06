@@ -112,7 +112,7 @@ class HadithSearchController extends Controller
     {
         $text = $bot->Text();
         [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($text);
-        $limit = 7;
+        $limit = 15;
         return [$searchPhrase, $pageNumber, $limit];
     }
 
