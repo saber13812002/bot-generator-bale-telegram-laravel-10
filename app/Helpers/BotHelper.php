@@ -739,7 +739,7 @@ class BotHelper
      * @param $bot
      * @return void
      */
-    public function sendLongMessage($message, $bot): void
+    public static function sendLongMessage($message, $bot): void
     {
         $maxCharacterPerMessage = 4000;
         if (strlen($message) > $maxCharacterPerMessage) {
@@ -755,7 +755,7 @@ class BotHelper
      * @param Telegram $bot
      * @return void
      */
-    public function sendMessageWhenLong(string $message, int $maxCharacterPerMessage, Telegram $bot): void
+    public static function sendMessageWhenLong(string $message, int $maxCharacterPerMessage, Telegram $bot): void
     {
 //                            $longString = explode("", wordwrap($nahjMessage, 1000));
         $words = explode(' ', $message);
