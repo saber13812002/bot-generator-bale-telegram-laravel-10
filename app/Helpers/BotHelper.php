@@ -494,7 +494,7 @@ class BotHelper
     {
 //        BotHelper::sendMessage($bot, $message);
         BotHelper::sendLongMessage($message, $bot);
-        $message = strlen($message) > 4000 ? substr($message, 4000) : $message;
+        $message = strlen($message) > 4000 ? substr($message, 0, 4000) : $message;
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'bale');
         BotHelper::sendMessageToSuperAdmin($message . StringHelper::insertTextForAdmin($bot, $type), 'telegram');
     }
