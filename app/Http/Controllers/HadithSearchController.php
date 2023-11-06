@@ -76,7 +76,7 @@ class HadithSearchController extends Controller
                     $id2 = substr($bot->Text(), 5);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
                     if ($hadith)
-                        BotHelper::sendMessage($bot, $this->getHadith($hadith));
+                        BotHelper::sendLongMessage($bot, $this->getHadith($hadith));
                     else
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                 } else {

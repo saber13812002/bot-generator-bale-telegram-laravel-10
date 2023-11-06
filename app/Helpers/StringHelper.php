@@ -152,7 +152,7 @@ class StringHelper
 
         $botType = Config::get('config.bot.type', 'bale'); //bottype
 
-        $isLong = Str::length(strip_tags($arabic)) > 1000;
+        $isLong = Str::length(strip_tags($arabic)) > 100;
 
         if ($id2) {
             self::saveLongTextToDB($academyOfIslamDataItem);
@@ -311,8 +311,8 @@ class StringHelper
 ' . trans("hadith.result.book: ") . strip_tags($book) . '
 ' . trans("hadith.result.part: ") . strip_tags($part) . '
 ' . trans("hadith.result.chapter: ") . strip_tags($chapter) . '
-' . trans("hadith.result.arabic text: ") . ($isLong ? (substr($arabic, 0, 1000) . "...") : strip_tags($arabic)) . (App::getLocale() != 'fa' ? '
-' . trans("hadith.result.english text: ") . substr($english, 0, 100) . '...' : "") . '
+' . trans("hadith.result.arabic text: ") . ($isLong ? (substr(strip_tags($arabic), 0, 1500) . "...") : strip_tags($arabic)) . (App::getLocale() ? '
+' . trans("hadith.result.english text: ") . substr(strip_tags($english), 0, 1000) . '...' : "") . '
 ' . trans("hadith.result.id: ") . $id2;
     }
 
