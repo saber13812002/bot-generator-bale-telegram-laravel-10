@@ -73,10 +73,11 @@ class HadithSearchController extends Controller
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
                 } else if ($isHadithIdRequested) {
 //                    echo 'id2';
-                    $id2 = substr($bot->Text(), 5);
+                    $id2 = substr($bot->Text(), 4);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
+//                    dd($id2);
                     if ($hadith)
-                        BotHelper::sendLongMessage($bot, $this->getHadith($hadith));
+                        BotHelper::sendLongMessage($this->getHadith($hadith), $bot);
                     else
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                 } else {

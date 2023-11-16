@@ -66,6 +66,8 @@ Route::post('/webhook-quran-ayat', [BotQuranAyatController::class, 'index']);
 
 Route::get('/test/analyzer/{phrase}', [AnalyzerController::class, 'testAnalyzer']);
 
+// hadith
 Route::post('/webhook-hadith', [HadithSearchController::class, 'index']);
 
+// nahj
 Route::post('/webhook-nahj', [NahjController::class, 'index']);
