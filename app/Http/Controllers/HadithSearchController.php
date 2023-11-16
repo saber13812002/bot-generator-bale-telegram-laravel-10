@@ -76,10 +76,15 @@ class HadithSearchController extends Controller
                     $id2 = substr($bot->Text(), 4);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
 //                    dd($id2);
-                    if ($hadith)
+                    if ($hadith) {
+                        $hadith .= "
+link: to share in twitter or edit
+https://hadith.academyofislam.com/?q=_id:" . $id2 . "
+";
                         BotHelper::sendLongMessage($this->getHadith($hadith), $bot);
-                    else
+                    } else {
                         BotHelper::sendMessage($bot, trans("bot.not found"));
+                    }
                 } else {
                     $message = $this->hadithApiService->help($bot);
                 }
