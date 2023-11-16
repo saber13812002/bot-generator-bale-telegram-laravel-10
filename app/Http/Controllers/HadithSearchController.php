@@ -61,6 +61,7 @@ class HadithSearchController extends Controller
 //            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
 
             $commands = StringHelper::getHadithCommandsAsPostfixForMessages();
+
             if (str_starts_with($bot->Text(), "/")) {///_id=82Y5Ln0BGWfjTl3qHQNp
                 $offset = strpos($bot->Text(), "/") + Str::length("/");
                 $command = substr($bot->Text(), $offset);
@@ -71,17 +72,38 @@ class HadithSearchController extends Controller
                 } else if ($command == "search") {
                     // TODO : saveLastCommandInDb($bot); performance said we need to have lastStatus log for any bot mother
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
+                } else if ($command == "random") {
+                    $hadithCount = BotHadithItem::count();
+                    $page = 1;
+                    $limit = 1;
+//                    dd($hadithCount);
+                    $id = rand(1, $hadithCount);
+//                    dd($id);
+                    $hadith = BotHadithItem::query()->where("id", $id)->first();
+//                    dd($hadith);
+
+                    if ($hadith) {
+                        $postFix = "
+link: to share in twitter or edit
+https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
+";
+                        BotHelper::sendLongMessage($this->getHadith($hadith) . $postFix, $bot);
+                    } else {
+                        BotHelper::sendMessage($bot, trans("bot.not found"));
+                    }
+                    return 1;
                 } else if ($isHadithIdRequested) {
 //                    echo 'id2';
                     $id2 = substr($bot->Text(), 4);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
 //                    dd($id2);
                     if ($hadith) {
-                        $hadith .= "
+
+                        $postFix = "
 link: to share in twitter or edit
-https://hadith.academyofislam.com/?q=_id:" . $id2 . "
+https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
 ";
-                        BotHelper::sendLongMessage($this->getHadith($hadith), $bot);
+                        BotHelper::sendLongMessage($this->getHadith($hadith) . $postFix, $bot);
                     } else {
                         BotHelper::sendMessage($bot, trans("bot.not found"));
                     }

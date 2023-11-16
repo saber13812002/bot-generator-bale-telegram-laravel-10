@@ -50,12 +50,13 @@ class StringHelper
      */
     public static function getHadithCommandsAsPostfixForMessages(): string
     {
+        $botType = Config::get('config.bot.type', 'bale');
         // TODO: random implementation
         return self::getStringMessageDivider() . "
 برای جستجو
 در کل احادیث کتب شیعه دستور /search
 و برای نمایش جستجوهای دیگران در کتب شیعی /history
-و برای ارسال یک حدیث تصادفی /random
+و برای ارسال یک حدیث تصادفی " . " " . BotHelper::generateLink("/random", $botType) . "
 را کلیک یا ارسال کنید.";
     }
 
