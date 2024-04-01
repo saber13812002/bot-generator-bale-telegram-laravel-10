@@ -18,7 +18,8 @@
         "saber13812002/gap-sdp-api": "^1.2.3",
         "saber13812002/laravel-fulltext": "^2.0",
         "saber13812002/telegram-bale-bot-php": "^101.4",
-        "tio/laravel": "^1.22"
+        "tio/laravel": "^1.22",
+        "laravel/nova": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
@@ -73,5 +74,11 @@
         }
     },
     "minimum-stability": "beta",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": {
+        "laravel/nova": {
+            "type": "path",
+            "url": "./vendor/laravel/nova"
+        }
+    }
 }
