@@ -13,6 +13,13 @@ return new class extends Migration
     {
         Schema::create('bot_kids', function (Blueprint $table) {
             $table->id();
+
+            $table->unsignedBigInteger('bot_mother_id')->nullable();
+            $table->string('token');
+            $table->unsignedBigInteger('first_chat_id');
+            $table->enum('type', ['bale', 'telegram']);
+            $table->string('locale', 7)->default('fa');
+
             $table->timestamps();
         });
     }
