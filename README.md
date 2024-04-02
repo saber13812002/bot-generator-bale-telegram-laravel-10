@@ -136,10 +136,18 @@ https://hamibash.com/quran_hefz_bale_telegram_bot
 
 - composer i
  - composer u
+ - cp .env.example to .env
+ - php artisan ke:ge
  - php artisan migrate
  - php artisan db:seed
- - extension=mbstring
+ - extension=mbstring in php.ini
+ - extension=zip in php.ini
 
+### For Nova Admin Panel
+ - npm i
+ - npm run dev in dev mode and npm run build in server
+ - php artisan nova:user to create a new user as admin.
+ - i dont know need php artisan nova:install or nova:publish or not
 
 run index on ayat
 php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
