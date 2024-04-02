@@ -13,7 +13,7 @@ class BotUsersPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class BotUsersPolicy
      */
     public function view(User $user, BotUsers $botUsers): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class BotUsersPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class BotUsersPolicy
      */
     public function update(User $user, BotUsers $botUsers): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class BotUsersPolicy
      */
     public function delete(User $user, BotUsers $botUsers): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class BotUsersPolicy
      */
     public function restore(User $user, BotUsers $botUsers): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class BotUsersPolicy
      */
     public function forceDelete(User $user, BotUsers $botUsers): bool
     {
-        //
+        return true;
     }
 }
