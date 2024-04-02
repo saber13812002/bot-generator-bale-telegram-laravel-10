@@ -35,35 +35,69 @@ class Bot extends Resource
     /**
      * Get the fields displayed by the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
-    public function fields(NovaRequest $request)
+    public function fields(NovaRequest $request): array
     {
         return [
             ID::make()->sortable(),
-            
-            Text::make('Country')
+
+            Text::make('telegram_owner_chat_id')
             ->sortable(),
-            
-            Text::make('Country')
+
+            Text::make('telegram_bot_name')
             ->sortable(),
-            
-            Text::make('Country')
+
+            Text::make('telegram_bot_token')
             ->sortable(),
-            
-            Text::make('Country')
+
+            Text::make('telegram_get_me_api_response')
             ->sortable(),
+
+            Text::make('telegram_bot_status')
+            ->sortable(),
+
+            Text::make('telegram_webhook_is_set')
+            ->sortable(),
+
+            Text::make('bale_owner_chat_id')
+            ->sortable(),
+
+            Text::make('bale_bot_name')
+            ->sortable(),
+
+            Text::make('bale_bot_token')
+            ->sortable(),
+
+            Text::make('bale_get_me_api_response')
+            ->sortable(),
+
+            Text::make('bale_bot_status')
+            ->sortable(),
+
+            Text::make('bale_webhook_is_set')
+            ->sortable(),
+
+            Text::make('block_strategy')
+            ->sortable(),
+
+            Text::make('supported_message_types')
+            ->sortable(),
+
+            Text::make('supported_message_template')
+            ->sortable(),
+
         ];
     }
 
     /**
      * Get the cards available for the request.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
-    public function cards(NovaRequest $request)
+    public function cards(NovaRequest $request): array
     {
         return [];
     }
@@ -71,10 +105,10 @@ class Bot extends Resource
     /**
      * Get the filters available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
-    public function filters(NovaRequest $request)
+    public function filters(NovaRequest $request): array
     {
         return [];
     }
@@ -82,10 +116,10 @@ class Bot extends Resource
     /**
      * Get the lenses available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
-    public function lenses(NovaRequest $request)
+    public function lenses(NovaRequest $request): array
     {
         return [];
     }
@@ -93,10 +127,10 @@ class Bot extends Resource
     /**
      * Get the actions available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
-    public function actions(NovaRequest $request)
+    public function actions(NovaRequest $request): array
     {
         return [];
     }
