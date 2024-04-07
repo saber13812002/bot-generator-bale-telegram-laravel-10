@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Helpers\BotHelper;
 use App\Models\BotLog;
 use App\Models\BotUsers;
+use Exception;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -13,21 +14,36 @@ use Illuminate\Support\Facades\App;
 
 class JobController extends Controller
 {
+    /**
+     * @throws Exception
+     */
     public function handle(Request $request)
     {
+        if (!$request->has('token')) {
+            return 0;
+        }
+
+        if ($request->input('token') != env('QURAN_HEFZ_BOT_TOKEN_BALE'))
+            return -1;
+
         $intervalHour = 24;
 
         $usersChatId = $this->getUsers($intervalHour);
+
+        $count = 0;
         foreach ($usersChatId as $userChatId) {
-            $this->sendLastMessageIfDidntHaveAnyActivityInLastHours($userChatId, $intervalHour);
+            if ($this->sendLastMessageIfDidntHaveAnyActivityInLastHours($userChatId, $intervalHour))
+                $count++;
         }
-        return 0;
+        $message = 'ارسال برای ' . $count . ' نفر کسانی که در ۲۴ ساعت قبل فعالیت نداشتند ارسال شد ';
+        BotHelper::sendMessageToSuperAdmin($message, 'bale');
+        return 1;
     }
 
     private function getUsers($intervalHour = 24)
     {
 //        if (App::environment() == "local")
-//            return ['485750575'];
+            return ['485750575'];
 
         $allUsersBale = BotUsers::whereOrigin('bale')
             ->pluck('chat_id')->toArray();
@@ -51,7 +67,9 @@ class JobController extends Controller
     {
         if ($this->didntHaveAnyActivityInLastHours($userChatId, $intervalHour)) {
             $this->sendLastMessage($userChatId);
+            return true;
         }
+        return false;
     }
 
     private function didntHaveAnyActivityInLastHours(int $userChatId, $intervalHour)
@@ -65,11 +83,11 @@ class JobController extends Controller
             ->where('created_at', '>', $fromDate)
             ->get();
 
-        return count($log) > 0;
+        return count($log) == 0;
     }
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     private function sendLastMessage(int $userChatId)
     {
