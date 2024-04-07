@@ -6,6 +6,7 @@ use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
 use App\Http\Controllers\HadithSearchController;
+use App\Http\Controllers\JobController;
 use App\Http\Controllers\NahjController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\QuranWordController;
@@ -71,3 +72,6 @@ Route::post('/webhook-hadith', [HadithSearchController::class, 'index']);
 
 // nahj
 Route::post('/webhook-nahj', [NahjController::class, 'index']);
+
+
+Route::get('/job',[JobController::class, 'handle']);
