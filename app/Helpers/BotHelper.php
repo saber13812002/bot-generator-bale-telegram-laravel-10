@@ -212,6 +212,33 @@ class BotHelper
     }
 
     /**
+     * @param $messenger
+     * @param string $message
+     * @return void
+     */
+    public static function sendMessageByDefaultQuranBot(string $message, $type, $chatId, $token = null): void
+    {
+        $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_BALE");
+        $messenger = new Telegram($token, 'bale');
+
+        if ($type == 'telegram') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+            $messenger = new Telegram($token);
+        } elseif ($type == 'gap') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_GAP");
+            $messenger = new GapBot($token, $request);
+        }
+
+        $content = [
+            'chat_id' => $chatId,
+            'text' => $message,
+            'parse_mode' => "html"
+        ];
+
+        $messenger->sendMessage($content);
+    }
+
+    /**
      * @param Telegram $messenger
      * @param string $message
      * @return void
