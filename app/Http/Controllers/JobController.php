@@ -42,8 +42,8 @@ class JobController extends Controller
 
     private function getUsers($intervalHour = 24)
     {
-        if (App::environment() == "local")
-            return ['485750575'];
+//        if (App::environment() == "local")
+//            return ['485750575'];
 
         $allUsersBale = BotUsers::whereOrigin('bale')
             ->pluck('chat_id')->toArray();
