@@ -99,12 +99,13 @@ class JobController extends Controller
             ->orderBy('created_at', 'desc')
             ->first();
 
-//        dd($last);
-//        dd(1);
-        $message = "آخرین قرایت/تدبر/مطالعه/تلاوت شما:
+        if ($last) {
+
+            $message = "آخرین قرایت/تدبر/مطالعه/تلاوت شما:
 " . $last->text . "
 کلیک کنید ☝☝☝";
 
-        BotHelper::sendMessageByDefaultQuranBot($message, $last->type, $userChatId);
+            BotHelper::sendMessageByDefaultQuranBot($message, $last->type, $userChatId);
+        }
     }
 }
