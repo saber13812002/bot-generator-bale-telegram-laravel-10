@@ -66,8 +66,8 @@ class JobController extends Controller
     private function sendLastMessageIfDidntHaveAnyActivityInLastHours(int $userChatId, int $intervalHour = 24)
     {
         if ($this->didntHaveAnyActivityInLastHours($userChatId, $intervalHour)) {
-            $this->sendLastMessage($userChatId);
-            return true;
+            if ($this->sendLastMessage($userChatId))
+                return true;
         }
         return false;
     }
@@ -106,6 +106,12 @@ class JobController extends Controller
 کلیک کنید ☝☝☝";
 
             BotHelper::sendMessageByDefaultQuranBot($message, $last->type, $userChatId);
+            return true;
         }
+        $message = "آخرین قرایت/تدبر/مطالعه/تلاوت شما:
+/sure2ayah1
+کلیک کنید ☝☝☝";
+        BotHelper::sendMessageByDefaultQuranBot($message, 'bale', $userChatId);
+        return false;
     }
 }
