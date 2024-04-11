@@ -37,12 +37,12 @@ class QuranHelperTest extends TestCase
 
     public function test_pagination_command()
     {
-        $command = "الرحمنpage=2";
+        $command = "الرحمنpage2";
         [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(2, $pageNumber);
         assertEquals("الرحمن", $searchPhrase);
 
-        $command = "الرحمنpage=12";
+        $command = "الرحمنpage12";
         [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($command);
         assertEquals(12, $pageNumber);
         assertEquals("الرحمن", $searchPhrase);

@@ -1192,7 +1192,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     {
         return "
 " . trans("bot.to sending request for next result page please click here") . "
-[//" . $searchPhrase . "page=" . $nextPage . "](send://" . $searchPhrase . "page=" . $nextPage . ")";
+[//" . $searchPhrase . "page" . $nextPage . "](send://" . $searchPhrase . "page=" . $nextPage . ")";
 
     }
 }
