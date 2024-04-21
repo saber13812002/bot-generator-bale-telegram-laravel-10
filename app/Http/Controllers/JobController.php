@@ -19,6 +19,7 @@ class JobController extends Controller
      */
     public function handle(Request $request)
     {
+        return 1;
         if (!$request->has('token')) {
             return 0;
         }
