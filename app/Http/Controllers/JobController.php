@@ -28,31 +28,32 @@ class JobController extends Controller
             return -1;
 
         $intervalHour = 24;
+        $type = 'bale';
 
-        $usersChatId = $this->getUsers($intervalHour);
+        $usersChatId = $this->getUsers($intervalHour, $type);
 
         $count = 0;
         foreach ($usersChatId as $userChatId) {
-            if ($this->sendLastMessageIfDidntHaveAnyActivityInLastHours($userChatId, $intervalHour))
+            if ($this->sendLastMessageIfDidntHaveAnyActivityInLastHours($userChatId, $intervalHour, $type))
                 $count++;
         }
         $message = 'ارسال برای ' . $count . ' نفر کسانی که در ۲۴ ساعت قبل فعالیت نداشتند ارسال شد ';
-        BotHelper::sendMessageToSuperAdmin($message, 'bale');
+        BotHelper::sendMessageToSuperAdmin($message, $type);
         return 1;
     }
 
-    private function getUsers($intervalHour = 24)
+    private function getUsers($intervalHour = 24, $type = 'bale')
     {
 //        if (App::environment() == "local")
 //            return ['485750575'];
 
-        $allUsersBale = BotUsers::whereOrigin('bale')
+        $allUsersBale = BotUsers::whereOrigin($type)
             ->pluck('chat_id')->toArray();
 
         $usersHasActivity = BotLog::
         where('created_at', '>=', now()->subHours($intervalHour))
             ->where('chat_id', '>=', 0)
-            ->whereType('bale')
+            ->whereType($type)
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->distinct('chat_id')
             ->pluck('chat_id')->toArray();
@@ -64,10 +65,10 @@ class JobController extends Controller
         return $usersHasNotActivity;
     }
 
-    private function sendLastMessageIfDidntHaveAnyActivityInLastHours(int $userChatId, int $intervalHour = 24)
+    private function sendLastMessageIfDidntHaveAnyActivityInLastHours(int $userChatId, int $intervalHour = 24, $type = 'bale')
     {
         if ($this->didntHaveAnyActivityInLastHours($userChatId, $intervalHour)) {
-            if ($this->sendLastMessage($userChatId))
+            if ($this->sendLastMessage($userChatId, $type))
                 return true;
         }
         return false;
@@ -90,7 +91,7 @@ class JobController extends Controller
     /**
      * @throws Exception
      */
-    private function sendLastMessage(int $userChatId)
+    private function sendLastMessage(int $userChatId, $type = 'bale')
     {
         $last = BotLog::query()
             ->whereChatId($userChatId)
@@ -103,16 +104,16 @@ class JobController extends Controller
         if ($last) {
 
             $message = "آخرین قرایت/تدبر/مطالعه/تلاوت شما:
-" . $last->text . "
+" . BotHelper::generateLink($last->text, $type) . "
 کلیک کنید ☝☝☝";
 
             BotHelper::sendMessageByDefaultQuranBot($message, $last->type, $userChatId);
             return true;
         }
         $message = "آخرین قرایت/تدبر/مطالعه/تلاوت شما:
-/sure2ayah1
+" . BotHelper::generateLink("/sure2ayah1", $type) . "
 کلیک کنید ☝☝☝";
-        BotHelper::sendMessageByDefaultQuranBot($message, 'bale', $userChatId);
+        BotHelper::sendMessageByDefaultQuranBot($message, $type, $userChatId);
         return false;
     }
 }
