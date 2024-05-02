@@ -9,7 +9,9 @@ use App\Http\Requests\UpdateweatherRequest;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
 use App\Models\Weather;
+use Exception;
 use Illuminate\Http\Request;
+use Log;
 use Telegram;
 
 
@@ -29,27 +31,38 @@ class WeatherController extends Controller
      */
     public function index(Request $request)
     {
-        $type = $request->input('origin');
-        $message = "-";
-        if ($request->has('origin')) {
-            if ($request->input('origin') == 'bale') {
-                $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
-            } else {
-                $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
-            }
-            $commands = StringHelper::getWeatherBotCommandsAsPostfixForMessages();
-            if ($bot->Text() == "/current") {
-                $message = $this->weatherOpenWeatherMapApiService->getMessage();
-            } else if ($bot->Text() == "/forecasting") {
-                $message = trans("bot.Please determine the minimum wind speed for bot to send you desired alert");
-            } else if ($bot->Text() > 1 && $bot->Text() < 20) {
-                $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
-            } else {
-                $message = $this->weatherTomorrowApiService->getMessage(20);
-            }
+        try {
 
-            BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
+
+            $type = $request->input('origin');
+            $message = "-";
+            if ($request->has('origin')) {
+                if ($request->input('origin') == 'bale') {
+                    $bot = new Telegram(env("BOT_WEATHER_TOKEN_BALE"), 'bale');
+                } else {
+                    $bot = new Telegram(env("BOT_WEATHER_TOKEN_TELEGRAM"), 'telegram');
+                }
+                $commands = StringHelper::getWeatherBotCommandsAsPostfixForMessages();
+                if ($bot->Text() == "/current") {
+                    $message = $this->weatherOpenWeatherMapApiService->getMessage();
+                }
+//                else if ($bot->Text() == "/forecasting") {
+//                    $message = trans("bot.Please determine the minimum wind speed for bot to send you desired alert");
+//                } else if ($bot->Text() > 1 && $bot->Text() < 20) {
+//                    $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
+//                } else {
+//                    $message = $this->weatherTomorrowApiService->getMessage(20);
+//                }
+
+                BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
+                return 0;
+            }
+        } catch (Exception $exception) {
+            Log::info($exception->getMessage());
+            return 0;
         }
+
+        return 0;
     }
 
 
