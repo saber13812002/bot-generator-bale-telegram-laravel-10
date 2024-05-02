@@ -60,417 +60,423 @@ class QuranWordController extends Controller
      */
     public function index(BotRequest $request)
     {
-        if ($request->has('language')) {
-            App::setLocale($request->input('language'));
-        } else {
-            App::setLocale("fa");
-        }
+        try {
 
-        $isStartCommandShow = 1;
-        $type = $request->input('origin');
-        $token = "";
-        if ($request->has('origin')) {
-            if ($request->input('origin') == 'bale') {
-                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
-                $bot = new Telegram($token, 'bale');
-            } elseif ($request->input('origin') == 'telegram') {
-                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
-                $bot = new Telegram($token);
-            } elseif ($request->input('origin') == 'gap') {
-                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
-                $bot = new GapBot($token, $request);
-                $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+            if ($request->has('language')) {
+                App::setLocale($request->input('language'));
             } else {
-                return 200;
+                App::setLocale("fa");
             }
 
-            $userSettings = null;
-            if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
-                $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+            $isStartCommandShow = 1;
+            $type = $request->input('origin');
+            $token = "";
+            if ($request->has('origin')) {
+                if ($request->input('origin') == 'bale') {
+                    $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+                    $bot = new Telegram($token, 'bale');
+                } elseif ($request->input('origin') == 'telegram') {
+                    $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                    $bot = new Telegram($token);
+                } elseif ($request->input('origin') == 'gap') {
+                    $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
+                    $bot = new GapBot($token, $request);
+                    $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+                } else {
+                    return 200;
+                }
+
+                $userSettings = null;
+                if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
+                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
 
 
-            $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
+                $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
 
 //            if ((substr($bot->Text(), 0, 2)) == "//")
 //                $request->request->add(['command_type' => 'quran_search']);
 //            else
 //                $request->request->add(['command_type' => 'quran']);
 
-            $command_type = "";
+                $command_type = "";
 
-            $botText = Str::lower($bot->Text());
-            if ($botText == '/start') {
+                $botText = Str::lower($bot->Text());
+                if ($botText == '/start') {
 
-                $command_type = "start";
-                $isStartCommandShow = 0;
-                list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
-                $reciterCommands = QuranHelper::getSettingReciter($type);
-                $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
+                    $command_type = "start";
+                    $isStartCommandShow = 0;
+                    list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
+                    $reciterCommands = QuranHelper::getSettingReciter($type);
+                    $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
 //                dd($array,$message, $messageCommands);
-                if ($type == 'telegram') {
-                    BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
-                } else if ($type == 'gap') {
-                    BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
-                } else {
-                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
-                }
-            } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
+                    if ($type == 'telegram') {
+                        BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
+                    } else if ($type == 'gap') {
+                        BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
+                    } else {
+                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
+                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
+                    }
+                } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
 
-                $command_type = "word";
-                $wordId = QuranHelper::getWordId($bot);
-                [$message, $isEndAya] = QuranHelper::getQuranWordById($wordId);
+                    $command_type = "word";
+                    $wordId = QuranHelper::getWordId($bot);
+                    [$message, $isEndAya] = QuranHelper::getQuranWordById($wordId);
 //                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
-                $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
-                $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
+                    $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
+                    $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
 
 //                $messageCommands = QuranHelper::getStringCommandsWordByWord($next, $back);
 
-                if ($isEndAya != 1) {
-                    $isStartCommandShow = 0;
-                }
+                    if ($isEndAya != 1) {
+                        $isStartCommandShow = 0;
+                    }
 
-                if ($type == 'telegram')
-                    BotHelper::sendMessage2Button($bot, $message, "/" . $next, "/" . $back);
-                else if ($type == 'gap') {
-                    $inlineKeyboard = BotHelper::makeGapKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
-                    BotHelper::messageGapWithKeyboard($bot, $message, $inlineKeyboard);
-                } else {
-                    $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
-                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-                }
-            } elseif (str_starts_with($botText, StringHelper::command_template_scan)) {
+                    if ($type == 'telegram')
+                        BotHelper::sendMessage2Button($bot, $message, "/" . $next, "/" . $back);
+                    else if ($type == 'gap') {
+                        $inlineKeyboard = BotHelper::makeGapKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
+                        BotHelper::messageGapWithKeyboard($bot, $message, $inlineKeyboard);
+                    } else {
+                        $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
+                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                    }
+                } elseif (str_starts_with($botText, StringHelper::command_template_scan)) {
 
-                $command_type = "hr";
+                    $command_type = "hr";
 
-                if (preg_match('/scan(.*?)hr/', substr($botText, 1, Str::length($botText)), $match) == 1) {
-                    $pageNumber = (int)$match[1];
-                    $page = (integer)$match[1];
-                    if ($page > 0) {
-                        $hr = (integer)substr($botText, strpos($botText, StringHelper::command_template_hr) + Str::length(StringHelper::command_template_hr));
+                    if (preg_match('/scan(.*?)hr/', substr($botText, 1, Str::length($botText)), $match) == 1) {
+                        $pageNumber = (int)$match[1];
+                        $page = (integer)$match[1];
+                        if ($page > 0) {
+                            $hr = (integer)substr($botText, strpos($botText, StringHelper::command_template_hr) + Str::length(StringHelper::command_template_hr));
 
-                        if ($hr > 0) {
-                            if ($type == 'telegram' || $type == 'bale') {
-                                $quranScanPage = QuranScanPage::query()
-                                    ->whereHr($hr)
-                                    ->whereType($type)
-                                    ->wherePage($page)
-                                    ->whereBotId(1)
-                                    ->first();
+                            if ($hr > 0) {
+                                if ($type == 'telegram' || $type == 'bale') {
+                                    $quranScanPage = QuranScanPage::query()
+                                        ->whereHr($hr)
+                                        ->whereType($type)
+                                        ->wherePage($page)
+                                        ->whereBotId(1)
+                                        ->first();
 
-                                if ($quranScanPage == null || $quranScanPage->count() == 0) {
-                                    $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
-                                    if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
-                                        $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
-                                    else
-                                        BotHelper::sendMessage($bot, "error to find image scan quran");
-                                } else {
-                                    $file_id = $quranScanPage->file_id;
-                                    $file = $bot->getFile($file_id);
+                                    if ($quranScanPage == null || $quranScanPage->count() == 0) {
+                                        $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
+                                        if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
+                                            $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
+                                        else
+                                            BotHelper::sendMessage($bot, "error to find image scan quran");
+                                    } else {
+                                        $file_id = $quranScanPage->file_id;
+                                        $file = $bot->getFile($file_id);
 
-                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
-                                    if ($type == 'bale')
-                                        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
+                                        $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+                                        if ($type == 'bale')
+                                            $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . StringHelper::get3digitNumber($page) . '.png';
 
-                                    $bot->downloadFile($file['result']['file_path'], $filePath);
-                                    $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
+                                        $bot->downloadFile($file['result']['file_path'], $filePath);
+                                        $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
 
 //                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
-                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
+                                        $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
 
-                                }
-                            } else {
+                                    }
+                                } else {
 
-                                // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
+                                    // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
 //                                $quranScanPage = QuranScanPage::query()
 //                                    ->whereHr($hr)
 //                                    ->wherePage($page)
-                                //    ->whereFileIsInLocalCached
+                                    //    ->whereFileIsInLocalCached
 //                                    ->whereBotId(1)
 //                                    ->first();
 
-                                $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
+                                    $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
 //                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
 //                                dd($bot, $filePath, $pageNumber, $hr);
-                                $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
-                            }
-                            if ($type == 'bale') {
-                                QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
-                            }
-                            if ($type == 'telegram' || $type == 'bale') {
-                                QuranHelper::sendAudioMp3Page($bot, $pageNumber);
+                                    $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+                                }
+                                if ($type == 'bale') {
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                                }
+                                if ($type == 'telegram' || $type == 'bale') {
+                                    QuranHelper::sendAudioMp3Page($bot, $pageNumber);
+                                }
                             }
                         }
                     }
-                }
-            } elseif (str_starts_with($botText, StringHelper::command_template_sure)) {
+                } elseif (str_starts_with($botText, StringHelper::command_template_sure)) {
 
-                if (preg_match(StringHelper::regex_sure, substr($botText, 1, Str::length($botText)), $match) == 1) {
-                    $sure = (integer)$match[1];
-                    if ($sure > 0) {
-                        $aya = (integer)substr($botText, strpos($botText, StringHelper::command_template_ayah) + Str::length(StringHelper::command_template_ayah));
+                    if (preg_match(StringHelper::regex_sure, substr($botText, 1, Str::length($botText)), $match) == 1) {
+                        $sure = (integer)$match[1];
+                        if ($sure > 0) {
+                            $aya = (integer)substr($botText, strpos($botText, StringHelper::command_template_ayah) + Str::length(StringHelper::command_template_ayah));
 
-                        if ($aya > 0) {
+                            if ($aya > 0) {
 
-                            $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                            [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type);
+                                $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
+                                [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type);
 
-                            [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
-                            [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
+                                [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
+                                [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
 
-                            $message = QuranHelper::addAyeIdAndBesmella($aya, $sureName, $sure, $message);
+                                $message = QuranHelper::addAyeIdAndBesmella($aya, $sureName, $sure, $message);
 
-                            $nextSure = StringHelper::command_template_sure . ($sure != 114 ? $sure + 1 : 1) . StringHelper::command_template_ayah . "1";
-                            $firstAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . "1";
-                            $lastAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . $maxAyahSureGhabli;
+                                $nextSure = StringHelper::command_template_sure . ($sure != 114 ? $sure + 1 : 1) . StringHelper::command_template_ayah . "1";
+                                $firstAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . "1";
+                                $lastAyaOfLastSure = StringHelper::command_template_sure . ($sure - 1) . StringHelper::command_template_ayah . $maxAyahSureGhabli;
 
-                            $nextAye = ($aya == $maxAyah) ? $nextSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya + 1;
-                            $lastAye = ($aya == 1) ? $lastAyaOfLastSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya - 1;
+                                $nextAye = ($aya == $maxAyah) ? $nextSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya + 1;
+                                $lastAye = ($aya == 1) ? $lastAyaOfLastSure : StringHelper::command_template_sure . ($sure) . StringHelper::command_template_ayah . $aya - 1;
 
-                            if ($aya == $maxAyah || $aya == 1) {
-                                $isStartCommandShow = true;
-                            }
+                                if ($aya == $maxAyah || $aya == 1) {
+                                    $isStartCommandShow = true;
+                                }
 //                            $messageCommands = QuranHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
 
-                            $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
-                            if ($type == 'telegram') {
-                                BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
-                            } else if ($type == 'gap') {
-                                BotHelper::sendGap4InlineMessage($bot, $message, $array);
-                            } else {
-                                $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                                BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-                                QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
-                            }
+                                $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
+                                if ($type == 'telegram') {
+                                    BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
+                                } else if ($type == 'gap') {
+                                    BotHelper::sendGap4InlineMessage($bot, $message, $array);
+                                } else {
+                                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
+                                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                                }
 
-                            if ($bot->BotType() != "gap") {
-                                QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
-                                if (App::getLocale()) {
-                                    $postfix = config("reciter.audio." . App::getLocale(), '');
-                                    if ($postfix) {
-                                        QuranHelper::sendAudioMp3AyeByLocale($aya, $sure, $bot, $postfix, $userSettings);
+                                if ($bot->BotType() != "gap") {
+                                    QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                    if (App::getLocale()) {
+                                        $postfix = config("reciter.audio." . App::getLocale(), '');
+                                        if ($postfix) {
+                                            QuranHelper::sendAudioMp3AyeByLocale($aya, $sure, $bot, $postfix, $userSettings);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-            } elseif ((substr($bot->Text(), 0, 4)) == "////") {
+                } elseif ((substr($bot->Text(), 0, 4)) == "////") {
 
-                $command_type = "////";
+                    $command_type = "////";
 
-                $request->request->add(['to_admins' => "true"]);
+                    $request->request->add(['to_admins' => "true"]);
 
-                $this->messageToAll($request);
-            } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+                    $this->messageToAll($request);
+                } elseif ((substr($bot->Text(), 0, 3)) == "///") {
 
-                $command_type = "///";
-                $request->request->add(['to_admins' => "false"]);
-                $this->messageToAll($request);
-            } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+                    $command_type = "///";
+                    $request->request->add(['to_admins' => "false"]);
+                    $this->messageToAll($request);
+                } elseif ((substr($bot->Text(), 0, 2)) == "//") {
 
-                $command_type = "//";
-                $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
-                [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($searchPhrase);
-                QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
-            } elseif ((substr($bot->Text(), 0, 1)) == "/") {
+                    $command_type = "//";
+                    $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
+                    [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($searchPhrase);
+                    QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+                } elseif ((substr($bot->Text(), 0, 1)) == "/") {
 
-                $command_type = "commands";
+                    $command_type = "commands";
 
-                $command = substr($botText, strpos($botText, "/") + Str::length("/"));
-                if ($command == "fehrest") {
-                    if ($type == 'telegram') {
-                        QuranHelper::generateTelegramFehrestThenSendIt($bot);
-                    } else if ($type == 'gap') {
-                        QuranHelper::generateGapFehrestThenSendIt($bot);
-                    } else {
-                        QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
-                    }
-                } else if ($command == "joz") {
-                    if ($type != 'bale') {
-                        QuranHelper::generateJozLinksThenSendItTelegram($bot);
-                    } else {
-                        QuranHelper::generateJozLinksThenSendItBale($bot);
-                    }
-                } else if ($command == "report") {
-                    $chatId = $bot->ChatID();
-                    $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
-                    $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
-                    https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type;
-                    BotHelper::sendMessage($bot, $message);
-                    BotHelper::sendMessageToSuperAdmin($message, $type);
-                } else if ($command == "reportall") {
-                    if ($type == 'telegram') {
-                        BotHelper::sendMessage($bot, "this command not work in telegram");
-                    } else {
-                        if (AdminHelper::isAdmin($bot->ChatID())) {
-                            $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
+                    $command = substr($botText, strpos($botText, "/") + Str::length("/"));
+                    if ($command == "fehrest") {
+                        if ($type == 'telegram') {
+                            QuranHelper::generateTelegramFehrestThenSendIt($bot);
+                        } else if ($type == 'gap') {
+                            QuranHelper::generateGapFehrestThenSendIt($bot);
                         } else {
-                            BotHelper::sendMessage($bot, "you are not admin");
+                            QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
                         }
+                    } else if ($command == "joz") {
+                        if ($type != 'bale') {
+                            QuranHelper::generateJozLinksThenSendItTelegram($bot);
+                        } else {
+                            QuranHelper::generateJozLinksThenSendItBale($bot);
+                        }
+                    } else if ($command == "report") {
+                        $chatId = $bot->ChatID();
+                        $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
+                        $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
+                    https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type;
+                        BotHelper::sendMessage($bot, $message);
+                        BotHelper::sendMessageToSuperAdmin($message, $type);
+                    } else if ($command == "reportall") {
+                        if ($type == 'telegram') {
+                            BotHelper::sendMessage($bot, "this command not work in telegram");
+                        } else {
+                            if (AdminHelper::isAdmin($bot->ChatID())) {
+                                $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
+                            } else {
+                                BotHelper::sendMessage($bot, "you are not admin");
+                            }
+                        }
+                    } else if ($command == "listcommands" || $command == "help") {
+                        $message = QuranHelper::getHelpMessage($type);
+                        BotHelper::sendMessage($bot, $message);
                     }
-                } else if ($command == "listcommands" || $command == "help") {
-                    $message = QuranHelper::getHelpMessage($type);
-                    BotHelper::sendMessage($bot, $message);
-                }
 
-                $subCommand = substr($command, 0, strpos($command, "_"));
-                $value = substr($command, strpos($command, "_") + 1);
+                    $subCommand = substr($command, 0, strpos($command, "_"));
+                    $value = substr($command, strpos($command, "_") + 1);
 //                dd($command, $subCommand, $value);
 
-                if ($subCommand == "mp3") {
-                    $mp3Reciter = $userSettings->setting('mp3_reciter');
-                    $translationId = $userSettings->setting('translation_id');
-                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                    if ($subCommand == "mp3") {
+                        $mp3Reciter = $userSettings->setting('mp3_reciter');
+                        $translationId = $userSettings->setting('translation_id');
+                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 //                    dd($mp3Enable, $mp3Reciter);
-                    $arr = [
-                        'mp3_reciter' => $mp3Reciter,
-                        'mp3_enable' => $value,
-                        'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $quranTransliterationEn,
-                        'translation_id' => $translationId
-                    ];
+                        $arr = [
+                            'mp3_reciter' => $mp3Reciter,
+                            'mp3_enable' => $value,
+                            'quran_transliteration_tr' => $quranTransliterationTr,
+                            'quran_transliteration_en' => $quranTransliterationEn,
+                            'translation_id' => $translationId
+                        ];
 
-                    $user = $userSettings->settings($arr);
+                        $user = $userSettings->settings($arr);
 //                    dd($userSettings->setting('mp3_enable'));
-                    $mp3Enable = $user->setting('mp3_enable');
+                        $mp3Enable = $user->setting('mp3_enable');
 //                    dd($userSettings->setting('mp3_enable'),$mp3Enable);
 
-                    $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                    $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
-                } else if ($subCommand == "transtr") {
+                        $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                        $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
+                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
+                    } else if ($subCommand == "transtr") {
 
-                    $mp3Enable = $userSettings->setting('mp3_enable');
-                    $mp3Reciter = $userSettings->setting('mp3_reciter');
+                        $mp3Enable = $userSettings->setting('mp3_enable');
+                        $mp3Reciter = $userSettings->setting('mp3_reciter');
 //                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                    $translationId = $userSettings->setting('translation_id');
-                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                        $translationId = $userSettings->setting('translation_id');
+                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                    $arr = [
-                        'mp3_reciter' => $mp3Reciter,
-                        'mp3_enable' => $mp3Enable,
-                        'quran_transliteration_tr' => $value,
-                        'quran_transliteration_en' => $quranTransliterationEn,
-                        'translation_id' => $translationId
-                    ];
+                        $arr = [
+                            'mp3_reciter' => $mp3Reciter,
+                            'mp3_enable' => $mp3Enable,
+                            'quran_transliteration_tr' => $value,
+                            'quran_transliteration_en' => $quranTransliterationEn,
+                            'translation_id' => $translationId
+                        ];
 
-                    $user = $userSettings->settings($arr);
-                    $quranTransliterationTr = $user->setting('quran_transliteration_tr');
+                        $user = $userSettings->settings($arr);
+                        $quranTransliterationTr = $user->setting('quran_transliteration_tr');
 
-                    $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                    $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
-                } else if ($subCommand == "transen") {
+                        $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                        $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
+                    } else if ($subCommand == "transen") {
 
-                    $mp3Enable = $userSettings->setting('mp3_enable');
-                    $mp3Reciter = $userSettings->setting('mp3_reciter');
-                    $translationId = $userSettings->setting('translation_id');
-                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                        $mp3Enable = $userSettings->setting('mp3_enable');
+                        $mp3Reciter = $userSettings->setting('mp3_reciter');
+                        $translationId = $userSettings->setting('translation_id');
+                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
 //                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                    $arr = [
-                        'mp3_reciter' => $mp3Reciter,
-                        'mp3_enable' => $mp3Enable,
-                        'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $value,
-                        'translation_id' => $translationId
-                    ];
+                        $arr = [
+                            'mp3_reciter' => $mp3Reciter,
+                            'mp3_enable' => $mp3Enable,
+                            'quran_transliteration_tr' => $quranTransliterationTr,
+                            'quran_transliteration_en' => $value,
+                            'translation_id' => $translationId
+                        ];
 
-                    $user = $userSettings->settings($arr);
-                    $quranTransliterationEn = $user->setting('quran_transliteration_en');
+                        $user = $userSettings->settings($arr);
+                        $quranTransliterationEn = $user->setting('quran_transliteration_en');
 
-                    $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                    $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
-                } else if ($subCommand == "trans") {
+                        $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                        $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
+                    } else if ($subCommand == "trans") {
 
-                    $mp3Enable = $userSettings->setting('mp3_enable');
-                    $mp3Reciter = $userSettings->setting('mp3_reciter');
+                        $mp3Enable = $userSettings->setting('mp3_enable');
+                        $mp3Reciter = $userSettings->setting('mp3_reciter');
 //                    $translationId = $userSettings->setting('translation_id');
-                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                    $arr = [
-                        'mp3_reciter' => $mp3Reciter,
-                        'mp3_enable' => $mp3Enable,
-                        'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $quranTransliterationEn,
-                        'translation_id' => $value
-                    ];
+                        $arr = [
+                            'mp3_reciter' => $mp3Reciter,
+                            'mp3_enable' => $mp3Enable,
+                            'quran_transliteration_tr' => $quranTransliterationTr,
+                            'quran_transliteration_en' => $quranTransliterationEn,
+                            'translation_id' => $value
+                        ];
 
-                    $user = $userSettings->settings($arr);
-                    $translationId = $user->setting('translation_id');
+                        $user = $userSettings->settings($arr);
+                        $translationId = $user->setting('translation_id');
 
-                    $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
-                    $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
-                    BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
-                } else if ($subCommand == "mp3reciter") {
+                        $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
+                        $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
+                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
+                    } else if ($subCommand == "mp3reciter") {
 
 
 //                    $mp3Enable = $userSettings->setting('mp3_enable');
-                    $mp3Enable = "true";
-                    $translationId = $userSettings->setting('translation_id');
-                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                        $mp3Enable = "true";
+                        $translationId = $userSettings->setting('translation_id');
+                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                    $arr = [
-                        'mp3_reciter' => $value,
-                        'mp3_enable' => $mp3Enable,
-                        'quran_transliteration_tr' => $quranTransliterationTr,
-                        'quran_transliteration_en' => $quranTransliterationEn,
-                        'translation_id' => $translationId
-                    ];
+                        $arr = [
+                            'mp3_reciter' => $value,
+                            'mp3_enable' => $mp3Enable,
+                            'quran_transliteration_tr' => $quranTransliterationTr,
+                            'quran_transliteration_en' => $quranTransliterationEn,
+                            'translation_id' => $translationId
+                        ];
 
-                    $user = $userSettings->settings($arr);
-                    $mp3Reciter = $user->setting('mp3_reciter');
+                        $user = $userSettings->settings($arr);
+                        $mp3Reciter = $user->setting('mp3_reciter');
 
 //                    dd($userSettings->setting('mp3_reciter'));
 
 //                    dd($mp3Enable, $value);
-                    if ($mp3Enable == "true") {
-                        $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
+                        if ($mp3Enable == "true") {
+                            $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
 " . "/mp3reciter_alafasy";
-                    } else {
-                        $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
-                    }
+                        } else {
+                            $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
+                        }
 
+                        BotHelper::sendMessage($bot, $message);
+                    }
+                } else {
+                    $message = trans('bot.bot cant recognized your command') . " /start";
                     BotHelper::sendMessage($bot, $message);
                 }
-            } else {
-                $message = trans('bot.bot cant recognized your command') . " /start";
-                BotHelper::sendMessage($bot, $message);
-            }
 
 
-            if ($isStartCommandShow) {
-                $array = [[trans("bot.return to command list"), "/start"]];
-                $message = $array[0][0];
-                if ($type == 'telegram') {
-                    BotHelper::send1button($bot, $array);
-                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
-                } else if ($type == 'gap') {
+                if ($isStartCommandShow) {
+                    $array = [[trans("bot.return to command list"), "/start"]];
+                    $message = $array[0][0];
+                    if ($type == 'telegram') {
+                        BotHelper::send1button($bot, $array);
+                        BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
+                    } else if ($type == 'gap') {
 //                    BotHelper::sendStart($bot, $array);
 //                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
-                } else {
-                    $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                    } else {
+                        $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
+                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                    }
                 }
-            }
 
-            $request->request->add(['command_type' => $command_type]);
+                $request->request->add(['command_type' => $command_type]);
 
-            try {
                 LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info($e->getMessage());
+
+
+            } else {
+                return ResponseAlias::HTTP_ACCEPTED;
             }
 
 
-        } else {
-            return ResponseAlias::HTTP_ACCEPTED;
+        } catch (Exception $exception) {
+            Log::info($exception->getMessage());
+            return 0;
         }
+
+        return 0;
     }
 
 
