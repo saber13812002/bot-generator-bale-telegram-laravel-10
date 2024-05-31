@@ -2,6 +2,11 @@
 
 namespace App\Nova;
 
+use App\Nova\Metrics\BotUsersPerDay;
+use App\Nova\Metrics\BotUsersPerPlan;
+use App\Nova\Metrics\NewBotUsers;
+use App\Nova\Metrics\NewBotUsersProgress;
+use App\Nova\Metrics\NewReleasesBotUsers;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
@@ -69,7 +74,14 @@ class BotUsers extends Resource
      */
     public function cards(NovaRequest $request)
     {
-        return [];
+        return [
+
+            new NewReleasesBotUsers,
+            new NewBotUsers,
+            new NewBotUsersProgress(),
+            new BotUsersPerDay(),
+            new BotUsersPerPlan(),
+        ];
     }
 
     /**
