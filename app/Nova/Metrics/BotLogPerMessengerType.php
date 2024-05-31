@@ -2,12 +2,11 @@
 
 namespace App\Nova\Metrics;
 
-use App\Models\BotHadithItem;
+use App\Models\BotLog;
 use Laravel\Nova\Http\Requests\NovaRequest;
-use Laravel\Nova\Metrics\Trend;
-use Laravel\Nova\Nova;
+use Laravel\Nova\Metrics\Partition;
 
-class BotHadithItemPerWeek extends Trend
+class BotLogPerMessengerType extends Partition
 {
     /**
      * Calculate the value of the metric.
@@ -17,23 +16,7 @@ class BotHadithItemPerWeek extends Trend
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->countByWeeks($request, BotHadithItem::class);
-    }
-
-    /**
-     * Get the ranges available for the metric.
-     *
-     * @return array
-     */
-    public function ranges()
-    {
-        return [
-            60 => Nova::__('60 Days'),
-            30 => Nova::__('30 Days'),
-            90 => Nova::__('90 Days'),
-            120 => Nova::__('120 Days'),
-            180 => Nova::__('180 Days'),
-        ];
+        return $this->count($request, BotLog::class, 'type');
     }
 
     /**
@@ -43,7 +26,7 @@ class BotHadithItemPerWeek extends Trend
      */
     public function cacheFor()
     {
-         return now()->addMinutes(5);
+         return now()->addDays(2);
     }
 
     /**
@@ -53,6 +36,6 @@ class BotHadithItemPerWeek extends Trend
      */
     public function uriKey()
     {
-        return 'bot-hadith-item-per-day';
+        return 'bot-log-per-messenger-type';
     }
 }
