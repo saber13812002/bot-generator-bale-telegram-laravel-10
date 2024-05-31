@@ -36,10 +36,13 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $collection = collect();
 
         foreach ($logs as $log) {
+
             $count_month = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
+                ->whereWebhookEndpointUri('webhook-quran-word')
                 ->count();
 
             $count_last_month = BotLog::whereChatId($log['chat_id'])
+                ->whereWebhookEndpointUri('webhook-quran-word')
                 ->where('created_at', '<', Carbon::now()->subDay(30))
                 ->where('created_at', '>=', Carbon::now()->subDay(60))
                 ->count();
@@ -65,10 +68,12 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
     public function userStatisticPerDayReport($chatId, $rank): string
     {
         $count_today = BotLog::whereChatId($chatId)
+            ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '>=', Carbon::now()->subDay())
             ->count();
 
         $count_yesterday = BotLog::whereChatId($chatId)
+            ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '<', Carbon::now()->subDay())
             ->where('created_at', '>=', Carbon::now()->subDay(2))
             ->count();
@@ -109,6 +114,7 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
     public function generateReportThenSend(string $requesterChatId, $botBale, $botTelegram): void
     {
         $logs = BotLog::whereLanguage('fa')
+            ->whereWebhookEndpointUri('webhook-quran-word')
             ->select('chat_id', 'type')
             ->distinct('chat_id')->get();
 
@@ -144,20 +150,44 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
     {
 //        return 0;
         //
-        $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->count();
-        $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())->distinct('chat_id')->count();
+        $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->count();
+
+        $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->distinct('chat_id')
+            ->count();
 
 
-        $count_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))->count();
-        $count_unique_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))->distinct('chat_id')->count();
+        $count_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->count();
+
+        $count_unique_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->distinct('chat_id')
+            ->count();
 
 
-        $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->count();
-        $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))->distinct('chat_id')->count();
+        $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->count();
+
+        $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->distinct('chat_id')
+            ->count();
 
 
-        $count_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))->count();
-        $count_unique_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))->distinct('chat_id')->count();
+        $count_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->count();
+
+        $count_unique_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->distinct('chat_id')
+            ->count();
 
         $postfix_local = env('APP_ENV');
 
@@ -192,7 +222,11 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
 //        BotHelper::sendMessageToSuperAdmin($message, 'bale');
 
-        $logs = BotLog::whereLanguage('fa')->select('chat_id', 'type')->distinct('chat_id')->get();
+        $logs = BotLog::whereLanguage('fa')
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->select('chat_id', 'type')
+            ->distinct('chat_id')
+            ->get();
 
 
         $token = env("QURAN_HEFZ_BOT_TOKEN_BALE");
