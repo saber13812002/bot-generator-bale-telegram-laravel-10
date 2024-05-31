@@ -2,6 +2,7 @@
 
 namespace App\Nova;
 
+use App\Nova\Metrics\BotHadithItemPerWeek;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
@@ -69,7 +70,9 @@ class BotHadithItem extends Resource
      */
     public function cards(NovaRequest $request)
     {
-        return [];
+        return [
+            new BotHadithItemPerWeek(),
+        ];
     }
 
     /**
