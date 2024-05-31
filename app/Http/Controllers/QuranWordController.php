@@ -525,12 +525,14 @@ class QuranWordController extends Controller
 
                         if ($request->request->get('to_admins') == "false") {
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
+                                ->whereWebhookEndpointUri('webhook-quran-word')
                                 ->whereLanguage('fa')
                                 ->select('chat_id', 'type')
                                 ->distinct('chat_id')
                                 ->get();
                         } else {
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
+                                ->whereWebhookEndpointUri('webhook-quran-word')
                                 ->whereIn('chat_id', AdminHelper::getAdmins())
                                 ->whereLanguage('fa')
                                 ->select('chat_id', 'type')

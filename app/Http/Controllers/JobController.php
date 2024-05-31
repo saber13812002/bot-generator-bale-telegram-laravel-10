@@ -81,6 +81,7 @@ class JobController extends Controller
             ->toDateString();
 
         $log = BotLog::query()
+            ->whereWebhookEndpointUri('webhook-quran-word')
             ->whereChatId($userChatId)
             ->where('created_at', '>', $fromDate)
             ->get();
