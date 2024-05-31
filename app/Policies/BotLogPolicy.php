@@ -13,7 +13,7 @@ class BotLogPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class BotLogPolicy
      */
     public function view(User $user, BotLog $botLog): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class BotLogPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class BotLogPolicy
      */
     public function update(User $user, BotLog $botLog): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class BotLogPolicy
      */
     public function delete(User $user, BotLog $botLog): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class BotLogPolicy
      */
     public function restore(User $user, BotLog $botLog): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class BotLogPolicy
      */
     public function forceDelete(User $user, BotLog $botLog): bool
     {
-        //
+        return true;
     }
 }
