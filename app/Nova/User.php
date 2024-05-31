@@ -2,6 +2,11 @@
 
 namespace App\Nova;
 
+use App\Nova\Metrics\NewReleases;
+use App\Nova\Metrics\NewUsers;
+use App\Nova\Metrics\NewUsersProgress;
+use App\Nova\Metrics\UsersPerDay;
+use App\Nova\Metrics\UsersPerPlan;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rules;
 use Laravel\Nova\Fields\Gravatar;
@@ -73,7 +78,13 @@ class User extends Resource
      */
     public function cards(NovaRequest $request): array
     {
-        return [];
+        return [
+            new NewReleases,
+            new NewUsers,
+            new NewUsersProgress,
+            new UsersPerDay,
+            new UsersPerPlan,
+        ];
     }
 
     /**

@@ -32,6 +32,6 @@ class NewReleasesBotUsers extends Table
      */
     public function cacheFor()
     {
-         return now()->addMinutes(5);
+         return now()->addHours(12);
     }
 }

@@ -2,11 +2,11 @@
 
 namespace App\Nova\Metrics;
 
-use App\Models\BotUsers;
 use Laravel\Nova\Http\Requests\NovaRequest;
-use Laravel\Nova\Metrics\Progress;
+use Laravel\Nova\Metrics\MetricTableRow;
+use Laravel\Nova\Metrics\Table;
 
-class NewBotUsersProgress extends Progress
+class NewReleases extends Table
 {
     /**
      * Calculate the value of the metric.
@@ -16,28 +16,22 @@ class NewBotUsersProgress extends Progress
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->count($request, BotUsers::class, function ($query) {
-            return $query;
-        }, target: 100);
+        return [
+            MetricTableRow::make()
+                ->icon('check-circle')
+                ->iconClass('text-green-500')
+                ->title('Silver Surfer')
+                ->subtitle('In every part of the globe it is the same!'),
+        ];
     }
 
     /**
      * Determine the amount of time the results of the metric should be cached.
      *
-     * @return  \DateTimeInterface|\DateInterval|float|int
+     * @return \DateTimeInterface|\DateInterval|float|int|null
      */
     public function cacheFor()
     {
          return now()->addHours(12);
-    }
-
-    /**
-     * Get the URI key for the metric.
-     *
-     * @return string
-     */
-    public function uriKey()
-    {
-        return 'new-bot-users-progress';
     }
 }

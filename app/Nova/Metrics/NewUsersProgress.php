@@ -2,11 +2,11 @@
 
 namespace App\Nova\Metrics;
 
-use App\Models\BotUsers;
+use App\Models\User;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Laravel\Nova\Metrics\Progress;
 
-class NewBotUsersProgress extends Progress
+class NewUsersProgress extends Progress
 {
     /**
      * Calculate the value of the metric.
@@ -16,9 +16,10 @@ class NewBotUsersProgress extends Progress
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->count($request, BotUsers::class, function ($query) {
+        return $this->count($request, User::class, function ($query) {
             return $query;
-        }, target: 100);
+            //->where('created_at', '>=', now()->startOfYear());
+        }, target: 200);
     }
 
     /**
@@ -38,6 +39,6 @@ class NewBotUsersProgress extends Progress
      */
     public function uriKey()
     {
-        return 'new-bot-users-progress';
+        return 'new-users-progress';
     }
 }

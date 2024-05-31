@@ -2,12 +2,12 @@
 
 namespace App\Nova\Metrics;
 
-use App\Models\BotUsers;
+use App\Models\User;
 use Laravel\Nova\Http\Requests\NovaRequest;
-use Laravel\Nova\Metrics\Trend;
+use Laravel\Nova\Metrics\Value;
 use Laravel\Nova\Nova;
 
-class BotUsersPerDay extends Trend
+class NewUsers extends Value
 {
     /**
      * Calculate the value of the metric.
@@ -17,7 +17,7 @@ class BotUsersPerDay extends Trend
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->countByDays($request, BotUsers::class);
+        return $this->count($request, User::class);
     }
 
     /**
@@ -28,16 +28,17 @@ class BotUsersPerDay extends Trend
     public function ranges()
     {
         return [
-            360 => Nova::__('360 Days'),
+            1 => Nova::__('1 Day'),
+            2 => Nova::__('2 Days'),
+            7 => Nova::__('7 Days'),
+            14 => Nova::__('14 Days'),
             30 => Nova::__('30 Days'),
             60 => Nova::__('60 Days'),
-            90 => Nova::__('90 Days'),
-            150 => Nova::__('150 Days'),
-            180 => Nova::__('180 Days'),
-            210 => Nova::__('210 Days'),
-            240 => Nova::__('240 Days'),
-            270 => Nova::__('270 Days'),
-            720 => Nova::__('720 Days'),
+            365 => Nova::__('365 Days'),
+            'TODAY' => Nova::__('Today'),
+            'MTD' => Nova::__('Month To Date'),
+            'QTD' => Nova::__('Quarter To Date'),
+            'YTD' => Nova::__('Year To Date'),
         ];
     }
 
@@ -49,15 +50,5 @@ class BotUsersPerDay extends Trend
     public function cacheFor()
     {
          return now()->addHours(12);
-    }
-
-    /**
-     * Get the URI key for the metric.
-     *
-     * @return string
-     */
-    public function uriKey()
-    {
-        return 'bot-users-per-day';
     }
 }

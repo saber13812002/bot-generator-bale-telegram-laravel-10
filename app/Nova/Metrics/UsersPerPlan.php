@@ -2,11 +2,11 @@
 
 namespace App\Nova\Metrics;
 
-use App\Models\BotUsers;
+use App\Models\User;
 use Laravel\Nova\Http\Requests\NovaRequest;
-use Laravel\Nova\Metrics\Progress;
+use Laravel\Nova\Metrics\Partition;
 
-class NewBotUsersProgress extends Progress
+class UsersPerPlan extends Partition
 {
     /**
      * Calculate the value of the metric.
@@ -16,15 +16,13 @@ class NewBotUsersProgress extends Progress
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->count($request, BotUsers::class, function ($query) {
-            return $query;
-        }, target: 100);
+        return $this->count($request, User::class, 'created_at');
     }
 
     /**
      * Determine the amount of time the results of the metric should be cached.
      *
-     * @return  \DateTimeInterface|\DateInterval|float|int
+     * @return \DateTimeInterface|\DateInterval|float|int|null
      */
     public function cacheFor()
     {
@@ -38,6 +36,6 @@ class NewBotUsersProgress extends Progress
      */
     public function uriKey()
     {
-        return 'new-bot-users-progress';
+        return 'users-per-plan';
     }
 }
