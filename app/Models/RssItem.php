@@ -8,4 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class RssItem extends Model
 {
     use HasFactory;
+    use \Spatie\Tags\HasTags;
+
+
 }

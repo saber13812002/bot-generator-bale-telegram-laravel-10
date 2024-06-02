@@ -13,7 +13,7 @@ class RssItemPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class RssItemPolicy
      */
     public function view(User $user, RssItem $rssItem): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class RssItemPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class RssItemPolicy
      */
     public function update(User $user, RssItem $rssItem): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class RssItemPolicy
      */
     public function delete(User $user, RssItem $rssItem): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class RssItemPolicy
      */
     public function restore(User $user, RssItem $rssItem): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class RssItemPolicy
      */
     public function forceDelete(User $user, RssItem $rssItem): bool
     {
-        //
+        return true;
     }
 }
