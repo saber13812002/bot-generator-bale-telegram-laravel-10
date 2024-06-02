@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('url')->nullable();
             $table->string('url_ifttt')->nullable();
             $table->string('url_rss_dot_app')->nullable();
-
+            $table->boolean('is_active')->default(1);
 
             $table->timestamps();
         });

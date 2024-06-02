@@ -26,5 +26,6 @@ class DatabaseSeeder extends Seeder
 //        $this->call(QuranTransliterationEnTableSeeder::class);
 //        $this->call(QuranTransliterationTrTableSeeder::class);
 //        $this->call(QuranTransliterationTrsTableSeeder::class);
+        $this->call(RssItemsTableSeeder::class);
     }
 }
