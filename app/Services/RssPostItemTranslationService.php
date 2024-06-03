@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\RssPostItem;
 
-class RssPostItemToMessengerService
+class RssPostItemTranslationService
 {
     public function __construct()
     {

@@ -3,7 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\RssPostItem;
-use App\Services\RssPostItemToMessengerService;
+use App\Services\RssPostItemTranslationService;
+use App\Services\RssPostItemTranslationToMessengerService;
 use Illuminate\Console\Command;
 
 class RssPostToTranslate extends Command
@@ -27,10 +28,6 @@ class RssPostToTranslate extends Command
      */
     public function handle()
     {
-//        foreach ($rssPostItems as $rssPostItem) {
-        $rssPostItem = RssPostItem::whereDoesntHave('translations')->first();
-//        dd($rssPostItem);
-        if ($rssPostItem)
-            RssPostItemToMessengerService::call($rssPostItem);
+        RssPostItemTranslationToMessengerService::run();
     }
 }
