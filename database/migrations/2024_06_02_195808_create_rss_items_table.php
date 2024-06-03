@@ -20,6 +20,9 @@ return new class extends Migration {
             $table->string('url_rss_dot_app')->nullable();
             $table->boolean('is_active')->default(1);
             $table->string('unique_xml_tag', 20)->nullable();
+            $table->string('locale', 5)->default('fa');
+            $table->string('target_locale', 5)->default('fa');
+
 
             $table->timestamps();
         });
