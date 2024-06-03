@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -20,7 +19,7 @@ return new class extends Migration
             $table->string('url_ifttt')->nullable();
             $table->string('url_rss_dot_app')->nullable();
             $table->boolean('is_active')->default(1);
-            $table->string('unique_xml_tag',20)->nullable();
+            $table->string('unique_xml_tag', 20)->nullable();
 
             $table->timestamps();
         });

@@ -52,6 +52,7 @@ class RssItem extends Resource
             Text::make('url_rss_dot_app'),
             Boolean::make('is_active'),
 
+            Text::make('unique_xml_tag'),
 
             Tags::make('Tags'),
         ];
