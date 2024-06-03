@@ -16,8 +16,9 @@ class RssService
         //
     }
 
-    public static function readRssAndSave($rssUrl, $id): \Illuminate\Http\JsonResponse
+    public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): \Illuminate\Http\JsonResponse
     {
+
         // Set the RSS feed URL
 //        $rssUrl = 'https://example.com/rss';
 
@@ -31,13 +32,13 @@ class RssService
             // Extract the necessary data from the RSS item
 //            $rssItemId = $item->rss_item_id;
             $title = (string)$item->title;
-            $link = (string)$item->guid;
+            $link = (string)$item->$unique_field_name;
             $description = (string)$item->description;
             $pubDate = Carbon::parseFromLocale($item->pubDate);
 
             // Check if the item already exists in the database
             $existingItem = RssPostItem::query()
-                ->where('link', $link)
+                ->whereLink( $link)
                 ->first();
 
             if (!$existingItem) {
@@ -55,7 +56,6 @@ class RssService
         }
 
         // Find the new or non-existent items
-        $unique_field_name = app()->environment() == 'local' ? 'guid' : 'link';
         $newItems = RssPostItem::query()
             ->whereNotIn('link', function ($query) use ($xml, $unique_field_name) {
                 $query->select('link')
