@@ -8,4 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class RssPostItem extends Model
 {
     use HasFactory;
+
+
+    public function translations()
+    {
+        return $this->hasMany(RssPostItemTranslation::class);
+    }
 }
