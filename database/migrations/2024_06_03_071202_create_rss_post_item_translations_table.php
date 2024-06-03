@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->string("content");
 
             $table->bigInteger('approved_by_chat_id')->nullable();
-            $table->boolean('approved');
+            $table->boolean('approved')->default(0);
 
             $table->timestamps();
         });

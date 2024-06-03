@@ -14,4 +14,30 @@ class RssPostItem extends Model
     {
         return $this->hasMany(RssPostItemTranslation::class);
     }
+
+
+    public function getTranslation($locale)
+    {
+        return $this->translations()->where('locale', $locale)->first();
+    }
+
+    public function getTitle($locale = null)
+    {
+        if ($locale) {
+            $translation = $this->getTranslation($locale);
+            return $translation ? $translation->title : null;
+        }
+
+        return $this->title;
+    }
+
+    public function getContent($locale = null)
+    {
+        if ($locale) {
+            $translation = $this->getTranslation($locale);
+            return $translation ? $translation->content : null;
+        }
+
+        return $this->content;
+    }
 }
