@@ -13,12 +13,12 @@ return new class extends Migration {
         Schema::create('rss_post_item_translations', function (Blueprint $table) {
             $table->id();
 
-            $table->bigInteger(`rss_post_item_id`);
-            $table->bigInteger(`author_chat_id`)->nullable();
-            $table->string(`locale`, 8)->default('fa');
+            $table->bigInteger("rss_post_item_id");
+            $table->bigInteger("author_chat_id")->nullable();
+            $table->string("locale", 8)->default('fa');
 
-            $table->string(`title`);
-            $table->string(`content`);
+            $table->string("title");
+            $table->string("content");
 
             $table->bigInteger('approved_by_chat_id')->nullable();
             $table->boolean('approved');
