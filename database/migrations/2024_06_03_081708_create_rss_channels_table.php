@@ -17,7 +17,7 @@ return new class extends Migration {
             $table->string('slug')->unique();
             $table->string('token');
             $table->string('target_id');
-            $table->enum('type', ['unknown', 'group', 'channel', 'private']);
+            $table->enum('type', ['unknown', 'group', 'channel', 'private'])->default('unknown');
 
             $table->timestamps();
         });
