@@ -16,7 +16,10 @@ class RssPostItemTranslationToMessengerService
         //        foreach ($rssPostItems as $rssPostItem) {
         $rssPostItem = RssPostItem::whereDoesntHave('translations')->first();
 //        dd($rssPostItem);
-        if ($rssPostItem)
-            RssPostItemTranslationService::call($rssPostItem);
+        if ($rssPostItem) {
+            if ($rssPostItem->rssItem)
+                if ($rssPostItem->rssItem->is_active)
+                    RssPostItemTranslationService::call($rssPostItem);
+        }
     }
 }

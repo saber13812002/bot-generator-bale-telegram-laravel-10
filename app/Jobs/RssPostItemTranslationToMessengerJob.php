@@ -60,15 +60,32 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
 : " . $this->rssPostItemTranslation->content . "
 
-: " . $this->rssPostItemTranslation->post->rssItem->title . "
+: #" . $this->rssPostItemTranslation->post->rssItem->title . "
 
 : " . $this->rssPostItemTranslation->post->rssItem->url . "
+
+: " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
 👇
 : " . $this->rssPostItemTranslation->post->link;
         }
 
 
         return $message;
+    }
+
+
+    public function stringifyTags($tags): string
+    {
+        $stringTags = "";
+        foreach ($tags as $tag) {
+            // Access the "fa" attribute of the tag
+            $faValue = $tag->name;
+
+            // Do something with the $faValue
+            // For example, you can echo it or store it in an array
+            $stringTags .= "#" . $faValue . " ";
+        }
+        return $stringTags;
     }
 
 }
