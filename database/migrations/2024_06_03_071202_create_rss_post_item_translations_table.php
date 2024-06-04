@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->string("locale", 8)->default('fa');
 
             $table->string("title");
-            $table->string("content");
+            $table->text("content");
 
             $table->bigInteger('approved_by_chat_id')->nullable();
             $table->boolean('approved')->default(0);
