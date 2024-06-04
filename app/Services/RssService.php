@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\RssPostItem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\Laravel\App;
 
 class RssService
@@ -31,14 +32,14 @@ class RssService
         foreach ($xml->channel->item as $item) {
             // Extract the necessary data from the RSS item
 //            $rssItemId = $item->rss_item_id;
-            $title = (string)$item->title;
-            $link = (string)$item->$unique_field_name;
-            $description = (string)$item->description;
+            $title = strip_tags($item->title);
+            $link = strip_tags($item->$unique_field_name);
+            $description = strip_tags($item->description);
             $pubDate = Carbon::parseFromLocale($item->pubDate);
 
             // Check if the item already exists in the database
             $existingItem = RssPostItem::query()
-                ->whereLink( $link)
+                ->whereLink($link)
                 ->first();
 
             if (!$existingItem) {
