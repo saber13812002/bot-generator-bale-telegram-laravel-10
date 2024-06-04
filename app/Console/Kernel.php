@@ -2,7 +2,7 @@
 
 namespace App\Console;
 
-use App\Console\Commands\rss_test;
+use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\UsersRankingCommand;
 use App\Console\Commands\weatherWindCommand;
@@ -20,7 +20,7 @@ class Kernel extends ConsoleKernel
 //        $schedule->command(weatherWindCommand::class, ['speed=7'])->dailyAt("6:30"); //10:00 iran
         $schedule->command(TaskReminderCommand::class)->thursdays("20:27"); //23:57 iran
         $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
-        $schedule->command(rss_test::class)->everyFifteenMinutes();
+        $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
     }
 
