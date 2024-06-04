@@ -15,6 +15,10 @@ class RssPostItem extends Model
         return $this->hasMany(RssPostItemTranslation::class);
     }
 
+    public function rssItem()
+    {
+        return $this->belongsTo(RssItem::class);
+    }
 
     public function getTranslation($locale)
     {
