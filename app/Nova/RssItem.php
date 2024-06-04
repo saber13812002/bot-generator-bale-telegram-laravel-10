@@ -53,6 +53,8 @@ class RssItem extends Resource
             Boolean::make('is_active'),
 
             Text::make('unique_xml_tag'),
+            Text::make('locale'),
+            Text::make('target_locale'),
 
             Tags::make('Tags'),
         ];
