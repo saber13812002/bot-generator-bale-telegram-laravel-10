@@ -13,6 +13,11 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+    // config/services.php
+    'rocketchat' => [
+        'endpoint' => env('ROCKETCHAT_WEBHOOK_URL'),
+    ],
+
 
     'mailgun' => [
         'domain' => env('MAILGUN_DOMAIN'),
