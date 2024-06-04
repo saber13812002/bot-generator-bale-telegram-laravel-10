@@ -196,9 +196,9 @@ class BotHelper
     /**
      * @param $messenger
      * @param string $message
-     * @return void
+     * @return mixed
      */
-    public static function sendMessage($messenger, string $message): void
+    public static function sendMessage($messenger, string $message)
     {
         $chat_id = $messenger->ChatID();
 
@@ -208,7 +208,7 @@ class BotHelper
             'parse_mode' => "html"
         ];
 
-        $messenger->sendMessage($content);
+        return $messenger->sendMessage($content);
     }
 
     /**
@@ -282,9 +282,9 @@ class BotHelper
      * @param $messenger
      * @param $chat_id
      * @param string $message
-     * @return void
+     * @return mixed
      */
-    public static function sendMessageByChatId($messenger, $chat_id, string $message): void
+    public static function sendMessageByChatId($messenger, $chat_id, string $message)
     {
         $content = [
             'chat_id' => $chat_id,
@@ -292,18 +292,18 @@ class BotHelper
             'parse_mode' => "html"
         ];
 
-        $messenger->sendMessage($content);
+        return $messenger->sendMessage($content);
     }
 
 
     /**
      * @param Telegram $bot
      * @param string $message
-     * @return void
+     * @return mixed
      */
-    public static function sendMessageToBotAdmin(Telegram $bot, string $message): void
+    public static function sendMessageToBotAdmin(Telegram $bot, string $message)
     {
-        BotHelper::sendMessageByChatId($bot, env('SUPER_ADMIN_CHAT_ID_BALE'), $message);
+        return BotHelper::sendMessageByChatId($bot, env('SUPER_ADMIN_CHAT_ID_BALE'), $message);
     }
 
 
