@@ -24,6 +24,6 @@ class RssPostItemTranslation extends Model
 
     public function post()
     {
-        return $this->belongsTo(RssPostItem::class);
+        return $this->hasOne(RssPostItem::class, 'id', 'rss_post_item_id');
     }
 }

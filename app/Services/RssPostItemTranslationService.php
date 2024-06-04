@@ -14,16 +14,19 @@ class RssPostItemTranslationService
 
     public static function call(RssPostItem $rssPostItem)
     {
+        $locale = 'en';
         if ($rssPostItem->rssItem && $rssPostItem->rssItem->locale != 'fa' && $rssPostItem->rssItem->target_locale != 'fa') {
+            $locale = $rssPostItem->rssItem->target_locale;
             $title = TranslationService::call($rssPostItem->title);
             $content = TranslationService::call(substr($rssPostItem->description, 3500));
         } else {
+            $locale = 'fa';
             $title = $rssPostItem->title;
             $content = $rssPostItem->description;
         }
 
         $rssPostItem->translations()->create([
-            'locale' => 'fa',
+            'locale' => $locale,
             'title' => strip_tags($title),
             'content' => strip_tags($content),
         ]);
