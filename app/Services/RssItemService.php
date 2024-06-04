@@ -13,7 +13,9 @@ class RssItemService
 
     public static function run()
     {
-        $items = RssItem::query()->get();
+        $items = RssItem::query()
+            ->whereIsActive(1)
+            ->get();
 
         foreach ($items as $item) {
             $unique_field_name = $item->unique_xml_tag ?? 'link';
