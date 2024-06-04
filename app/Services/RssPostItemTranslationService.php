@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\RssPostItem;
+use Illuminate\Support\Str;
 
 class RssPostItemTranslationService
 {
@@ -13,14 +14,18 @@ class RssPostItemTranslationService
 
     public static function call(RssPostItem $rssPostItem)
     {
-
-        $title = TranslationService::call($rssPostItem->title);
-        $content = TranslationService::call($rssPostItem->description);
+        if ($rssPostItem->rssItem && $rssPostItem->rssItem->locale != 'fa' && $rssPostItem->rssItem->target_locale != 'fa') {
+            $title = TranslationService::call($rssPostItem->title);
+            $content = TranslationService::call(substr($rssPostItem->description, 3500));
+        } else {
+            $title = $rssPostItem->title;
+            $content = $rssPostItem->description;
+        }
 
         $rssPostItem->translations()->create([
             'locale' => 'fa',
-            'title' => $title,
-            'content' => $content,
+            'title' => strip_tags($title),
+            'content' => strip_tags($content),
         ]);
     }
 
