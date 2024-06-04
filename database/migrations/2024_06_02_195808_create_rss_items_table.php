@@ -23,6 +23,7 @@ return new class extends Migration {
             $table->string('locale', 5)->default('fa');
             $table->string('target_locale', 5)->default('fa');
 
+            $table->bigInteger('rss_channel_id')->default(1);
 
             $table->timestamps();
         });
