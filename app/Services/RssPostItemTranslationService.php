@@ -18,7 +18,7 @@ class RssPostItemTranslationService
         if ($rssPostItem->rssItem && $rssPostItem->rssItem->locale != 'fa' && $rssPostItem->rssItem->target_locale == 'fa') {
             $locale = $rssPostItem->rssItem->target_locale;
             $title = TranslationService::call($rssPostItem->title);
-            $content = TranslationService::call(substr($rssPostItem->description, 3500));
+            $content = TranslationService::call(substr($rssPostItem->description, 0, 3500));
         } else {
             $locale = 'fa';
             $title = $rssPostItem->title;
