@@ -17,7 +17,7 @@ return new class extends Migration {
             $table->bigInteger("author_chat_id")->nullable();
             $table->string("locale", 8)->default('fa');
 
-            $table->string("title");
+            $table->string("title", 1000);
             $table->text("content");
 
             $table->bigInteger('approved_by_chat_id')->nullable();

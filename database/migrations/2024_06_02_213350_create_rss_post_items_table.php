@@ -15,8 +15,8 @@ return new class extends Migration {
 
             $table->bigInteger('rss_item_id');
 
-            $table->string('title')->nullable();
-            $table->string('link', 700)->unique();
+            $table->string('title',1000)->nullable();
+            $table->string('link', 1000)->unique();
             $table->text('description')->nullable();
             $table->dateTime('pub_date')->nullable();
 
