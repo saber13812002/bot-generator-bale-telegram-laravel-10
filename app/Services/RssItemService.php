@@ -17,6 +17,7 @@ class RssItemService
             ->whereIsActive(1)
             ->get();
 
+//        dd($items);
         foreach ($items as $item) {
             $unique_field_name = $item->unique_xml_tag ?? 'link';
             $response = RssService::readRssAndSave($item->url, $item->id, $unique_field_name);

@@ -61,7 +61,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
 : " . $this->rssPostItemTranslation->post->description . "
 
-: " . $this->rssPostItemTranslation->content . "". //"
+: " . $this->rssPostItemTranslation->content . //"
 
 //: " . $this->rssPostItemTranslation->post->rssItem->url . "
 //

@@ -28,7 +28,9 @@ class RssReadTranslate extends Command
     public function handle()
     {
         RssItemService::run();
+        $this->info("done");
         RssPostItemTranslationToMessengerService::run();
+        $this->info("done");
 
     }
 }
