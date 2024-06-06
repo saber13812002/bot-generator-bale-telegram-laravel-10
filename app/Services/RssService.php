@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Helpers\BotHelper;
 use App\Models\RssPostItem;
+use DOMDocument;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
-use Tests\Laravel\App;
+use SimpleXMLElement;
 
 class RssService
 {
@@ -17,46 +19,61 @@ class RssService
         //
     }
 
-    public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): \Illuminate\Http\JsonResponse
+    public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): JsonResponse
     {
 
-        // Set the RSS feed URL
-//        $rssUrl = 'https://example.com/rss';
+        try {
+            $response = Http::get($rssUrl);
 
-        // Fetch the RSS feed
-        $response = Http::get($rssUrl);
-        $xml = simplexml_load_string($response->body());
+//        if ($response->successful()) {
+            $xml = simplexml_load_string($response->body());
 
-        // Loop through the RSS items
+            // Loop through the RSS items
 //        dd($xml);
-        foreach ($xml->channel->item as $item) {
-            // Extract the necessary data from the RSS item
+            foreach ($xml->channel->item as $item) {
+                // Extract the necessary data from the RSS item
 //            $rssItemId = $item->rss_item_id;
-            $title = strip_tags($item->title);
-            $link = strip_tags($item->$unique_field_name);
-            $description = strip_tags($item->description);
-            $pubDate = Carbon::parseFromLocale($item->pubDate);
+                $title = strip_tags($item->title);
+                $link = ($item->$unique_field_name);
+//                dd($item);
+                $description = self::extractTextInTags($item->description);
+                $pubDate = Carbon::parseFromLocale($item->pubDate);
 
-            // Check if the item already exists in the database
-            $existingItem = RssPostItem::query()
-                ->whereLink($link)
-                ->first();
+                // Check if the item already exists in the database
+                $existingItem = RssPostItem::query()
+                    ->whereLink($link)
+                    ->first();
 
-            if (!$existingItem) {
-                // If the item doesn't exist, save it to the database
-                RssPostItem::query()->insert([
-                    'rss_item_id' => $id,
-                    'title' => $title,
-                    'link' => $link,
-                    'description' => $description,
-                    'pub_date' => $pubDate,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                if (!$existingItem) {
+                    // If the item doesn't exist, save it to the database
+                    RssPostItem::query()->insert([
+                        'rss_item_id' => $id,
+                        'title' => $title,
+                        'link' => $link,
+                        'description' => $description,
+                        'pub_date' => $pubDate,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
             }
+            return self::findTheNewOrNonExistentItems($xml, $unique_field_name);
+
+        } catch (\Exception $e) {
+            BotHelper::sendMessageToBotAdmin(new \Telegram(env('BOT_HADITH_TOKEN_BALE')), "error in read xml as rss" . $e->getMessage());
         }
 
-        // Find the new or non-existent items
+        return response()->json(null);
+    }
+
+    /**
+     * @param SimpleXMLElement $xml
+     * @param mixed $unique_field_name
+     * @return JsonResponse
+     */
+    public static function findTheNewOrNonExistentItems(SimpleXMLElement $xml, mixed $unique_field_name): JsonResponse
+    {
+// Find the new or non-existent items
         $newItems = RssPostItem::query()
             ->whereNotIn('link', function ($query) use ($xml, $unique_field_name) {
                 $query->select('link')
@@ -66,5 +83,20 @@ class RssService
             ->get();
 
         return response()->json($newItems);
+    }
+
+    private static function extractTextInTags($htmlContent): string
+    {
+        $text = '';
+//        dd($htmlContent);
+        $dom = new DOMDocument();
+        $dom->loadHTML($htmlContent);
+
+        $nodes = $dom->getElementsByTagName('*');
+        foreach ($nodes as $node) {
+            $text .= $node->nodeValue . ' ';
+        }
+
+        return $text;
     }
 }

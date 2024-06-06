@@ -46,7 +46,10 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
     private function createMessage(): string
     {
 
-        $message = ": " . $this->rssPostItemTranslation->title . "
+        $message = "
+: #" . $this->rssPostItemTranslation->post->rssItem->title . "
+
+: " . $this->rssPostItemTranslation->title . "
 
 : " . $this->rssPostItemTranslation->content;
 
@@ -58,14 +61,12 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
 : " . $this->rssPostItemTranslation->post->description . "
 
-: " . $this->rssPostItemTranslation->content . "
+: " . $this->rssPostItemTranslation->content . "". //"
 
-: #" . $this->rssPostItemTranslation->post->rssItem->title . "
-
-: " . $this->rssPostItemTranslation->post->rssItem->url . "
-
-: " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
-👇
+//: " . $this->rssPostItemTranslation->post->rssItem->url . "
+//
+": " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
+👇👇👇
 : " . $this->rssPostItemTranslation->post->link;
         }
 
