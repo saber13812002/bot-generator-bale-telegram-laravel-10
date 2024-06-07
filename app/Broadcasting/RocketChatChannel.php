@@ -3,30 +3,28 @@
 namespace App\Broadcasting;
 
 use App\Models\User;
+use App\Services\RocketChatService;
+use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Notification;
 
 class RocketChatChannel
 {
-    protected $client;
+    private string $sendTo;
 
-    public function __construct()
+    public function __construct($sendTo)
     {
-        $this->client = new Client();
+        $this->sendTo = $sendTo;
     }
 
+    /**
+     * @throws GuzzleException
+     */
     public function send($notifiable, Notification $notification)
     {
-        $message = $notification->toRocketChat($notifiable);
+        //todo this should test later
+        $message = $notification->send($notifiable);
 
-        $this->client->post(config('services.rocketchat.endpoint'), [
-            'json' => [
-                'text' => $message->content,
-                'attachments' => [
-                    [
-                        'title' => $message->title,
-                        'text' => $message->content,
-                    ],
-                ],
-            ],
-        ]);
+        $rocket = new RocketChatService($message, $this->sendTo);
+        $rocket->sendMessage();
     }
 }

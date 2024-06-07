@@ -32,7 +32,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         if ($rssChannel) {
             $bot = new \Telegram($rssChannel->token, 'bale');
 //            $bot->ChatID()
-            $message = $this->createMessage();
+            $message = $this->createMessage(withCommand: true);
 
             $response = BotHelper::sendMessageByChatId($bot, $rssChannel->target_id, $message);
 
@@ -41,9 +41,10 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
     }
 
     /**
+     * @param bool $withCommand
      * @return string
      */
-    private function createMessage(): string
+    private function createMessage(bool $withCommand = false): string
     {
 
         $message = "
@@ -65,15 +66,32 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
 //: " . $this->rssPostItemTranslation->post->rssItem->url . "
 //
-": " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
+"
+📌
+: " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
 👇👇👇
-: " . $this->rssPostItemTranslation->post->link;
+: " . $this->rssPostItemTranslation->post->link
+
+                . $this->createCommands(withCommand: $withCommand);
         }
 
 
         return $message;
     }
 
+
+    /**
+     * @param bool $withCommand
+     * @return string
+     */
+    private function createCommands(bool $withCommand = false): string
+    {
+        $cmd = "/publish:rocket:test";
+
+        return !$withCommand ? "" : "
+
+: " . BotHelper::generateTextLink($cmd, $cmd, 'bale');
+    }
 
     public function stringifyTags($tags): string
     {
