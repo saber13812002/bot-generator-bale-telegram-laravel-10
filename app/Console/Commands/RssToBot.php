@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
 
 class RssToBot extends Command
@@ -22,10 +23,11 @@ class RssToBot extends Command
 
     /**
      * Execute the console command.
+     * @throws GuzzleException
      */
     public function handle()
     {
-        //
-
+        $rocket = new \App\Services\RocketChatService("test", "test");
+        $rocket->sendMessage();
     }
 }
