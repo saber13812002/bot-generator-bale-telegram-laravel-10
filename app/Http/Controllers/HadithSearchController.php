@@ -73,7 +73,7 @@ class HadithSearchController extends BotController
 
             $command_type = "";
 
-            if (self::ifBotTextIsTooLong($bot, $bot->Text()))
+            if (StringHelper::ifBotTextIsTooLong($bot, $bot->Text()))
                 return 1;
 
             //            try {
@@ -174,14 +174,6 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
         return true;
     }
 
-    private static function ifBotTextIsTooLong($bot, string $botText): bool
-    {
-        if (Str::length($botText) > 70) {
-            BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
-            return true;
-        }
-        return false;
-    }
 
     private function getSearchWebUrl($phrase)
     {
