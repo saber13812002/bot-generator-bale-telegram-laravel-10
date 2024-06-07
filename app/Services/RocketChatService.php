@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Helpers\BotHelper;
+use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class RocketChatService
 {
@@ -14,6 +17,9 @@ class RocketChatService
     private string $message;
     private string $sendTo;
 
+    /**
+     * @throws GuzzleException
+     */
     public function __construct($message, $sendTo)
     {
         $this->message = $message;
@@ -28,6 +34,7 @@ class RocketChatService
     /**
      * @return array
      * @throws GuzzleException
+     * @throws Exception
      */
     private function getToken(): array
     {
@@ -37,7 +44,12 @@ class RocketChatService
             $loginResponseData = Cache::get('rocket_login');
         } else {
             // Data does not exist
-            $loginResponseData = $this->getLoginResponseData();
+            try {
+                $loginResponseData = $this->getLoginResponseData();
+            } catch (Exception $e) {
+                Log::error($e->getMessage());
+                throw $e;
+            }
             // Store data in the cache
             Cache::put('rocket_login', $loginResponseData, config('rocket.cache.ttl')); // Cache for 60 minutes
         }
@@ -78,23 +90,31 @@ class RocketChatService
     /**
      * @return mixed
      * @throws GuzzleException
+     * @throws Exception
      */
     private function getLoginResponseData(): mixed
     {
-        $client = new Client();
 
-        $loginUri = "https://chat.depna.com/api/v1/login";
-        $loginBody = json_encode([
-            'username' => config('rocket.account.username'),
-            'password' => config('rocket.account.password')
-        ]);
+        try {
+            $client = new Client();
 
-        $loginResponse = $client->request('POST', $loginUri, [
-            'headers' => [
-                'Content-Type' => 'application/json'
-            ],
-            'body' => $loginBody
-        ]);
+            $loginUri = "https://chat.depna.com/api/v1/login";
+            $loginBody = json_encode([
+                'username' => config('rocket.account.username'),
+                'password' => config('rocket.account.password')
+            ]);
+
+            $loginResponse = $client->request('POST', $loginUri, [
+                'headers' => [
+                    'Content-Type' => 'application/json'
+                ],
+                'body' => $loginBody
+            ]);
+
+        } catch (Exception $e) {
+            BotHelper::sendMessageToBotAdmin(new \Telegram(env('BOT_HADITH_TOKEN_BALE')), "error in read xml as rss" . $e->getMessage());
+            throw $e;
+        }
 
         return json_decode($loginResponse->getBody()->getContents(), true);
     }
