@@ -15,7 +15,7 @@ return [
     */
     // config/services.php
     'rocketchat' => [
-        'endpoint' => env('ROCKETCHAT_WEBHOOK_URL'),
+        'endpoint' => env('ROCKETCHAT_WEBHOOK_URL', 'https://chat.depna.com'),
     ],
 
 

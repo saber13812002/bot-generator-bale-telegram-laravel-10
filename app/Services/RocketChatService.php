@@ -70,7 +70,7 @@ class RocketChatService
 
         $client = new Client();
 
-        $messageUri = "https://chat.depna.com/api/v1/chat.postMessage";
+        $messageUri = config('services.rocketchat.endpoint') . "/api/v1/chat.postMessage";
 
         $messageBody = json_encode([
             'channel' => $this->sendTo,
@@ -98,7 +98,7 @@ class RocketChatService
         try {
             $client = new Client();
 
-            $loginUri = "https://chat.depna.com/api/v1/login";
+            $loginUri = config('services.rocketchat.endpoint') . "/api/v1/login";
             $loginBody = json_encode([
                 'username' => config('rocket.account.username'),
                 'password' => config('rocket.account.password')
