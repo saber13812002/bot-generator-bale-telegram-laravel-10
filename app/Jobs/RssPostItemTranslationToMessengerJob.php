@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Helpers\BotHelper;
+use App\Helpers\RssHelper;
 use App\Models\RssChannel;
 use App\Models\RssPostItemTranslation;
 use Illuminate\Bus\Queueable;
@@ -32,7 +33,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         if ($rssChannel) {
             $bot = new \Telegram($rssChannel->token, 'bale');
 //            $bot->ChatID()
-            $message = $this->createMessage(withCommand: true);
+            $message = RssHelper::createMessage($this->rssPostItemTranslation, withCommand: true);
 
             $response = BotHelper::sendMessageByChatId($bot, $rssChannel->target_id, $message);
 
@@ -40,71 +41,5 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         }
     }
 
-    /**
-     * @param bool $withCommand
-     * @return string
-     */
-    private function createMessage(bool $withCommand = false): string
-    {
-
-        $message = "
-: #" . $this->rssPostItemTranslation->post->rssItem->title . "
-
-: " . $this->rssPostItemTranslation->title . "
-
-: " . $this->rssPostItemTranslation->content;
-
-//        dd($this->rssPostItemTranslation->post);
-        if ($this->rssPostItemTranslation->post) {
-            $message = ": " . $this->rssPostItemTranslation->post->title . "
-
-: " . $this->rssPostItemTranslation->title . "
-
-: " . $this->rssPostItemTranslation->post->description . "
-
-: " . $this->rssPostItemTranslation->content . //"
-
-//: " . $this->rssPostItemTranslation->post->rssItem->url . "
-//
-"
-📌
-: " . $this->stringifyTags($this->rssPostItemTranslation->post->rssItem->tags) . "
-👇👇👇
-: " . $this->rssPostItemTranslation->post->link
-
-                . $this->createCommands(withCommand: $withCommand);
-        }
-
-
-        return $message;
-    }
-
-
-    /**
-     * @param bool $withCommand
-     * @return string
-     */
-    private function createCommands(bool $withCommand = false): string
-    {
-        $cmd = "/publish:rocket:test";
-
-        return !$withCommand ? "" : "
-
-: " . BotHelper::generateTextLink($cmd, $cmd, 'bale');
-    }
-
-    public function stringifyTags($tags): string
-    {
-        $stringTags = "";
-        foreach ($tags as $tag) {
-            // Access the "fa" attribute of the tag
-            $faValue = $tag->name;
-
-            // Do something with the $faValue
-            // For example, you can echo it or store it in an array
-            $stringTags .= "#" . $faValue . " ";
-        }
-        return $stringTags;
-    }
 
 }

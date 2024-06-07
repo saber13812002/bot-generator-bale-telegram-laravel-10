@@ -180,6 +180,15 @@ class StringHelper
     }
 
 
+    public static function ifBotTextIsTooLong($bot, string $botText): bool
+    {
+        if (Str::length($botText) > 70) {
+            BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
+            return true;
+        }
+        return false;
+    }
+
     public static function mapStringOpenWeatherApi($desiredKey): int|string
     {
         $translate = ["clear sky" => "آسمان صاف☀️",
