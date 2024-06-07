@@ -14,7 +14,7 @@ class RssPostItemController extends Controller
      */
     public function index()
     {
-        //
+
     }
 
     /**
