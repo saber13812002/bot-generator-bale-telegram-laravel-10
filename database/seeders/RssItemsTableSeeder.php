@@ -145,7 +145,7 @@ class RssItemsTableSeeder extends Seeder
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 05:26:45',
             ),
             8 => 
             array (
@@ -155,13 +155,13 @@ class RssItemsTableSeeder extends Seeder
                 'url' => 'https://camunda.com/blog/feed',
                 'url_ifttt' => NULL,
                 'url_rss_dot_app' => NULL,
-                'is_active' => 0,
+                'is_active' => 1,
                 'unique_xml_tag' => NULL,
                 'locale' => 'en',
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 17:24:31',
             ),
             9 => 
             array (
@@ -177,7 +177,7 @@ class RssItemsTableSeeder extends Seeder
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 05:26:17',
             ),
             10 => 
             array (
@@ -187,13 +187,13 @@ class RssItemsTableSeeder extends Seeder
                 'url' => 'https://rss.app/feeds/Her2n9iEl9fvayxU.xml',
                 'url_ifttt' => NULL,
                 'url_rss_dot_app' => NULL,
-                'is_active' => 1,
+                'is_active' => 0,
                 'unique_xml_tag' => NULL,
                 'locale' => 'en',
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 19:40:25',
             ),
             11 => 
             array (
@@ -209,7 +209,7 @@ class RssItemsTableSeeder extends Seeder
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 17:33:26',
             ),
             12 => 
             array (
@@ -225,7 +225,7 @@ class RssItemsTableSeeder extends Seeder
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 05:25:53',
             ),
             13 => 
             array (
@@ -241,7 +241,7 @@ class RssItemsTableSeeder extends Seeder
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 05:25:41',
             ),
             14 => 
             array (
@@ -251,13 +251,13 @@ class RssItemsTableSeeder extends Seeder
                 'url' => 'https://rss.app/feeds/KRwQwndmsC9q4cSo.xml',
                 'url_ifttt' => NULL,
                 'url_rss_dot_app' => NULL,
-                'is_active' => 1,
+                'is_active' => 0,
                 'unique_xml_tag' => NULL,
                 'locale' => 'en',
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-06 19:40:36',
             ),
             15 => 
             array (
@@ -267,13 +267,61 @@ class RssItemsTableSeeder extends Seeder
                 'url' => 'https://www.processmaker.com/blog/feed',
                 'url_ifttt' => NULL,
                 'url_rss_dot_app' => NULL,
+                'is_active' => 1,
+                'unique_xml_tag' => NULL,
+                'locale' => 'en',
+                'target_locale' => 'fa',
+                'rss_channel_id' => 1,
+                'created_at' => NULL,
+                'updated_at' => '2024-06-06 17:33:54',
+            ),
+            16 => 
+            array (
+                'id' => 17,
+                'title' => 'process_maker facebook',
+                'description' => 'process_maker facebook',
+                'url' => 'https://www.facebook.com/processmaker',
+                'url_ifttt' => NULL,
+                'url_rss_dot_app' => NULL,
                 'is_active' => 0,
                 'unique_xml_tag' => NULL,
                 'locale' => 'en',
                 'target_locale' => 'fa',
                 'rss_channel_id' => 1,
                 'created_at' => NULL,
-                'updated_at' => NULL,
+                'updated_at' => '2024-06-07 17:29:36',
+            ),
+            17 => 
+            array (
+                'id' => 18,
+                'title' => 'process_maker linkedin',
+                'description' => 'process_maker linkedin',
+                'url' => 'https://rss.app/feeds/RbaflFgowt1C1f6n.xml',
+                'url_ifttt' => NULL,
+                'url_rss_dot_app' => NULL,
+                'is_active' => 1,
+                'unique_xml_tag' => NULL,
+                'locale' => 'en',
+                'target_locale' => 'fa',
+                'rss_channel_id' => 1,
+                'created_at' => NULL,
+                'updated_at' => '2024-06-07 17:29:36',
+            ),
+            18 => 
+            array (
+                'id' => 19,
+                'title' => 'process_maker youtube',
+                'description' => 'process_maker youtube',
+                'url' => 'https://rss.app/feeds/LN7ir2PftlOY6z7A.xml',
+                'url_ifttt' => NULL,
+                'url_rss_dot_app' => NULL,
+                'is_active' => 1,
+                'unique_xml_tag' => NULL,
+                'locale' => 'en',
+                'target_locale' => 'fa',
+                'rss_channel_id' => 1,
+                'created_at' => NULL,
+                'updated_at' => '2024-06-07 17:29:36',
             ),
         ));
         
