@@ -5,16 +5,15 @@ namespace App\Http\Controllers;
 use App\Helpers\RssHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
-use App\Models\RssPostItemTranslation;
-use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRssPostItemTranslationRequest;
 use App\Http\Requests\UpdateRssPostItemTranslationRequest;
+use App\Models\RssPostItemTranslation;
 use App\Services\RocketChatService;
+use App\Services\SPlusChatService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Telegram;
 
 class RssPostItemTranslationController extends Controller
@@ -77,14 +76,20 @@ class RssPostItemTranslationController extends Controller
 //                        dd($command, $isItemRequested, $command_type, $channel, $subChannel, $rssPostItemTranslation);
 
 
-                        if ($command == "/publish" && $channel == "rocket" && $subChannel == "test" && $isItemRequested) {
+                        if ($command == "/publish" && $channel != "" && $subChannel != "" && $isItemRequested) {
                             $rssPostItemTranslationId = substr($rssPostItemTranslation, 3);
                             if ($rssPostItemTranslationId > 0) {
                                 $rssPostItemTranslationItem = RssPostItemTranslation::find($rssPostItemTranslationId);
                                 $message = RssHelper::createMessage($rssPostItemTranslationItem, withCommand: false);
 //                                dd($rssPostItemTranslationItem,$message,$subChannel);
-                                $rocket = new RocketChatService($message, $subChannel);
-                                $rocket->sendMessage();
+                                if ($channel == "rocket") {
+                                    $rocket = new RocketChatService($message, $subChannel);
+                                    $rocket->sendMessage();
+                                }
+                                if ($channel == "splus") {
+                                    $splus = new SPlusChatService($message, $subChannel);
+                                    $splus->send();
+                                }
                             }
                         }
                     }
