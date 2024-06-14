@@ -17,6 +17,9 @@ return [
     'rocketchat' => [
         'endpoint' => env('ROCKETCHAT_WEBHOOK_URL', 'https://chat.depna.com'),
     ],
+    'splus' => [
+        'endpoint' => env('SPLUS_BASE_URL', 'https://bui.splus.ir/'),
+    ],
 
 
     'mailgun' => [
