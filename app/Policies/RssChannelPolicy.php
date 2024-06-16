@@ -13,7 +13,7 @@ class RssChannelPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class RssChannelPolicy
      */
     public function view(User $user, RssChannel $rssChannel): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class RssChannelPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class RssChannelPolicy
      */
     public function update(User $user, RssChannel $rssChannel): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class RssChannelPolicy
      */
     public function delete(User $user, RssChannel $rssChannel): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class RssChannelPolicy
      */
     public function restore(User $user, RssChannel $rssChannel): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class RssChannelPolicy
      */
     public function forceDelete(User $user, RssChannel $rssChannel): bool
     {
-        //
+        return true;
     }
 }
