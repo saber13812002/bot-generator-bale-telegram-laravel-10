@@ -31,5 +31,6 @@ class DatabaseSeeder extends Seeder
         $this->call(RssChannelsTableSeeder::class);
         $this->call(RssChannelOriginsTableSeeder::class);
 //        $this->call(TagsTableSeeder::class);
+        $this->call(RssBusinessesTableSeeder::class);
     }
 }

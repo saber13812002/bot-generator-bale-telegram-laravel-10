@@ -24,45 +24,49 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         $this->rssPostItemTranslationQueue = $rssPostItemTranslationQueue;
     }
 
-    public function handle()
+    public function handle(): void
     {
-//        $rssChannel = RssChannel::query()->first();
         $rssChannel = RssChannel::find($this->rssPostItemTranslationQueue->rss_channel_id);
 
         if (!$rssChannel) {
-            Log::error("RSS Channel not found for ID: " . $this->rssPostItemTranslationQueue->rss_channel_id);
+            $this->logError("RSS Channel not found for ID: {$this->rssPostItemTranslationQueue->rss_channel_id}");
             return;
         }
 
-//        try {
-//            dd($this->rssPostItemTranslationQueue->postTranslation);
+        $rssChannelOrigin = $rssChannel->RssChannelOrigin;
+        if (!$rssChannelOrigin || !$rssChannelOrigin->slug) {
+            $this->logError("RSS Channel Origin or slug not found for ID: {$rssChannel->id}");
+            return;
+        }
+
+        $bot = $this->getBotInstance($rssChannelOrigin->slug, $rssChannel->token);
+        if (!$bot) {
+            $this->logError("Unsupported RSS Channel Origin slug: {$rssChannelOrigin->slug}");
+            return;
+        }
+
         $message = RssHelper::createMessage($this->rssPostItemTranslationQueue->postTranslation, true);
-//        dd($rssChannel->RssChannelOrigin);
-        if (!$rssChannel->RssChannelOrigin) {
-            Log::error("RSS Channel Origin not found for ID: " . $rssChannel->id);
-            return;
-        }
-
-        if (!$rssChannel->RssChannelOrigin->slug) {
-            Log::error("RSS Channel Origin slug not found for ID: " . $rssChannel->id);
-            return;
-        }
-
-        if ($rssChannel->RssChannelOrigin->slug == 'telegram') {
-            $bot = new \Telegram($rssChannel->token, 'telegram');
-        } else if ($rssChannel->RssChannelOrigin->slug == 'bale') {
-            $bot = new \Telegram($rssChannel->token, 'bale');
-        }
-
         $response = BotHelper::sendMessageByChatId($bot, $rssChannel->target_id, $message);
 
         if ($response['ok'] !== true) {
-            Log::error("Failed to send message to RSS Channel: " . $rssChannel->id, $response);
+            $this->logError("Failed to send message to RSS Channel: {$rssChannel->id}", $response);
         }
-
-//        } catch (\Exception $e) {
-//            Log::error("Error sending message: " . $e->getMessage());
-//        }
     }
 
+    protected function logError(string $message, array $context = []): void
+    {
+        Log::error($message, $context);
+    }
+
+    protected function getBotInstance(string $slug, string $token): ?object
+    {
+        switch ($slug) {
+            case 'telegram':
+                return new \Telegram($token, 'telegram');
+            case 'bale':
+                return new \Telegram($token, 'bale');
+            default:
+                return null;
+        }
+    }
 }
