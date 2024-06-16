@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Models\RssBusiness;
-use Illuminate\Auth\Access\Response;
 use App\Models\RssItem;
 use App\Models\User;
 
@@ -14,9 +13,7 @@ class RssItemPolicy
      */
     public function viewAny(User $user): bool
     {
-//        dd($user);
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->exists();
+        return $this->userHasRssItems($user);
     }
 
     /**
@@ -24,8 +21,7 @@ class RssItemPolicy
      */
     public function view(User $user, RssItem $rssItem): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->whereId($rssItem->id)->exists();
+        return $this->userOwnsRssItem($user, $rssItem);
     }
 
     /**
@@ -33,8 +29,7 @@ class RssItemPolicy
      */
     public function create(User $user): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->exists();
+        return $this->userHasRssItems($user);
     }
 
     /**
@@ -42,8 +37,7 @@ class RssItemPolicy
      */
     public function update(User $user, RssItem $rssItem): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->whereId($rssItem->id)->exists();
+        return $this->userOwnsRssItem($user, $rssItem);
     }
 
     /**
@@ -51,8 +45,7 @@ class RssItemPolicy
      */
     public function delete(User $user, RssItem $rssItem): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->whereId($rssItem->id)->exists();
+        return $this->userOwnsRssItem($user, $rssItem);
     }
 
     /**
@@ -60,8 +53,7 @@ class RssItemPolicy
      */
     public function restore(User $user, RssItem $rssItem): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->whereId($rssItem->id)->exists();
+        return $this->userOwnsRssItem($user, $rssItem);
     }
 
     /**
@@ -69,7 +61,24 @@ class RssItemPolicy
      */
     public function forceDelete(User $user, RssItem $rssItem): bool
     {
+        return $this->userOwnsRssItem($user, $rssItem);
+    }
+
+    /**
+     * Check if the user has any RssItems.
+     */
+    private function userHasRssItems(User $user): bool
+    {
         $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return RssItem::whereRssBusinessId($rssBusiness->id)->whereId($rssItem->id)->exists();
+        return $rssBusiness && RssItem::whereRssBusinessId($rssBusiness->id)->exists();
+    }
+
+    /**
+     * Check if the user owns the given RssItem.
+     */
+    private function userOwnsRssItem(User $user, RssItem $rssItem): bool
+    {
+        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
+        return $rssBusiness && $rssItem->rss_business_id == $rssBusiness->id;
     }
 }
