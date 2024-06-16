@@ -69,8 +69,9 @@ class RssItemPolicy
      */
     private function userHasRssItems(User $user): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return $rssBusiness && RssItem::whereRssBusinessId($rssBusiness->id)->exists();
+        return RssItem::whereHas('rssBusiness', function($query) use ($user) {
+            $query->where('admin_user_id', $user->id);
+        })->exists();
     }
 
     /**
@@ -78,7 +79,6 @@ class RssItemPolicy
      */
     private function userOwnsRssItem(User $user, RssItem $rssItem): bool
     {
-        $rssBusiness = RssBusiness::whereAdminUserId($user->id)->first();
-        return $rssBusiness && $rssItem->rss_business_id == $rssBusiness->id;
+        return $rssItem->rssBusiness->admin_user_id === $user->id;
     }
 }

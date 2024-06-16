@@ -15,4 +15,12 @@ class RssItem extends Model
     {
         return $this->hasMany(RssPostItem::class,'id','rss_item_id');
     }
+
+    /**
+     * Get the business that owns the RSS item.
+     */
+    public function rssBusiness()
+    {
+        return $this->belongsTo(RssBusiness::class, 'rss_business_id');
+    }
 }

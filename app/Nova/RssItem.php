@@ -103,4 +103,21 @@ class RssItem extends Resource
     {
         return [];
     }
+
+
+    /**
+     * Build an "index" query for the given resource.
+     *
+     * @param \Laravel\Nova\Http\Requests\NovaRequest $request
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public static function indexQuery(NovaRequest $request, $query): \Illuminate\Database\Eloquent\Builder
+    {
+        $user = $request->user();
+
+        return $query->whereHas('rssBusiness', function($query) use ($user) {
+            $query->where('admin_user_id', $user->id);
+        });
+    }
 }
