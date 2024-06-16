@@ -155,3 +155,11 @@ php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
 ### for translate:
 
 php artisan translation:sync
+
+
+
+#new version
+ - migrate
+ - seed rss channel origin RssChannelOriginsTableSeeder RssChannelsTableSeeder
+ - set tags
+ - test

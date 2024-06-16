@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Jobs\RssPostItemTranslationToMessengerJob;
+use App\Jobs\RssPostItemTranslationJob;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -17,8 +17,8 @@ class RssPostItemTranslation extends Model
     {
         parent::boot();
 
-        static::created(function ($post) {
-            RssPostItemTranslationToMessengerJob::dispatch($post);
+        static::created(function ($postItemTranslation) {
+            RssPostItemTranslationJob::dispatch($postItemTranslation);
         });
     }
 

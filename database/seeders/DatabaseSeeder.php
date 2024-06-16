@@ -29,5 +29,7 @@ class DatabaseSeeder extends Seeder
         $this->call(RssItemsTableSeeder::class);
 //        $this->call(RssPostItemsTableSeeder::class);
         $this->call(RssChannelsTableSeeder::class);
+        $this->call(RssChannelOriginsTableSeeder::class);
+//        $this->call(TagsTableSeeder::class);
     }
 }
