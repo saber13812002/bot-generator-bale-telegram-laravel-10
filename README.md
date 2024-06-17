@@ -158,8 +158,13 @@ php artisan translation:sync
 
 
 
-#new version
+# new version
  - migrate
  - seed rss channel origin RssChannelOriginsTableSeeder RssChannelsTableSeeder
  - set tags
  - test
+
+# test commands
+
+php artisan app:test-sendch
+

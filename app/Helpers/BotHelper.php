@@ -211,6 +211,59 @@ class BotHelper
         return $messenger->sendMessage($content);
     }
 
+    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram'): void
+    {
+//        Log::info("bothelper:" . $message . " : " . $bot_token . " : " . $channel_chat_id . " : " . $type . " : " . Carbon::now()->toDateTimeString());
+        if ($type != "eitaa") {
+            $bot = new Telegram($bot_token, $type);
+            self::sendMessageByChatId($bot, $channel_chat_id, $message);
+        } else {
+//            Log::info("bothelper2:" . $message . " : " . $bot_token . " : " . $channel_chat_id . " : " . $type . " : " . Carbon::now()->toDateTimeString());
+            self::sendMessageEitaa($message, $bot_token, $channel_chat_id);
+        }
+    }
+
+    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id): void
+    {
+        self::call_eitaa_api($bot_token, $channel_chat_id, $message);
+    }
+
+    private static function call_eitaa_api($bot_token, $chat_id, $text): void
+    {
+//        $title =  Str::substr($message, 0, 80) . '...';
+
+        // initialise the curl request
+        $uri = 'https://eitaayar.ir/api/' . $bot_token . '/sendMessage';
+//        Log::info($uri);
+
+        $request = curl_init($uri);
+        // send a file
+        curl_setopt($request, CURLOPT_POST, true);
+        curl_setopt($request, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt(
+            $request,
+            CURLOPT_POSTFIELDS,
+            array(
+                // 'file' => new \CurlFile(realpath('C:/Users/eitaa/Desktop/eitaa.apk')),
+                'chat_id' => $chat_id,
+//                'title' => $title,
+//                'pin' => 0,
+//                'parse_mode' => 'html',
+                'text' => $text,
+//                'date' => time() + 1,
+                // send next 30 second
+            )
+        );
+
+        // output the response
+        curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
+        curl_exec($request);
+
+        // close the session
+        curl_close($request);
+    }
+
     /**
      * @param string $message
      * @param $type
@@ -226,9 +279,7 @@ class BotHelper
         if ($type == 'telegram') {
             $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
             $messenger = new Telegram($token);
-        }
-
-        elseif ($type == 'gap') {
+        } elseif ($type == 'gap') {
             $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_GAP");
             $messenger = new GapBot($token);
         }
@@ -293,6 +344,22 @@ class BotHelper
         ];
 
         return $messenger->sendMessage($content);
+    }
+
+    /**
+     * @param $token
+     * @param $type
+     * @param $chat_id
+     * @param string $message
+     * @return mixed
+     */
+    public static function sendMessageByChatIdEitaa($token, $type, $chat_id, string $message)
+    {
+        if ($type != 'eitaa') {
+            self::sendMessageByChatId($message, $chat_id, $message);
+        } else {
+            self::sendMessageEitaa($message, $token, $chat_id);
+        }
     }
 
 

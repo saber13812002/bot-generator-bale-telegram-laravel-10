@@ -23,7 +23,8 @@
         "spatie/laravel-ray": "^1.36",
         "tio/laravel": "^1.22",
       "ext-simplexml": "*",
-        "ext-dom": "*"
+        "ext-dom": "*",
+      "ext-curl": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
