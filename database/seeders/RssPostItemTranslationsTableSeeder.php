@@ -1,0 +1,1838 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class RssPostItemTranslationsTableSeeder extends Seeder
+{
+
+    /**
+     * Auto generated seed file
+     *
+     * @return void
+     */
+    public function run()
+    {
+        
+
+        \DB::table('rss_post_item_translations')->delete();
+        
+        \DB::table('rss_post_item_translations')->insert(array (
+            0 => 
+            array (
+                'id' => 1,
+                'rss_post_item_id' => 1,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'There’s no doubt that #AI is set to transform almost every industry, but it’s those that understand the nuances that will get ahea...',
+                'content' => 'There’s no doubt that #AI is set to transform almost every industry, but it’s those that understand the nuances that will get ahead.
+
+The key thing to keep in mind is that AI solutions will support rather than supplant existing tools and talent. In our latest article, we discuss how to effectively integrate human and artificial intelligence with #CaseManagement  🦾💪
+
+Get all the insights in this 5-minute read 🔗
+https://lnkd.in/gzY9uDvq',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 06:45:59',
+                'updated_at' => '2024-06-05 06:45:59',
+            ),
+            1 => 
+            array (
+                'id' => 2,
+                'rss_post_item_id' => 2,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Join Flowable CTO Micha Kiener and Principal Software Architect Joram Barrez in our webinar “Leveraging AI Assistance for Smart Mo...',
+                'content' => 'Join Flowable CTO Micha Kiener and Principal Software Architect Joram Barrez in our webinar “Leveraging AI Assistance for Smart Modeling” and discover how to use AI to create, adapt, and optimize your business processes.
+
+📅 June 20, 2024 
+⏰ 17:00 CET / 11:00 EST
+
+We’ll explore the impact of #GenerativeAI on #BPA and #CaseModels and discuss how #Flowable integrates with various #AI services. Our experts will also give a live demo and answer your questions.
+Generative AI is transforming the way we do business in every sector. Don\'t get left behind!
+
+Register here 📝 https://lnkd.in/dkMRnUXc',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 06:46:10',
+                'updated_at' => '2024-06-05 06:46:10',
+            ),
+            2 => 
+            array (
+                'id' => 3,
+                'rss_post_item_id' => 3,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Business Process Automation solutions can be deployed either on cloud, on-premises or on a hybrid architecture. The best way to go...',
+                'content' => 'Business Process Automation solutions can be deployed either on cloud, on-premises or on a hybrid architecture. The best way to go depends on several factors, which we have a look at in this article: https://lnkd.in/gm6822jy
+
+#bpa #cloud #automation',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 06:50:44',
+                'updated_at' => '2024-06-05 06:50:44',
+            ),
+            3 => 
+            array (
+                'id' => 4,
+                'rss_post_item_id' => 4,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'According to Forrester, leading enterprises have seen up to a 50% boost in productivity using #AI. Is your organization already le...',
+                'content' => 'According to Forrester, leading enterprises have seen up to a 50% boost in productivity using #AI. Is your organization already leveraging AI? Join Micha Kiener and Joram Barrez to explore how AI can facilitate modeling – from creating new models to adapting and making changes with AI assistance. Register here: https://lnkd.in/dkMRnUXc
+
+#webinar',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 06:58:14',
+                'updated_at' => '2024-06-05 06:58:14',
+            ),
+            4 => 
+            array (
+                'id' => 5,
+                'rss_post_item_id' => 5,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آیا می دانستید که 44 درصد از سازمان ها به طور فعال در حال ادغام هستند',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 07:18:59',
+                'updated_at' => '2024-06-05 07:18:59',
+            ),
+            5 => 
+            array (
+                'id' => 6,
+                'rss_post_item_id' => 6,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'در 20 ژوئن به ما بپیوندید تا بتوانید اطلاعات بیشتری کسب کنید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 07:19:45',
+                'updated_at' => '2024-06-05 07:19:45',
+            ),
+            6 => 
+            array (
+                'id' => 7,
+                'rss_post_item_id' => 7,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آیا به دنبال یک',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 07:25:16',
+                'updated_at' => '2024-06-05 07:25:16',
+            ),
+            7 => 
+            array (
+                'id' => 8,
+                'rss_post_item_id' => 8,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'تعاونی مالی کانادایی Kindred Credit Union که با فشار ظرفیت به دلیل منابع محدود مواجه شد، یک تحول متحول کننده را دنبال کرد.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 08:15:08',
+                'updated_at' => '2024-06-05 08:15:08',
+            ),
+            8 => 
+            array (
+                'id' => 9,
+                'rss_post_item_id' => 9,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'کسب و کارها به طور فزاینده ای بر روی ابراتوماسیون و کسب و کار ترکیبی متمرکز می شوند تا سریع و قابل اعتماد خود را با شرایط در حال تغییر تطبیق دهند.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 08:30:13',
+                'updated_at' => '2024-06-05 08:30:13',
+            ),
+            9 => 
+            array (
+                'id' => 10,
+                'rss_post_item_id' => 10,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'در چشم انداز پیچیده نظارتی، انطباق، و مدیریت ریسک امروز، کسب و کارها به ابزارهای قوی برای پشتیبانی از پایان به الکترونیک خود نیاز دارند.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 08:45:13',
+                'updated_at' => '2024-06-05 08:45:13',
+            ),
+            10 => 
+            array (
+                'id' => 11,
+                'rss_post_item_id' => 11,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '#UserFeedback | We love when a happy Flowable-user highlights the exceptional performance of the our platform.🌟Leveraging Flowabl...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 09:00:05',
+                'updated_at' => '2024-06-05 09:00:05',
+            ),
+            11 => 
+            array (
+                'id' => 12,
+                'rss_post_item_id' => 12,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آیا شنیده اید؟ ما',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 09:15:46',
+                'updated_at' => '2024-06-05 09:15:46',
+            ),
+            12 => 
+            array (
+                'id' => 13,
+                'rss_post_item_id' => 13,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'احساس الهام گرفتن از اخیر ما',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 09:30:16',
+                'updated_at' => '2024-06-05 09:30:16',
+            ),
+            13 => 
+            array (
+                'id' => 14,
+                'rss_post_item_id' => 14,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'در تجربه ما، دلایل زیادی وجود دارد که سرمایه گذاری در اتوماسیون شکست می خورد. در VMblog، مدیر عامل و یکی از بنیانگذاران ما یاکوب فروند بحث می کند ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 09:45:40',
+                'updated_at' => '2024-06-05 09:45:40',
+            ),
+            14 => 
+            array (
+                'id' => 15,
+                'rss_post_item_id' => 15,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Camunda Slack Connector ارکستراسیون فرآیند و همکاری تیمی را متحد می کند. این آموزش آکادمی کاموندا را تماشا کنید تا یاد بگیرید که چگونه ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 10:00:20',
+                'updated_at' => '2024-06-05 10:00:20',
+            ),
+            15 => 
+            array (
+                'id' => 16,
+                'rss_post_item_id' => 16,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آیا می‌دانستید مهاجرت به کاموندا 8 می‌تواند به سرعت بخشیدن به توانایی شما برای ایجاد راه‌حل‌های باکیفیت، متحد کردن بهتر تجارت و فناوری اطلاعات و... کمک کند.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 10:15:06',
+                'updated_at' => '2024-06-05 10:15:06',
+            ),
+            16 => 
+            array (
+                'id' => 17,
+                'rss_post_item_id' => 17,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'فرصت خود را برای پیوستن به ما از دست ندهید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 10:30:08',
+                'updated_at' => '2024-06-05 10:30:08',
+            ),
+            17 => 
+            array (
+                'id' => 18,
+                'rss_post_item_id' => 18,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'استفاده از داده‌های فرآیندهای تجاری در کنار الگوریتم‌های AI و ML موجود می‌تواند برای هر سازمانی تحول‌آفرین باشد. بیاموزید که چگونه ام...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 10:45:41',
+                'updated_at' => '2024-06-05 10:45:41',
+            ),
+            18 => 
+            array (
+                'id' => 19,
+                'rss_post_item_id' => 19,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'در وبلاگ ما، بیاموزید که چگونه تأخیر فعال‌سازی شغل را کاهش دادیم و تأخیر اجرای کلی را برای بارهای کاری مبتنی بر کار تا ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 11:00:11',
+                'updated_at' => '2024-06-05 11:00:11',
+            ),
+            19 => 
+            array (
+                'id' => 20,
+                'rss_post_item_id' => 20,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'در آخرین پست وبلاگ در مجموعه ما در مورد POC های کاموندا، ما به دام های رایج در هر اثبات مفهومی و نحوه جلوگیری از گیر افتادن می پردازیم ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 11:15:08',
+                'updated_at' => '2024-06-05 11:15:08',
+            ),
+            20 => 
+            array (
+                'id' => 21,
+                'rss_post_item_id' => 21,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'هنگامی که صحبت از غلبه بر چالش های اتوماسیون مانند عدم هماهنگی بین ذینفعان فناوری اطلاعات و کسب و کار یا عدم یکپارچگی به میان می آید ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 11:30:06',
+                'updated_at' => '2024-06-05 11:30:06',
+            ),
+            21 => 
+            array (
+                'id' => 22,
+                'rss_post_item_id' => 22,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'نسخه مه 2024 ماهنامه کاموندا اینجاست! برای یادگیری به خواندن ادامه دهید: 🚨 چیزهای جدید در کاموندا، از جمله جدیدترین اتصال هوش مصنوعی...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 11:45:05',
+                'updated_at' => '2024-06-05 11:45:05',
+            ),
+            22 => 
+            array (
+                'id' => 23,
+                'rss_post_item_id' => 23,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ما حامی افتخار IMAGINE 2024 هستیم، رویدادی برتر که توسط Automation Anywhere میزبانی می‌شود. در 11 و 12 ژوئن در آستین، TX به ما بپیوندید...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 12:00:11',
+                'updated_at' => '2024-06-05 12:00:11',
+            ),
+            23 => 
+            array (
+                'id' => 24,
+                'rss_post_item_id' => 24,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ما نشان Capterra خود را با افتخار می پوشیم 🛡 🤗 Bizagi به عنوان یکی از پلت فرم های BPM با بالاترین امتیاز در اتوبوس در فهرست نهایی قرار گرفته است...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 12:15:09',
+                'updated_at' => '2024-06-05 12:15:09',
+            ),
+            24 => 
+            array (
+                'id' => 25,
+                'rss_post_item_id' => 25,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'با ما در هوش مصنوعی همراه باشید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 12:30:31',
+                'updated_at' => '2024-06-05 12:30:31',
+            ),
+            25 => 
+            array (
+                'id' => 26,
+                'rss_post_item_id' => 26,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'خبر هیجان انگیز! نسخه بهار 2024 Bizagi از راه رسید، مملو از پیشرفت‌هایی که برای افزایش بهره‌وری برای هر دو طراحی شده‌اند.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 12:45:05',
+                'updated_at' => '2024-06-05 12:45:05',
+            ),
+            26 => 
+            array (
+                'id' => 27,
+                'rss_post_item_id' => 27,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🤔 شگفتی هفتگی 🤔 چگونه می توانم گلوگاه های زنجیره تامین خود را با اتوماسیون فرآیند برطرف کنم؟ با بررسی فرآیندهای موجود در تامین...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 13:00:29',
+                'updated_at' => '2024-06-05 13:00:29',
+            ),
+            27 => 
+            array (
+                'id' => 28,
+                'rss_post_item_id' => 28,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'مزایای باورنکردنی مدل تحویل ارزش سریع Bizagi را کشف کنید زیرا کوین گوئررو نشان می دهد که چگونه به سازمان ها سود می رساند ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 13:15:05',
+                'updated_at' => '2024-06-05 13:15:05',
+            ),
+            28 => 
+            array (
+                'id' => 29,
+                'rss_post_item_id' => 29,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '☀️ یک BAC درخشان دیگر، این بار در بارسلونا! ☀️ با تشکر فراوان از مشتریانمان که برای شورای مشاوره Bizagi به ما پیوستند...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 13:30:06',
+                'updated_at' => '2024-06-05 13:30:06',
+            ),
+            29 => 
+            array (
+                'id' => 30,
+                'rss_post_item_id' => 30,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🤔 شگفتی هفتگی 🤔 مزایای سیستم مدیریت فروشنده چیست؟ راه حل های مدیریت فروشنده به کسب و کار شما کمک می کند تا در ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 13:45:05',
+                'updated_at' => '2024-06-05 13:45:05',
+            ),
+            30 => 
+            array (
+                'id' => 31,
+                'rss_post_item_id' => 31,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🤔 شگفتی هفتگی 🤔 چگونه می توانم از استانداردسازی موثر فرآیند اطمینان حاصل کنم؟ ایجاد و حفظ فرآیندهای استاندارد به شما کمک می کند...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 14:00:12',
+                'updated_at' => '2024-06-05 14:00:12',
+            ),
+            31 => 
+            array (
+                'id' => 32,
+                'rss_post_item_id' => 32,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'خوشحالیم که جلسه خود را در کنفرانس تغییر و تحول کسب و کار در 21 می ساعت 11 صبح اعلام می کنیم! به ما بپیوندید تا به این موضوع بپردازیم...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 14:15:17',
+                'updated_at' => '2024-06-05 14:15:17',
+            ),
+            32 => 
+            array (
+                'id' => 33,
+                'rss_post_item_id' => 33,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آماده برای آوردن شما',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 14:30:06',
+                'updated_at' => '2024-06-05 14:30:06',
+            ),
+            33 => 
+            array (
+                'id' => 34,
+                'rss_post_item_id' => 34,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'من فوق‌العاده هیجان‌زده و مفتخرم که امروز به ProcessMaker جایزه @codieawards 2024 را برای بهترین راه‌حل هوش مصنوعی مولد دریافت کرد. ...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 14:45:09',
+                'updated_at' => '2024-06-05 14:45:09',
+            ),
+            34 => 
+            array (
+                'id' => 35,
+                'rss_post_item_id' => 35,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'امروز، ProcessMaker به عنوان برنده جوایز CODiE 2024 در رده بهترین راه حل های هوش مصنوعی مولد شناخته شد! جوایز CODiE برای...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 15:00:09',
+                'updated_at' => '2024-06-05 15:00:09',
+            ),
+            35 => 
+            array (
+                'id' => 36,
+                'rss_post_item_id' => 36,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'بیایید به سمت اتوماسیون برویم! 🚀 نسخه بهار 2024 ProcessMaker فرا رسیده است و گردش کار را با ظرفیت GenAI پیشرفته متحول می کند...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 15:15:21',
+                'updated_at' => '2024-06-05 15:15:21',
+            ),
+            36 => 
+            array (
+                'id' => 37,
+                'rss_post_item_id' => 37,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🚨 رویداد مجازی ویژه فردا 🚨 به ما بپیوندید تا در مورد کشف فرآیندهای جدید، استخراج و قابلیت تجزیه و تحلیل اطلاعات بیشتری کسب کنید...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 15:30:09',
+                'updated_at' => '2024-06-05 15:30:09',
+            ),
+            37 => 
+            array (
+                'id' => 38,
+                'rss_post_item_id' => 38,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🚨 رویداد مجازی ویژه فردا 🚨 به ما بپیوندید تا در مورد کشف فرآیندهای جدید، استخراج و قابلیت تجزیه و تحلیل اطلاعات بیشتری کسب کنید...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 15:45:05',
+                'updated_at' => '2024-06-05 15:45:05',
+            ),
+            38 => 
+            array (
+                'id' => 39,
+                'rss_post_item_id' => 39,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'فوق العاده بود که در هفته گذشته در لاگوس، نیجریه بودم تا در اولین کنفرانس سالانه ProcessMaker Nigerian Partner and Cu...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 16:00:06',
+                'updated_at' => '2024-06-05 16:00:06',
+            ),
+            39 => 
+            array (
+                'id' => 40,
+                'rss_post_item_id' => 40,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🚨 وبینار انتشار پلتفرم بهار 🚨 فردا به ما بپیوندید تا نگاهی عمیق به قابلیت های جدید ما داشته باشیم. صندلی خود را ایمن کنید: https://lnk...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 16:15:05',
+                'updated_at' => '2024-06-05 16:15:05',
+            ),
+            40 => 
+            array (
+                'id' => 41,
+                'rss_post_item_id' => 41,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🚀 خبر مهم از ProcessMaker! 🚀 ما هیجان زده هستیم که ProcessMaker را که پیشرو در اتوماسیون فرآیندهای تجاری و...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 16:30:05',
+                'updated_at' => '2024-06-05 16:30:05',
+            ),
+            41 => 
+            array (
+                'id' => 42,
+                'rss_post_item_id' => 42,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Ellucian Live 2024: بیایید از تیم در غرفه 755 دیدن کنید و در جریان کار Ellucian، اتوماسیون پردازش، و ارزیابی اعتبار انتقال پیدا کنید...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 16:45:06',
+                'updated_at' => '2024-06-05 16:45:06',
+            ),
+            42 => 
+            array (
+                'id' => 43,
+                'rss_post_item_id' => 43,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Ellucian Live 2024: بیایید از تیم در غرفه 755 دیدن کنید و در جریان کار Ellucian، اتوماسیون پردازش، و ارزیابی اعتبار انتقال پیدا کنید...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 17:00:06',
+                'updated_at' => '2024-06-05 17:00:06',
+            ),
+            43 => 
+            array (
+                'id' => 44,
+                'rss_post_item_id' => 44,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'می خواهید از آن نهایت استفاده را ببرید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 17:15:07',
+                'updated_at' => '2024-06-05 17:15:07',
+            ),
+            44 => 
+            array (
+                'id' => 45,
+                'rss_post_item_id' => 45,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '🤔 Weekly wonder 🤔 What are the top challenges for retail banks? 🙋♂️ Meeting customer expectations: The level of personalized se...',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 17:30:45',
+                'updated_at' => '2024-06-05 17:30:45',
+            ),
+            45 => 
+            array (
+                'id' => 46,
+                'rss_post_item_id' => 46,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'همانطور که سلتیکس برای بازی 1 فینال NBA آماده می شود، ما نیز برای آخرین بازی خود به بوستون، MA 🇺🇸 حرکت کردیم.',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 19:30:28',
+                'updated_at' => '2024-06-05 19:30:28',
+            ),
+            46 => 
+            array (
+                'id' => 47,
+                'rss_post_item_id' => 47,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ساعت ارکستراسیون - پاسخگویی به سوالات انجمن کاموندا به صورت زنده!',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 20:02:39',
+                'updated_at' => '2024-06-05 20:02:39',
+            ),
+            47 => 
+            array (
+                'id' => 48,
+                'rss_post_item_id' => 48,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 برلین: با سخنران ماریا آلکانتارا، کاموندا آشنا شوید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 20:04:57',
+                'updated_at' => '2024-06-05 20:04:57',
+            ),
+            48 => 
+            array (
+                'id' => 49,
+                'rss_post_item_id' => 49,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه استفاده از ویژگی های همکاری در کاموندا 8',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 20:15:09',
+                'updated_at' => '2024-06-05 20:15:09',
+            ),
+            49 => 
+            array (
+                'id' => 50,
+                'rss_post_item_id' => 50,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin ️ News Flash ️',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 20:30:10',
+                'updated_at' => '2024-06-05 20:30:10',
+            ),
+            50 => 
+            array (
+                'id' => 51,
+                'rss_post_item_id' => 51,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin: با سخنرانان آنا ایوانووا لیودمیلا پیدگورنا آشنا شوید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 20:45:09',
+                'updated_at' => '2024-06-05 20:45:09',
+            ),
+            51 => 
+            array (
+                'id' => 52,
+                'rss_post_item_id' => 52,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'به‌روزرسانی کاموندا 8.5 که باید امتحان کنید: JavaScript SDK برای Node.js',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 21:00:09',
+                'updated_at' => '2024-06-05 21:00:09',
+            ),
+            52 => 
+            array (
+                'id' => 53,
+                'rss_post_item_id' => 53,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه استفاده از رویدادهای جبران خسارت در مدل های کاموندا 8 BPMN',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 21:15:07',
+                'updated_at' => '2024-06-05 21:15:07',
+            ),
+            53 => 
+            array (
+                'id' => 54,
+                'rss_post_item_id' => 54,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin: مهمترین دلایل یاکوب فروند برای شرکت در کنفرانس ارکستراسیون فرآیند',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 21:30:11',
+                'updated_at' => '2024-06-05 21:30:11',
+            ),
+            54 => 
+            array (
+                'id' => 55,
+                'rss_post_item_id' => 55,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin: Daniel Meyer نگاهی پنهانی به سخنرانی خود با Bernd Ruecker به اشتراک می گذارد',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 21:45:08',
+                'updated_at' => '2024-06-05 21:45:08',
+            ),
+            55 => 
+            array (
+                'id' => 56,
+                'rss_post_item_id' => 56,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin: نکات Bernd Ruecker برای تجربه کنفرانس ارکستراسیون فرآیند',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 22:00:07',
+                'updated_at' => '2024-06-05 22:00:07',
+            ),
+            56 => 
+            array (
+                'id' => 57,
+                'rss_post_item_id' => 57,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2024 Berlin: The Process Orchestration Conference',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 22:15:07',
+                'updated_at' => '2024-06-05 22:15:07',
+            ),
+            57 => 
+            array (
+                'id' => 58,
+                'rss_post_item_id' => 58,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: چگونه با کانکتور Amazon SQS شروع کنیم',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 22:30:08',
+                'updated_at' => '2024-06-05 22:30:08',
+            ),
+            58 => 
+            array (
+                'id' => 59,
+                'rss_post_item_id' => 59,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه ایجاد یک نمودار BPMN در کاموندا 8 با استفاده از Modeler',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 22:45:07',
+                'updated_at' => '2024-06-05 22:45:07',
+            ),
+            59 => 
+            array (
+                'id' => 60,
+                'rss_post_item_id' => 60,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'Tutorial: How to Use BPMN Subprocesses and Call Activities in a Process Model',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 23:00:33',
+                'updated_at' => '2024-06-05 23:00:33',
+            ),
+            60 => 
+            array (
+                'id' => 61,
+                'rss_post_item_id' => 61,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: چگونه یک پروژه جدید برای نمودارهای BPMN خود در کاموندا ایجاد کنید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 23:15:09',
+                'updated_at' => '2024-06-05 23:15:09',
+            ),
+            61 => 
+            array (
+                'id' => 62,
+                'rss_post_item_id' => 62,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: چگونه با Camunda 8 SaaS شروع کنیم',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 23:30:09',
+                'updated_at' => '2024-06-05 23:30:09',
+            ),
+            62 => 
+            array (
+                'id' => 63,
+                'rss_post_item_id' => 63,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'موارد جدید در کاموندا 8.3',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-05 23:45:08',
+                'updated_at' => '2024-06-05 23:45:08',
+            ),
+            63 => 
+            array (
+                'id' => 64,
+                'rss_post_item_id' => 64,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ملاقات با CamundaCon 2023 سخنران: Danny DeJesus، Urban Tech Hero',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 00:00:08',
+                'updated_at' => '2024-06-06 00:00:08',
+            ),
+            64 => 
+            array (
+                'id' => 65,
+                'rss_post_item_id' => 65,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ملاقات با CamundaCon 2023 سخنران اصلی: Naily Makangu، Athena Leaders',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 00:15:10',
+                'updated_at' => '2024-06-06 00:15:10',
+            ),
+            65 => 
+            array (
+                'id' => 66,
+                'rss_post_item_id' => 66,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'با CamundaCon 2023 آشنا شوید سخنران: Milan Lesnek، Kiwi.com',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 00:30:08',
+                'updated_at' => '2024-06-06 00:30:08',
+            ),
+            66 => 
+            array (
+                'id' => 67,
+                'rss_post_item_id' => 67,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'با Chamundaka 2023 ملاقات کنید سخنران: Dmitry Kekelidze، Cern',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 00:45:15',
+                'updated_at' => '2024-06-06 00:45:15',
+            ),
+            67 => 
+            array (
+                'id' => 68,
+                'rss_post_item_id' => 68,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'CamundaCon 2023: Bernd Ruecker توضیح می دهد که چرا باید در آن شرکت کنید و کفش های دویدن خود را بسته بندی کنید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 01:00:13',
+                'updated_at' => '2024-06-06 01:00:13',
+            ),
+            68 => 
+            array (
+                'id' => 69,
+                'rss_post_item_id' => 69,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'شما به CamundaCon 2023، کنفرانس Orchestration Process دعوت شده اید',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 01:15:08',
+                'updated_at' => '2024-06-06 01:15:08',
+            ),
+            69 => 
+            array (
+                'id' => 70,
+                'rss_post_item_id' => 70,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'با CamundaSummit 2023 ملاقات کنید سخنران: فیلیپ هنله',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 01:30:09',
+                'updated_at' => '2024-06-06 01:30:09',
+            ),
+            70 => 
+            array (
+                'id' => 71,
+                'rss_post_item_id' => 71,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ملاقات با CamundaSummit 2023 سخنران: کریستینا آسلی',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 01:45:08',
+                'updated_at' => '2024-06-06 01:45:08',
+            ),
+            71 => 
+            array (
+                'id' => 72,
+                'rss_post_item_id' => 72,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: شنیدی؟ مهلت CamundaCon 2024 NYC CFP ما تا 12 ژوئن تمدید شده است! اما یک دقیقه بیشتر صبر نکنید. داستان ارکستراسیون فرآیند خود را امروز ارسال کنید. bit.ly/3QcDHHj',
+            'content' => 'آیا شنیده اید؟ مهلت CamundaCon 2024 NYC CFP ما تا 12 ژوئن تمدید شده است! اما یک دقیقه بیشتر صبر نکنید. داستان ارکستراسیون فرآیند خود را امروز ارسال کنید. https://t.co/YEecLDalLW pic.twitter.com/3lh01LEmkK— کاموندا (@Camunda) 4 ژوئن 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 02:00:13',
+                'updated_at' => '2024-06-06 02:00:13',
+            ),
+            72 => 
+            array (
+                'id' => 73,
+                'rss_post_item_id' => 73,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: انتظار به پایان رسید–CamundaCon 2024 Berlin اکنون به صورت درخواستی در دسترس است! جلساتی را که ممکن است از دست داده باشید، یاد بگیرید یا لحظات مورد علاقه خود را از کنفرانس ارکستراسیون فرآیند تجربه کنید. bit.ly/3yunreM',
+            'content' => 'انتظار به پایان رسید – CamundaCon 2024 Berlin اکنون بر حسب تقاضا در دسترس است! جلساتی را که ممکن است از دست داده باشید، یاد بگیرید یا لحظات مورد علاقه خود را از کنفرانس ارکستراسیون فرآیند تجربه کنید. https://t.co/X9SX21l1BU pic.twitter.com/JbxyloreYy— کاموندا (@Camunda) 22 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 02:15:18',
+                'updated_at' => '2024-06-06 02:15:18',
+            ),
+            73 => 
+            array (
+                'id' => 74,
+                'rss_post_item_id' => 74,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: از اینکه بخشی از بزرگترین و بهترین CamundaCon هستید متشکرم! ما مشتاق دیدار شما در نیویورک هستیم و برای ادامه ساختن آینده ارکستراسیون فرآیند با تیم @bp3global هیجان‌زده هستیم!',
+            'content' => 'از اینکه بخشی از بزرگترین و بهترین CamundaCon هستید متشکریم! ما مشتاق دیدار شما در نیویورک هستیم و برای ادامه ساختن آینده ارکستراسیون فرآیند با تیم @bp3global هیجان‌زده هستیم! https://t.co/X8O42PPal2— کاموندا (@Camunda) 20 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 02:30:17',
+                'updated_at' => '2024-06-06 02:30:17',
+            ),
+            74 => 
+            array (
+                'id' => 75,
+                'rss_post_item_id' => 75,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@CIOonline: RT توسط @Camunda: کاموندا اتوماسیون فرآیند را با ویژگی های زبان طبیعی جدید مبتنی بر هوش مصنوعی ساده می کند trib.al/qwTTHM3',
+            'content' => 'کاموندا اتوماسیون فرآیند را با ویژگی های زبان طبیعی جدید مبتنی بر هوش مصنوعی ساده می کند https://t.co/vkZii3Nyav— CIO.com (@CIOonline) 16 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 02:45:12',
+                'updated_at' => '2024-06-06 02:45:12',
+            ),
+            75 => 
+            array (
+                'id' => 76,
+                'rss_post_item_id' => 76,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+            'title' => '@Camunda: انتشار اخبار و ذخیره تاریخ ها را شروع کنید: حتی تعداد بیشتری از CamundaCon در راه است! 16 تا 17 اکتبر 2024: نیویورک (CFP ما تا 29 مه باز است: bit.ly/3UTkKfG | ثبت نام کنید تا بدانید: bit.ly/3JWkG8x) 13-15 مه 2025: آمستردام (با ما همراه باشید!)',
+            'content' => 'انتشار اخبار و ذخیره تاریخ ها را شروع کنید: کامونداکون های بیشتری در راه است! 16-17 اکتبر 2024: نیویورک (CFP ما تا 29 مه باز است: https://t.co/2iXTuSBtkh | ثبت نام کنید تا بدانید: https://t.co/GDJrRzG7js) 13-15 مه 2025: آمستردام (در جریان باشید!) pic.twitter.com/AJho3qFJCx— کاموندا (@Camunda) 16 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 03:00:12',
+                'updated_at' => '2024-06-06 03:00:12',
+            ),
+            76 => 
+            array (
+                'id' => 77,
+                'rss_post_item_id' => 77,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: از آنجایی که همه چیز اینجا در CamundaCon 2024 برلین رو به پایان است، از شما دعوت می کنیم تا به کاهش اثرات زیست محیطی این رویداد کمک کنید و بند خود را در هنگام خروج بازیافت کنید!',
+            'content' => 'از آنجایی که همه چیز در اینجا در CamundaCon 2024 برلین رو به پایان است، از شما دعوت می کنیم تا به کاهش اثرات زیست محیطی این رویداد کمک کنید و بند خود را در هنگام خروج بازیافت کنید! pic.twitter.com/T2a1zYlXTj— کاموندا (@Camunda) 16 مه 2024',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 03:15:09',
+                'updated_at' => '2024-06-06 03:15:09',
+            ),
+            77 => 
+            array (
+                'id' => 78,
+                'rss_post_item_id' => 78,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: ما به مرحله نهایی می رویم! آخرین جلسات CamundaCon 2024 برلین فقط در چند دقیقه شروع می شود: ماریو میکوداج، ویادی جانس برونز، گروه ROSEN Alexander Petioky، DB Systel',
+            'content' => 'ما به مرحله نهایی می رویم! آخرین جلسات CamundaCon 2024 برلین فقط در چند دقیقه شروع می شود: ماریو میکوداج، ویادی جانس برونز، گروه ROSEN Alexander Petioky، DB Systel pic.twitter.com/btFrNlRLrh— کاموندا (@Camunda) 16 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 03:30:15',
+                'updated_at' => '2024-06-06 03:30:15',
+            ),
+            78 => 
+            array (
+                'id' => 79,
+                'rss_post_item_id' => 79,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+            'title' => '@mary_grace: RT by @Camunda: In an ideal world, packages are picked up, transported, and delivered. But we all know the ideal world doesn’t exist 😜 So how does GLS (responsible for >2mil packages per _day_) know what’s actually happening in the real world? By using @Camunda. #camundacon',
+            'content' => 'در دنیای ایده آل، بسته ها برداشت، حمل و نقل و تحویل می شوند. اما همه ما می‌دانیم که دنیای ایده‌آل وجود ندارد، بنابراین چگونه GLS (مسئول بسته‌های بیش از ۲ میلیون در روز) می‌داند واقعاً در دنیای واقعی چه اتفاقی می‌افتد؟ با استفاده از @Camunda.  camundacon pic.twitter.com/TXl9ga5qrQ— مری ثنگوال (او)؛ mary-grace.bsky.social (@mary_grace) 16 مه 2024',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 03:45:22',
+                'updated_at' => '2024-06-06 03:45:22',
+            ),
+            79 => 
+            array (
+                'id' => 80,
+                'rss_post_item_id' => 80,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: بیشتر CamundaCon 2024 برلین در چند دقیقه!  Markus Seim Lutz Kerwien، GLS IT Services GmbH Anna Ivanova، UKRSIBBANK Liudmila Pidgorna، Integrity Vision Ricardo Machado، Digital Port Hugo Magalhães، Helppier Christopher Kujawa، Camunda',
+                'content' => 'CamundaCon 2024 Berlin بیشتر در چند دقیقه!  Markus Seim Lutz Kerwien، GLS IT Services GmbH Anna Ivanova، UKRSIBBANK Liudmila Pidgorna، Integrity Vision Ricardo Machado، Digital Port Hugo Magalhães، Helppier Christopher Kujawa، Camunda pic.twitter.com/6BvMplwlQO— Camunda20,@C',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 04:45:12',
+                'updated_at' => '2024-06-06 04:45:12',
+            ),
+            80 => 
+            array (
+                'id' => 81,
+                'rss_post_item_id' => 81,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@mary_grace: RT توسط @Camunda: این اعداد راب پارکر اکنون در CamundaCon روی صحنه است و در مورد نحوه استفاده تیمش از راه‌حل‌های خارج از جعبه ارائه شده @Camunda به روشی کم‌کد و بدون کد برای دستیابی به آن صحبت می‌کند. این موفقیت تنها در سه ماهه اول پس از اجرای فرآیندهای جدید',
+            'content' => 'این اعداد راب پارکر اکنون در CamundaCon روی صحنه است و در مورد نحوه استفاده تیمش از راه حل های خارج از جعبه ارائه شده @Camunda به روشی کم کد و بدون کد برای دستیابی به این موفقیت تنها در سه ماهه اول پس از آن صحبت می کند. اجرای فرآیندهای جدید pic.twitter.com/vd59Mzgl8q— مری ثنگوال (او)؛ mary-grace.bsky.social (@mary_grace) 16 مه 2024',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 05:15:15',
+                'updated_at' => '2024-06-06 05:15:15',
+            ),
+            81 => 
+            array (
+                'id' => 82,
+                'rss_post_item_id' => 82,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@marmak3480: RT توسط @Camunda: تیم camundacon BeOne پس از هک‌دهی خسته کننده، اما همچنان از بسیاری از نصب‌های کاموندا پشتیبانی می‌کند',
+            'content' => 'تیم camundacon BeOne پس از هک‌دهی خسته کننده، اما همچنان از بسیاری از نصب‌های کاموندا پشتیبانی می‌کند pic.twitter.com/B8q3KT203C— Marcin Makowski (@marmak3480) 16 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 05:45:11',
+                'updated_at' => '2024-06-06 05:45:11',
+            ),
+            82 => 
+            array (
+                'id' => 83,
+                'rss_post_item_id' => 83,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+            'title' => '@mary_grace: RT توسط @Camunda: منظورم این اعداد واقعاً چشمگیر است... حالا بیایید همچنین... - مقدار زمانی که مهندسان خود را صرفه جویی کرده اند - مسائل معنایی که آنها برطرف کرده اند - رهبران کسب و کار اکنون می توانند از آنها دفاع کنند. از طرف رهبران فناوری با اصطلاحات مشابه… (ادامه) camundacon',
+            'content' => 'و از واقعاً چشمگیر بودن، منظورم این اعداد است... حالا بیایید همچنین... - مقدار زمانی که مهندسان خود را صرفه جویی کرده اند - مسائل معنایی که آنها را برطرف کرده اند - رهبران کسب و کار اکنون می توانند از طرف رهبران فناوری با همان اصطلاح… (ادامه) کامونداکون pic.twitter.com/r6A30xWCtL— مری ثنگوال (او)؛ mary-grace.bsky.social (@mary_grace) 16 مه 2024',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 06:00:09',
+                'updated_at' => '2024-06-06 06:00:09',
+            ),
+            83 => 
+            array (
+                'id' => 84,
+                'rss_post_item_id' => 84,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: آیا کسی در جامعه کاموندا تمام تلاش خود را برای خدمت رسانی انجام داده است؟ چه کمک به اشکالات اسکواش یا سازماندهی جلسات، ما می‌خواهیم کسانی را که در جوایز انجمن CamundaSummit فراتر می‌روند را بشناسیم و بشناسیم!',
+            'content' => 'آیا کسی در جامعه کاموندا تمام تلاش خود را برای خدمت رسانی انجام داده است؟ چه کمک به اشکالات اسکواش یا سازماندهی جلسات، ما می‌خواهیم کسانی را که در جوایز انجمن CamundaSummit فراتر می‌روند را بشناسیم و بشناسیم! https://t.co/yG4Dr7lcdn— کاموندا (@Camunda) 4 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 06:15:14',
+                'updated_at' => '2024-06-06 06:15:14',
+            ),
+            84 => 
+            array (
+                'id' => 85,
+                'rss_post_item_id' => 85,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: ما به داشتن چنین انجمن فوق العاده ای افتخار می کنیم! ممنون واسه همه زحماتت!',
+            'content' => 'ما به داشتن چنین جامعه شگفت انگیزی افتخار می کنیم! ممنون واسه همه زحماتت! https://t.co/dBovwCpgjf— کاموندا (@Camunda) 3 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 06:30:13',
+                'updated_at' => '2024-06-06 06:30:13',
+            ),
+            85 => 
+            array (
+                'id' => 86,
+                'rss_post_item_id' => 86,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: در وبلاگ ما، @mary_grace به اشتراک می گذارد که چگونه 3 عملکرد تیم DevRel ما به هموار کردن مسیر برای توانمندسازی کاربران فنی ما کمک می کند.',
+            'content' => 'در وبلاگ ما، @mary_grace به اشتراک می گذارد که چگونه 3 عملکرد تیم DevRel ما به هموار کردن مسیر برای توانمندسازی کاربران فنی ما کمک می کند. https://t.co/MrZxDVY3qQ— کاموندا (@Camunda) 3 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 07:00:13',
+                'updated_at' => '2024-06-06 07:00:13',
+            ),
+            86 => 
+            array (
+                'id' => 87,
+                'rss_post_item_id' => 87,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: بیاموزید که چگونه OTELO و کسب‌وکارهای نمایندگی فروش برند @VodafoneGroup آلمان از یکپارچه‌سازی‌های چندگانه به زیرساخت‌های مبتنی بر ابری که با کاموندا هماهنگ شده‌اند، تغییر شکل داده‌اند و در عین حال تجربه مشتری را در ادامه ارسال محصولات افزایش‌یافته بهبود می‌بخشند.',
+            'content' => 'بیاموزید که چگونه OTELO و کسب و کارهای نمایندگی فروش برند @VodafoneGroup آلمان از چندپارچه به یک زیرساخت مبتنی بر ابر که با کاموندا هماهنگ شده است، تبدیل شدند و در عین حال تجربه مشتری را در ادامه ارسال محصولات افزایش می‌دهند. https://t.co/lhywDjjdGQ pic.twitter.com/mPGZLNClnO— کاموندا (@Camunda) 2 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 07:15:09',
+                'updated_at' => '2024-06-06 07:15:09',
+            ),
+            87 => 
+            array (
+                'id' => 88,
+                'rss_post_item_id' => 88,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: جهان بین انسان‌ها، طبیعت و فناوری قبلاً به طور منظم با هم برخورد می‌کنند. به @nele_lea ما برای @tedxhuberlin AI: A Tough Love در 17 آوریل بپیوندید تا ببینید چگونه می‌توان آینده را با یادگیری ماشینی، داده‌های بزرگ و افراد شکل داد.',
+            'content' => 'جهان بین انسان ها، طبیعت و فناوری از قبل به طور منظم با هم برخورد می کنند. به @nele_lea ما برای @tedxhuberlin AI: A Tough Love در 17 آوریل بپیوندید تا ببینید چگونه می‌توان آینده را با یادگیری ماشینی، داده‌های بزرگ و افراد شکل داد. https://t.co/YzWNgtavJJ pic.twitter.com/mBFNSaZVwn— کاموندا (@Camunda) 2 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 07:30:14',
+                'updated_at' => '2024-06-06 07:30:14',
+            ),
+            88 => 
+            array (
+                'id' => 89,
+                'rss_post_item_id' => 89,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: 4 things you need to know about successfully growing and engaging a community, as shared by Camunda Community member and Camunda Meetup Group Vienna organizer, Maximilian Kamenicky.',
+            'content' => '4 چیز که باید در مورد رشد و مشارکت موفقیت آمیز یک جامعه بدانید، همانطور که توسط عضو انجمن کاموندا و سازمان دهنده گروه ملاقات کاموندا در وین، ماکسیمیلیان کامنیکی به اشتراک گذاشته شده است. https://t.co/TzLdwoaNIY— کاموندا (@Camunda) 1 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 07:45:31',
+                'updated_at' => '2024-06-06 07:45:31',
+            ),
+            89 => 
+            array (
+                'id' => 90,
+                'rss_post_item_id' => 90,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'کاموندا: ما بسیار مفتخریم و سپاسگزاریم که در تیم ما هستید! در اینجا به بسیاری از سالگردهای دیگر!',
+            'content' => 'ما بسیار مفتخریم و سپاسگزاریم که در تیم ما هستید! در اینجا به بسیاری از سالگردهای دیگر! https://t.co/Ba8fs1pWBC— کاموندا (@Camunda) 1 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 08:15:10',
+                'updated_at' => '2024-06-06 08:15:10',
+            ),
+            90 => 
+            array (
+                'id' => 91,
+                'rss_post_item_id' => 91,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'کاموندا: در صنعتی به رقابتی مانند خرده فروشی، تجربه مشتری عالی می تواند تفاوت بین داشتن 16 میلیون مشتری و نداشتن هیچ مشتری باشد. در وبلاگ ما، یاد بگیرید که Zalando چگونه از کاموندا پلتفرم برای اجرای سفارشات مشتریان در 15 بازار اروپایی استفاده می کند.  BPMN',
+            'content' => 'در صنعتی رقابتی مانند خرده فروشی، تجربه مشتری عالی می تواند تفاوت بین داشتن 16 میلیون مشتری و نداشتن هیچ مشتری باشد. در وبلاگ ما، یاد بگیرید که Zalando چگونه از کاموندا پلتفرم برای اجرای سفارشات مشتریان در 15 بازار اروپایی استفاده می کند. https://t.co/QzTVDK3tDH BPMN— کاموندا (@Camunda) 1 آوریل 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 08:45:13',
+                'updated_at' => '2024-06-06 08:45:13',
+            ),
+            91 => 
+            array (
+                'id' => 92,
+                'rss_post_item_id' => 92,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@lucaceline_: می‌خواهید مشارکت‌کنندگان جامعه خود را برای رهبری گروه‌های ملاقات موفق توانمند کنید؟ در این پست وبلاگ، من شش مورد مهم را از ایجاد یک برنامه پشتیبانی برای سازمان دهندگان جهانی @Camunda meetup در سه سال گذشته به اشتراک خواهم گذاشت:',
+            'content' => 'آیا می خواهید مشارکت کنندگان جامعه خود را برای رهبری گروه های ملاقات موفق توانمند کنید؟ در این پست وبلاگ، من شش نکته مهم را از ایجاد یک برنامه پشتیبانی برای سازمان دهندگان جهانی @Camunda meetup در سه سال گذشته به اشتراک خواهم گذاشت: https://t.co/UnDDUZp6s1— Luca Buchholz (@lucaceline_) آوریل 1، 2021n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 09:00:13',
+                'updated_at' => '2024-06-06 09:00:13',
+            ),
+            92 => 
+            array (
+                'id' => 93,
+                'rss_post_item_id' => 93,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: اینجا از شوخی های اول آوریل خبری نیست. زمان برای ذخیره صندلی خود برای اولین نشست کاموندا در 27 آوریل به پایان رسیده است',
+            'content' => 'اینجا از شوخی های اول آوریل خبری نیست. زمان برای ذخیره صندلی خود برای اولین نشست کاموندا در 27 تا 28 آوریل به پایان رسیده است! https://t.co/KNimGaeomH— کاموندا (@Camunda) 1 آوریل 2021',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 09:45:10',
+                'updated_at' => '2024-06-06 09:45:10',
+            ),
+            93 => 
+            array (
+                'id' => 94,
+                'rss_post_item_id' => 94,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@gotoacademyNL: به جلسه Slack AskMeAnything ما با یکی از بنیانگذاران بپیوندید',
+                'content' => 'به جلسه Slack AskMeAnything ما با یکی از بنیانگذاران بپیوندید',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 10:00:10',
+                'updated_at' => '2024-06-06 10:00:10',
+            ),
+            94 => 
+            array (
+                'id' => 95,
+                'rss_post_item_id' => 95,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@daveparadis: من خوش شانس بودم که توانستم با دخترانم در The @Camunda شرکت کنم. چه تجربه متحرک فوق العاده ای. ما برای پذیرفته شدن آنها هیجان زده ایم!',
+            'content' => 'من خوش شانس بودم که توانستم با دخترانم در https://t.co/pngquKTQk0 @Camunda شرکت کنم. چه تجربه متحرک فوق العاده ای. ما برای پذیرفته شدن آنها هیجان زده ایم! pic.twitter.com/KiCA1upV9g— دیو پارادیس (@daveparadis) 1 آوریل 2021',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 10:30:13',
+                'updated_at' => '2024-06-06 10:30:13',
+            ),
+            95 => 
+            array (
+                'id' => 96,
+                'rss_post_item_id' => 96,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@Camunda: We are so excited to welcome organizations to our all-new Camunda Connect Global Partner Program, purposefully designed to maximize how we help our partners grow and solve complex business #processautomation challenges. Learn more on our blog:',
+            'content' => 'We are so excited to welcome organizations to our all-new Camunda Connect Global Partner Program, purposefully designed to maximize how we help our partners grow and solve complex business #processautomation challenges. Learn more on our blog: https://t.co/NZZEzQoGbv— Camunda (@Camunda) March 31, 2021
+',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 10:46:18',
+                'updated_at' => '2024-06-06 10:46:18',
+            ),
+            96 => 
+            array (
+                'id' => 97,
+                'rss_post_item_id' => 97,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آپاچی کافکا: ارسال پیام | چگونه',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 11:15:21',
+                'updated_at' => '2024-06-06 11:15:21',
+            ),
+            97 => 
+            array (
+                'id' => 98,
+                'rss_post_item_id' => 98,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آپاچی کافکا: دریافت پیام | چگونه',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 11:30:11',
+                'updated_at' => '2024-06-06 11:30:11',
+            ),
+            98 => 
+            array (
+                'id' => 99,
+                'rss_post_item_id' => 99,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'RabbitMQ: ارسال پیام | چگونه',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 12:00:11',
+                'updated_at' => '2024-06-06 12:00:11',
+            ),
+            99 => 
+            array (
+                'id' => 100,
+                'rss_post_item_id' => 100,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'RabbitMQ: دریافت پیام | چگونه',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 12:15:11',
+                'updated_at' => '2024-06-06 12:15:11',
+            ),
+            100 => 
+            array (
+                'id' => 101,
+                'rss_post_item_id' => 101,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+            'title' => 'HTTP(S) با Flowable: Service Registry | چگونه',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 12:30:10',
+                'updated_at' => '2024-06-06 12:30:10',
+            ),
+            101 => 
+            array (
+                'id' => 102,
+                'rss_post_item_id' => 102,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'نسخه 3.15 | چه چیزی در Flowable جدید است؟',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 12:45:10',
+                'updated_at' => '2024-06-06 12:45:10',
+            ),
+            102 => 
+            array (
+                'id' => 103,
+                'rss_post_item_id' => 103,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 24',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 13:00:08',
+                'updated_at' => '2024-06-06 13:00:08',
+            ),
+            103 => 
+            array (
+                'id' => 104,
+                'rss_post_item_id' => 104,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 23',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 13:15:12',
+                'updated_at' => '2024-06-06 13:15:12',
+            ),
+            104 => 
+            array (
+                'id' => 105,
+                'rss_post_item_id' => 105,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 22',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 13:30:08',
+                'updated_at' => '2024-06-06 13:30:08',
+            ),
+            105 => 
+            array (
+                'id' => 106,
+                'rss_post_item_id' => 106,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 21',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 13:45:11',
+                'updated_at' => '2024-06-06 13:45:11',
+            ),
+            106 => 
+            array (
+                'id' => 107,
+                'rss_post_item_id' => 107,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 20',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 14:00:18',
+                'updated_at' => '2024-06-06 14:00:18',
+            ),
+            107 => 
+            array (
+                'id' => 108,
+                'rss_post_item_id' => 108,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 19',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 14:15:19',
+                'updated_at' => '2024-06-06 14:15:19',
+            ),
+            108 => 
+            array (
+                'id' => 109,
+                'rss_post_item_id' => 109,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 18',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 14:30:10',
+                'updated_at' => '2024-06-06 14:30:10',
+            ),
+            109 => 
+            array (
+                'id' => 110,
+                'rss_post_item_id' => 110,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز 17',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 14:45:10',
+                'updated_at' => '2024-06-06 14:45:10',
+            ),
+            110 => 
+            array (
+                'id' => 111,
+                'rss_post_item_id' => 111,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'ظهور روان | روز شانزدهم',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 15:00:12',
+                'updated_at' => '2024-06-06 15:00:12',
+            ),
+            111 => 
+            array (
+                'id' => 112,
+                'rss_post_item_id' => 112,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: به Flowable CTO @michakiener و Principal Software Architect @jbarrez در وبینار ما «افزایش کمک هوش مصنوعی برای مدل‌سازی هوشمند» بپیوندید و نحوه استفاده از هوش مصنوعی را برای ایجاد، تطبیق و بهینه‌سازی فرآیندهای کسب‌وکار خود بیاموزید. هم اکنون ثبت نام کنید:',
+            'content' => 'به Flowable CTO @michakiener و Principal Software Architect @jbarrez در وبینار ما «بهره‌گیری از کمک هوش مصنوعی برای مدل‌سازی هوشمند» بپیوندید و نحوه استفاده از هوش مصنوعی را برای ایجاد، تطبیق و بهینه‌سازی فرآیندهای کسب‌وکار خود بیاموزید. اکنون ثبت نام کنید: https://t.co/6LuzHWcVZJ pic.twitter.com/aqtP9iyEfQ— Flowable (@flowablebpm) 5 ژوئن 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 15:15:11',
+                'updated_at' => '2024-06-06 15:15:11',
+            ),
+            112 => 
+            array (
+                'id' => 113,
+                'rss_post_item_id' => 113,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: آموزش پنجشنبه | شما Flowable را دانلود کرده اید و اکنون برای شروع آماده هستید. در این ویدئو، ما به شما نشان می دهیم که چگونه اولین برنامه Flowable خود را با فرآیند ساده "Hello World" ایجاد کنید:',
+            'content' => 'آموزش پنجشنبه | شما Flowable را دانلود کرده اید و اکنون برای شروع آماده هستید. در این ویدیو، ما به شما نشان می‌دهیم که چگونه اولین برنامه Flowable خود را با یک فرآیند ساده «Hello World» ایجاد کنید: https://t.co/7zODOaB9wW pic.twitter.com/ZIh3NONNDr— Flowable (@flowablebpm) 30 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 15:30:14',
+                'updated_at' => '2024-06-06 15:30:14',
+            ),
+            113 => 
+            array (
+                'id' => 114,
+                'rss_post_item_id' => 114,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: در 20 ژوئن برای یک وبینار روشنگر در مورد چگونگی استفاده از هوش مصنوعی برای مزیت رقابتی، به ما بپیوندید، که از ابتدا شروع می‌شود: ایجاد فرآیندهای تجاری مؤثر و مدل‌های موردی با استفاده از کمک هوش مصنوعی. اینجا ثبت نام کنید:',
+            'content' => 'در 20 ژوئن به ما بپیوندید تا یک وبینار روشنگر در مورد چگونگی استفاده از هوش مصنوعی برای مزیت رقابتی، از ابتدا شروع کنید: ایجاد فرآیندهای تجاری مؤثر و مدل‌های موردی با استفاده از کمک هوش مصنوعی. اینجا ثبت نام کنید: https://t.co/6LuzHWcoab pic.twitter.com/6ZIgly0aPF— Flowable (@flowablebpm) 28 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 15:45:12',
+                'updated_at' => '2024-06-06 15:45:12',
+            ),
+            114 => 
+            array (
+                'id' => 115,
+                'rss_post_item_id' => 115,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: آموزش پنجشنبه | Flowable Solution Architect @vzickner راهنمای گام به گام راه‌اندازی آزمایشی Flowable را به شما ارائه می‌دهد، بنابراین می‌توانید ببینید که این پلتفرم چه کارهایی را در پرم و در فضای ابری انجام می‌دهد. آموزش را بررسی کنید',
+            'content' => 'آموزش پنجشنبه | Flowable Solution Architect @vzickner راهنمای گام به گام راه‌اندازی آزمایشی Flowable را به شما ارائه می‌دهد، بنابراین می‌توانید ببینید که این پلتفرم چه کارهایی را در پرم و در فضای ابری انجام می‌دهد. آموزش را بررسی کنید https://t.co/ejfSCcmGBn— Flowable (@flowablebpm) 23 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 16:00:21',
+                'updated_at' => '2024-06-06 16:00:21',
+            ),
+            115 => 
+            array (
+                'id' => 116,
+                'rss_post_item_id' => 116,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: از تعاملات یکپارچه تا فرآیندهای بهینه شده، یاد بگیرید که Flowable چگونه سفرهای مشتری را تغییر می دهد. در این وبینار درخواستی بیابید که چگونه اتوماسیون می تواند نحوه تعامل مشتریان شما با کسب و کار شما را تغییر دهد.',
+            'content' => 'از تعاملات یکپارچه گرفته تا فرآیندهای بهینه، یاد بگیرید که Flowable چگونه سفرهای مشتری را تغییر می دهد. در این وبینار درخواستی بیابید که چگونه اتوماسیون می تواند نحوه تعامل مشتریان شما با کسب و کار شما را تغییر دهد.  https://t.co/XDmrvILED5 وبینار— Flowable (@flowablebpm) 20 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 16:15:13',
+                'updated_at' => '2024-06-06 16:15:13',
+            ),
+            116 => 
+            array (
+                'id' => 117,
+                'rss_post_item_id' => 117,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: در چشم‌انداز پیچیده نظارتی امروزی، کسب‌وکارها به ابزارهای قوی نیاز دارند. Flowable انطباق با مدل های کاربر انعطاف پذیر، سیاست های امنیتی و کنترل دسترسی را تضمین می کند. اطلاعات بیشتر:',
+            'content' => 'در چشم انداز پیچیده نظارتی امروزی، کسب و کارها به ابزارهای قوی نیاز دارند. Flowable انطباق با مدل های کاربر انعطاف پذیر، سیاست های امنیتی و کنترل دسترسی را تضمین می کند. بیشتر بیاموزید: https://t.co/bhkIgf5FNq— Flowable (@flowablebpm) 20 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 16:30:12',
+                'updated_at' => '2024-06-06 16:30:12',
+            ),
+            117 => 
+            array (
+                'id' => 118,
+                'rss_post_item_id' => 118,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: LGT Private Banking از Flowable برای ساده‌سازی فرآیند آموزش جهانی خود استفاده می‌کند. با بیش از 1000 کار به طور یکپارچه، سفر یک بار دستی از نامزدی به ارزیابی اکنون بدون دردسر آشکار می شود. تاریخچه موفقیت را اینجا بخوانید:',
+            'content' => 'LGT Private Banking از Flowable برای ساده کردن فرآیند آموزش جهانی خود استفاده می کند. با بیش از 1000 کار به طور یکپارچه، سفر یک بار دستی از نامزدی به ارزیابی اکنون بدون دردسر آشکار می شود. تاریخچه موفقیت را اینجا بخوانید: https://t.co/VBHFYhrvHP pic.twitter.com/0UnFpOwDPw— Flowable (@flowablebpm) 18 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 16:45:26',
+                'updated_at' => '2024-06-06 16:45:26',
+            ),
+            118 => 
+            array (
+                'id' => 119,
+                'rss_post_item_id' => 119,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: در تولید، کارایی مهم است. شما باید سریعتر حرکت کنید، بهتر عمل کنید و زمان از کار افتادگی را به حداقل ممکن برسانید. با Flowable، سیستم‌ها و فرآیندهای موجود را تغییر شکل دهید، کارایی را در زنجیره تامین و خدمات مشتری خود افزایش دهید:',
+            'content' => 'در تولید، بهره وری در درجه اول اهمیت قرار دارد. شما باید سریعتر حرکت کنید، بهتر عمل کنید و زمان از کار افتادگی را به حداقل ممکن برسانید. سیستم‌ها و فرآیندهای موجود را تغییر شکل دهید، کارایی را در زنجیره تامین و خدمات مشتری خود با Flowable افزایش دهید: https://t.co/3IOMOduLqi pic.twitter.com/BCaT8AXbcj— Flowable (@flowablebpm) 16 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:00:11',
+                'updated_at' => '2024-06-06 17:00:11',
+            ),
+            119 => 
+            array (
+                'id' => 120,
+                'rss_post_item_id' => 120,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: شرکت‌ها متوجه شده‌اند که چالش‌های مقیاس‌پذیری مرتبط با دستیابی به استقرار RPA در مقیاس وسیع وجود دارد. هماهنگ سازی ربات های RPA یک عنصر حیاتی برای دستیابی به مقیاس پذیری در استقرار گسترده تر است:',
+            'content' => 'شرکت ها متوجه شده اند که چالش های مقیاس پذیری مرتبط با دستیابی به استقرار RPA در مقیاس وسیع وجود دارد. هماهنگ‌سازی ربات‌های RPA یک عنصر حیاتی برای دستیابی به مقیاس‌پذیری در استقرار گسترده‌تر است: https://t.co/KKIuafHxix pic.twitter.com/Em0gjzXQiH— Flowable (@flowablebpm) 3 مه 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:15:24',
+                'updated_at' => '2024-06-06 17:15:24',
+            ),
+            120 => 
+            array (
+                'id' => 121,
+                'rss_post_item_id' => 121,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: @digiworkforce با همکاری Flowable، راه‌حلی برای بهبود پیگیری مراقبت از سرطان در یک بیمارستان دانشگاهی پیشرو نوردیک ایجاد کرد و زمان انتظار پیگیری را از ماه‌ها به هفته‌ها کاهش داد:',
+            'content' => '@digiworkforce با همکاری Flowable، راه‌حلی برای بهبود پیگیری مراقبت از سرطان در بیمارستان دانشگاهی پیشرو نوردیک ایجاد کرد و زمان انتظار پیگیری را از ماه‌ها تا هفته‌ها کاهش داد: https://t.co/EeMcFBvHoKhealthcare automation— Flowable (@flowablebpm) 30 آوریل 2024 در',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:26:27',
+                'updated_at' => '2024-06-06 17:26:27',
+            ),
+            121 => 
+            array (
+                'id' => 122,
+                'rss_post_item_id' => 122,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: Flowable gives #healthcare providers a single flexible platform to streamline internal clinical care processes, so they can focus on improving patient care:',
+            'content' => 'Flowable به ارائه دهندگان مراقبت های بهداشتی یک پلت فرم منعطف واحد برای ساده سازی فرآیندهای مراقبت بالینی داخلی می دهد، بنابراین آنها می توانند بر بهبود مراقبت از بیمار تمرکز کنند: https://t.co/5oXqLrdjPV pic.twitter.com/zhNtaUyk0S— Flowable (@flowablebpm) 29 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:29:28',
+                'updated_at' => '2024-06-06 17:29:28',
+            ),
+            122 => 
+            array (
+                'id' => 123,
+                'rss_post_item_id' => 123,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: سلام از برلین! @oliver_welte، رابرت، الیور',
+                'content' => 'سلام از برلین @oliver_welte، رابرت، الیور',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:34:28',
+                'updated_at' => '2024-06-06 17:34:28',
+            ),
+            123 => 
+            array (
+                'id' => 124,
+                'rss_post_item_id' => 124,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: نمی‌توانید به وبینار هفته گذشته در مورد ساده‌سازی تجربه مشتری با اتوماسیون برسید؟ ما شما را تحت پوشش قرار داده ایم وبینار اکنون در صورت درخواست در دسترس است و تماشای آن رایگان است.',
+            'content' => 'آیا نمی‌توانید به وبینار هفته گذشته در مورد ساده‌سازی تجربه مشتری با اتوماسیون برسید؟ ما شما را تحت پوشش قرار داده ایم وبینار اکنون در صورت درخواست در دسترس است و تماشای آن رایگان است.  https://t.co/XDmrvILED5automation customerexperience pic.twitter.com/9byryG1zqZ— Flowable (@flowablebpm) 24 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 17:45:19',
+                'updated_at' => '2024-06-06 17:45:19',
+            ),
+            124 => 
+            array (
+                'id' => 125,
+                'rss_post_item_id' => 125,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: قیمت‌ها را تسریع کنید و سلف‌سرویس را برای پردازش، پذیره‌نویسی و ایجاد سند با Flowable فعال کنید. هر مرحله از چرخه سیاست‌گذاری، از تعدیل‌ها گرفته تا تمدید، را متناسب با بازار شما دیجیتالی کنید. درباره Flowable in Insurance بیشتر بدانید.',
+            'content' => 'قیمت ها را تسریع کنید و سلف سرویس را برای پردازش، پذیره نویسی و ایجاد سند با Flowable فعال کنید. هر مرحله از چرخه سیاست‌گذاری، از تعدیل‌ها گرفته تا تمدید، را متناسب با بازار شما دیجیتالی کنید. درباره Flowable در Insurance بیشتر بدانید.https://t.co/UyLoUvBLks pic.twitter.com/lXbFoOf1pj— Flowable (@flowablebpm) 22 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 18:00:16',
+                'updated_at' => '2024-06-06 18:00:16',
+            ),
+            125 => 
+            array (
+                'id' => 126,
+                'rss_post_item_id' => 126,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: اکنون شروع می شود | سفر مشتری خود را در سراسر زنجیره ارزش به طور خودکار انجام دهید آیا مایلید سفر مشتری خود را متحول کنید؟ اکنون بپیوندید و بررسی کنید که چگونه اتوماسیون فرآیند و هماهنگ‌سازی می‌توانند بهترین متحدان شما برای دستیابی به یک تجربه مشتری بی‌نقص باشند:',
+            'content' => 'از هم اکنون شروع می شود | سفر مشتری خود را در سراسر زنجیره ارزش به طور خودکار انجام دهید آیا مایلید سفر مشتری خود را متحول کنید؟ اکنون بپیوندید و کشف کنید که چگونه اتوماسیون فرآیند و هماهنگ‌سازی می‌تواند بهترین متحدان شما برای دستیابی به یک تجربه مشتری بی‌نقص باشد: https://t.co/KM9lViGtCD pic.twitter.com/o3n9hevHYK— Flowable (@flowablebpm) 17 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 18:15:15',
+                'updated_at' => '2024-06-06 18:15:15',
+            ),
+            126 => 
+            array (
+                'id' => 127,
+                'rss_post_item_id' => 127,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: فردا اتفاق می‌افتد: یک وبینار اختصاصی در مورد چگونگی خودکار کردن سفر مشتری خود در سراسر زنجیره ارزش. پروژه های پیچیده اتوماسیون را زنده کنید، هزینه ها را بهینه کنید و تجربیات مشتری را بهبود بخشید. مکان خود را ایمن کنید:',
+            'content' => 'فردا اتفاق می افتد: یک وبینار منحصر به فرد در مورد چگونگی خودکار کردن سفر مشتری خود در سراسر زنجیره ارزش. پروژه های پیچیده اتوماسیون را زنده کنید، هزینه ها را بهینه کنید و تجربیات مشتری را بهبود بخشید. مکان خود را ایمن کنید: https://t.co/KM9lViGtCDcx وبینار مشتری سفر pic.twitter.com/wEs0gypCT7— Flowable (@flowablebpm) 16 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 18:45:22',
+                'updated_at' => '2024-06-06 18:45:22',
+            ),
+            127 => 
+            array (
+                'id' => 128,
+                'rss_post_item_id' => 128,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: از اتوماسیون و ارکستراسیون استفاده کنید تا تجربه‌ای را که مشتریان شما شایسته آن هستند ارائه دهید. به وبینار آینده ما در 17 آوریل بپیوندید و بینش عملی در مورد چگونگی بهبود تجربه مشتری و در عین حال بهینه سازی هزینه ها به دست آورید:',
+            'content' => 'از اتوماسیون و ارکستراسیون برای ارائه تجربه ای که مشتریان شما شایسته آن هستند استفاده کنید. به وبینار آتی ما در 17 آوریل بپیوندید و بینش عملی در مورد چگونگی بهبود تجربه مشتری در عین بهینه سازی هزینه ها به دست آورید: https://t.co/KM9lViGtCD هماهنگ سازی اتوماسیون وبینار pic.twitter.com/UHXNorUXx0— Flowable (@flowablebpm) 3 آوریل 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 19:00:19',
+                'updated_at' => '2024-06-06 19:00:19',
+            ),
+            128 => 
+            array (
+                'id' => 129,
+                'rss_post_item_id' => 129,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => '@flowablebpm: عید پاک مبارک! ما برای شما و عزیزانتان یک جشن فوق العاده پر از شادی آرزو می کنیم.',
+            'content' => 'عید پاک مبارک! ما برای شما و عزیزانتان جشنی عالی و پر از شادی آرزو می کنیم. pic.twitter.com/qbDk2AJVtc— قابل جریان (@flowablebpm) 31 مارس 2024n',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 19:15:14',
+                'updated_at' => '2024-06-06 19:15:14',
+            ),
+            129 => 
+            array (
+                'id' => 130,
+                'rss_post_item_id' => 132,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+            'title' => 'What is Business Process Model and Notation (BPMN)?',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 21:27:39',
+                'updated_at' => '2024-06-06 21:27:39',
+            ),
+            130 => 
+            array (
+                'id' => 131,
+                'rss_post_item_id' => 133,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه پیکربندی رابط کاربرگ Google Camunda',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 21:27:55',
+                'updated_at' => '2024-06-06 21:27:55',
+            ),
+            131 => 
+            array (
+                'id' => 132,
+                'rss_post_item_id' => 134,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه استفاده از کاموندا برای مدیریت نقاط پایانی متنوع',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 21:31:44',
+                'updated_at' => '2024-06-06 21:31:44',
+            ),
+            132 => 
+            array (
+                'id' => 133,
+                'rss_post_item_id' => 135,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه سفارشی کردن قالب کانکتور کاموندا',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 21:33:15',
+                'updated_at' => '2024-06-06 21:33:15',
+            ),
+            133 => 
+            array (
+                'id' => 135,
+                'rss_post_item_id' => 136,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه ایجاد یک کلاستر در کاموندا',
+                'content' => '',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-06 21:36:22',
+                'updated_at' => '2024-06-06 21:36:22',
+            ),
+            134 => 
+            array (
+                'id' => 136,
+                'rss_post_item_id' => 137,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'j',
+                'content' => 'j',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => NULL,
+                'updated_at' => NULL,
+            ),
+            135 => 
+            array (
+                'id' => 137,
+                'rss_post_item_id' => 138,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه استفاده از رویدادهای تایمر BPMN',
+                'content' => '-',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-07 09:29:17',
+                'updated_at' => '2024-06-07 09:29:17',
+            ),
+            136 => 
+            array (
+                'id' => 138,
+                'rss_post_item_id' => 139,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه اعتبارسنجی فرآیندها در کاموندا مدلر با استفاده از Play',
+                'content' => '-',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-07 09:30:07',
+                'updated_at' => '2024-06-07 09:30:07',
+            ),
+            137 => 
+            array (
+                'id' => 141,
+                'rss_post_item_id' => 140,
+                'author_chat_id' => NULL,
+                'locale' => 'fa',
+                'title' => 'آموزش: نحوه پیکربندی کانکتور Slack Camunda',
+                'content' => '-',
+                'approved_by_chat_id' => NULL,
+                'approved' => 0,
+                'created_at' => '2024-06-17 12:25:31',
+                'updated_at' => '2024-06-17 12:25:31',
+            ),
+        ));
+        
+        
+    }
+}

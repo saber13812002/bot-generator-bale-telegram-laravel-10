@@ -56,7 +56,7 @@ class RssPostItemTranslationJob implements ShouldQueue
         }
 
         if (!$newItemCreated) {
-            Log::warning('dont have new item in rss post item translation');
+            Log::warning('no new item created in rss post item translation because cant find any channels with tags');
         } else {
             Log::info('new item created as well. as rss post item translation');
         }

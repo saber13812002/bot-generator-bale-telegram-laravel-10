@@ -27,10 +27,13 @@ class DatabaseSeeder extends Seeder
 //        $this->call(QuranTransliterationTrTableSeeder::class);
 //        $this->call(QuranTransliterationTrsTableSeeder::class);
         $this->call(RssItemsTableSeeder::class);
-//        $this->call(RssPostItemsTableSeeder::class);
+        $this->call(RssPostItemsTableSeeder::class);
+
         $this->call(RssChannelsTableSeeder::class);
         $this->call(RssChannelOriginsTableSeeder::class);
-//        $this->call(TagsTableSeeder::class);
+        $this->call(TagsTableSeeder::class);
         $this->call(RssBusinessesTableSeeder::class);
+        $this->call(TaggablesTableSeeder::class);
+        $this->call(RssPostItemTranslationsTableSeeder::class);
     }
 }
