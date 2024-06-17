@@ -211,24 +211,22 @@ class BotHelper
         return $messenger->sendMessage($content);
     }
 
-    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram'): void
+    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram')
     {
-//        Log::info("bothelper:" . $message . " : " . $bot_token . " : " . $channel_chat_id . " : " . $type . " : " . Carbon::now()->toDateTimeString());
         if ($type != "eitaa") {
             $bot = new Telegram($bot_token, $type);
-            self::sendMessageByChatId($bot, $channel_chat_id, $message);
+            return self::sendMessageByChatId($bot, $channel_chat_id, $message);
         } else {
-//            Log::info("bothelper2:" . $message . " : " . $bot_token . " : " . $channel_chat_id . " : " . $type . " : " . Carbon::now()->toDateTimeString());
-            self::sendMessageEitaa($message, $bot_token, $channel_chat_id);
+            return self::sendMessageEitaa($message, $bot_token, $channel_chat_id);
         }
     }
 
-    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id): void
+    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id)
     {
-        self::call_eitaa_api($bot_token, $channel_chat_id, $message);
+        return self::call_eitaa_api($bot_token, $channel_chat_id, $message);
     }
 
-    private static function call_eitaa_api($bot_token, $chat_id, $text): void
+    private static function call_eitaa_api($bot_token, $chat_id, $text)
     {
 //        $title =  Str::substr($message, 0, 80) . '...';
 
@@ -258,10 +256,13 @@ class BotHelper
 
         // output the response
         curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
-        curl_exec($request);
+        $response = curl_exec($request);
 
         // close the session
         curl_close($request);
+
+//        $response['ok'] = true;
+        return $response;
     }
 
     /**

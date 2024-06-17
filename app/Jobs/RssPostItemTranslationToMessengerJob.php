@@ -39,18 +39,17 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             return;
         }
 
-        $bot = $this->getBotInstance($rssChannelOrigin->slug, $rssChannel->token);
-        if (!$bot) {
-            $this->logError("Unsupported RSS Channel Origin slug: {$rssChannelOrigin->slug}");
-            return;
-        }
 
         $message = RssHelper::createMessage($this->rssPostItemTranslationQueue->postTranslation, true);
-        $response = BotHelper::sendMessageByChatId($bot, $rssChannel->target_id, $message);
+//        dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 
-        if ($response['ok'] !== true) {
-            $this->logError("Failed to send message to RSS Channel: {$rssChannel->id}", $response);
+        try {
+            $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
+            $this->updateRssPostItemTranslationQueues();
+        } catch (\Exception $exception) {
+            Log::error($exception->getMessage());
         }
+
     }
 
     protected function logError(string $message, array $context = []): void
@@ -58,15 +57,14 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         Log::error($message, $context);
     }
 
-    protected function getBotInstance(string $slug, string $token): ?object
+    protected function updateRssPostItemTranslationQueues(): void
     {
-        switch ($slug) {
-            case 'telegram':
-                return new \Telegram($token, 'telegram');
-            case 'bale':
-                return new \Telegram($token, 'bale');
-            default:
-                return null;
-        }
+        Log::info($this->rssPostItemTranslationQueue);
+        $this->rssPostItemTranslationQueue->update([
+            "id" => $this->rssPostItemTranslationQueue->id
+        ], [
+            "status" => "sent"
+        ]);
     }
+
 }
