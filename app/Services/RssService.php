@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\BotHelper;
 use App\Models\RssPostItem;
 use DOMDocument;
+use DOMXPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -21,31 +22,31 @@ class RssService
 
     public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): JsonResponse
     {
-
         try {
             $response = Http::get($rssUrl);
 
-//        if ($response->successful()) {
+            if (!$response->successful()) {
+                throw new \Exception("Failed to fetch RSS feed.");
+            }
+
             $xml = simplexml_load_string($response->body());
+            if ($xml === false) {
+                throw new \Exception("Failed to parse RSS feed.");
+            }
 
-            // Loop through the RSS items
-//        dd($xml);
             foreach ($xml->channel->item as $item) {
-                // Extract the necessary data from the RSS item
-//            $rssItemId = $item->rss_item_id;
-                $title = strip_tags($item->title);
-                $link = ($item->$unique_field_name);
-//                dd($item);
-                $description = self::extractTextInTags($item->description);
-                $pubDate = Carbon::parseFromLocale($item->pubDate);
+                $title = strip_tags((string) $item->title);
+                $link = (string) $item->$unique_field_name;
 
-                // Check if the item already exists in the database
+                $description = isset($item->description) ? self::extractTextInTags((string) $item->description) : '';
+
+                $pubDate = Carbon::parse((string) $item->pubDate);
+
                 $existingItem = RssPostItem::query()
-                    ->whereLink($link)
+                    ->where('link', $link)
                     ->first();
 
                 if (!$existingItem) {
-                    // If the item doesn't exist, save it to the database
                     RssPostItem::query()->insert([
                         'rss_item_id' => $id,
                         'title' => $title,
@@ -57,10 +58,11 @@ class RssService
                     ]);
                 }
             }
+
             return self::findTheNewOrNonExistentItems($xml, $unique_field_name);
 
         } catch (\Exception $e) {
-            BotHelper::sendMessageToBotAdmin(new \Telegram(env('BOT_HADITH_TOKEN_BALE')), "error in read xml as rss" . $e->getMessage());
+            BotHelper::sendMessageToBotAdmin(new \Telegram(env('BOT_HADITH_TOKEN_BALE')), "Error reading XML as RSS: " . $e->getMessage());
         }
 
         return response()->json(null);
@@ -87,16 +89,19 @@ class RssService
 
     private static function extractTextInTags($htmlContent): string
     {
-        $text = '';
-//        dd($htmlContent);
         $dom = new DOMDocument();
-        $dom->loadHTML($htmlContent);
+        libxml_use_internal_errors(true); // Suppress HTML parsing warnings
+        $dom->loadHTML(mb_convert_encoding($htmlContent, 'HTML-ENTITIES', 'UTF-8'));
+        libxml_clear_errors();
 
-        $nodes = $dom->getElementsByTagName('*');
+        $xpath = new DOMXPath($dom);
+        $nodes = $xpath->query('//text()'); // Fetch all text nodes
+
+        $text = '';
         foreach ($nodes as $node) {
             $text .= $node->nodeValue . ' ';
         }
 
-        return $text;
+        return trim($text);
     }
 }

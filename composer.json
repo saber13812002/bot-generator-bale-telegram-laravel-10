@@ -24,7 +24,8 @@
         "tio/laravel": "^1.22",
       "ext-simplexml": "*",
         "ext-dom": "*",
-      "ext-curl": "*"
+      "ext-curl": "*",
+        "ext-libxml": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
