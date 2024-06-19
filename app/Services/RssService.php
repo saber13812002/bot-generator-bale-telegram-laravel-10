@@ -53,7 +53,7 @@ class RssService
                         'rss_item_id' => $id,
                         'title' => $title,
                         'link' => $link,
-//                        'description' => $description,
+                        'description' => $description,
                         'pub_date' => $pubDate,
                         'created_at' => now(),
                         'updated_at' => now(),
