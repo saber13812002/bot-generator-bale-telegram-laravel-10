@@ -9,6 +9,7 @@ class RssPostItem extends Model
 {
     use HasFactory;
 
+    protected $guarded = [];
 
     public function translations()
     {

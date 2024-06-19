@@ -24,7 +24,7 @@ class RssService
     {
         try {
             $response = Http::get($rssUrl);
-
+//            dd($response);
             if (!$response->successful()) {
                 throw new \Exception("Failed to fetch RSS feed.");
             }
@@ -33,8 +33,9 @@ class RssService
             if ($xml === false) {
                 throw new \Exception("Failed to parse RSS feed.");
             }
-
+//            dd($xml);
             foreach ($xml->channel->item as $item) {
+//                dd($item);
                 $title = strip_tags((string) $item->title);
                 $link = (string) $item->$unique_field_name;
 
@@ -42,16 +43,17 @@ class RssService
 
                 $pubDate = Carbon::parse((string) $item->pubDate);
 
+//                dd($title, $link, $description, $pubDate);
                 $existingItem = RssPostItem::query()
                     ->where('link', $link)
                     ->first();
-
+//                dd($existingItem);
                 if (!$existingItem) {
                     RssPostItem::query()->insert([
                         'rss_item_id' => $id,
                         'title' => $title,
                         'link' => $link,
-                        'description' => $description,
+//                        'description' => $description,
                         'pub_date' => $pubDate,
                         'created_at' => now(),
                         'updated_at' => now(),

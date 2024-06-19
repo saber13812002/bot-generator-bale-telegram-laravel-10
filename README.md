@@ -168,3 +168,12 @@ php artisan translation:sync
 
 php artisan app:test-sendch
 
+ # when you restore backup from server into local
+
+ - UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\RssChannel' AND `taggable_id` = 1
+
+
+# user company
+
+m.talebi@m
+21 khordad
