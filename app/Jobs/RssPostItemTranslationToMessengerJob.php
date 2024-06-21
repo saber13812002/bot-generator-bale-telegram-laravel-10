@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Builders\BotBuilder;
 use App\Helpers\BotHelper;
 use App\Helpers\RssHelper;
 use App\Models\RssChannel;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Telegram;
 
 class RssPostItemTranslationToMessengerJob implements ShouldQueue
 {
@@ -39,12 +41,27 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             return;
         }
 
-
-        $message = RssHelper::createMessage($this->rssPostItemTranslationQueue->postTranslation, true);
+        $postTranslation = $this->rssPostItemTranslationQueue->postTranslation;
+        $message = RssHelper::createMessage($postTranslation, true);
 //        dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 
         try {
             $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
+            $post = $postTranslation->post ?? null;
+            if($post)
+            {
+                $postImageUrl = $post->image_url;
+                if ($postImageUrl) {
+                    $botBuilder = new BotBuilder(new Telegram($rssChannel->token, 'bale'));
+
+                    $data = $botBuilder
+                        ->setChatId($rssChannel->target_id)
+                        ->setCaption('image')
+                        ->setTitle('image')
+                        ->setImageUrl($postImageUrl)
+                        ->sendPhoto();
+                }
+            }
             $this->updateRssPostItemTranslationQueues();
         } catch (\Exception $exception) {
             Log::error($exception->getMessage());
