@@ -36,12 +36,14 @@ class RssService
 //            dd($xml);
             foreach ($xml->channel->item as $item) {
 //                dd($item);
-                $title = strip_tags((string) $item->title);
-                $link = (string) $item->$unique_field_name;
+                $title = strip_tags((string)$item->title);
+                $link = (string)$item->$unique_field_name;
 
-                $description = isset($item->description) ? self::extractTextInTags((string) $item->description) : '';
+                $description = isset($item->description) ? (string) $item->description : '';
+                $textDescription = self::extractTextInTags($description);
+                $imageUrl = self::extractImageUrl($description);
 
-                $pubDate = Carbon::parse((string) $item->pubDate);
+                $pubDate = Carbon::parse((string)$item->pubDate);
 
 //                dd($title, $link, $description, $pubDate);
                 $existingItem = RssPostItem::query()
@@ -53,7 +55,8 @@ class RssService
                         'rss_item_id' => $id,
                         'title' => $title,
                         'link' => $link,
-                        'description' => $description,
+                        'description' => $textDescription,
+                        'image_url' => $imageUrl, // Assuming there's an image_url column in your database
                         'pub_date' => $pubDate,
                         'created_at' => now(),
                         'updated_at' => now(),
@@ -91,6 +94,10 @@ class RssService
 
     private static function extractTextInTags($htmlContent): string
     {
+        if (empty($htmlContent)) {
+            return '';
+        }
+
         $dom = new DOMDocument();
         libxml_use_internal_errors(true); // Suppress HTML parsing warnings
         $dom->loadHTML(mb_convert_encoding($htmlContent, 'HTML-ENTITIES', 'UTF-8'));
@@ -105,5 +112,25 @@ class RssService
         }
 
         return trim($text);
+    }
+
+    private static function extractImageUrl(string $htmlContent)
+    {
+
+        if (empty($htmlContent)) {
+            return null;
+        }
+
+        $dom = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML(mb_convert_encoding($htmlContent, 'HTML-ENTITIES', 'UTF-8'));
+        libxml_clear_errors();
+
+        $images = $dom->getElementsByTagName('img');
+        if ($images->length > 0) {
+            return $images->item(0)->getAttribute('src');
+        }
+
+        return null;
     }
 }
