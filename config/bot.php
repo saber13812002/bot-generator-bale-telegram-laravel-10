@@ -17,4 +17,10 @@ return [
         'telegram' => 'https://t.me/',
         'gap' => 'https://gap.ir/',
     ],
+    'tokens' =>[
+        'bale' =>[
+            'robat' => env('ROBAT_BALE_TOKEN_TEST'),
+            ]
+    ],
+
 ];
