@@ -18,28 +18,25 @@ class RssHelper
 
 : " . $rssPostItemTranslation->title . "
 
-: " . $rssPostItemTranslation->content;
+: " . self::trimIfNeeded($rssPostItemTranslation->content, 2500) . "
+
+";
 
 //        dd($rssPostItemTranslation->post);
-        if ($rssPostItemTranslation->post) {
-            $message = ": " . $rssPostItemTranslation->post->title . "
+        if ($rssPostItemTranslation->post && $rssPostItemTranslation->post->rssItem->locale != "fa") {
+            $message .= ": " . $rssPostItemTranslation->post->title . "
 
-: " . $rssPostItemTranslation->title . "
+: " . self::trimIfNeeded($rssPostItemTranslation->post->description, 2500);
+        }
+        $message .= "
 
-: " . $rssPostItemTranslation->post->description . "
-
-: " . $rssPostItemTranslation->content . //"
-
-//: " . $rssPostItemTranslation->post->rssItem->url . "
-//
-                "
 📌
 : " . self::stringifyTags($rssPostItemTranslation->post->rssItem->tags) . "
 👇👇👇
 : " . $rssPostItemTranslation->post->link
 
                 . self::createCommands($rssPostItemTranslation->id, withCommand: $withCommand);
-        }
+
 
 
         return $message;
@@ -72,5 +69,13 @@ class RssHelper
             $stringTags .= "#" . $faValue . " ";
         }
         return $stringTags;
+    }
+
+    private static function trimIfNeeded($content, $length = 1000)
+    {
+        if (strlen($content) > $length) {
+            return substr($content, 0, $length) . '...';
+        }
+        return $content;
     }
 }

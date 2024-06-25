@@ -47,9 +47,12 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
         try {
             $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
+//            dd($response);
+//            if ($response && $response["ok"] != true) {
+            Log::error(json_encode($response));
+//            }
             $post = $postTranslation->post ?? null;
-            if($post)
-            {
+            if ($post) {
                 $postImageUrl = $post->image_url;
                 if ($postImageUrl) {
                     $botBuilder = new BotBuilder(new Telegram($rssChannel->token, 'bale'));
@@ -77,11 +80,10 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
     protected function updateRssPostItemTranslationQueues(): void
     {
         Log::info($this->rssPostItemTranslationQueue);
-        $this->rssPostItemTranslationQueue->update([
-            "id" => $this->rssPostItemTranslationQueue->id
-        ], [
-            "status" => "sent"
-        ]);
+
+        $this->rssPostItemTranslationQueue->status = "sent";
+
+        $this->rssPostItemTranslationQueue->save();
     }
 
 }
