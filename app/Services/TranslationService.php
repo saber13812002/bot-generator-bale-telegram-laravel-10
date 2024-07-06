@@ -17,15 +17,67 @@ class TranslationService
         }
 
 
-        $response = OneApiTranslationService::call(self::removeEmojiHashTag($text), $language);
-        // if status 200 return
-        if ($response['status'] == 200)
-            return $response['result'];
-        else
-            return $text;
+        return self::translate($text, $language);
         // todo:if status not 200 call another translation api
     }
 
+    const CHARACTER_LIMIT = 500; // Define the character limit for the translation service
+
+    public static function translate($text, $language)
+    {
+        $text = self::removeEmojiHashTag($text);
+        $segments = self::segmentText($text, self::CHARACTER_LIMIT);
+
+        $translatedText = '';
+        foreach ($segments as $segment) {
+            $response = OneApiTranslationService::call($segment, $language);
+
+            if ($response['status'] == 200) {
+                $translatedText .= $response['result'];
+            } else {
+                $translatedText .= $segment; // Return original segment if translation fails
+            }
+        }
+
+        return $translatedText;
+    }
+
+    private static function segmentText($text, $limit)
+    {
+        $segments = [];
+        $length = strlen($text);
+        $start = 0;
+
+        while ($start < $length) {
+            $end = min($start + $limit, $length);
+            if ($end < $length) {
+                $splitPoint = self::findSplitPoint($text, $start, $end, $limit);
+                $segments[] = substr($text, $start, $splitPoint - $start);
+                $start = $splitPoint;
+            } else {
+                $segments[] = substr($text, $start, $end - $start);
+                break;
+            }
+        }
+
+        return $segments;
+    }
+
+    private static function findSplitPoint($text, $start, $end, $limit)
+    {
+        $spaceRangeStart = max($start, $end - $limit - 20);
+        $spaceRangeEnd = min($end + 20, strlen($text));
+        $lastSpaceBeforeLimit = strrpos(substr($text, $spaceRangeStart, $end - $spaceRangeStart), ' ');
+        $lastSpaceAfterLimit = strpos(substr($text, $end, $spaceRangeEnd - $end), ' ');
+
+        if ($lastSpaceBeforeLimit !== false) {
+            return $spaceRangeStart + $lastSpaceBeforeLimit;
+        } elseif ($lastSpaceAfterLimit !== false) {
+            return $end + $lastSpaceAfterLimit + 1;
+        } else {
+            return $end;
+        }
+    }
 
     public static function removeEmojiHashTag($text): array|string|null
     {
