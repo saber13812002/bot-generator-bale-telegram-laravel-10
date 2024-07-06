@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Helpers\BotHelper;
+use Illuminate\Support\Facades\Log;
+
 class TranslationService
 {
     public function __construct()
@@ -29,14 +32,20 @@ class TranslationService
         $segments = self::segmentText($text, self::CHARACTER_LIMIT);
 
         $translatedText = '';
-        foreach ($segments as $segment) {
-            $response = OneApiTranslationService::call($segment, $language);
+        try {
+            foreach ($segments as $segment) {
+                $response = OneApiTranslationService::call($segment, $language);
 
-            if ($response['status'] == 200) {
-                $translatedText .= $response['result'];
-            } else {
-                $translatedText .= $segment; // Return original segment if translation fails
+                if ($response['status'] == 200) {
+                    $translatedText .= $response['result'];
+                } else {
+                    return $text; // Return original text if translation fails
+                }
             }
+        } catch (\Exception $e) {
+            BotHelper::sendMessageToSuperAdmin($e->getMessage(), 'bale');
+            Log::info($e->getMessage());
+            return $text;  // Return original text if an error is thrown
         }
 
         return $translatedText;
