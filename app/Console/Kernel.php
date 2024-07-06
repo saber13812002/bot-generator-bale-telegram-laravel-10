@@ -3,7 +3,9 @@
 namespace App\Console;
 
 use App\Console\Commands\RssReadTranslate;
+use App\Console\Commands\RssToBot;
 use App\Console\Commands\TaskReminderCommand;
+use App\Console\Commands\TestScheduleDailyIntoSlack;
 use App\Console\Commands\UsersRankingCommand;
 use App\Console\Commands\weatherWindCommand;
 use Illuminate\Console\Scheduling\Schedule;
@@ -22,6 +24,8 @@ class Kernel extends ConsoleKernel
         $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
         $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
+        if (env('TestScheduleDailyIntoSlack'))
+            $schedule->command(TestScheduleDailyIntoSlack::class)->dailyAt("07:00"); //10:30 iran
     }
 
     /**
