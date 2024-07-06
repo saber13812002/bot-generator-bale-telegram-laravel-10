@@ -24,7 +24,7 @@ class TranslationService
         // todo:if status not 200 call another translation api
     }
 
-    const CHARACTER_LIMIT = 500; // Define the character limit for the translation service
+    const CHARACTER_LIMIT = 350; // Define the character limit for the translation service
 
     public static function translate($text, $language)
     {
@@ -44,7 +44,7 @@ class TranslationService
             }
         } catch (\Exception $e) {
             BotHelper::sendMessageToSuperAdmin($e->getMessage(), 'bale');
-            Log::info($e->getMessage());
+            Log::error($e->getMessage());
             return $text;  // Return original text if an error is thrown
         }
 
