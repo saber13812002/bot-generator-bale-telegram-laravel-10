@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,4 +24,29 @@ class RssItem extends Model
     {
         return $this->belongsTo(RssBusiness::class, 'rss_business_id');
     }
+
+    /**
+     * Get the user's business id.
+     *
+     * @return Attribute
+     */
+//    protected function rssBusinessId(): Attribute
+//    {
+//        $userId = Auth()->user()->id;
+//
+//        if (!$userId) {
+//            return 1;
+//
+//        }
+//
+//        $rssBusiness = RssBusiness::whereAdminUserId($userId);
+//        if (!$rssBusiness) {
+//            return 1;
+//        }
+//
+//        return Attribute::make(
+//            get: fn ($value) => $rssBusiness->admin_user_id,
+//
+//        );
+//    }
 }
