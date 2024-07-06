@@ -37,7 +37,7 @@ class RssItem extends Resource
     /**
      * Get the fields displayed by the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
     public function fields(NovaRequest $request)
@@ -48,8 +48,8 @@ class RssItem extends Resource
             Text::make('title'),
             Text::make('description'),
             Text::make('url'),
-            Text::make('url_ifttt'),
-            Text::make('url_rss_dot_app'),
+//            Text::make('url_ifttt'),
+//            Text::make('url_rss_dot_app'),
             Boolean::make('is_active'),
 
             Text::make('unique_xml_tag'),
@@ -63,7 +63,7 @@ class RssItem extends Resource
     /**
      * Get the cards available for the request.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
     public function cards(NovaRequest $request)
@@ -74,7 +74,7 @@ class RssItem extends Resource
     /**
      * Get the filters available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
     public function filters(NovaRequest $request)
@@ -85,7 +85,7 @@ class RssItem extends Resource
     /**
      * Get the lenses available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
     public function lenses(NovaRequest $request)
@@ -96,7 +96,7 @@ class RssItem extends Resource
     /**
      * Get the actions available for the resource.
      *
-     * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
+     * @param NovaRequest $request
      * @return array
      */
     public function actions(NovaRequest $request)
@@ -108,7 +108,7 @@ class RssItem extends Resource
     /**
      * Build an "index" query for the given resource.
      *
-     * @param \Laravel\Nova\Http\Requests\NovaRequest $request
+     * @param NovaRequest $request
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
