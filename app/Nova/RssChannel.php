@@ -4,8 +4,11 @@ namespace App\Nova;
 
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\BelongsTo;
+use Laravel\Nova\Fields\Boolean;
 use Laravel\Nova\Fields\ID;
+use Laravel\Nova\Fields\Select;
 use Laravel\Nova\Fields\Text;
+use Laravel\Nova\Fields\Textarea;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Spatie\TagsField\Tags;
 
@@ -49,8 +52,20 @@ class RssChannel extends Resource
             Text::make('slug')->sortable()->rules('required', 'max:255'),
             Text::make('token')->sortable()->rules('required', 'max:255'),
             Text::make('target_id')->sortable()->rules('required', 'max:50'),
-            Text::make('type'),
 
+            Textarea::make('sign')->alwaysShow(),
+//            Text::make('type'),
+
+            Boolean::make('has_command'),
+
+            Select::make('type')
+                ->options([
+                    'unknown' => 'Unknown',
+                    'channel' => 'Channel',
+                    'group' => 'Group',
+                    'private' => 'Private',
+                ])
+                ->displayUsingLabels(),
             Tags::make('Tags'),
 
             BelongsTo::make('RssChannelOrigin')
