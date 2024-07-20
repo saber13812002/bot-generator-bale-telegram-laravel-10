@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\RssItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\RssItem>
+ * @extends Factory<RssItem>
  */
 class RssItemFactory extends Factory
 {
@@ -17,7 +18,10 @@ class RssItemFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'title' => fake()->name(),
+            'description' => fake()->name(),
+            'url' => fake()->url(),
+            'is_active' => 0,
         ];
     }
 }

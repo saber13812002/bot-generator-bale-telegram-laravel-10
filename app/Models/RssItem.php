@@ -12,6 +12,11 @@ class RssItem extends Model
     use HasFactory;
     use \Spatie\Tags\HasTags;
 
+    protected $casts = [
+        'last_synced_at' => 'datetime:Y-m-d',
+    ];
+
+
     public function rssPostItems(): HasMany
     {
         return $this->hasMany(RssPostItem::class,'id','rss_item_id');

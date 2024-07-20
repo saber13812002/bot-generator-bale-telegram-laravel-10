@@ -2,9 +2,12 @@
 
 namespace App\Nova;
 
+use Carbon\CarbonInterval;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\Boolean;
+use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\ID;
+use Laravel\Nova\Fields\Number;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Spatie\TagsField\Tags;
@@ -55,6 +58,13 @@ class RssItem extends Resource
             Text::make('unique_xml_tag'),
             Text::make('locale'),
             Text::make('target_locale'),
+
+            Number::make('interval_minutes'),
+
+            DateTime::make('last_synced_at')
+                ->withMeta(['extraAttributes' => [
+                    'readonly' => true
+                ]]),
 
             Tags::make('Tags'),
         ];
