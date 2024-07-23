@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\RssController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -30,3 +31,7 @@ Route::get('/report', function (Request $request) {
     $language = $request->input('language');
     return view('report', ['chat_id' => $chatId, 'origin' => $origin, 'language' => $language]);
 });
+
+
+
+Route::get('/rss/evand', [RssController::class, 'generateRSS']);
