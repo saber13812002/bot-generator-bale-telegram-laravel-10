@@ -6,11 +6,21 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class RssItem extends Model
 {
     use HasFactory;
     use \Spatie\Tags\HasTags;
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $model->last_synced_at = $model->last_synced_at ?? Carbon::now()->format('Y-m-d');
+        });
+    }
 
     protected $casts = [
         'last_synced_at' => 'datetime:Y-m-d',

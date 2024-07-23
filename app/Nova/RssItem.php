@@ -4,6 +4,7 @@ namespace App\Nova;
 
 use Carbon\CarbonInterval;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Laravel\Nova\Fields\Boolean;
 use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\ID;
@@ -62,6 +63,9 @@ class RssItem extends Resource
             Number::make('interval_minutes'),
 
             DateTime::make('last_synced_at')
+                ->default(function () {
+                    return Carbon::now()->format('Y-m-d');
+                })
                 ->withMeta(['extraAttributes' => [
                     'readonly' => true
                 ]]),
@@ -126,7 +130,7 @@ class RssItem extends Resource
     {
         $user = $request->user();
 
-        return $query->whereHas('rssBusiness', function($query) use ($user) {
+        return $query->whereHas('rssBusiness', function ($query) use ($user) {
             $query->where('admin_user_id', $user->id);
         });
     }
