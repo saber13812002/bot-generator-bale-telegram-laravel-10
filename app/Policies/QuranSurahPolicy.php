@@ -13,7 +13,7 @@ class QuranSurahPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class QuranSurahPolicy
      */
     public function view(User $user, QuranSurah $quranSurah): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class QuranSurahPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class QuranSurahPolicy
      */
     public function update(User $user, QuranSurah $quranSurah): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class QuranSurahPolicy
      */
     public function delete(User $user, QuranSurah $quranSurah): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class QuranSurahPolicy
      */
     public function restore(User $user, QuranSurah $quranSurah): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class QuranSurahPolicy
      */
     public function forceDelete(User $user, QuranSurah $quranSurah): bool
     {
-        //
+        return true;
     }
 }

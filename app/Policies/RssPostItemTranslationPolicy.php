@@ -13,7 +13,7 @@ class RssPostItemTranslationPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class RssPostItemTranslationPolicy
      */
     public function view(User $user, RssPostItemTranslation $rssPostItemTranslation): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class RssPostItemTranslationPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class RssPostItemTranslationPolicy
      */
     public function update(User $user, RssPostItemTranslation $rssPostItemTranslation): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class RssPostItemTranslationPolicy
      */
     public function delete(User $user, RssPostItemTranslation $rssPostItemTranslation): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class RssPostItemTranslationPolicy
      */
     public function restore(User $user, RssPostItemTranslation $rssPostItemTranslation): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class RssPostItemTranslationPolicy
      */
     public function forceDelete(User $user, RssPostItemTranslation $rssPostItemTranslation): bool
     {
-        //
+        return true;
     }
 }

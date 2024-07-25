@@ -13,7 +13,7 @@ class RssSocialPostPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class RssSocialPostPolicy
      */
     public function view(User $user, RssSocialPost $rssSocialPost): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class RssSocialPostPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class RssSocialPostPolicy
      */
     public function update(User $user, RssSocialPost $rssSocialPost): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class RssSocialPostPolicy
      */
     public function delete(User $user, RssSocialPost $rssSocialPost): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class RssSocialPostPolicy
      */
     public function restore(User $user, RssSocialPost $rssSocialPost): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class RssSocialPostPolicy
      */
     public function forceDelete(User $user, RssSocialPost $rssSocialPost): bool
     {
-        //
+        return true;
     }
 }

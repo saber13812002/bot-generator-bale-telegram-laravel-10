@@ -13,7 +13,7 @@ class QuranWordPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class QuranWordPolicy
      */
     public function view(User $user, QuranWord $quranWord): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class QuranWordPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class QuranWordPolicy
      */
     public function update(User $user, QuranWord $quranWord): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class QuranWordPolicy
      */
     public function delete(User $user, QuranWord $quranWord): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class QuranWordPolicy
      */
     public function restore(User $user, QuranWord $quranWord): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class QuranWordPolicy
      */
     public function forceDelete(User $user, QuranWord $quranWord): bool
     {
-        //
+        return true;
     }
 }

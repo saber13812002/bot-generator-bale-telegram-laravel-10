@@ -13,7 +13,7 @@ class BotUploadedBankFilePolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class BotUploadedBankFilePolicy
      */
     public function view(User $user, BotUploadedBankFile $botUploadedBankFile): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class BotUploadedBankFilePolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class BotUploadedBankFilePolicy
      */
     public function update(User $user, BotUploadedBankFile $botUploadedBankFile): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class BotUploadedBankFilePolicy
      */
     public function delete(User $user, BotUploadedBankFile $botUploadedBankFile): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class BotUploadedBankFilePolicy
      */
     public function restore(User $user, BotUploadedBankFile $botUploadedBankFile): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class BotUploadedBankFilePolicy
      */
     public function forceDelete(User $user, BotUploadedBankFile $botUploadedBankFile): bool
     {
-        //
+        return true;
     }
 }

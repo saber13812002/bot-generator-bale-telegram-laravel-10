@@ -13,7 +13,7 @@ class NahjPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class NahjPolicy
      */
     public function view(User $user, nahj $nahj): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class NahjPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class NahjPolicy
      */
     public function update(User $user, nahj $nahj): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class NahjPolicy
      */
     public function delete(User $user, nahj $nahj): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class NahjPolicy
      */
     public function restore(User $user, nahj $nahj): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class NahjPolicy
      */
     public function forceDelete(User $user, nahj $nahj): bool
     {
-        //
+        return true;
     }
 }

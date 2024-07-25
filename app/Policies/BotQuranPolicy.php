@@ -13,7 +13,7 @@ class BotQuranPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class BotQuranPolicy
      */
     public function view(User $user, BotQuran $botQuran): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class BotQuranPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class BotQuranPolicy
      */
     public function update(User $user, BotQuran $botQuran): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class BotQuranPolicy
      */
     public function delete(User $user, BotQuran $botQuran): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class BotQuranPolicy
      */
     public function restore(User $user, BotQuran $botQuran): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class BotQuranPolicy
      */
     public function forceDelete(User $user, BotQuran $botQuran): bool
     {
-        //
+        return true;
     }
 }

@@ -13,7 +13,7 @@ class WeatherPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class WeatherPolicy
      */
     public function view(User $user, Weather $weather): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class WeatherPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class WeatherPolicy
      */
     public function update(User $user, Weather $weather): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class WeatherPolicy
      */
     public function delete(User $user, Weather $weather): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class WeatherPolicy
      */
     public function restore(User $user, Weather $weather): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class WeatherPolicy
      */
     public function forceDelete(User $user, Weather $weather): bool
     {
-        //
+        return true;
     }
 }
