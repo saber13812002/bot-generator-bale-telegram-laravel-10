@@ -31,9 +31,8 @@ class RssFeedWebOriginController extends Controller
      */
     public function store(StoreRssFeedWebOriginRequest $request)
     {
-        Log::info($request);
+//        Log::info($request);
         $rssFeed = RssFeedWebOrigin::create($request->all());
-
 
         return response()->json(['message' => 'RSS feed created successfully', 'data' => $rssFeed], 201);
     }
