@@ -10,6 +10,7 @@ use App\Http\Controllers\JobController;
 use App\Http\Controllers\NahjController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\QuranWordController;
+use App\Http\Controllers\RssFeedWebOriginController;
 use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\TestController;
@@ -79,3 +80,6 @@ Route::get('/job',[JobController::class, 'handle']);
 
 // rss
 Route::post('/webhook-rss', [RssPostItemTranslationController::class, 'index']);
+
+
+Route::post('rss-generator',[RssFeedWebOriginController::class, 'store']);
