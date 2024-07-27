@@ -31,18 +31,25 @@ class RssController extends Controller
 
         foreach ($events as $event) {
             $rssFeed .= '<item>';
-            $rssFeed .= '<title>' . htmlspecialchars($event['name']) . '</title>';
-            $rssFeed .= '<link>https://evand.com/events/' . htmlspecialchars($event['slug']) . '</link>';
+            $rssFeed .= '<title>' . htmlspecialchars($event['name'] ?? 'No Title') . '</title>';
+            $rssFeed .= '<link>https://evand.com/events/' . htmlspecialchars($event['slug'] ?? '') . '</link>';
             $rssFeed .= '<description><![CDATA[';
-            $rssFeed .= '<img src="' . htmlspecialchars($event['cover']['original']) . '" alt="' . htmlspecialchars($event['name']) . '" /><br/>';
-            $rssFeed .= 'City: ' . htmlspecialchars($event['city_name']) . '<br/>';
-            $rssFeed .= 'Organization: ' . htmlspecialchars($event['organization']['data']['name']) . '<br/>';
-            $rssFeed .= 'Start Date: ' . htmlspecialchars($event['start_date']) . '<br/>';
-            $rssFeed .= 'End Date: ' . htmlspecialchars($event['end_date']) . '<br/>';
+
+            // Check for cover image
+            if (isset($event['cover']['original'])) {
+                $rssFeed .= '<img src="' . htmlspecialchars($event['cover']['original']) . '" alt="' . htmlspecialchars($event['name'] ?? 'Event') . '" /><br/>';
+            } else {
+                $rssFeed .= '<p>No image available for this event.</p>';
+            }
+
+            $rssFeed .= 'City: ' . htmlspecialchars($event['city_name'] ?? 'Unknown') . '<br/>';
+            $rssFeed .= 'Organization: ' . htmlspecialchars($event['organization']['data']['name'] ?? 'Unknown') . '<br/>';
+            $rssFeed .= 'Start Date: ' . htmlspecialchars($event['start_date'] ?? 'N/A') . '<br/>';
+            $rssFeed .= 'End Date: ' . htmlspecialchars($event['end_date'] ?? 'N/A') . '<br/>';
             $rssFeed .= 'Address: ' . htmlspecialchars($event['address'] ?? 'Online') . '<br/>';
             $rssFeed .= ']]></description>';
-            $rssFeed .= '<pubDate>' . date(DATE_RSS, strtotime($event['start_date'])) . '</pubDate>';
-            $rssFeed .= '<guid>https://evand.com/events/' . htmlspecialchars($event['slug']) . '</guid>';
+            $rssFeed .= '<pubDate>' . date(DATE_RSS, strtotime($event['start_date'] ?? 'now')) . '</pubDate>';
+            $rssFeed .= '<guid>https://evand.com/events/' . htmlspecialchars($event['slug'] ?? '') . '</guid>';
             $rssFeed .= '</item>';
         }
 
@@ -54,4 +61,5 @@ class RssController extends Controller
             'Content-Type' => 'application/rss+xml'
         ]);
     }
+
 }
