@@ -35,3 +35,4 @@ Route::get('/report', function (Request $request) {
 
 
 Route::get('/rss/evand', [RssController::class, 'generateRSS']);
+Route::get('/rss/audiobook', [RssController::class, 'audiobook']);

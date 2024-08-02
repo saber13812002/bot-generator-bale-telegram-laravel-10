@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RssFeedWebOrigin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Response;
@@ -62,4 +63,20 @@ class RssController extends Controller
         ]);
     }
 
+
+
+    public function audiobook(Request $request)
+    {
+        $builder = RssFeedWebOrigin::query();
+        if ($request->origin) {
+            $builder->whereOrigin($request->origin);
+        }
+        $items = $builder->orderByDesc('id')->limit(10)->get();
+
+        $rssFeed = view('rss.audiobook', compact('items'));
+
+        return Response::make($rssFeed, 200, [
+            'Content-Type' => 'application/rss+xml',
+        ]);
+    }
 }
