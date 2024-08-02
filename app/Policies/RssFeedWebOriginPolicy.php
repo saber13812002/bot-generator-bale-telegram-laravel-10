@@ -13,7 +13,7 @@ class RssFeedWebOriginPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class RssFeedWebOriginPolicy
      */
     public function view(User $user, RssFeedWebOrigin $rssFeedWebOrigin): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class RssFeedWebOriginPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class RssFeedWebOriginPolicy
      */
     public function update(User $user, RssFeedWebOrigin $rssFeedWebOrigin): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class RssFeedWebOriginPolicy
      */
     public function delete(User $user, RssFeedWebOrigin $rssFeedWebOrigin): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class RssFeedWebOriginPolicy
      */
     public function restore(User $user, RssFeedWebOrigin $rssFeedWebOrigin): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class RssFeedWebOriginPolicy
      */
     public function forceDelete(User $user, RssFeedWebOrigin $rssFeedWebOrigin): bool
     {
-        //
+        return true;
     }
 }
