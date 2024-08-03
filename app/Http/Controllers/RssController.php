@@ -71,7 +71,7 @@ class RssController extends Controller
         if ($request->origin) {
             $builder->whereOrigin($request->origin);
         }
-        $items = $builder->orderByDesc('id')->limit(10)->get();
+        $items = $builder->orderByDesc('id')->limit(40)->get();
 
         $rssFeed = view('rss.audiobook', compact('items'));
 
