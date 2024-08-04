@@ -6,6 +6,7 @@ use App\Models\RssFeedWebOrigin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRssFeedWebOriginRequest;
 use App\Http\Requests\UpdateRssFeedWebOriginRequest;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 
 class RssFeedWebOriginController extends Controller
@@ -31,10 +32,20 @@ class RssFeedWebOriginController extends Controller
      */
     public function store(StoreRssFeedWebOriginRequest $request)
     {
+        try {
 //        Log::info($request);
-        $rssFeed = RssFeedWebOrigin::create($request->all());
+            $rssFeed = RssFeedWebOrigin::create($request->all());
 
-        return response()->json(['message' => 'RSS feed created successfully', 'data' => $rssFeed], 201);
+            return response()->json(['message' => 'RSS feed created successfully', 'data' => $rssFeed], 201);
+        } catch (QueryException $e) {
+            if ($e->errorInfo[1] == 1062) {
+                // Handle duplicate entry error
+                return response()->json(['error' => 'This entry already exists.'], 409); // Conflict status code
+            }
+
+            // Handle other exceptions
+            return response()->json(['error' => 'An unexpected error occurred.'], 500);
+        }
     }
 
     /**
