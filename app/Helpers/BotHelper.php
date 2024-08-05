@@ -226,42 +226,47 @@ class BotHelper
         return self::call_eitaa_api($bot_token, $channel_chat_id, $message);
     }
 
-    private static function call_eitaa_api($bot_token, $chat_id, $text)
+    public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
     {
-//        $title =  Str::substr($message, 0, 80) . '...';
+        // todo: test eitaa image sender with test send photo message to eitaa command TestSendPhotoMessageToEitaa
+//        return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "-" . $caption, $photoUrl);
+    }
 
-        // initialise the curl request
+    private static function call_eitaa_api($bot_token, $chat_id, $text, $filePath = null)
+    {
         $uri = 'https://eitaayar.ir/api/' . $bot_token . '/sendMessage';
-//        Log::info($uri);
 
         $request = curl_init($uri);
-        // send a file
         curl_setopt($request, CURLOPT_POST, true);
         curl_setopt($request, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt(
-            $request,
-            CURLOPT_POSTFIELDS,
-            array(
-                // 'file' => new \CurlFile(realpath('C:/Users/eitaa/Desktop/eitaa.apk')),
-                'chat_id' => $chat_id,
-//                'title' => $title,
-//                'pin' => 0,
-//                'parse_mode' => 'html',
-                'text' => $text,
-//                'date' => time() + 1,
-                // send next 30 second
-            )
-        );
 
-        // output the response
+        $postFields = [
+            'chat_id' => $chat_id,
+            'text' => $text,
+        ];
+
+        // Check if a file path is provided
+        if ($filePath) {
+            // Determine if the filePath is a URL or a local file
+            if (filter_var($filePath, FILTER_VALIDATE_URL)) {
+                // It's a URL, add it as a string
+                $postFields['file'] = $filePath; // Use the URL directly
+            } else {
+                // It's a local file path
+                $postFields['file'] = new \CurlFile(realpath($filePath));
+            }
+//            $postFields['file'] = ($filePath);
+        }
+//        dd($postFields,$bot_token);
+
+
+        curl_setopt($request, CURLOPT_POSTFIELDS, $postFields);
         curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($request);
 
-        // close the session
+        $response = curl_exec($request);
         curl_close($request);
 
-//        $response['ok'] = true;
         return $response;
     }
 

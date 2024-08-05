@@ -55,7 +55,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             if ($post) {
                 $postImageUrl = $post->image_url;
                 if ($postImageUrl) {
-                    $botBuilder = new BotBuilder(new Telegram($rssChannel->token, 'bale'));
+
+                    $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
 
                     $data = $botBuilder
                         ->setChatId($rssChannel->target_id)
