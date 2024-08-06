@@ -14,6 +14,7 @@ use App\Http\Controllers\RssFeedWebOriginController;
 use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
+use App\Http\Controllers\AudioBookController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
@@ -83,3 +84,5 @@ Route::post('/webhook-rss', [RssPostItemTranslationController::class, 'index']);
 Route::post('rss-generator',[RssFeedWebOriginController::class, 'store']);
 
 Route::get('chrome_extension_resend',[SocialPublishController::class, 'store']);
+
+Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
