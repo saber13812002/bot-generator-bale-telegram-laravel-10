@@ -47,6 +47,7 @@ class RssFeedWebOrigin extends Resource
 
             Text::make("origin")->sortable(),
             Number::make("media_id")->sortable(),
+            Text::make("audio_book_id")->sortable(),
             Text::make("image")->sortable(),
             Text::make("link")->sortable(),
             Text::make("title")->sortable(),
