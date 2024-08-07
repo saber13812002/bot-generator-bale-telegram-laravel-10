@@ -50,17 +50,10 @@ class RssService
 
                 if (!$imageUrl && !empty($item->image)) {
                     $imageUrl = (string)$item->image; // Cast to string for safety
+                    $link = (string)$item->link; // Cast to string for safety
 
                     if (strpos($imageUrl, 'navaar.ir') !== false) {
-                        // Extract the audiobook ID
-                        preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $imageUrl, $matches);
-
-                        if (isset($matches[1])) {
-                            $audioBookId = $matches[1];
-                            // Call the method from the audiobook service
-                            $audioBookDetails = AudioBookService::getAudioBookDetails($audioBookId);
-                            // You can now use $audioBookDetails as needed
-                        }
+                        self::getAndSaveMediaIdIfNavaar($link, $imageUrl);
                     }
                 }
 
@@ -153,5 +146,29 @@ class RssService
         }
 
         return null;
+    }
+
+    /**
+     * @param string $link
+     * @param string $imageUrl
+     * @return void
+     */
+    public static function getAndSaveMediaIdIfNavaar(string $link, string $imageUrl): void
+    {
+// Extract the audiobook ID
+        preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $link, $matches);
+
+        if (isset($matches[1])) {
+            $mediaId = $matches[1];
+
+            preg_match('/https:\/\/www\.navaar\.ir\/content\/books\/([0-9a-fA-F\-]{36})/', $imageUrl, $matches2);
+
+            if (isset($matches2[1])) {
+                $audioBookId = $matches2[1];
+                // Call the method from the audiobook service
+                AudioBookService::saveAudioBookUUIdWithMediaId($mediaId, $audioBookId);
+                // You can now use $audioBookDetails as needed
+            }
+        }
     }
 }

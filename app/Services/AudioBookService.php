@@ -75,4 +75,12 @@ class AudioBookService
         ];
         return $responseData;
     }
+
+    public static function saveAudioBookUUIdWithMediaId($mediaId, $audioBookUuid): void
+    {
+        RssFeedWebOrigin::where('media_id', $mediaId)
+            ->update([
+                'audio_book_id' => $audioBookUuid
+            ]);
+    }
 }
