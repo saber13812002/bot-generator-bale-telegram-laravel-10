@@ -50,6 +50,18 @@ class RssService
 
                 if (!$imageUrl && !empty($item->image)) {
                     $imageUrl = (string)$item->image; // Cast to string for safety
+
+                    if (strpos($imageUrl, 'navaar.ir') !== false) {
+                        // Extract the audiobook ID
+                        preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $imageUrl, $matches);
+
+                        if (isset($matches[1])) {
+                            $audioBookId = $matches[1];
+                            // Call the method from the audiobook service
+                            $audioBookDetails = AudioBookService::getAudioBookDetails($audioBookId);
+                            // You can now use $audioBookDetails as needed
+                        }
+                    }
                 }
 
                 $pubDate = Carbon::parse((string)$item->pubDate);
