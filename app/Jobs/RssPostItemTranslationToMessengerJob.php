@@ -64,6 +64,31 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         ->setTitle('image')
                         ->setImageUrl($postImageUrl)
                         ->sendPhoto();
+
+                    if (strpos($postImageUrl, 'navaar.ir') !== false) {
+                        $postLink = $post->link;
+
+// Extract the audiobook ID
+                        preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $postLink, $matches);
+
+                        if (isset($matches[1])) {
+                            $mediaId = $matches[1];
+
+                            preg_match('/https:\/\/www\.navaar\.ir\/content\/books\/([0-9a-fA-F\-]{36})/', $postImageUrl, $matches2);
+
+                            if (isset($matches2[1])) {
+                                $audioBookId = $matches2[1];
+                                $audioUrl = "https://www.navaar.ir/content/books/{$audioBookId}/sample.ogg";
+
+                                $data = $botBuilder
+                                    ->setChatId($rssChannel->target_id)
+                                    ->setCaption('audio')
+                                    ->setTitle('audio')
+                                    ->setAudioUrl($audioUrl)
+                                    ->sendAudio();
+                            }
+                        }
+                    }
                 }
             }
             $this->updateRssPostItemTranslationQueues();

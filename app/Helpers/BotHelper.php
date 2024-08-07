@@ -808,6 +808,28 @@ class BotHelper
         return $messenger->sendPhoto($content);
     }
 
+    /**
+     * @param mixed $chat_id
+     * @param string $audioUrl
+     * @param string $title
+     * @param Telegram $messenger
+     * @param string $caption
+     * @return mixed
+     */
+    public static function sendAudio(mixed $chat_id, string $audioUrl, string $title, Telegram $messenger, string $caption = ""): mixed
+    {
+
+        $content = [
+            'chat_id' => $chat_id,
+            'audio' => $audioUrl,
+            'title' => $title,
+            'caption' => $caption,
+            'parse_mode' => "HTML"
+        ];
+
+        return $messenger->sendAudio($content);
+    }
+
 
     /**
      * @param mixed $chat_id

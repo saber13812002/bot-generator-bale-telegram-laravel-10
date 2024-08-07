@@ -8,6 +8,7 @@ class BotBuilder
 {
     private $chat_id;
     private $photoUrl;
+    private $audioUrl;
     private $title;
     private $messenger;
     private $caption;
@@ -41,6 +42,12 @@ class BotBuilder
         return $this;
     }
 
+    public function setAudioUrl($audioUrl): static
+    {
+        $this->audioUrl = $audioUrl;
+        return $this;
+    }
+
     public function setCaption($caption)
     {
         $this->caption = $caption;
@@ -60,4 +67,16 @@ class BotBuilder
     }
 
 
+    public function sendAudio()
+    {
+//        dd($this->messenger->BotType());
+        if ($this->messenger->BotType() == 'eitaa') {
+            return BotHelper::sendAnyFileMessageEitaa($this->chat_id, $this->audioUrl, $this->title, $this->messenger, $this->caption);
+        } else if ($this->messenger->BotType() != 'gap') {
+            return BotHelper::sendAudio($this->chat_id, $this->audioUrl, $this->title, $this->messenger, $this->caption);
+        }
+//        else {
+//            return BotHelper::sendAudioGap($this->chat_id, $this->audioUrl, $this->messenger, $this->caption);
+//        }
+    }
 }
