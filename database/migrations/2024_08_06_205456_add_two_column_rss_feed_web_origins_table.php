@@ -11,8 +11,8 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('rss_feed_web_origins', function (Blueprint $table) {
-            $table->string('audio_book_id'); // Store the audioBookId
-            $table->json('details'); // Field to store the JSON response
+            $table->string('audio_book_id')->after('media_id')->nullable(); // Store the audioBookId
+            $table->json('details')->after('description')->nullable(); // Field to store the JSON response
         });
     }
 
