@@ -52,9 +52,9 @@ class RssService
                     $imageUrl = (string)$item->image; // Cast to string for safety
                     $link = (string)$item->link; // Cast to string for safety
 
-                    if (strpos($imageUrl, 'navaar.ir') !== false) {
-                        self::getAndSaveMediaIdIfNavaar($link, $imageUrl);
-                    }
+//                    if (strpos($imageUrl, 'navaar.ir') !== false) {
+//                        self::getAndSaveMediaIdIfNavaar($link, $imageUrl);
+//                    }
                 }
 
                 $pubDate = Carbon::parse((string)$item->pubDate);
