@@ -39,9 +39,18 @@ class RssService
                 $title = strip_tags((string)$item->title);
                 $link = (string)$item->$unique_field_name;
 
-                $description = isset($item->description) ? (string) $item->description : '';
+                $description = isset($item->description) ? (string)$item->description : '';
                 $textDescription = self::extractTextInTags($description);
                 $imageUrl = self::extractImageUrl($description);
+
+                // Initialize imageUrl
+                if (!isset($imageUrl)) {
+                    $imageUrl = null;
+                }
+
+                if (!$imageUrl && !empty($item->image)) {
+                    $imageUrl = (string)$item->image; // Cast to string for safety
+                }
 
                 $pubDate = Carbon::parse((string)$item->pubDate);
 
