@@ -44,17 +44,17 @@ class RssService
                 $imageUrl = self::extractImageUrl($description);
 
                 // Initialize imageUrl
-                if (!isset($imageUrl)) {
-                    $imageUrl = null;
-                }
+//                if (!isset($imageUrl)) {
+//                    $imageUrl = null;
+//                }
 
-                if (!$imageUrl && !empty($item->image)) {
-                    $imageUrl = (string)$item->image; // Cast to string for safety
-                    $link = (string)$item->link; // Cast to string for safety
-                    if (strpos($imageUrl, 'navaar.ir') !== false) {
-                        self::getAndSaveMediaIdIfNavaar($link, $imageUrl);
-                    }
-                }
+//                if (!$imageUrl && !empty($item->image)) {
+//                    $imageUrl = (string)$item->image; // Cast to string for safety
+//                    $link = (string)$item->link; // Cast to string for safety
+//                    if (strpos($imageUrl, 'navaar.ir') !== false) {
+//                        self::getAndSaveMediaIdIfNavaar($link, $imageUrl);
+//                    }
+//                }
 
                 $pubDate = Carbon::parse((string)$item->pubDate);
 
