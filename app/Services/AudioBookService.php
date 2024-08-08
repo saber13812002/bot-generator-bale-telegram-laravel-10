@@ -83,4 +83,36 @@ class AudioBookService
                 'audio_book_id' => $audioBookUuid
             ]);
     }
+
+    public static function getUuid(\GuzzleHttp\Promise\PromiseInterface|\Illuminate\Http\Client\Response $response, int $audioBookId)
+    {
+
+        $data = $response->json();
+        return $data['audioBookId'];
+    }
+
+    public static function getUuidByMediaId(int $audioBookId)
+    {
+
+        $response = self::callDetailApi($audioBookId);
+
+        // Check if the response is successful
+        if ($response->successful()) {
+            return self::getUuid($response, $audioBookId);
+        }
+        return "";
+    }
+
+    public static function convertLinkToMediaId(mixed $link): string
+    {
+
+        preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $link, $matches);
+
+        if (isset($matches[1])) {
+            $mediaId = $matches[1];
+            return $mediaId;
+        }
+        return "";
+    }
+
 }
