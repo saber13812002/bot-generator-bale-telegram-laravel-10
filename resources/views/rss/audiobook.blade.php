@@ -9,7 +9,7 @@
             <item>
                 <title>{{ $item->title }}</title>
                 <link>{{ $item->link }}</link>
-                <description>{{ $item->description }}</description>
+                <description>{{ $item->description }} <img src={{ $item->image }} /> </description>
                 <guid>{{ $item->media_id }}</guid>
                 <pubDate>{{ $item->created_at->toRfc2822String() }}</pubDate>
                 <image>{{ $item->image }}</image>
