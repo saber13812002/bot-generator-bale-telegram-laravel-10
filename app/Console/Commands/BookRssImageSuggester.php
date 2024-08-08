@@ -28,7 +28,10 @@ class BookRssImageSuggester extends Command
      */
     public function handle()
     {
-        $rssPostItemNoImage = RssPostItem::orderByDesc('id')->whereNull('image_url')->first();
+        $rssPostItemNoImage = RssPostItem::orderByDesc('id')
+            ->whereNull('image_url')
+            ->whereRssItemId(42)
+            ->first();
 //        dd($rssPostItemNoImage);
         $media_id = AudioBookService::convertLinkToMediaId($rssPostItemNoImage->link);
 //        dd($media_id);
