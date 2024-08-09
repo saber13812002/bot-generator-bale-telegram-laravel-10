@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use SimpleXMLElement;
 
@@ -23,7 +24,10 @@ class RssService
     public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): JsonResponse
     {
         try {
-            $response = Http::get($rssUrl);
+            $response = Cache::remember('rss_' . md5($rssUrl), 400, function () use ($rssUrl) {
+                return Http::get($rssUrl);
+            });
+
 //            dd($response);
             if (!$response->successful()) {
                 throw new \Exception("Failed to fetch RSS feed.");
