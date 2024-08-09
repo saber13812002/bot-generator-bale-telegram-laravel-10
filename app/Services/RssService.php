@@ -24,28 +24,21 @@ class RssService
     public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): JsonResponse
     {
         try {
-            $response = Cache::remember('rss_' . md5($rssUrl), 400, function () use ($rssUrl) {
-                return Http::get($rssUrl);
+            // Fetch and cache the RSS feed
+            $cachedFeed = Cache::remember('rss_feed', 400, function () use ($rssUrl) {
+                $response = Http::get($rssUrl);
+
+                // Check if the response is successful
+                if (!$response->successful()) {
+                    throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status());
+                }
+
+                // Convert the XML response to a string
+                return (string) $response->getBody();
             });
 
-            // Log the response status and body for debugging
-            if (!$response->successful()) {
-                throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status() . " Body: " . $response->body());
-            }
-
-            // Access the response body as a stream
-            $bodyStream = $response->getBody();
-
-            // Check if the stream is valid
-            if (!is_resource($bodyStream)) {
-                throw new \Exception("Invalid response body stream.");
-            }
-
-            // Convert the stream to a string for XML parsing
-            $bodyString = (string)$bodyStream;
-
-            // Load the XML from the response body
-            $xml = simplexml_load_string($bodyString);
+            // Load the XML from the cached string
+            $xml = simplexml_load_string($cachedFeed);
             if ($xml === false) {
                 throw new \Exception("Failed to parse RSS feed. Errors: " . implode(', ', libxml_get_errors()));
             }
