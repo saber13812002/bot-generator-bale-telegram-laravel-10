@@ -28,17 +28,19 @@ class RssService
                 return Http::get($rssUrl);
             });
 
-//            dd($response);
+            // Log the response status and body for debugging
             if (!$response->successful()) {
-                throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status());
+                throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status() . " Body: " . $response->body());
             }
 
             // Check if the response body is empty
-            if (empty($response->body())) {
+            $body = $response->getBody();
+            if (empty($body)) {
                 throw new \Exception("Empty response body.");
             }
 
-            $xml = simplexml_load_string($response->body());
+            // Load the XML from the response body
+            $xml = simplexml_load_string((string)$body);
             if ($xml === false) {
                 throw new \Exception("Failed to parse RSS feed. Errors: " . implode(', ', libxml_get_errors()));
             }
