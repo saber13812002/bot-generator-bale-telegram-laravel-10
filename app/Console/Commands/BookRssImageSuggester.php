@@ -33,16 +33,18 @@ class BookRssImageSuggester extends Command
             ->whereRssItemId(42)
             ->first();
 //        dd($rssPostItemNoImage);
-        $media_id = AudioBookService::convertLinkToMediaId($rssPostItemNoImage->link);
+        if(($rssPostItemNoImage)) {
+            $media_id = AudioBookService::convertLinkToMediaId($rssPostItemNoImage->link);
 //        dd($media_id);
-        // calc image url
-        $uuid = AudioBookService::getUuidByMediaId($media_id);
+            // calc image url
+            $uuid = AudioBookService::getUuidByMediaId($media_id);
 //        dd($uuid);
 //        $uuid = "2897df66-797b-4e1c-b25c-64fb1708fbcc";
-        $image_url = "https://www.navaar.ir/content/books/" . $uuid . "/pic.jpg?w=370&h=370&t=AAAAAB9ANMQ=&mode=stretch";
+            $image_url = "https://www.navaar.ir/content/books/" . $uuid . "/pic.jpg?w=370&h=370&t=AAAAAB9ANMQ=&mode=stretch";
 
-        // save
-        $rssPostItemNoImage->image_url = $image_url;
-        $rssPostItemNoImage->save();
+            // save
+            $rssPostItemNoImage->image_url = $image_url;
+            $rssPostItemNoImage->save();
+        }
     }
 }
