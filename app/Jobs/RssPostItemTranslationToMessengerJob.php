@@ -28,6 +28,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
     public function handle(): void
     {
+//        dd(json_encode($this->rssPostItemTranslationQueue->postTranslation));
+//        if ($this->rssPostItemTranslationQueue->rss_channel_id == 2) {
         $rssChannel = RssChannel::find($this->rssPostItemTranslationQueue->rss_channel_id);
 
         if (!$rssChannel) {
@@ -46,18 +48,20 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 //        dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 
         try {
+//            dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
             $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 //            dd($response);
 //            if ($response && $response["ok"] != true) {
-            Log::error(json_encode($response));
+            Log::info(json_encode($response));
 //            }
             $post = $postTranslation->post ?? null;
             if ($post) {
                 $postImageUrl = $post->image_url;
+//                $postImageUrl = "https://www.navaar.ir/content/books/8a9152dd-ef83-40d8-9ea4-b615824c93ad/pic.jpg?w=370&h=370&t=AAAAAHJDqBc=&mode=stretch";
                 if ($postImageUrl) {
 
                     $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
-
+//                    dd($rssChannel->token, $rssChannelOrigin->slug);
                     $data = $botBuilder
                         ->setChatId($rssChannel->target_id)
                         ->setCaption('image')
@@ -95,7 +99,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         } catch (\Exception $exception) {
             Log::error($exception->getMessage());
         }
-
+//        }
     }
 
     protected function logError(string $message, array $context = []): void

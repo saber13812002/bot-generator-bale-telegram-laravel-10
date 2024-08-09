@@ -2,19 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\RssPostItemTranslationToMessengerJob;
-use App\Models\RssPostItem;
-use App\Models\RssPostItemTranslationQueue;
 use Illuminate\Console\Command;
 
-class TestSendPost extends Command
+class TestBookRssImageById extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'app:test-send-post';
+    protected $signature = 'app:test-book-rss-image-by-id';
 
     /**
      * The console command description.
@@ -28,9 +25,10 @@ class TestSendPost extends Command
      */
     public function handle()
     {
+        // read rss audio book sample /api/navaar
+
+        // read image field and write down to image_url
 
 
-        $queue = RssPostItemTranslationQueue::query()->whereRssChannelId(2)->first();
-        RssPostItemTranslationToMessengerJob::dispatch($queue);
     }
 }

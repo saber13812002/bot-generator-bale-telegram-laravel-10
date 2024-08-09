@@ -7,7 +7,9 @@ use Exception;
 use Gap\SDP\Api;
 use GuzzleHttp;
 use GuzzleHttp\Exception\GuzzleException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Telegram;
 
@@ -229,13 +231,16 @@ class BotHelper
     public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
     {
         // todo: test eitaa image sender with test send photo message to eitaa command TestSendPhotoMessageToEitaa
-//        return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "-" . $caption, $photoUrl);
+        return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "-" . $caption, $photoUrl);
     }
 
-    private static function call_eitaa_api($bot_token, $chat_id, $text, $filePath = null)
+    private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null)
     {
-        $uri = 'https://eitaayar.ir/api/' . $bot_token . '/sendMessage';
+        $uri = 'https://eitaayar.ir/api/' . $bot_token . ($photoUrl ? '/sendFile' : '/sendMessage');
 
+//        if ($photoUrl)
+//            dd($uri);
+        //
         $request = curl_init($uri);
         curl_setopt($request, CURLOPT_POST, true);
         curl_setopt($request, CURLOPT_SSL_VERIFYHOST, 0);
@@ -247,27 +252,63 @@ class BotHelper
         ];
 
         // Check if a file path is provided
-        if ($filePath) {
-            // Determine if the filePath is a URL or a local file
-            if (filter_var($filePath, FILTER_VALIDATE_URL)) {
-                // It's a URL, add it as a string
-                $postFields['file'] = $filePath; // Use the URL directly
-            } else {
-                // It's a local file path
-                $postFields['file'] = new \CurlFile(realpath($filePath));
-            }
-//            $postFields['file'] = ($filePath);
+        if ($photoUrl) {
+            $cleanUrl = self::removeQueryParameters($photoUrl);
+
+            $localFilePath = self::downloadImage($cleanUrl);
+            // It's a URL, add it as a string
+//            dd($localFilePath);
+//            $postFields['file'] = $cleanUrl; // Use the URL directly
+            $postFields['file'] =  new \CurlFile(realpath($localFilePath)); // Use the URL directly
         }
 //        dd($postFields,$bot_token);
 
 
+//        if ($photoUrl)
+//            dd($postFields);
+
         curl_setopt($request, CURLOPT_POSTFIELDS, $postFields);
         curl_setopt($request, CURLOPT_RETURNTRANSFER, true);
-
+//        dd($request);
         $response = curl_exec($request);
         curl_close($request);
 
         return $response;
+    }
+
+    private static function downloadImage($url)
+    {
+        // Get the image content
+        $response = Http::get($url);
+
+        // Check if the request was successful
+        if ($response->successful()) {
+            // Define the local path where you want to save the image
+            $localPath = 'images/' . basename($url);
+
+            // Store the image in the local storage
+            Storage::disk('public')->put($localPath, $response->body());
+
+            // Return the local path
+            return storage_path('app/public/' . $localPath);
+        }
+
+        return null; // Return null if the download failed
+    }
+
+    private static function removeQueryParameters($url)
+    {
+        // Parse the URL
+        $parsedUrl = parse_url($url);
+
+        // Rebuild the URL without the query part
+        $cleanUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+
+        if (isset($parsedUrl['path'])) {
+            $cleanUrl .= $parsedUrl['path'];
+        }
+
+        return $cleanUrl;
     }
 
     /**

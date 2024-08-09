@@ -26,4 +26,9 @@ class RssPostItemTranslation extends Model
     {
         return $this->hasOne(RssPostItem::class, 'id', 'rss_post_item_id');
     }
+
+    public function queues()
+    {
+        return $this->hasMany(RssPostItemTranslationQueue::class,'rss_post_item_translation_id','id');
+    }
 }
