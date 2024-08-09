@@ -30,12 +30,14 @@ class RssReadTranslate extends Command
      */
     public function handle()
     {
-        $countBefore = RssPostItem::query()->count();
+//        $countBefore = RssPostItem::query()->count();
         RssItemService::run();
-        $countAfter = RssPostItem::query()->count();
-        $message = "done:" . $countAfter - $countBefore . " items added. final count is:" . $countAfter;
-        $this->info($message);
-Log::info($message);
+//        $countAfter = RssPostItem::query()->count();
+//        $message = "done:" . $countAfter - $countBefore . " items added. final count is:" . $countAfter;
+//        $this->info($message);
+        $this->info("done");
+
+//Log::info($message);
         RssPostItemTranslationToMessengerService::run();
         $this->info("done");
 

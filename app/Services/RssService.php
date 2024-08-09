@@ -8,7 +8,6 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use SimpleXMLElement;
 
@@ -24,23 +23,15 @@ class RssService
     public static function readRssAndSave($rssUrl, $id, $unique_field_name = null): JsonResponse
     {
         try {
-            // Fetch and cache the RSS feed
-            $cachedFeed = Cache::remember('rss_feed', 400, function () use ($rssUrl) {
-                $response = Http::get($rssUrl);
+            $response = Http::get($rssUrl);
+//            dd($response);
+            if (!$response->successful()) {
+                throw new \Exception("Failed to fetch RSS feed.");
+            }
 
-                // Check if the response is successful
-                if (!$response->successful()) {
-                    throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status());
-                }
-
-                // Convert the XML response to a string
-                return (string) $response->getBody();
-            });
-
-            // Load the XML from the cached string
-            $xml = simplexml_load_string($cachedFeed);
+            $xml = simplexml_load_string($response->body());
             if ($xml === false) {
-                throw new \Exception("Failed to parse RSS feed. Errors: " . implode(', ', libxml_get_errors()));
+                throw new \Exception("Failed to parse RSS feed.");
             }
 //            dd($xml);
             foreach ($xml->channel->item as $item) {
