@@ -33,14 +33,19 @@ class RssService
                 throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status() . " Body: " . $response->body());
             }
 
-            // Check if the response body is empty
-            $body = $response->getBody();
-            if (empty($body)) {
-                throw new \Exception("Empty response body.");
+            // Access the response body as a stream
+            $bodyStream = $response->getBody();
+
+            // Check if the stream is valid
+            if (!is_resource($bodyStream)) {
+                throw new \Exception("Invalid response body stream.");
             }
 
+            // Convert the stream to a string for XML parsing
+            $bodyString = (string)$bodyStream;
+
             // Load the XML from the response body
-            $xml = simplexml_load_string((string)$body);
+            $xml = simplexml_load_string($bodyString);
             if ($xml === false) {
                 throw new \Exception("Failed to parse RSS feed. Errors: " . implode(', ', libxml_get_errors()));
             }
