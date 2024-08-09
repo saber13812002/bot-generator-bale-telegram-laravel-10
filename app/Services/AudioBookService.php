@@ -98,6 +98,8 @@ class AudioBookService
 
         // Check if the response is successful
         if ($response->successful()) {
+            $responseData = self::saveAndGetResponseData($response, $audioBookId);
+
             return self::getUuid($response, $audioBookId);
         }
         return "";
