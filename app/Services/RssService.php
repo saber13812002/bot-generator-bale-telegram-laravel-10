@@ -30,12 +30,17 @@ class RssService
 
 //            dd($response);
             if (!$response->successful()) {
-                throw new \Exception("Failed to fetch RSS feed.");
+                throw new \Exception("Failed to fetch RSS feed. Status: " . $response->status());
+            }
+
+            // Check if the response body is empty
+            if (empty($response->body())) {
+                throw new \Exception("Empty response body.");
             }
 
             $xml = simplexml_load_string($response->body());
             if ($xml === false) {
-                throw new \Exception("Failed to parse RSS feed.");
+                throw new \Exception("Failed to parse RSS feed. Errors: " . implode(', ', libxml_get_errors()));
             }
 //            dd($xml);
             foreach ($xml->channel->item as $item) {
