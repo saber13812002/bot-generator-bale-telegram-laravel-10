@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\RssFeedWebOrigin;
+use GuzzleHttp\Promise\PromiseInterface;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class AudioBookService
@@ -29,9 +31,9 @@ class AudioBookService
 
     /**
      * @param $audioBookId
-     * @return \GuzzleHttp\Promise\PromiseInterface|\Illuminate\Http\Client\Response
+     * @return PromiseInterface|Response
      */
-    public static function callDetailApi($audioBookId): \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface
+    public static function callDetailApi($audioBookId): Response|PromiseInterface
     {
 // Construct the URL
         $url = "https://www.navaar.ir/api/audiobooks/{$audioBookId}/detail2";
@@ -48,11 +50,11 @@ class AudioBookService
     }
 
     /**
-     * @param \GuzzleHttp\Promise\PromiseInterface|\Illuminate\Http\Client\Response $response
+     * @param PromiseInterface|Response $response
      * @param $audioBookId
      * @return string[]
      */
-    public static function saveAndGetResponseData(\GuzzleHttp\Promise\PromiseInterface|\Illuminate\Http\Client\Response $response, $audioBookId): array
+    public static function saveAndGetResponseData(PromiseInterface|Response $response, $audioBookId): array
     {
 // Assuming $response is already defined and contains the necessary data
         $data = $response->json();
@@ -76,6 +78,43 @@ class AudioBookService
         return $responseData;
     }
 
+    /**
+     * @param PromiseInterface|Response $response
+     * @param $audioBookId
+     * @return string[]
+     */
+    public static function createAndGetResponseData(PromiseInterface|Response $response, $audioBookId): array
+    {
+        // Assuming $response is already defined and contains the necessary data
+        $data = $response->json();
+
+        // Use updateOrCreate to either update an existing record or create a new one
+        RssFeedWebOrigin::create(
+            [
+                'media_id' => $audioBookId,
+                'origin' => "navaar.ir",
+                'link' => "https://www.navaar.ir/audiobook/".$audioBookId,
+                'image' => "https://www.navaar.ir/content/books/".$data['audioBookId']."/pic.jpg?w=370&h=370&t=AAAAACFZw5c=&mode=stretch",
+                'title' => $data['title'],
+                'description' => $data['abstract'],
+                'audio_book_id' => $data['audioBookId'], // Use the appropriate key from the response
+                'details' => json_encode($data), // Convert the array to a JSON string
+            ]
+        );
+
+        // Construct the OGG file URL
+        $fileUrl = "https://www.navaar.ir/content/books/{$data['audioBookId']}/sample.ogg";
+
+        // Prepare your response data
+        $responseData = [
+            'file_url' => $fileUrl,
+            'message' => 'Audio file is ready for download.',
+            // Add any other data you want to include in the response
+        ];
+
+        return $responseData;
+    }
+
     public static function saveAudioBookUUIdWithMediaId($mediaId, $audioBookUuid): void
     {
         RssFeedWebOrigin::where('media_id', $mediaId)
@@ -84,7 +123,7 @@ class AudioBookService
             ]);
     }
 
-    public static function getUuid(\GuzzleHttp\Promise\PromiseInterface|\Illuminate\Http\Client\Response $response, int $audioBookId)
+    public static function getUuid(PromiseInterface|Response $response, int $audioBookId)
     {
 
         $data = $response->json();

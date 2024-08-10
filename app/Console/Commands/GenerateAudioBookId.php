@@ -28,6 +28,8 @@ class GenerateAudioBookId extends Command
      */
     public function handle()
     {
+        $this->info("Generating Audio Book ID...");
+        \Log::info("Starting ID generation...");
 
         $maxAttempts = 3;
         $attempts = 0;
@@ -35,26 +37,36 @@ class GenerateAudioBookId extends Command
 
         while ($attempts < $maxAttempts) {
             $audioBookId = rand(100, 15000);
+            \Log::info("Generated ID: {$audioBookId}");
+            $this->info("Generated ID: {$audioBookId}");
+
             if (!RssFeedWebOrigin::where('media_id', $audioBookId)->exists()) {
+                \Log::info("Valid ID found: {$audioBookId}");
+                $this->info("Valid ID found: {$audioBookId}");
                 break; // Found a valid ID
             }
             $attempts++;
         }
 
         if ($attempts === $maxAttempts) {
-            // Handle the case where no valid ID was found after 3 attempts
             \Log::error("Failed to generate a valid audio book ID after {$maxAttempts} attempts.");
+            $this->info("Failed to generate a valid audio book ID after {$maxAttempts} attempts.");
             return;
         }
 
         // Call the API with the valid audioBookId
-
         $response = AudioBookService::callDetailApi($audioBookId);
+        $responseData = $response->json();
+
+        \Log::info("API Response: " . json_encode($responseData));
+//        $this->info("API Response: " . json_encode($responseData));
 
         // Check if the response is successful
         if ($response->successful()) {
-            $responseData = AudioBookService::saveAndGetResponseData($response, $audioBookId);
-
+            $responseData = AudioBookService::createAndGetResponseData($response, $audioBookId);
+            $this->info("Response successful");
+        } else {
+            $this->info("Response not successful");
         }
     }
 
