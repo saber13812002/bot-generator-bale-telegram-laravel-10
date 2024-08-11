@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CourseController;
 use App\Http\Controllers\RssController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -37,3 +38,4 @@ Route::get('/report', function (Request $request) {
 Route::get('/rss/evand', [RssController::class, 'generateRSS']);
 Route::get('/rss/audiobook', [RssController::class, 'audiobook']);
 Route::get('/rss/gitir', [RssController::class, 'gitir']);
+Route::get('/fetch-courses', [CourseController::class, 'fetchCourses']);
