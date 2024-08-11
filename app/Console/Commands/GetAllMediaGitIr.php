@@ -33,7 +33,7 @@ class GetAllMediaGitIr extends Command
             $coursesData = [];
 
             // Loop through pages 1 to 10
-            for ($page = 1; $page <= 10; $page++) {
+            for ($page = 1; $page <= 2; $page++) {
                 $response = $client->get("https://git.ir/courses/?page={$page}");
                 $html = (string) $response->getBody();
 
