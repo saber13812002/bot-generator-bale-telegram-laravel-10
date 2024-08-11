@@ -28,29 +28,38 @@ class GetAllMediaGitIr extends Command
      */
     public function handle()
     {
-        $courses = Cache::remember('courses', 1, function () {
+        $courses = Cache::remember('courses', 1000, function () {
             $client = new Client();
-            $response = $client->get('https://git.ir/courses/');
-            $html = (string)$response->getBody();
-//            dd($html);
-            // Use Simple HTML DOM or DOMDocument to parse the HTML
-            $dom = new \DOMDocument();
-            @$dom->loadHTML($html); // Suppress warnings due to malformed HTML
-            $xpath = new \DOMXPath($dom);
-
-            // XPath queries
-            $links = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']/a/@href");
-            $images = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']//img/@src");
-//            dd($links);
             $coursesData = [];
-            foreach ($links as $index => $link) {
-                $courseUrl = $link->nodeValue;
-                $imageUrl = $images->item($index)->nodeValue ?? null;
 
-                $coursesData[] = [
-                    'url' => $courseUrl,
-                    'image_url' => $imageUrl,
-                ];
+            // Loop through pages 1 to 10
+            for ($page = 1; $page <= 10; $page++) {
+                $response = $client->get("https://git.ir/courses/?page={$page}");
+                $html = (string) $response->getBody();
+
+                // Load the HTML into DOMDocument
+                $dom = new \DOMDocument();
+                @$dom->loadHTML($html); // Suppress warnings due to malformed HTML
+                $xpath = new \DOMXPath($dom);
+
+                // XPath queries
+                $links = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']/a/@href");
+                $imagesDataSrc = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']//img/@data-src");
+                $imagesSrc = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']//img/@src");
+
+                foreach ($links as $index => $link) {
+                    $courseUrl = $link->nodeValue;
+                    $dataSrc = $imagesDataSrc->item($index)->nodeValue ?? null;
+                    $src = $imagesSrc->item($index)->nodeValue ?? null;
+
+                    // Prefer data-src over src
+                    $imageUrl = $dataSrc ?: $src;
+
+                    $coursesData[] = [
+                        'url' => $courseUrl,
+                        'image_url' => $imageUrl,
+                    ];
+                }
             }
 
             return $coursesData;

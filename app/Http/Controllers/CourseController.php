@@ -23,7 +23,7 @@ class CourseController
 
             // XPath queries
             $links = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']/a/@href");
-            $images = $xpath->query("//div[@class='col-sm-12 col-md-6 col-lg-4 my-1']//img/@src");
+            $images = $xpath->query("//div[@class='card-img-top ls-is-cached lazyloaded']//img/@src");
 //            dd($links);
             $coursesData = [];
             foreach ($links as $index => $link) {
