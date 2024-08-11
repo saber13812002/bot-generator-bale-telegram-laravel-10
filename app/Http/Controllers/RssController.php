@@ -64,7 +64,6 @@ class RssController extends Controller
     }
 
 
-
     public function audiobook(Request $request)
     {
         $builder = RssFeedWebOrigin::query();
@@ -79,4 +78,30 @@ class RssController extends Controller
             'Content-Type' => 'application/rss+xml',
         ]);
     }
+
+    public function gitir(Request $request)
+    {
+        // Fetch the RSS feed
+        $rssFeedUrl = 'https://git.ir/feed-fa/';
+        $rssContent = file_get_contents($rssFeedUrl);
+
+        // Load the XML
+        $xml = simplexml_load_string($rssContent);
+
+        $items = [];
+        // Iterate through each item and modify the description
+        foreach ($xml->channel->item as $item) {
+            $items[] = (object)[
+                'title' => (string) $item->title,
+                'link' => (string) $item->link,
+                'description' => (string) $item->description,
+//                'imageUrl' => (string) $item->imageUrl ?? null, // Ensure imageUrl is set correctly
+                'imageUrl' => "https://git.ir/media/udemy-img/learn-python-for-data-science-for-complete-beginners.jpg", // Ensure imageUrl is set correctly
+                'pubDate' => (string) $item->pubDate
+            ];
+        }
+
+        return view('rss.gitir', compact('items'));
+    }
+
 }
