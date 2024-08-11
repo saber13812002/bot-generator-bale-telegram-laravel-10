@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\RssCourse;
 use App\Models\RssFeedWebOrigin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -92,16 +93,37 @@ class RssController extends Controller
         // Iterate through each item and modify the description
         foreach ($xml->channel->item as $item) {
             $items[] = (object)[
-                'title' => (string) $item->title,
-                'link' => (string) $item->link,
-                'description' => (string) $item->description,
+                'title' => (string)$item->title,
+                'link' => (string)$item->link,
+                'description' => (string)$item->description,
 //                'imageUrl' => (string) $item->imageUrl ?? null, // Ensure imageUrl is set correctly
-                'imageUrl' => "https://git.ir/media/udemy-img/learn-python-for-data-science-for-complete-beginners.jpg", // Ensure imageUrl is set correctly
-                'pubDate' => (string) $item->pubDate
+                'imageUrl' => $this->getImageUrlByLink($item->link), // Ensure imageUrl is set correctly
+                'pubDate' => (string)$item->pubDate
             ];
         }
 
-        return view('rss.gitir', compact('items'));
+
+        return view('rss.gitir', compact('items', 'xml'));
+    }
+
+    private function getImageUrlByLink(\SimpleXMLElement|bool|null $link)
+    {
+        $imageUrl = "https://bots.pardisania.ir/awdiobuks.jpg";
+        // remove https://git.ir from start of link
+        if ($link) {
+            $link = (string)$link; // Ensure $link is a string
+            $linkWithoutPrefix = str_replace("https://git.ir", "", $link);
+
+            // Optionally, you can construct a new image URL if needed
+//            $imageUrl = "https://git.ir" . $linkWithoutPrefix; // If you want to keep the base URL
+        }
+        // query in RssCourse
+//        dd($linkWithoutPrefix);
+        $rssCourse = RssCourse::whereUrl($linkWithoutPrefix)->first();
+        if (isset($rssCourse->image_url)) {
+            $imageUrl = "https://git.ir" . $rssCourse->image_url;
+        }
+        return $imageUrl;
     }
 
 }

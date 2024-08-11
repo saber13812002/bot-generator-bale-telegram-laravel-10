@@ -2,9 +2,14 @@
 <?php header('Content-Type: application/rss+xml; charset=utf-8'); ?>
 <rss version="2.0">
     <channel>
-        <title>Your RSS Feed Title</title>
-        <link>Your Website URL</link>
-        <description>Your RSS Feed Description</description>
+        <title>{{ $xml->channel->title }}</title>
+        <link>{{ $xml->channel->link }}</link>
+        <description>{{ $xml->channel->description }}</description>
+        <atom:link href="https://git.ir/feed-fa/" rel="self">
+
+        </atom:link>
+        <language>fa-IR</language>
+        <lastBuildDate>Sun, 11 Aug 2024 21:39:49 +0000</lastBuildDate>
 
         @foreach ($items as $item)
             <item>
