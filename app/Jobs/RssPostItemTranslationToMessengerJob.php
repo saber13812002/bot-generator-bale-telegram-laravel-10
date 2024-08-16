@@ -111,7 +111,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                                 ->sendAudio();
 
                         } catch (\Exception $e) {
-                            $this->error('Error: ' . $e->getMessage());
+                            \Log::error('Error in sending audio: ' . $e->getMessage());
                         }
                     }
                 }
