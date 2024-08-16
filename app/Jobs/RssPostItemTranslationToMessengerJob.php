@@ -56,12 +56,12 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             Log::info(json_encode($response));
 //            }
             $post = $postTranslation->post ?? null;
+            $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
             if ($post) {
                 $postImageUrl = $post->image_url;
 //                $postImageUrl = "https://www.navaar.ir/content/books/8a9152dd-ef83-40d8-9ea4-b615824c93ad/pic.jpg?w=370&h=370&t=AAAAAHJDqBc=&mode=stretch";
                 if ($postImageUrl) {
 
-                    $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
 //                    dd($rssChannel->token, $rssChannelOrigin->slug);
                     $data = $botBuilder
                         ->setChatId($rssChannel->target_id)
@@ -99,7 +99,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                 $postLink = $post->link;
                 if ($postLink) {
 
-                    if (strpos($postLink, 'songsara.net') !== false) {
+                    if (str_contains($postLink, 'songsara.net')) {
                         try {
                             $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3UrlTest();
 
