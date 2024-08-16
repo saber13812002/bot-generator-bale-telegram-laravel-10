@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Builders\BotBuilder;
 use App\Helpers\BotHelper;
 use App\Helpers\RssHelper;
+use App\Helpers\WebPageMediaFindSave;
 use App\Models\RssChannel;
 use App\Models\RssPostItemTranslationQueue;
 use Illuminate\Bus\Queueable;
@@ -94,6 +95,27 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         }
                     }
                 }
+
+                $postLink = $post->link;
+                if ($postLink) {
+
+                    if (strpos($postLink, 'songsara.net') !== false) {
+                        try {
+                            $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3UrlTest();
+
+                            $data = $botBuilder
+                                ->setChatId($rssChannel->target_id)
+                                ->setCaption('audio')
+                                ->setTitle('audio')
+                                ->setAudioUrl($mp3Url)
+                                ->sendAudio();
+
+                        } catch (\Exception $e) {
+                            $this->error('Error: ' . $e->getMessage());
+                        }
+                    }
+                }
+
             }
             $this->updateRssPostItemTranslationQueues();
         } catch (\Exception $exception) {
