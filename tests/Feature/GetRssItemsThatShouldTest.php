@@ -31,7 +31,7 @@ class GetRssItemsThatShouldTest extends TestCase
         $rssItemsThatShouldTest = RssItemService::getRssItemsThatShouldTest();
         $rssItemsThatShouldTestCount = $rssItemsThatShouldTest->count();
 
-        dd($rssItemsAllCount, $rssItemsAllNewCount, $rssItemsThatShouldTestCount);
+//        dd($rssItemsAllCount, $rssItemsAllNewCount, $rssItemsThatShouldTestCount);
 
     }
 }
