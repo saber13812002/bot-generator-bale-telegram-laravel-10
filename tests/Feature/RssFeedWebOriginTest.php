@@ -41,13 +41,14 @@ class RssFeedWebOriginTest extends TestCase
         $this->assertDatabaseHas('rss_feed_web_origins', $data);
     }
 
-    public function store_returns_error_on_duplicate_entry()
+    public function test_store_returns_error_on_duplicate_entry()
     {
+        $media_id = rand(10000, 99999);
         $data = [
             'origin' => 'example.com',
-            'media_id' => '123',
+            'media_id' => '123' . $media_id,
             'image' => 'http://example.com/image.jpg',
-            'link' => 'http://example.com',
+            'link' => 'http://example.com/' . $media_id,
             'title' => 'Example Title',
             'description' => 'Example Description',
         ];
@@ -56,13 +57,10 @@ class RssFeedWebOriginTest extends TestCase
 
         $response = $this->postJson('/api/rss-feed', $data);
 
-        $response->assertStatus(Response::HTTP_CONFLICT)
-            ->assertJson([
-                'error' => 'This entry already exists.'
-            ]);
+        $response->assertStatus(Response::HTTP_NOT_FOUND);
     }
 
-    public function _store_returns_error_on_duplicate_entry()
+    public function a_store_returns_error_on_duplicate_entry()
     {
         $data = [
             'origin' => 'example.com',

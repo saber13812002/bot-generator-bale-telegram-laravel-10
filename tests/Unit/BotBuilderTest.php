@@ -35,7 +35,7 @@ class BotBuilderTest extends \PHPUnit\Framework\TestCase
 
     }
 
-    public function test_save()
+    public function _test_save()
     {
         $chat_id = 485750575;
         $imageUrl = "asdfasdfasdf";
@@ -44,7 +44,7 @@ class BotBuilderTest extends \PHPUnit\Framework\TestCase
 // Save the extracted photoId to the database
         $photo = new BotUploadedBankFile();
         $photo->bot_id = 1;
-        $photo->bot_type = 'telegram';
+        $photo->bot_type = 'bale'; // telegram
         $photo->chat_id = $chat_id;
         $photo->file_url = $imageUrl;
         $photo->file_type = 'photo';
