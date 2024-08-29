@@ -25,6 +25,7 @@ class StoreRssFeedWebOriginRequest extends FormRequest
             //
             'origin' => 'required|string',
             'media_id' => 'required|string',
+            'media_url' => 'nullable|string',
             'image' => 'required|url',
             'link' => 'required|url',
             'title' => 'required|string',
