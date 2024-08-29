@@ -101,7 +101,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                     if (str_contains($postLink, 'songsara.net')) {
                         try {
-                            $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3UrlTest();
+                            $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3Url($postLink);
 
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
