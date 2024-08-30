@@ -135,4 +135,11 @@ class SongSaraService
             Log::error($e->getMessage());
         }
     }
+
+    public static function getDescriptionMediaUrlByMediaId(mixed $media_id)
+    {
+
+        $data = SongSaraService::callCrawlerPage($media_id);
+        return $data;
+    }
 }
