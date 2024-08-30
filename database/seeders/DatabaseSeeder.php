@@ -35,5 +35,6 @@ class DatabaseSeeder extends Seeder
         $this->call(RssBusinessesTableSeeder::class);
         $this->call(TaggablesTableSeeder::class);
         $this->call(RssPostItemTranslationsTableSeeder::class);
+        $this->call(SongsaraMoodsTableSeeder::class);
     }
 }
