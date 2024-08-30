@@ -259,7 +259,7 @@ class BotHelper
             // It's a URL, add it as a string
 //            dd($localFilePath);
 //            $postFields['file'] = $cleanUrl; // Use the URL directly
-            $postFields['file'] =  new \CurlFile(realpath($localFilePath)); // Use the URL directly
+            $postFields['file'] = new \CurlFile(realpath($localFilePath)); // Use the URL directly
         }
 //        dd($postFields,$bot_token);
 
@@ -272,6 +272,8 @@ class BotHelper
 //        dd($request);
         $response = curl_exec($request);
         curl_close($request);
+
+        //todo: should remove image
 
         return $response;
     }

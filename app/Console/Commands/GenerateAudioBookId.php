@@ -40,7 +40,8 @@ class GenerateAudioBookId extends Command
             \Log::info("Generated ID: {$audioBookId}");
             $this->info("Generated ID: {$audioBookId}");
 
-            if (!RssFeedWebOrigin::where('media_id', $audioBookId)->exists()) {
+            if (!RssFeedWebOrigin::where('media_id', $audioBookId)
+                ->whereOrigin('navaar.ir')->exists()) {
                 \Log::info("Valid ID found: {$audioBookId}");
                 $this->info("Valid ID found: {$audioBookId}");
                 break; // Found a valid ID
