@@ -46,7 +46,7 @@ class add_mp3_to_rss_for_sharabebeheshti extends Command
             "origin" => $mp3Item->origin ?? null,
             "title" => $mp3Item->title ?? 'Untitled',
             "image" => "https://bots.pardisania.ir/sharabebeheshti.jpg",
-            "link" => $mp3Item->origin . "/shb" . $mp3Item->part . "?random_id=" . $randNumber . "&id=" . $rand . "&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman",
+            "link" => "https://" . $mp3Item->origin . "/shb" . $mp3Item->part . "?random_id=" . $randNumber . "&id=" . $rand . "&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman",
 //            "media_link" => $mp3Item->link,
             "media_id" => "7777777777" . $rand,
 
