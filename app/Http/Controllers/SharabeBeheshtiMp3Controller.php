@@ -9,6 +9,35 @@ use App\Http\Requests\UpdateSharabeBeheshtiMp3Request;
 
 class SharabeBeheshtiMp3Controller extends Controller
 {
+    public static function getMp3Url(mixed $postLink)
+    {
+        $id = self::getId($postLink);
+
+        if ($id < 89 && $id > 0) {
+            $sharab = SharabeBeheshtiMp3::find($id);
+            return $sharab->link;
+        }
+    }
+
+    /**
+     * @param mixed $postLink
+     * @param $params
+     * @return null
+     */
+    public static function getId(mixed $postLink): null
+    {
+//        $url = "sharabebeheshti.ir/shb5?random_id=6838&id=63&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman";
+
+// تجزیه URL و استخراج کوئری استرینگ
+        $queryString = parse_url($postLink, PHP_URL_QUERY);
+
+// تبدیل کوئری استرینگ به آرایه
+        parse_str($queryString, $params);
+
+// استخراج مقدار id
+        return isset($params['id']) ? $params['id'] : null;
+    }
+
     /**
      * Display a listing of the resource.
      */

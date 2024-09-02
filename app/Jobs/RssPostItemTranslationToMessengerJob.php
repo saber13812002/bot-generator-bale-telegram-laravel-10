@@ -6,6 +6,7 @@ use App\Builders\BotBuilder;
 use App\Helpers\BotHelper;
 use App\Helpers\RssHelper;
 use App\Helpers\WebPageMediaFindSave;
+use App\Http\Controllers\SharabeBeheshtiMp3Controller;
 use App\Models\RssChannel;
 use App\Models\RssPostItemTranslationQueue;
 use Illuminate\Bus\Queueable;
@@ -73,7 +74,6 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                     if (strpos($postImageUrl, 'navaar.ir') !== false) {
                         $postLink = $post->link;
 
-// Extract the audiobook ID
                         preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $postLink, $matches);
 
                         if (isset($matches[1])) {
@@ -102,6 +102,21 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                     if (str_contains($postLink, 'songsara.net')) {
                         try {
                             $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3Url($postLink);
+
+                            $data = $botBuilder
+                                ->setChatId($rssChannel->target_id)
+                                ->setCaption('audio')
+                                ->setTitle('audio')
+                                ->setAudioUrl($mp3Url)
+                                ->sendAudio();
+
+                        } catch (\Exception $e) {
+                            \Log::error('Error in sending audio: ' . $e->getMessage());
+                        }
+                    }
+                    if (str_contains($postLink, 'sharabebeheshti.ir')) {
+                        try {
+                            $mp3Url = SharabeBeheshtiMp3Controller::getMp3Url($postLink);
 
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
