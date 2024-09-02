@@ -24,18 +24,19 @@ class SharabeBeheshtiMp3Controller extends Controller
      * @param $params
      * @return null
      */
-    public static function getId(mixed $postLink): null
+    public static function getId(mixed $url): ?string
     {
 //        $url = "sharabebeheshti.ir/shb5?random_id=6838&id=63&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman";
 
-// تجزیه URL و استخراج کوئری استرینگ
-        $queryString = parse_url($postLink, PHP_URL_QUERY);
 
-// تبدیل کوئری استرینگ به آرایه
+        // تجزیه URL و استخراج کوئری استرینگ
+        $queryString = parse_url($url, PHP_URL_QUERY);
+
+        // تبدیل کوئری استرینگ به آرایه
         parse_str($queryString, $params);
 
-// استخراج مقدار id
-        return isset($params['id']) ? $params['id'] : null;
+        // استخراج مقدار id
+        return isset($params['id']) ? (string)$params['id'] : null; // اطمینان از نوع بازگشتی
     }
 
     /**
