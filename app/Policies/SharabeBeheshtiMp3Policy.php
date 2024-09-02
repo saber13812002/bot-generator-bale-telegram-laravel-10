@@ -13,7 +13,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function view(User $user, SharabeBeheshtiMp3 $sharabeBeheshtiMp3): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function update(User $user, SharabeBeheshtiMp3 $sharabeBeheshtiMp3): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function delete(User $user, SharabeBeheshtiMp3 $sharabeBeheshtiMp3): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class SharabeBeheshtiMp3Policy
      */
     public function restore(User $user, SharabeBeheshtiMp3 $sharabeBeheshtiMp3): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class SharabeBeheshtiMp3Policy
      */
     public function forceDelete(User $user, SharabeBeheshtiMp3 $sharabeBeheshtiMp3): bool
     {
-        //
+        return true;
     }
 }
