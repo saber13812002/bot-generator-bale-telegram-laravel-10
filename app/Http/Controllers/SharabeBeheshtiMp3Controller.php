@@ -6,15 +6,18 @@ use App\Models\SharabeBeheshtiMp3;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSharabeBeheshtiMp3Request;
 use App\Http\Requests\UpdateSharabeBeheshtiMp3Request;
+use Illuminate\Support\Facades\Log;
 
 class SharabeBeheshtiMp3Controller extends Controller
 {
     public static function getMp3Url(mixed $postLink)
     {
         $id = self::getId($postLink);
-
+        Log::info("id:" . $id);
         if ($id < 89 && $id > 0) {
             $sharab = SharabeBeheshtiMp3::find($id);
+
+            Log::info("sharab->link:" . $sharab->link);
             return $sharab->link;
         }
     }
