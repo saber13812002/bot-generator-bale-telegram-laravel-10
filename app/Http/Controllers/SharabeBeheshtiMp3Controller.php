@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class SharabeBeheshtiMp3Controller extends Controller
 {
-    public static function getMp3Url(mixed $postLink)
+    public static function getMp3UrlAndTitleAndId(mixed $postLink)
     {
         $id = self::getId($postLink);
         Log::info("id:" . $id);
@@ -18,7 +18,11 @@ class SharabeBeheshtiMp3Controller extends Controller
             $sharab = SharabeBeheshtiMp3::find($id);
 
             Log::info("sharab->link:" . $sharab->link);
-            return $sharab->link;
+
+            $title = "#" . $sharab->part_name . "
+" . $sharab->title;
+
+            return [$sharab->link, $title, $id];
         }
     }
 
@@ -40,6 +44,23 @@ class SharabeBeheshtiMp3Controller extends Controller
 
         // استخراج مقدار id
         return isset($params['id']) ? (string)$params['id'] : null; // اطمینان از نوع بازگشتی
+    }
+
+    public static function getCaptionByCheckEvenOrOdd($number)
+    {
+
+        $caption = "در ایتا
+https://eitaa.com/sharabebeheshti
+در بله
+https://ble.ir/sharabebeheshti
+در تلگرام
+https://t.me/sharabebeheshti_ir";
+
+        if ($number % 2 === 0) {
+            return $caption; // اگر عدد زوج باشد
+        } else {
+            return "انتشار حداکثری"; // اگر عدد فرد باشد
+        }
     }
 
     /**

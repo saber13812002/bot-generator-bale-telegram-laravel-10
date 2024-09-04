@@ -231,7 +231,8 @@ class BotHelper
     public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
     {
         // todo: test eitaa image sender with test send photo message to eitaa command TestSendPhotoMessageToEitaa
-        return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "-" . $caption, $photoUrl);
+        return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "
+" . $caption, $photoUrl);
     }
 
     private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null)

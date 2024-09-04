@@ -117,13 +117,15 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                     Log::info("postlink:" . $postLink);
                     if (str_contains($postLink, 'sharabebeheshti.ir')) {
                         try {
-                            $mp3Url = SharabeBeheshtiMp3Controller::getMp3Url($postLink);
+                            [$mp3Url, $title, $id] = SharabeBeheshtiMp3Controller::getMp3UrlAndTitleAndId($postLink);
+
+                            $caption = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id);
 
                             Log::info("mp3Url:" . $mp3Url);
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
-                                ->setCaption('audio')
-                                ->setTitle('audio')
+                                ->setCaption($caption)
+                                ->setTitle($title)
                                 ->setAudioUrl($mp3Url)
                                 ->sendAudio();
 
