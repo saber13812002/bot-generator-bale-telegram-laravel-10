@@ -66,8 +66,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 //                    dd($rssChannel->token, $rssChannelOrigin->slug);
                     $data = $botBuilder
                         ->setChatId($rssChannel->target_id)
-                        ->setCaption('image')
-                        ->setTitle('image')
+                        ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                        ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                         ->setImageUrl($postImageUrl)
                         ->sendPhoto();
 
@@ -87,8 +87,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                                 $data = $botBuilder
                                     ->setChatId($rssChannel->target_id)
-                                    ->setCaption('audio')
-                                    ->setTitle('audio')
+                                    ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                                    ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                                     ->setAudioUrl($audioUrl)
                                     ->sendAudio();
                             }
@@ -105,8 +105,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
-                                ->setCaption('audio')
-                                ->setTitle('audio')
+                                ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                                ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                                 ->setAudioUrl($mp3Url)
                                 ->sendAudio();
 
