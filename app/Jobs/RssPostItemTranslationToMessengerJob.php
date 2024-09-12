@@ -41,7 +41,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             return;
         }
 
-        $rssChannelOrigin = $rssChannel->RssChannelOrigin;
+        $rssChannelOrigin = optional($rssChannel)->RssChannelOrigin;
         if (!$rssChannelOrigin || !$rssChannelOrigin->slug) {
             $this->logError("RSS Channel Origin or slug not found for ID: {$rssChannel->id}");
             return;
@@ -63,15 +63,24 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
             if ($rssPostItem) {
                 /** @var RssItem|null $rssItem */
-                $rssItem = $rssPostItem->rssItem ?? null;
+                $rssPostItem = optional($postTranslation)->post;
                 $postImageUrl = $rssPostItem->image_url;
+
+                $title = $rssPostItem->title; // Assuming this is where your title comes from
+                $hashtags = '#' . implode(' #', explode(' ', $title));
+                $url = $rssPostItem->url; // Assuming this is where your title comes from
+                $captionMedia = $hashtags . '
+' . $url . '
+' . ' - #' . $rssChannelOrigin->slug;
+
+
 //                $postImageUrl = "https://www.navaar.ir/content/books/8a9152dd-ef83-40d8-9ea4-b615824c93ad/pic.jpg?w=370&h=370&t=AAAAAHJDqBc=&mode=stretch";
                 if ($postImageUrl) {
 
 //                    dd($rssChannel->token, $rssChannelOrigin->slug);
                     $data = $botBuilder
                         ->setChatId($rssChannel->target_id)
-                        ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                        ->setCaption($captionMedia) // Dynamic caption
                         ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                         ->setImageUrl($postImageUrl)
                         ->sendPhoto();
@@ -92,7 +101,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                                 $data = $botBuilder
                                     ->setChatId($rssChannel->target_id)
-                                    ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                                    ->setCaption($captionMedia) // Dynamic caption
                                     ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                                     ->setAudioUrl($audioUrl)
                                     ->sendAudio();
@@ -110,7 +119,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
-                                ->setCaption(' - #' . $rssChannelOrigin->slug) // Dynamic caption
+                                ->setCaption($captionMedia) // Dynamic caption
                                 ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
                                 ->setAudioUrl($mp3Url)
                                 ->sendAudio();
@@ -124,7 +133,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         try {
                             [$mp3Url, $title, $id] = SharabeBeheshtiMp3Controller::getMp3UrlAndTitleAndId($postLink);
 
-                            $caption = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id);
+                            $caption = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id) . '
+' . $captionMedia;
 
                             Log::info("mp3Url:" . $mp3Url);
                             $data = $botBuilder
@@ -150,7 +160,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
     protected function logError(string $message, array $context = []): void
     {
-        Log::error($message, $context);
+        Log::error('Error message', ['context' => $context]);
     }
 
     protected function updateRssPostItemTranslationQueues(): void
