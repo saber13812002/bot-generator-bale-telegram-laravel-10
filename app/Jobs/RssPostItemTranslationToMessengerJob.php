@@ -8,6 +8,8 @@ use App\Helpers\RssHelper;
 use App\Helpers\WebPageMediaFindSave;
 use App\Http\Controllers\SharabeBeheshtiMp3Controller;
 use App\Models\RssChannel;
+use App\Models\RssItem;
+use App\Models\RssPostItem;
 use App\Models\RssPostItemTranslationQueue;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -56,10 +58,13 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 //            if ($response && $response["ok"] != true) {
             Log::info(json_encode($response));
 //            }
-            $post = $postTranslation->post ?? null;
+            /** @var RssPostItem|null $rssPostItem */
+            $rssPostItem = $postTranslation->post ?? null;
             $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
-            if ($post) {
-                $postImageUrl = $post->image_url;
+            if ($rssPostItem) {
+                /** @var RssItem|null $rssItem */
+                $rssItem = $rssPostItem->rssItem ?? null;
+                $postImageUrl = $rssPostItem->image_url;
 //                $postImageUrl = "https://www.navaar.ir/content/books/8a9152dd-ef83-40d8-9ea4-b615824c93ad/pic.jpg?w=370&h=370&t=AAAAAHJDqBc=&mode=stretch";
                 if ($postImageUrl) {
 
@@ -72,7 +77,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         ->sendPhoto();
 
                     if (strpos($postImageUrl, 'navaar.ir') !== false) {
-                        $postLink = $post->link;
+                        $postLink = $rssPostItem->link;
 
                         preg_match('/https:\/\/www\.navaar\.ir\/audiobook\/(\d+)/', $postLink, $matches);
 
@@ -96,7 +101,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                     }
                 }
 
-                $postLink = $post->link;
+                $postLink = $rssPostItem->link;
                 if ($postLink) {
 
                     if (str_contains($postLink, 'songsara.net')) {
