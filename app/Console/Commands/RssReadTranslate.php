@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-
 use App\Models\RssPostItem;
 use App\Services\RssItemService;
 use App\Services\RssPostItemTranslationToMessengerService;
@@ -16,7 +15,7 @@ class RssReadTranslate extends Command
      *
      * @var string
      */
-    protected $signature = 'app:rss_read_translate';
+    protected $signature = 'app:rss_read_translate {--switch : Description of the switch}';
 
     /**
      * The console command description.
@@ -30,16 +29,23 @@ class RssReadTranslate extends Command
      */
     public function handle()
     {
-//        $countBefore = RssPostItem::query()->count();
-        RssItemService::run();
-//        $countAfter = RssPostItem::query()->count();
-//        $message = "done:" . $countAfter - $countBefore . " items added. final count is:" . $countAfter;
-//        $this->info($message);
+        // Set default value for the switch
+        $switch = $this->option('switch') ? true : false;
+
+        // Use the switch in your logic
+        if ($switch) {
+            $this->info('Switch is on.');
+            // Perform actions when the switch is on
+        } else {
+            $this->info('Switch is off.');
+            // Perform actions when the switch is off
+        }
+
+        // Your existing logic
+        RssItemService::run($switch);
         $this->info("done");
 
-//Log::info($message);
         RssPostItemTranslationToMessengerService::run();
         $this->info("done");
-
     }
 }

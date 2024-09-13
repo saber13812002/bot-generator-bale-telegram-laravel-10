@@ -13,12 +13,15 @@ class RssItemService
         //
     }
 
-    public static function run()
+    public static function run($switch = false)
     {
         $items = self::
 //        getRssItemsThatShould()
-        getRssItemsThatActivated()
-        ;
+        getRssItemsThatActivated();
+
+        if ($switch) {
+            $items = self::getRssItemsForToday();
+        }
 
 //        dd($items);
         foreach ($items as $item) {
@@ -58,6 +61,7 @@ class RssItemService
             ->whereIsActive(1)
             ->get();
     }
+
     /**
      * @return Collection
      */
@@ -65,5 +69,17 @@ class RssItemService
     {
         return RssItem::query()
             ->get();
+    }
+
+    /**
+     * @return Collection
+     */
+    public static function getRssItemsForToday(): Collection
+    {
+        return RssItem::query()
+            ->orderByDesc('id')
+            ->limit(2)
+            ->get();
+
     }
 }

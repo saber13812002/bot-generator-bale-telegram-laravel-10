@@ -177,3 +177,40 @@ php artisan app:test-sendch
 
 m.talebi@m
 21 khordad
+
+
+# cron jobs:
+
+
+
+
+Minute	Hour	Day	Month	Weekday	Command	Actions
+
+*/15	22	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
+
+*/45	23	*	*	*	cd /home/pardisa2/blog && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
+
+0	0	*	*	0	cd /home/pardisa2/blog && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
+
+59	23	10	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
+
+*/20	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
+
+*/15	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss-post >> /dev/null 2>&1	    
+
+58	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:boo >> /dev/null 2>&1	    
+
+57	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:gen >> /dev/null 2>&1	    
+
+*/19	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:get-all >> /dev/null 2>&1	    
+
+*/40	18	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_so >> /dev/null 2>&1	    
+
+4	3	*	*	*	rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/	    
+
+46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1
+
+
+# commands:
+
+php artisan app:rss_read_translate --switch
