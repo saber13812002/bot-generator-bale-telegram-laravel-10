@@ -29,12 +29,18 @@ class update_balaghah_net_rss extends Command
     public function handle()
     {
         $randId = rand(1, 241);
-        $nahjItem = Nahj::find($randId);
+
+
+        $nahjItem = Nahj::whereCategory(1)
+            ->whereNumber($randId)
+            ->first();
 
         if (!$nahjItem) {
             Log::info('No unpublished songs found.');
             return;
         }
+
+        $id = $nahjItem->id;
 
         $mediaId = "11111111111" . $randId;
         // Create or update the RSS feed item
@@ -43,8 +49,8 @@ class update_balaghah_net_rss extends Command
                 "origin" => "balaghah.net",  // Set the origin
                 "title" => $nahjItem->title ?? 'Untitled',
                 "description" => $nahjItem->persian ?? 'Untitled',
-                "image" => "http://farsi.balaghah.net/sites/all/themes/nahjFarsi/image/text/markaz.png",
-                "link" => "http://farsi.balaghah.net/%D9%85%D8%AD%D9%85%D8%AF-%D8%AF%D8%B4%D8%AA%DB%8C/%D8%AA%D8%B1%D8%AC%D9%85%D9%87/?id=" . $randId . "&media_id=" . $mediaId,
+                "image" => "https://farsi.balaghah.net/sites/all/themes/nahjFarsi/image/text/markaz.png",
+                "link" => "https://farsi.balaghah.net/%D9%85%D8%AD%D9%85%D8%AF-%D8%AF%D8%B4%D8%AA%DB%8C/%D8%AA%D8%B1%D8%AC%D9%85%D9%87/?id=" . $randId . "&media_id=" . $mediaId,
             ]
         );
 

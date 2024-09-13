@@ -11,7 +11,8 @@ class Nahj extends Model
 
     public function uploadingMediaFile(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(UploadingMediaFile::class, 'model_id')->where('model_type', 'App/Model/Nahj');
+        return $this->hasOne(UploadingMediaFile::class, 'model_id')
+            ->where('model_type', 'App/Model/Nahj');
     }
 
 
