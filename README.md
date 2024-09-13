@@ -210,6 +210,7 @@ Minute	Hour	Day	Month	Weekday	Command	Actions
 
 46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1
 
+20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
 
 # commands:
 
