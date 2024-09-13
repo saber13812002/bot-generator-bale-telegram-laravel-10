@@ -37,5 +37,6 @@ class DatabaseSeeder extends Seeder
         $this->call(RssPostItemTranslationsTableSeeder::class);
         $this->call(SongsaraMoodsTableSeeder::class);
         $this->call(SharabeBeheshtiMp3sTableSeeder::class);
+        $this->call(UploadingMediaFilesTableSeeder::class);
     }
 }
