@@ -59,17 +59,19 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
             Log::info(json_encode($response));
 //            }
             /** @var RssPostItem|null $rssPostItem */
-            $rssPostItem = $postTranslation->post ?? null;
+            $rssPostItem = optional($postTranslation)->post;
             $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
             if ($rssPostItem) {
                 /** @var RssItem|null $rssItem */
-                $rssPostItem = optional($postTranslation)->post;
+                $rssItem = optional($rssPostItem)->rssItem;
                 $postImageUrl = $rssPostItem->image_url;
 
                 $title = $rssPostItem->title; // Assuming this is where your title comes from
+                $rssItemTitle = $rssItem->title; // Assuming this is where your title comes from
                 $hashtags = '#' . implode(' #', explode(' ', $title));
-                $url = $rssPostItem->url; // Assuming this is where your title comes from
-                $captionMedia = $hashtags . '
+                $rssItemHashtags = '#' . implode(' #', explode(' ', $rssItemTitle));
+                $url = $rssPostItem->link; // Assuming this is where your title comes from
+                $captionMedia = $hashtags . ' ' . $rssItemHashtags . '
 ' . $url . '
 ' . ' - #' . $rssChannelOrigin->slug;
 
