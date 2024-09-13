@@ -11,7 +11,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('songsara_posts', function (Blueprint $table) {
-            $table->boolean('published')->after('media_id')->default(false);
+            $table->boolean('published')->after('id')->default(false);
         });
     }
 
