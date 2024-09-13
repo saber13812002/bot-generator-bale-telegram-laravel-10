@@ -34,7 +34,7 @@ class SharabeBeheshtiMp3Controller extends Controller
     public static function getId(mixed $url): ?string
     {
 //        $url = "sharabebeheshti.ir/shb5?random_id=6838&id=63&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman";
-
+//        utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman
 
         // تجزیه URL و استخراج کوئری استرینگ
         $queryString = parse_url($url, PHP_URL_QUERY);

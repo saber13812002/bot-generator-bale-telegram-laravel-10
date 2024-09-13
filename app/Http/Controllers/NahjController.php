@@ -8,6 +8,8 @@ use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\NahjService;
+use App\Models\Nahj;
+use App\Models\SharabeBeheshtiMp3;
 use Exception;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +24,46 @@ class NahjController extends Controller
     public function __construct(NahjService $nahjService)
     {
         $this->nahjService = $nahjService;
+    }
+
+    public static function getMp3UrlAndTitleAndId(mixed $postLink)
+    {
+        $id = self::getId($postLink);
+        Log::info("id:" . $id);
+        if ($id < 242 && $id > 0) {
+
+            $nahjItem = Nahj::find($id);
+            // Assuming you have a relationship defined in your Nahj model
+            $mp3Item = $nahjItem->uploadingMediaFile;
+
+            // Get the media URL
+            $mp3ItemMediaUrl = $mp3Item->media_url;
+
+            Log::info("nahj->link:" . $mp3ItemMediaUrl);
+
+            $title = "#" . $nahjItem->title . "
+";
+
+            return $mp3ItemMediaUrl;
+        }
+
+
+    }
+
+    private static function getId(mixed $postLink)
+    {
+//        $url = "sharabebeheshti.ir/shb5?random_id=6838&id=63&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman";
+//        utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman
+
+        // تجزیه URL و استخراج کوئری استرینگ
+        $queryString = parse_url($postLink, PHP_URL_QUERY);
+
+        // تبدیل کوئری استرینگ به آرایه
+        parse_str($queryString, $params);
+
+        // استخراج مقدار id
+        return isset($params['id']) ? (string)$params['id'] : null; // اطمینان از نوع بازگشتی
+
     }
 
     /**

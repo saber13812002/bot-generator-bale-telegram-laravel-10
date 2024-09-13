@@ -6,7 +6,9 @@ use App\Builders\BotBuilder;
 use App\Helpers\BotHelper;
 use App\Helpers\RssHelper;
 use App\Helpers\WebPageMediaFindSave;
+use App\Http\Controllers\NahjController;
 use App\Http\Controllers\SharabeBeheshtiMp3Controller;
+use App\Models\Nahj;
 use App\Models\RssChannel;
 use App\Models\RssItem;
 use App\Models\RssPostItem;
@@ -118,6 +120,21 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                     if (str_contains($postLink, 'songsara.net')) {
                         try {
                             $mp3Url = WebPageMediaFindSave::fetchAndSaveMp3Url($postLink);
+
+                            $data = $botBuilder
+                                ->setChatId($rssChannel->target_id)
+                                ->setCaption($captionMedia) // Dynamic caption
+                                ->setTitle(' - #' . $rssChannelOrigin->slug) // Dynamic title
+                                ->setAudioUrl($mp3Url)
+                                ->sendAudio();
+
+                        } catch (\Exception $e) {
+                            \Log::error('Error in sending audio: ' . $e->getMessage());
+                        }
+                    }
+                    if (str_contains($postLink, 'balaghah.net')) {
+                        try {
+                            $mp3Url = NahjController::getMp3UrlAndTitleAndId($postLink);
 
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
