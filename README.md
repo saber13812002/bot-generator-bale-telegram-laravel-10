@@ -208,6 +208,8 @@ Minute	Hour	Day	Month	Weekday	Command	Actions
 
 4	3	*	*	*	rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/	    
 
+rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/ && rm -R ./bots/storage/app/public/images && rm -R ./tmp
+
 46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1
 
 20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
