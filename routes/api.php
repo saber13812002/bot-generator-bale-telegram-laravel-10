@@ -5,6 +5,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
+use App\Http\Controllers\ContributionController;
 use App\Http\Controllers\HadithSearchController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\NahjController;
@@ -89,3 +90,6 @@ Route::post('song-sara-songs',[SongSaraPostController::class, 'store']);
 Route::get('chrome_extension_resend',[SocialPublishController::class, 'store']);
 
 Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
+
+Route::get('calendar-data', [ContributionController::class, 'calendarData']);
+
