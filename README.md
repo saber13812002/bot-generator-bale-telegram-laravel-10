@@ -216,4 +216,4 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 
 # commands:
 
-php artisan app:rss_read_translate --switch
+php artisan app:rss_read_translate --switch // means just analayse today rss

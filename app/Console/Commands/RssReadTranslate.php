@@ -34,10 +34,10 @@ class RssReadTranslate extends Command
 
         // Use the switch in your logic
         if ($switch) {
-            $this->info('Switch is on.');
+            $this->info('Switch is on. means just analyse todays feed');
             // Perform actions when the switch is on
         } else {
-            $this->info('Switch is off.');
+            $this->info('Switch is off. all rss not just today');
             // Perform actions when the switch is off
         }
 
