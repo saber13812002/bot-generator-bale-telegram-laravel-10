@@ -8,4 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class SharabeBeheshtiMp3 extends Model
 {
     use HasFactory;
+
+
+    public function uploadedFiles()
+    {
+        return $this->morphMany(UploadedFile::class, 'model');
+    }
 }
