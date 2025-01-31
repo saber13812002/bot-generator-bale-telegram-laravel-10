@@ -6,6 +6,7 @@ use App\Builders\BotBuilder;
 use App\Models\RssChannel;
 use App\Models\RssPostItem;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class TestSendPhotoMessageToEitaa extends Command
 {
@@ -44,11 +45,19 @@ class TestSendPhotoMessageToEitaa extends Command
 
         $botBuilder = new BotBuilder(new \Telegram($rssChannel->token, $rssChannelOrigin->slug));
 
-        $data = $botBuilder
+        $response = $botBuilder
             ->setChatId($rssChannel->target_id)
             ->setCaption('image')
             ->setTitle('image')
             ->setImageUrl($postImageUrl)
             ->sendPhoto();
+
+        if (!is_bool($response)) {
+            // Do something if the variable is not an instance of MyClass
+            $fileId = $response->getPhoto()->getFileId();
+            Log::info($fileId);
+
+        }
+// Get the file_id from the response
     }
 }
