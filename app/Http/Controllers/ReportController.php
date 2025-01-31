@@ -64,6 +64,9 @@ class ReportController extends Controller
         return new Response($image_data, 200, ['Content-Type' => 'image/png',]);
     }
 
+
+
+//https://bots.pardisania.ir/api/scan?qsp=201&type=bale
     /**
      * @throws Exception
      */
