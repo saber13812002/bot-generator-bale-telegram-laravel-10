@@ -8,6 +8,7 @@ use App\Services\SongSaraService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
+
 class add_song_to_rss_songsara extends Command
 {
     /**
@@ -38,12 +39,15 @@ class add_song_to_rss_songsara extends Command
             return;
         }
 
+        $songUrl = $this->makeItUniqueUrl($song->url);
+
+
         // Create the RSS feed item
         $rssItem = RssFeedWebOrigin::create([
             "origin" => "songsara.net",
             "title" => $song->title ?? 'Untitled',
             "image" => $song->image_link ?? null,
-            "link" => $song->url ?? null,
+            "link" => $songUrl,
             "media_id" => $song->media_id ?? null,
         ]);
 
@@ -65,5 +69,11 @@ class add_song_to_rss_songsara extends Command
         $song->description = $data['description'];
         $song->audio_link = $data['media_url'];
         $song->save();
+    }
+
+    function makeItUniqueUrl($url) {
+        $seoOrigin = 'sabertabatabaee';
+        $randomParam = uniqid(); // ایجاد یک مقدار یکتا با استفاده از uniqid
+        return $url . '?seo_origin=' . $seoOrigin . '&rand=' . $randomParam;
     }
 }
