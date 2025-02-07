@@ -35,57 +35,48 @@ class HadithSearchController extends BotController
      */
     public function index(BotRequest $request)
     {
-
         try {
-
             $this->setLocale($request);
 
             $message = "-";
 
-            $type = $request->input('origin');
-
-            if (!$request->has('origin'))
+            if (!$request->has('origin')) {
                 throw new BadRequestHttpException('origin not specified in query string', null, 400);
-
-
-            if ($request->input('origin') == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_HADITH_TOKEN_BALE"), 'bale');
-            } else {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_HADITH_TOKEN_TELEGRAM"), 'telegram');
             }
 
+            $type = $request->input('origin');
+            $token = $request->has('token') ? $request->input('token') : env("BOT_HADITH_TOKEN_" . strtoupper($type));
+            $bot = new Telegram($token, $type);
+
             $botMe = $bot->getMe();
-            //            dd($bot->getMe()['ok']);
             $botKid = BotKid::firstOrCreate(
                 [
                     'token' => $bot->token(),
                 ],
                 [
-                    'bot_mother_id' => $request->has('bot_mother_id') ? $request->input('bot_mother_id') : "",
+                    'bot_mother_id' => $request->input('bot_mother_id', ''),
                     'first_chat_id' => $bot->ChatID(),
                     'type' => $bot->BotType(),
-                    'locale' => $request->has('language') ? $request->input('language') : "",
+                    'locale' => $request->input('language', ''),
                 ]
             );
-
 
             config()->set('config.bot.type', $bot->BotType());
 
             $command_type = "";
 
-            if (StringHelper::ifBotTextIsTooLong($bot, $bot->Text()))
-                return 1;
+            $botText = $bot->Text() ?? ''; // بررسی و مقداردهی پیش‌فرض برای botText
 
-            //            try {
-            //            [$lastStatus, $phrase] = LogHelper::isLastLogAvailable($request, $bot);
-            //            $ifStatusAndPhraseValid = $this->checkStatusAndPhrase($lastStatus, $phrase);
+            if (StringHelper::ifBotTextIsTooLong($bot, $botText)) {
+                return 1;
+            }
 
             $commands = StringHelper::getHadithCommandsAsPostfixForMessages();
 
-            if (str_starts_with($bot->Text(), "/")) { ///_id=82Y5Ln0BGWfjTl3qHQNp
-                $offset = strpos($bot->Text(), "/") + Str::length("/");
-                $command = substr($bot->Text(), $offset);
-                $isHadithIdRequested = substr($bot->Text(), $offset, 3) == "_id";
+            if (str_starts_with($botText, "/")) {
+                $offset = strpos($botText, "/") + Str::length("/");
+                $command = substr($botText, $offset);
+                $isHadithIdRequested = substr($botText, $offset, 3) == "_id";
                 $command_type = $isHadithIdRequested ? "_id" : $command;
                 if ($command == "start") {
                     $message = trans("hadith.in the name of God . you can use /help command to start.");
@@ -94,14 +85,8 @@ class HadithSearchController extends BotController
                     $message = trans("hadith.Please send your phrase to search in all shia hadith books.");
                 } else if ($command == "random") {
                     $hadithCount = BotHadithItem::count();
-                    $page = 1;
-                    $limit = 1;
-                    //                    dd($hadithCount);
                     $id = rand(1, $hadithCount);
-                    //                    dd($id);
                     $hadith = BotHadithItem::query()->where("id", $id)->first();
-                    //                    dd($hadith);
-
                     if ($hadith) {
                         $postFix = "
 link: to share in twitter or edit
@@ -113,12 +98,9 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
                     }
                     return 1;
                 } else if ($isHadithIdRequested) {
-                    //                    echo 'id2';
-                    $id2 = substr($bot->Text(), 4);
+                    $id2 = substr($botText, 4);
                     $hadith = BotHadithItem::query()->where("id2", $id2)->first();
-                    //                    dd($id2);
                     if ($hadith) {
-
                         $postFix = "
 link: to share in twitter or edit
 https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
@@ -130,7 +112,7 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
                 } else {
                     $message = $this->hadithApiService->help($bot);
                 }
-            } else if (true) {
+            } else {
                 [$phrase, $page, $limit] = $this->getPhraseAndPage($bot);
                 BotHelper::sendMessageToSuperAdmin("hadith:
 " . $phrase, $bot->BotType());
@@ -142,10 +124,6 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
             }
 
             BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
-            //            } catch (Exception $e) {
-            //                BotHelper::sendMessage($bot, "bot.error! Sorry please try another phrase.  ");
-            //                BotHelper::sendMessageToSuperAdmin("error: " . substr($e->getMessage(), 1500), $bot->BotType());
-            //            }
 
         } catch (Exception $exception) {
             Log::info($exception->getMessage());
@@ -160,6 +138,7 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
         }
         return 0;
     }
+
 
     private function getPhraseAndPage(Telegram $bot): array
     {
