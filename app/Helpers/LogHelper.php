@@ -26,16 +26,11 @@ class LogHelper
         $log->command_type = $request->request->get('command_type');
         $log->locale = App::getLocale();
         $log->type = $type;
-        $log->text = substr($bot->Text(), 0, 199);
+        $log->text = mb_convert_encoding(substr($bot->Text(), 0, 199), 'UTF-8', 'UTF-8');
         $log->is_command = str_starts_with($bot->Text(), "/");
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         $log->bot_id = 1;
         $log->chat_id = $bot->ChatID();
-//        $log->message_id = 0;// $bot->MessageID();
-//        $log->from_id = 0;// $bot->FromID() ?? "";
-//        $log->from_chat_id = 0;// $bot->FromChatID() ?? "";
-
-//        dd($log->attributesToArray());
         $log->save();
     }
 
