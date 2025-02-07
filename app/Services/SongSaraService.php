@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Http;
 use DOMDocument;
 use DOMXPath;
 use Illuminate\Support\Facades\Log;
+use Exception;
 
 class SongSaraService
 {
@@ -46,52 +47,79 @@ class SongSaraService
 
         return $responseData;
     }
-
     public static function callCrawlerPage(?int $randomId)
     {
         $origin = "songsara.net";
         $url = "https://songsara.net/" . $randomId;
         $mp3Url = "https://bots.pardisania.ir/notfound.mp3";
-
-        // Fetch HTML content
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $htmlContent = curl_exec($ch);
-        curl_close($ch);
-
-        // Parse HTML
-        libxml_use_internal_errors(true);
-        $dom = new DOMDocument();
-        $dom->loadHTML($htmlContent);
-        $xpath = new DOMXPath($dom);
-
-        // Find the audio player source
-        $title = $xpath->query('//h2[@class="AL-Si"]');
-        $description = $xpath->query('//div[@class="AR-Si"]');
         $imageUrl = "https://bots.pardisania.ir/awdiobuks.jpg";
-        $audioSource = $xpath->query('//li[@data-src]'); // XPath to get the audio source
-        $images = $dom->getElementsByTagName('img');
 
+        try {
+            // Fetch HTML content
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $htmlContent = curl_exec($ch);
 
-        // Prepare the return data
-        $data = [
-            'media_id' => $randomId,
-            'origin' => $origin,
-            'link' => $url,
-            'image' => $imageUrl,
-            'title' => $title->length > 0 ? trim($title->item(0)->textContent) : null,
-            'description' => $description->length > 0 ? trim($description->item(0)->textContent) : null,
-            'media_url' => $audioSource->length > 0 ? $audioSource->item(0)->getAttribute('data-src') : $mp3Url,
-        ];
-//        dd($data);
-        // Return the data only if title is found
-        if ($title->length > 0) {
-            return $data;
+            if (curl_errno($ch)) {
+                throw new Exception(curl_error($ch));
+            }
+
+            curl_close($ch);
+
+            if (empty($htmlContent)) {
+                throw new Exception("HTML content is empty");
+            }
+
+            // Parse HTML
+            libxml_use_internal_errors(true);
+            $dom = new DOMDocument();
+            $dom->loadHTML($htmlContent);
+            $xpath = new DOMXPath($dom);
+
+            // Find the audio player source
+            $title = $xpath->query('//h2[@class="AL-Si"]');
+            $description = $xpath->query('//div[@class="AR-Si"]');
+            $audioSource = $xpath->query('//li[@data-src]'); // XPath to get the audio source
+            $images = $dom->getElementsByTagName('img');
+
+            // Check if required elements are found
+            if (!$title || !$description || !$audioSource) {
+                throw new Exception("One or more required elements not found");
+            }
+
+            // Prepare the return data
+            $data = [
+                'media_id' => $randomId,
+                'origin' => $origin,
+                'link' => $url,
+                'image' => $imageUrl,
+                'title' => $title->length > 0 ? trim($title->item(0)->textContent) : null,
+                'description' => $description->length > 0 ? trim($description->item(0)->textContent) : null,
+                'media_url' => $audioSource->length > 0 ? $audioSource->item(0)->getAttribute('data-src') : $mp3Url,
+            ];
+
+            // Return the data only if title is found
+            if ($title->length > 0) {
+                return $data;
+            }
+
+        } catch (Exception $e) {
+            // Handle exceptions
+            error_log("Error: " . $e->getMessage());
+            // Return some default values or an error page URL
+            return [
+                'media_id' => $randomId,
+                'origin' => $origin,
+                'link' => $url,
+                'image' => $imageUrl,
+                'title' => 'Default Title',
+                'description' => 'Default Description',
+                'media_url' => $mp3Url,
+            ];
         }
 
         return null; // Return null if no title is found
     }
-
 
     public static function crawl($randomId)
     {
