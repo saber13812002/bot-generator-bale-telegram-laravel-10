@@ -21,6 +21,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Telegram;
 
+//mohem startpoint
 class RssPostItemTranslationToMessengerJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -101,7 +102,7 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                             if (isset($matches2[1])) {
                                 $audioBookId = $matches2[1];
-                                $audioUrl = "https://www.navaar.ir/content/books/{$audioBookId}/sample.ogg";
+                                $audioUrl = "https://www.navaar.ir/content/books/{$audioBookId}/sample.mp3";
 
                                 $data = $botBuilder
                                     ->setChatId($rssChannel->target_id)
