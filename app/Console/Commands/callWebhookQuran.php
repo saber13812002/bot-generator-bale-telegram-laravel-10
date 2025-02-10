@@ -26,7 +26,8 @@ class callWebhookQuran extends Command
      */
     public function handle()
     {
-        $webhookUrl = config('app.url') . '/api/webhook-rss?origin=bale&token=1775842974%3A0cefc40d5eaab5a8d2ca19f77ca13a5463be5994&language=fa&bot_mother_id=1';
+        // todo use this for test quran webhook in production
+        $webhookUrl = config('app.url') . '/api/webhook-rss?origin=bale&token=' . urlencode(env('BOT_HADITH_TOKEN_BALE')) . '&language=fa&bot_mother_id=1';
 
         $webhookPayloads = [
             [

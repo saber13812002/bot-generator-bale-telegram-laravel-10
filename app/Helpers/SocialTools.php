@@ -4,15 +4,17 @@ namespace App\Helpers;
 
 class SocialTools
 {
+    // TODO amniat saber todosaber
     public static function googleKon($q)
     {
-        $eitaa_bot_token = 'bot1967:e7b12e5f-77ed-4c67-8392-200214f9257a';
-        $bale_bot_token = '1064546765:ffvufFoArlOq4MGTvg1vyJ1LC23JExTosrmfF5jM';
-        $telegram_bot_token = '6266916165:AAE7hlReVQ356ifdhotDIcICcu69ztv8qOY';
-
-        $telegram_virgooleitaa_bot_token = '5703491682:AAFQ4xck6S2aYB0_4go6xi_xq3XdQn3vRak';
         $telegram_virgooleita_channel_id = "-1001818066671";
-        $bale_virgooleitaa_bot_token = '2133322302:5ZE5LddaD5EMATDtDudkWU9JKnFEcER4EqsU5W9S';
+
+        $eitaa_bot_token = env('BOT_EITAA_TOKEN_SABER');
+        $bale_bot_token = env('BOT_BALE_TOKEN_GOOGLEKON');
+        $telegram_bot_token = env('BOT_TELEGRAM_TOKEN_GOOGLEKON');
+
+        $telegram_virgooleitaa_bot_token = env('TELEGRAM_VIRGOOLEITAA_BOT_TOKEN');
+        $bale_virgooleitaa_bot_token = env('BALE_VIRGOOLEITAA_BOT_TOKEN');
 
         $chat_id = 8598940;
         $caption = 'یک جستجوی پیشنهادی که روی اون کلیک کنید';
@@ -41,7 +43,7 @@ class SocialTools
         ";
 
 
-        self::call_eitaa_api($eitaa_bot_token, $chat_id, $title, $text);
+        self::callEitaaApi($eitaa_bot_token, $chat_id, $title, $text);
         self::call_bale_api($bale_bot_token, "@googlekon", $text);
         self::call_telegram_api($telegram_bot_token, "-1001980670257", $text);
 
@@ -49,7 +51,7 @@ class SocialTools
     }
 
 
-    private static function call_eitaa_api($bot_token, $chat_id, $title, $text): void
+    private static function callEitaaApi($bot_token, $chat_id, $title, $text): void
     {
         // initialise the curl request
         $request = curl_init('https://eitaayar.ir/api/' . $bot_token . '/sendMessage');
@@ -132,14 +134,14 @@ class SocialTools
 
     public static function virgool(\App\Http\Requests\StoreSocialPublishRequest $request)
     {
+// todo use this instead of google kon in extension
+        $eitaa_bot_token = env('BOT_EITAA_TOKEN_SABER');
 
-        $eitaa_bot_token = 'bot1967:e7b12e5f-77ed-4c67-8392-200214f9257a';
-        $bale_bot_token = '1064546765:ffvufFoArlOq4MGTvg1vyJ1LC23JExTosrmfF5jM';
-        $telegram_bot_token = '6266916165:AAE7hlReVQ356ifdhotDIcICcu69ztv8qOY';
-
-        $telegram_virgooleitaa_bot_token = '5703491682:AAFQ4xck6S2aYB0_4go6xi_xq3XdQn3vRak';
         $telegram_virgooleita_channel_id = "-1001818066671";
-        $bale_virgooleitaa_bot_token = '2133322302:5ZE5LddaD5EMATDtDudkWU9JKnFEcER4EqsU5W9S';
+
+
+        $telegram_virgooleitaa_bot_token = env('TELEGRAM_VIRGOOLEITAA_BOT_TOKEN');
+        $bale_virgooleitaa_bot_token = env('BALE_VIRGOOLEITAA_BOT_TOKEN');
 
         $chat_id = "8419225";
         if (isset($_REQUEST['url']))
@@ -167,9 +169,9 @@ ble.ir/virgooleitaa";
 
             $title = $text;
 
-            self::call_eitaa_api($eitaa_bot_token, $chat_id, $title, $text);
-            self::call_bale_api($bale_bot_token, "@googlekon", $text);
-            self::call_telegram_api($telegram_bot_token, "-1001980670257", $text);
+            self::callEitaaApi($eitaa_bot_token, $chat_id, $title, $text);
+            self::call_bale_api($bale_virgooleitaa_bot_token, "@googlekon", $text);
+            self::call_telegram_api($telegram_virgooleitaa_bot_token, $telegram_virgooleita_channel_id, $text);
         }
     }
 }
