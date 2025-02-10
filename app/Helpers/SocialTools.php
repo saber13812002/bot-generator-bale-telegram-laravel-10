@@ -4,7 +4,6 @@ namespace App\Helpers;
 
 class SocialTools
 {
-    // TODO amniat saber todosaber
     public static function googleKon($q)
     {
         $telegram_virgooleita_channel_id = "-1001818066671";
