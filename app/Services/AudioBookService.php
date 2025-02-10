@@ -67,7 +67,7 @@ class AudioBookService
 
         // Construct the OGG file URL
 // Construct the file URL
-        $fileUrl = "https://www.navaar.ir/content/books/{$data['audioBookId']}/sample.ogg";
+        $fileUrl = "https://www.navaar.ir/content/books/{$data['audioBookId']}/sample.mp3";
         //localhost:8000/api/audiobooks/19875
 // Prepare your response data
         $responseData = [
