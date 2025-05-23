@@ -39,6 +39,27 @@ class BotHelper
     /**
      * @throws Exception
      */
+    public static function handleRequestBotVoice(Telegram $messenger, $type, $language, $botMotherId): void
+    {
+        $text = $messenger->Text();
+        if ($text == '/start' || $text == 'ساختن') {
+            self::handleStartRequest($messenger);
+        } else if (TokenHelper::isToken($text, $type)) {
+            self::defineNewBot($messenger, $type, $language, $botMotherId);
+        }
+//        else if ($language != 'fa') {
+//            self::setBotLanguage($messenger, $type, $language);
+//        }
+        else {
+            $message = trans("bot.this command not recognized");
+            self::sendMessage($messenger, $message);
+            self::handleStartRequest($messenger);
+        }
+    }
+
+    /**
+     * @throws Exception
+     */
     private static function defineNewBot(Telegram $messenger, $type, $language, $botMotherId): void
     {
         $text = $messenger->Text();

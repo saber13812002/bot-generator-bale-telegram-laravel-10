@@ -5,6 +5,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BotMotherController;
 use App\Http\Controllers\BotQuranAyatController;
 use App\Http\Controllers\BotUsersController;
+use App\Http\Controllers\BotVoiceOfIslamController;
 use App\Http\Controllers\ContributionController;
 use App\Http\Controllers\HadithSearchController;
 use App\Http\Controllers\JobController;
@@ -93,3 +94,4 @@ Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
 
 Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 
+Route::post('/webhook-bot-voice-of-islam', [BotVoiceOfIslamController::class, 'botWebhook']);
