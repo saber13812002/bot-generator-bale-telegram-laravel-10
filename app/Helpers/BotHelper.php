@@ -26,9 +26,6 @@ class BotHelper
         } else if (TokenHelper::isToken($text, $type)) {
             self::defineNewBot($messenger, $type, $language, $botMotherId);
         }
-//        else if ($language != 'fa') {
-//            self::setBotLanguage($messenger, $type, $language);
-//        }
         else {
             $message = trans("bot.this command not recognized");
             self::sendMessage($messenger, $message);
@@ -47,9 +44,6 @@ class BotHelper
         } else if (TokenHelper::isToken($text, $type)) {
             self::defineNewBot($messenger, $type, $language, $botMotherId);
         }
-//        else if ($language != 'fa') {
-//            self::setBotLanguage($messenger, $type, $language);
-//        }
         else {
             $message = trans("bot.this command not recognized");
             self::sendMessage($messenger, $message);
