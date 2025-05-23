@@ -40,14 +40,14 @@ class BotHelper
     {
         $text = $messenger->Text();
         if ($text == '/start' || $text == 'ساختن') {
-            self::handleStartRequest($messenger);
+            self::handleStartRequestVoice($messenger);
         } else if (TokenHelper::isToken($text, $type)) {
-            self::defineNewBot($messenger, $type, $language, $botMotherId);
+            self::registerInProject($messenger, $type, $language, $botMotherId);
         }
         else {
             $message = trans("bot.this command not recognized");
             self::sendMessage($messenger, $message);
-            self::handleStartRequest($messenger);
+            self::handleStartRequestVoice($messenger);
         }
     }
 
@@ -68,12 +68,32 @@ class BotHelper
         }
         self::sendMessage($messenger, $message);
     }
+    /**
+     * @throws Exception
+     */
+    private static function registerInProject(Telegram $messenger, $type, $language, $botMotherId): void
+    {
+        $text = $messenger->Text();
+        $isProject = self::isProject($text, $type);
+        if ($isProject) {
+            $message = self::properMessageForNewBot($messenger, $type, $language);
+        } else {
+            $message = trans("bot.this is not correct bot token");
+        }
+        self::sendMessage($messenger, $message);
+    }
 
 //    public static function setBotLanguage($messenger, $type, $language, $botMotherId): void
 //    {
 //        $botItem = ($type == 'bale' ? self::callBale($token, $messenger, $botItem, $language, $botMotherId) : self::callTelegram($text, $messenger, $botItem, $language, $botMotherId));
 //        $message = self::properMessage($botItem, $messenger, $type);
 //    }
+
+    private static function handleStartRequestVoice(Telegram $messenger): void
+    {
+        $message = trans("bot.send your token to turn on your bot");
+        self::sendMessage($messenger, $message);
+    }
 
     private static function handleStartRequest(Telegram $messenger): void
     {
