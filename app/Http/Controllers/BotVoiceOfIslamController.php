@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\BotHelperVoice;
 use App\Helpers\LogHelper;
 use App\Helpers\TokenHelper;
 use App\Http\Requests\BotRequest;
@@ -38,7 +39,7 @@ class BotVoiceOfIslamController extends Controller
                 //echo($bot->reply);
                 $type = $request->input('origin');
                 $language = $request->input('language');
-                BotHelper::handleRequestBotVoice($bot, $type, $language, $botMotherId);
+                BotHelperVoice::handleRequestBotVoice($bot, $type, $language, $botMotherId);
             }
         }
     }
