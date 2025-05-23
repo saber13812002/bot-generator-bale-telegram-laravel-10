@@ -28,9 +28,9 @@ class BotVoiceOfIslamController extends Controller
             $type = $request->input('origin');
             $botMotherId = $request->input('bot_mother_id');
             if ($type == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("VOICE_OF_ISLAM_BOT_TOKEN_Bale"), 'bale');
             } else {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
+                $bot = new Telegram($request->has('token') ? $request->input('token') : env("VOICE_OF_ISLAM_BOT_TOKEN"));
             }
 
             if ($request->has('language')) {

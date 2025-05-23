@@ -23,14 +23,14 @@ class BotHelperVoice
     {
         $text = $messenger->Text();
         if ($text == '/start' || $text == 'ساختن') {
-            self::handleRequestBotVoice($messenger);
-        } else if (TokenHelper::isToken($text, $type)) {
+            self::handleStartRequestVoice($messenger);
+        } else if (self::isProject($text, $type)) {
             self::registerInProject($messenger, $type, $language, $botMotherId);
         }
         else {
             $message = trans("bot.this command not recognized");
             BotHelper::sendMessage($messenger, $message);
-            self::handleRequestBotVoice($messenger);
+            self::handleStartRequestVoice($messenger);
         }
     }
 
