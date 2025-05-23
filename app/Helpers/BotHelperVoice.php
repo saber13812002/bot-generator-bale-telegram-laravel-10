@@ -2,15 +2,9 @@
 
 namespace App\Helpers;
 
-use App\Models\Bot;
+use App\Models\Projects;
 use Exception;
-use Gap\SDP\Api;
-use GuzzleHttp;
-use GuzzleHttp\Exception\GuzzleException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Telegram;
 
 class BotHelperVoice
@@ -26,8 +20,7 @@ class BotHelperVoice
             self::handleStartRequestVoice($messenger);
         } else if (self::isProject($text, $type)) {
             self::registerInProject($messenger, $type, $language, $botMotherId);
-        }
-        else {
+        } else {
             $message = trans("bot.this command not recognized");
             BotHelper::sendMessage($messenger, $message);
             self::handleStartRequestVoice($messenger);
@@ -44,6 +37,25 @@ class BotHelperVoice
     private static function registerInProject(Telegram $messenger, $type, $language, $botMotherId)
     {
 
+
+    }
+
+    private static function isProject(mixed $text, $type): bool
+    {
+        try {
+            $projectItem = Projects::query()
+                ->whereSlug($text)
+                ->whereStatus('active')
+                ->firstOrFail();
+            if ($projectItem->count() == 1) {
+                return true;
+            }
+        } catch (Exception $e) {
+            BotHelper::sendMessageToSuperAdmin(trans("bot.An error occurred when admin want to approve your request"), $type);
+            Log::error($e->getMessage());
+//                throw $e;
+        }
+        return false;
     }
 
 
