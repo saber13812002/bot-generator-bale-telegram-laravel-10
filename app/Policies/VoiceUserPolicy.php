@@ -13,7 +13,7 @@ class VoiceUserPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class VoiceUserPolicy
      */
     public function view(User $user, VoiceUser $voiceUser): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class VoiceUserPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class VoiceUserPolicy
      */
     public function update(User $user, VoiceUser $voiceUser): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class VoiceUserPolicy
      */
     public function delete(User $user, VoiceUser $voiceUser): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class VoiceUserPolicy
      */
     public function restore(User $user, VoiceUser $voiceUser): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class VoiceUserPolicy
      */
     public function forceDelete(User $user, VoiceUser $voiceUser): bool
     {
-        //
+        return true;
     }
 }

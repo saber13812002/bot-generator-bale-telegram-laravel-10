@@ -8,6 +8,9 @@ use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Boolean;
 use Laravel\Nova\Fields\DateTime;
+use Laravel\Nova\Fields\BelongsToMany;
+use Laravel\Nova\Fields\Select;
+use Laravel\Nova\Fields\Code;
 use Laravel\Nova\Http\Requests\NovaRequest;
 
 class Projects extends Resource
@@ -64,6 +67,20 @@ class Projects extends Resource
 
             Text::make('description')
                 ->sortable(),
+
+            BelongsToMany::make('کاربران صوتی', 'voiceUsers', VoiceUser::class)
+                ->fields(function () {
+                    return [
+                        Select::make('وضعیت', 'status')
+                            ->options([
+                                'active' => 'فعال',
+                                'inactive' => 'غیرفعال'
+                            ]),
+                        Code::make('تنظیمات', 'settings')
+                            ->json()
+                            ->nullable()
+                    ];
+                }),
         ];
     }
 

@@ -12,8 +12,8 @@ class Projects extends Model
 
     public function voiceUsers(): BelongsToMany
     {
-        return $this->belongsToMany(VoiceUser::class, 'voice_user_projects')
-                    ->withPivot('status', 'settings')
-                    ->withTimestamps();
+        return $this->belongsToMany(VoiceUser::class, 'voice_user_projects', 'project_id', 'voice_user_id')
+            ->withPivot('status', 'settings')
+            ->withTimestamps();
     }
 }

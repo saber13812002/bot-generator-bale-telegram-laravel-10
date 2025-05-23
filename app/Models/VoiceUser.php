@@ -10,23 +10,10 @@ class VoiceUser extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'chat_id',
-        'bot_id',
-        'status',
-        'origin',
-        'alias_name',
-        'settings'
-    ];
-
-    protected $casts = [
-        'settings' => 'array'
-    ];
-
     public function projects(): BelongsToMany
     {
-        return $this->belongsToMany(Projects::class, 'voice_user_projects')
-                    ->withPivot('status', 'settings')
-                    ->withTimestamps();
+        return $this->belongsToMany(Projects::class, 'voice_user_projects', 'voice_user_id', 'project_id')
+            ->withPivot('status', 'settings')
+            ->withTimestamps();
     }
 }
