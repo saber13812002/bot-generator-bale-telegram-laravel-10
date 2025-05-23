@@ -15,9 +15,29 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('slug');
+            $table->string('slug')->unique();
             $table->boolean('need_registration')->default(0);
-            $table->string('default_bots_text');
+            $table->string('default_bots_text')->nullable();
+            $table->date('start_date')->default(now());
+            $table->string('description')->nullable();
+            $table->string('brief')->nullable();
+            // $table->string('image_caption')->nullable();
+            // $table->string('image_title')->nullable();
+            // $table->string('image_alt')->nullable();
+            // $table->string('image_description')->nullable();
+            // $table->string('image_url')->nullable();
+            // $table->string('image_url_caption')->nullable();
+            $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->enum('class', ['A', 'B', 'C'])->nullable();
+            
+            $table->integer('points_per_month')->default(0);
+            $table->integer('points_per_year')->default(0);
+            $table->integer('points_per_lifetime')->default(0);
+
+            $table->integer('points_per_month_for_referral')->default(0);
+            $table->integer('points_per_year_for_referral')->default(0);
+            $table->integer('points_per_lifetime_for_referral')->default(0);
+            
 
             $table->timestamps();
         });
