@@ -13,7 +13,7 @@ class ProjectsPolicy
      */
     public function viewAny(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -21,7 +21,7 @@ class ProjectsPolicy
      */
     public function view(User $user, Projects $projects): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -29,7 +29,7 @@ class ProjectsPolicy
      */
     public function create(User $user): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -37,7 +37,7 @@ class ProjectsPolicy
      */
     public function update(User $user, Projects $projects): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -45,7 +45,7 @@ class ProjectsPolicy
      */
     public function delete(User $user, Projects $projects): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -53,7 +53,7 @@ class ProjectsPolicy
      */
     public function restore(User $user, Projects $projects): bool
     {
-        //
+        return true;
     }
 
     /**
@@ -61,6 +61,6 @@ class ProjectsPolicy
      */
     public function forceDelete(User $user, Projects $projects): bool
     {
-        //
+        return true;
     }
 }
