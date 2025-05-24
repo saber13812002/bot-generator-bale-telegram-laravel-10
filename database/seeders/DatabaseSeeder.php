@@ -38,5 +38,6 @@ class DatabaseSeeder extends Seeder
         $this->call(SongsaraMoodsTableSeeder::class);
         $this->call(SharabeBeheshtiMp3sTableSeeder::class);
         $this->call(UploadingMediaFilesTableSeeder::class);
+        $this->call(ProjectsTableSeeder::class);
     }
 }
