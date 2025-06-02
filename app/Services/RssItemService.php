@@ -12,22 +12,19 @@ class RssItemService
     {
         //
     }
-
     public static function run($switch = false)
     {
-        $items = self::
-//        getRssItemsThatShould()
-        getRssItemsThatActivated();
+        $items = $switch 
+            ? self::getRssItemsForToday()
+            : self::getRssItemsThatShould();
 
-        if ($switch) {
-            $items = self::getRssItemsForToday();
-        }
-
-//        dd($items);
         foreach ($items as $item) {
             $unique_field_name = $item->unique_xml_tag ?? 'link';
             $response = RssService::readRssAndSave($item->url, $item->id, $unique_field_name);
-//            dd($response);
+
+            // به‌روزرسانی ستون last_synced_at پس از اجرای موفقیت‌آمیز
+            $item->last_synced_at = now();
+            $item->save();
         }
     }
 
@@ -36,9 +33,10 @@ class RssItemService
      */
     public static function getRssItemsThatShould(): Collection
     {
+        // حالا شرط بررسی اینکه last_synced_at + interval_minutes کمتر از الان باشد
         return RssItem::query()
             ->whereIsActive(1)
-            ->where('last_synced_at', '<', Carbon::now()->subHours(2))
+            ->whereRaw('DATE_ADD(last_synced_at, INTERVAL interval_minutes MINUTE) <= NOW()')
             ->get();
     }
 

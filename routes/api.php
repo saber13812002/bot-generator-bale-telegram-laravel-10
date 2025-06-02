@@ -93,3 +93,17 @@ Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
 
 Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 
+// use App\Services\RssService;
+
+
+// Route::post('/test-rss', function(Request $request, RssService $rssService) {
+//     $rssId = $request->input('rss_id');
+//     $uniqueField = $request->input('unique_field', 'link');
+//     $rssUrl = $request->input('rss_url');
+
+//     // اجرای تابع اصلی
+//     $response = RssService::readRssAndSave($rssUrl, $rssId, $uniqueField);
+
+//     // برگرداندن نتیجه (JSON)
+//     return $response;
+// });
