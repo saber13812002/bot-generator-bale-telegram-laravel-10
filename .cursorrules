@@ -1,0 +1,112 @@
+# قوانین پروژه Bot Platform
+
+## زبان و سبک کدنویسی
+- از PHP 8.1+ و Laravel 10 استفاده می‌شود
+- از PSR-12 برای استاندارد کدنویسی پیروی کنید
+- نام متغیرها و توابع به انگلیسی و کامنت‌ها به فارسی
+- از Type Hints و Return Types استفاده کنید
+
+## ساختار پروژه
+- Controllers در `app/Http/Controllers`
+- Models در `app/Models`
+- Services در `app/Services` (برای منطق کسب‌وکار)
+- Helpers در `app/Helpers` (برای توابع کمکی)
+- Repositories در `app/Repositories` (برای دسترسی به دیتابیس)
+- Commands در `app/Console/Commands`
+
+## اصول معماری
+- از Repository Pattern برای دسترسی به دیتابیس استفاده کنید
+- از Service Layer برای منطق کسب‌وکار استفاده کنید
+- از Dependency Injection استفاده کنید
+- از Interface برای Services و Repositories استفاده کنید
+
+## ربات‌ها و پیام‌رسان‌ها
+- تمام ربات‌ها باید از `BotController` ارث‌بری کنند
+- از `BotHelper` برای ارسال پیام استفاده کنید
+- از `LogHelper` برای ثبت لاگ استفاده کنید
+- پشتیبانی از چندین پیام‌رسان: Telegram, Bale, Gap, Eitaa, Soroush
+
+## مدیریت خطا
+- از Exception Handling مناسب استفاده کنید
+- خطاها را در Log ثبت کنید
+- برای خطاهای مهم به Super Admin پیام ارسال کنید
+
+## دیتابیس
+- از Migrations برای تغییرات دیتابیس استفاده کنید
+- از Seeders برای داده‌های اولیه استفاده کنید
+- از Eloquent ORM استفاده کنید
+- از Query Builder برای کوئری‌های پیچیده استفاده کنید
+
+## ترجمه و چندزبانه
+- از Laravel Translation System استفاده کنید
+- فایل‌های ترجمه در `lang/` قرار دارند
+- از `TranslationService` برای ترجمه خودکار استفاده کنید
+
+## Queue و Jobs
+- کارهای سنگین را در Queue قرار دهید
+- از Jobs برای پردازش‌های زمان‌بر استفاده کنید
+- از `queue:work` برای پردازش صف استفاده کنید
+
+## تست
+- قبل از commit، کد را تست کنید
+- از PHPUnit برای تست استفاده کنید
+- تست‌های Feature و Unit را بنویسید
+
+## امنیت
+- از Laravel Sanctum برای احراز هویت API استفاده کنید
+- از Request Validation استفاده کنید
+- از CSRF Protection استفاده کنید
+- توکن‌ها را در `.env` نگه دارید و در Git commit نکنید
+
+## Performance
+- از Caching برای داده‌های پرتکرار استفاده کنید
+- از Eager Loading برای جلوگیری از N+1 Query استفاده کنید
+- از Index برای فیلدهای پرجستجو استفاده کنید
+
+## کامنت‌گذاری
+- برای توابع پیچیده کامنت فارسی بنویسید
+- از PHPDoc برای توابع و کلاس‌ها استفاده کنید
+- کامنت‌های TODO را با `// TODO:` شروع کنید
+
+## Git و Version Control
+- از Commit Messages واضح و فارسی استفاده کنید
+- قبل از Push، کد را Review کنید
+- از Branch برای فیچرهای جدید استفاده کنید
+
+## API Routes
+- API Routes در `routes/api.php` تعریف می‌شوند
+- از Middleware مناسب استفاده کنید
+- از Resource Controllers استفاده کنید
+
+## Nova Admin Panel
+- از Laravel Nova برای پنل مدیریت استفاده می‌شود
+- Resources در `app/Nova` قرار دارند
+- Policies در `app/Policies` قرار دارند
+
+## Cron Jobs و Scheduling
+- از Laravel Scheduler برای کارهای زمان‌بندی شده استفاده کنید
+- Cron Jobs در `app/Console/Kernel.php` تعریف می‌شوند
+- از Commands برای کارهای تکراری استفاده کنید
+
+## RSS و محتوا
+- از `RssService` برای پردازش RSS استفاده کنید
+- از `RssPostItemTranslationService` برای ترجمه استفاده کنید
+- از Queue برای پردازش RSS استفاده کنید
+
+## قرآن و محتواهای مذهبی
+- از `QuranHelper` برای کار با قرآن استفاده کنید
+- از Full-Text Search برای جستجو استفاده کنید
+- از `HadithHelper` برای کار با حدیث استفاده کنید
+
+## Weather و API های خارجی
+- از `WeatherService` برای کار با API های هواشناسی استفاده کنید
+- از Guzzle برای درخواست‌های HTTP استفاده کنید
+- خطاهای API را مدیریت کنید
+
+## نکات مهم
+- همیشه قبل از تغییر کد، بکاپ بگیرید
+- از Environment Variables برای تنظیمات استفاده کنید
+- از Config Files برای تنظیمات استفاده کنید
+- از Logging برای Debug استفاده کنید
+- از Artisan Commands برای کارهای مدیریتی استفاده کنید
+

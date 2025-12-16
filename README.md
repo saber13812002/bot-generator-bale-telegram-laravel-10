@@ -50,11 +50,84 @@ list of Bot Types that you can clone it, is in next block of this document
 </p>
 
 
+# 📚 مستندات توسعه
+
+برای اطلاعات بیشتر در مورد نحوه توسعه ربات‌ها، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.
+
+# 🚀 فیچرهای مهم پروژه
+
+## 🤖 سیستم ربات مادر (Bot Mother)
+- ساخت و مدیریت هزاران ربات برای کاربران مختلف
+- پشتیبانی از چندین پیام‌رسان: تلگرام، بله، گپ، ایتا، سروش
+- سیستم مدیریت توکن و وب‌هوک خودکار
+- رابط یکپارچه برای تمام پیام‌رسان‌ها
+
+## 📖 ربات قرآن (Quran Bot)
+- مطالعه قرآن به صورت آیه به آیه، کلمه به کلمه، صفحه به صفحه
+- جستجوی پیشرفته در کل قرآن با فول‌تکست
+- ترجمه به زبان‌های مختلف (فارسی، انگلیسی، فرانسوی، اسپانیایی، ترکی و...)
+- فایل‌های صوتی قرائت عربی و فارسی
+- سیستم حفظ قرآن و ختم قرآن
+- نمایش صفحات اسکن شده قرآن
+- مدیریت جزو و سوره‌ها
+
+## 🌤️ ربات هواشناسی (Weather Bot)
+- دریافت اطلاعات هواشناسی از API های مختلف (OpenWeatherMap, Tomorrow.io)
+- تنظیم هشدار برای تغییرات دما و سرعت باد
+- ارسال خودکار اطلاعیه‌ها در گروه‌ها
+- پیش‌بینی آب و هوا برای 16 ساعت آینده
+
+## 📰 سیستم RSS و انتشار محتوا
+- دریافت و پردازش فیدهای RSS از منابع مختلف
+- ترجمه خودکار محتوا به زبان‌های مختلف
+- انتشار خودکار در پیام‌رسان‌ها
+- مدیریت کانال‌های RSS و دسته‌بندی محتوا
+- سیستم صف برای ترجمه و انتشار
+
+## 📱 ربات شبکه‌های اجتماعی (Social Bot)
+- انتشار خودکار محتوا در توییتر، فیس‌بوک، لینکدین، اینستاگرام
+- مدیریت یکپارچه انتشار در تمام پلتفرم‌ها
+- پشتیبانی از Chrome Extension برای ارسال محتوا
+
+## 📚 ربات حدیث (Hadith Bot)
+- جستجوی پیشرفته در کتب حدیث شیعه
+- نمایش تاریخچه جستجوهای کاربران
+- ارسال حدیث تصادفی
+
+## 📜 ربات نهج البلاغه (Nahj Bot)
+- جستجو در کل متن نهج البلاغه
+- نمایش فهرست و آیتم‌های مختلف
+
+## 🎵 سیستم Song Sara
+- مدیریت موسیقی و پلی‌لیست‌ها
+- دسته‌بندی بر اساس هنرمند، کشور، ژانر، ساز، حال و هوا
+- انتشار محتوا در RSS
+
+## 📚 کتاب‌های صوتی (Audio Books)
+- مدیریت و انتشار کتاب‌های صوتی
+- سیستم شناسه‌گذاری خودکار
+
+## 🔧 سیستم‌های پشتیبان
+- **Translation Service**: ترجمه خودکار با پشتیبانی از چندین زبان
+- **Rocket Chat Integration**: اتصال به Rocket Chat
+- **Queue System**: سیستم صف برای پردازش کارهای سنگین
+- **Activity Logging**: ثبت لاگ فعالیت‌های کاربران
+- **Report System**: سیستم گزارش‌گیری و آمارگیری
+- **Admin Panel**: پنل مدیریت با Laravel Nova
+
+## 🛠️ تکنولوژی‌های استفاده شده
+- **Framework**: Laravel 10
+- **PHP**: 8.1+
+- **Database**: MySQL
+- **Admin Panel**: Laravel Nova
+- **Full-Text Search**: Laravel Fulltext
+- **Queue**: Laravel Queue
+- **Translation**: OneAPI Translation Service
+- **Weather APIs**: OpenWeatherMap, Tomorrow.io
+
 # How to start Development
 
-readme-bot.md
-
-## Clone Types
+## انواع ربات‌های قابل ساخت
 
 <p dir="rtl">
 انواع روبات هایی که شما میتوانید با روبات ساز ما بسازید به شرح زیر است
@@ -122,11 +195,42 @@ readme-bot.md
 
 <p dir="rtl">
 5- روبات نماز و عبادات و نماز های مستحبی و رکعت شمار
-
-
-
 </p>
 
+6- Hadith bot
+
+<p dir="rtl">
+6- روبات جستجوی حدیث
+جستجو در کتب حدیث شیعه و نمایش تاریخچه جستجوها
+</p>
+
+7- Nahj bot
+
+<p dir="rtl">
+7- روبات نهج البلاغه
+جستجو و مطالعه در متن نهج البلاغه
+</p>
+
+8- RSS bot
+
+<p dir="rtl">
+8- روبات RSS
+دریافت و انتشار خودکار محتوا از فیدهای RSS
+</p>
+
+9- Audio Book bot
+
+<p dir="rtl">
+9- روبات کتاب‌های صوتی
+مدیریت و انتشار کتاب‌های صوتی
+</p>
+
+10- Song Sara bot
+
+<p dir="rtl">
+10- روبات موسیقی Song Sara
+مدیریت موسیقی و پلی‌لیست‌ها
+</p>
 
 مشاهده لیست کامل انواع روبات هایی که میتوانید برای خودتان هم بسازید در لینک زیر است
 
@@ -137,7 +241,7 @@ readme-bot.md
 
 https://hamibash.com/quran_hefz_bale_telegram_bot
 
-## How to start
+## 🛠️ راه‌اندازی پروژه
 
 - composer i
  - composer u
@@ -163,28 +267,27 @@ php artisan translation:sync
 
 
 
-# new version
+# 📝 نکات مهم
+
+## نسخه جدید
  - migrate
  - seed rss channel origin RssChannelOriginsTableSeeder RssChannelsTableSeeder
  - set tags
  - test
 
-# test commands
+## دستورات تست
 
+```bash
 php artisan app:test-sendch
+```
 
- # when you restore backup from server into local
+## هنگام بازگردانی بکاپ از سرور به لوکال
 
- - UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\RssChannel' AND `taggable_id` = 1
+```sql
+UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\RssChannel' AND `taggable_id` = 1
+```
 
-
-# user company
-
-m.talebi@m
-21 khordad
-
-
-# cron jobs:
+# ⏰ Cron Jobs
 
 
 
@@ -219,6 +322,25 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 
 20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
 
-# commands:
+# 📋 دستورات مهم
 
-php artisan app:rss_read_translate --switch // means just analayse today rss
+```bash
+# ترجمه RSS (فقط تحلیل RSS امروز)
+php artisan app:rss_read_translate --switch
+
+# کار با صف
+php artisan queue:work
+
+# اجرای Schedule
+php artisan schedule:run
+
+# ایندکس کردن آیات قرآن
+php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
+
+# همگام‌سازی ترجمه‌ها
+php artisan translation:sync
+```
+
+---
+
+**📖 برای اطلاعات بیشتر در مورد توسعه، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.**
