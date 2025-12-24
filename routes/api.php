@@ -16,6 +16,7 @@ use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
+use App\Http\Controllers\PersonnelRegistrationController;
 use App\Http\Controllers\SongSaraPostController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\WeatherController;
@@ -92,6 +93,9 @@ Route::get('chrome_extension_resend',[SocialPublishController::class, 'store']);
 Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
 
 Route::get('calendar-data', [ContributionController::class, 'calendarData']);
+
+// personnel registration
+Route::post('/webhook-personnel-registration', [PersonnelRegistrationController::class, 'index']);
 
 // use App\Services\RssService;
 
