@@ -1,0 +1,248 @@
+# قوانین پروژه - Bot Generator Bale Telegram Laravel 10
+
+## ساختار پروژه
+
+این پروژه یک پلتفرم Laravel 10 برای ساخت و مدیریت ربات‌های پیام‌رسان (بله، تلگرام، گپ، ایتا) است.
+
+### ساختار پوشه‌ها:
+
+```
+app/
+├── Builders/          # کلاس‌های Builder
+├── Console/Commands/  # دستورات Artisan
+├── Helpers/          # Helper Classes (LogHelper, BotHelper, etc.)
+├── Http/
+│   ├── Controllers/  # Controllers
+│   ├── Middleware/   # Middleware
+│   └── Requests/     # Form Requests (Validation)
+├── Interfaces/
+│   ├── Repositories/ # Repository Interfaces
+│   └── Services/     # Service Interfaces
+├── Jobs/             # Queue Jobs
+├── Models/           # Eloquent Models
+├── Repositories/     # Repository Implementations
+└── Services/         # Service Implementations
+```
+
+## اصول SOLID
+
+### 1. Single Responsibility Principle (SRP)
+- هر کلاس باید فقط یک دلیل برای تغییر داشته باشد
+- Controllers فقط باید request handling کنند
+- Services فقط باید business logic داشته باشند
+- Repositories فقط باید data access داشته باشند
+- Models فقط باید data representation داشته باشند
+
+### 2. Open/Closed Principle (OCP)
+- برای افزودن functionality جدید، از Interface ها استفاده کنیم
+- کلاس‌ها باید برای extension باز و برای modification بسته باشند
+- همیشه از Repository Pattern و Service Pattern استفاده کنیم
+
+### 3. Liskov Substitution Principle (LSP)
+- Implementation های Interface باید قابل جایگزینی باشند
+- RepositoryImpl ها باید کاملاً با Interface هایشان سازگار باشند
+
+### 4. Interface Segregation Principle (ISP)
+- Interface های بزرگ را به Interface های کوچکتر تقسیم کنیم
+- کلاس‌ها نباید به متدهایی که استفاده نمی‌کنند وابسته باشند
+
+### 5. Dependency Inversion Principle (DIP)
+- همیشه از Dependency Injection استفاده کنیم
+- کلاس‌های سطح بالا نباید به کلاس‌های سطح پایین وابسته باشند
+- همه باید به Abstraction (Interface) وابسته باشند
+
+```php
+// ✅ درست - استفاده از Interface
+public function __construct(RepositoryInterface $repository)
+{
+    $this->repository = $repository;
+}
+
+// ❌ اشتباه - وابستگی مستقیم به Implementation
+public function __construct(RepositoryImpl $repository)
+{
+    $this->repository = $repository;
+}
+```
+
+## الگوهای طراحی مورد استفاده
+
+### Repository Pattern
+- همیشه از Repository Interface استفاده کنیم
+- Implementation را در AppServiceProvider bind کنیم
+
+### Service Pattern
+- Business Logic در Services
+- Services از Repositories استفاده می‌کنند
+- Controllers از Services استفاده می‌کنند
+
+### Dependency Injection
+- Constructor Injection برای وابستگی‌های اصلی
+- Method Injection برای وابستگی‌های اختیاری
+
+## قوانین کدنویسی
+
+### Controllers
+- Controllers باید thin باشند
+- Business Logic در Services
+- Validation در Form Requests
+- Exception Handling در Controllers
+
+```php
+// ✅ درست
+public function index(BotRequest $request, SomeService $service)
+{
+    try {
+        $result = $service->process($request->validated());
+        return response()->json($result);
+    } catch (Exception $e) {
+        Log::error('Error in index: ' . $e->getMessage());
+        return response()->json(['error' => 'خطا رخ داد'], 500);
+    }
+}
+```
+
+### Services
+- باید از Repository استفاده کنند
+- باید لاگ داشته باشند
+- باید Exception Handling داشته باشند
+
+```php
+// ✅ درست
+public function processData(array $data): array
+{
+    Log::info('Processing data', ['data' => $data]);
+    
+    try {
+        $result = $this->repository->save($data);
+        Log::info('Data processed successfully', ['id' => $result->id]);
+        return $result;
+    } catch (Exception $e) {
+        Log::error('Error processing data', ['error' => $e->getMessage()]);
+        throw $e;
+    }
+}
+```
+
+### Repositories
+- فقط data access logic
+- Query Builder یا Eloquent
+- هیچ business logic نداشته باشند
+
+### Logging
+- همه توابع مهم باید لاگ داشته باشند
+- از LogHelper برای Bot Logs استفاده کنیم
+- از Log facade برای Application Logs استفاده کنیم
+
+```php
+// ✅ درست - Logging در توابع
+public function create(array $data)
+{
+    Log::info('Creating resource', ['data' => $data]);
+    
+    try {
+        $resource = Model::create($data);
+        Log::info('Resource created', ['id' => $resource->id]);
+        return $resource;
+    } catch (Exception $e) {
+        Log::error('Error creating resource', ['error' => $e->getMessage()]);
+        throw $e;
+    }
+}
+```
+
+### Naming Conventions
+- Classes: PascalCase (UserController, BotService)
+- Methods: camelCase (getUserData, processRequest)
+- Variables: camelCase ($userId, $botToken)
+- Constants: UPPER_SNAKE_CASE (MAX_RETRY_COUNT)
+- Interfaces: بدون پسوند Interface (Repository, Service)
+- Implementations: با پسوند Impl (RepositoryImpl, ServiceImpl)
+
+### Type Hints
+- همیشه Type Hints استفاده کنیم
+- Return Types تعریف کنیم
+- PHP 8.1+ features استفاده کنیم
+
+```php
+// ✅ درست
+public function getUser(int $id): ?User
+{
+    return User::find($id);
+}
+
+// ❌ اشتباه
+public function getUser($id)
+{
+    return User::find($id);
+}
+```
+
+## مستندسازی
+
+### README Files
+- هر فیچر جدید باید یک README داشته باشد
+- README فیچر باید در `docs/features/` قرار گیرد
+- README اصلی باید به README فیچرها لینک دهد
+
+### Code Comments
+- برای توابع پیچیده کامنت بنویسیم
+- PHPDoc برای همه public methods
+- توضیح "چرا" نه "چی" در کامنت‌ها
+
+```php
+/**
+ * ثبت‌نام پرسنل جدید در سیستم
+ * 
+ * @param array $data اطلاعات پرسنل (first_name, last_name, national_code, phone_number)
+ * @return Personnel
+ * @throws Exception در صورت وجود کد ملی تکراری
+ */
+public function registerPersonnel(array $data): Personnel
+{
+    // ...
+}
+```
+
+## تست‌ها
+
+- Unit Tests برای Services و Repositories
+- Feature Tests برای Controllers
+- قبل از commit تست‌ها باید pass باشند
+
+## قبل از شروع هر کاری
+
+1. **اسکن پروژه**: ساختار و کدهای موجود را بررسی کن
+2. **بررسی کدهای مرتبط**: ببین چه کلاس‌هایی از قبل وجود دارند
+3. **بررسی الگوهای استفاده شده**: طبق الگوهای موجود کد بزن
+4. **بررسی وابستگی‌ها**: از Interface ها و Services موجود استفاده کن
+
+## Refactoring
+
+- قبل از refactoring با کاربر هماهنگ کن
+- بعد از refactoring لیست چیزهایی که باید تست شوند را به کاربر بده
+- مطمئن شو که کدهای دیگر کار می‌کنند
+
+## Git Workflow
+
+- هر فیچر در یک branch جدا
+- Commit messages واضح و به فارسی
+- قبل از merge تست‌ها pass باشند
+
+## Laravel Best Practices
+
+- از Eloquent Relationships استفاده کنیم
+- از Query Scopes استفاده کنیم
+- از Accessors و Mutators استفاده کنیم
+- از Events و Listeners استفاده کنیم
+- از Jobs برای کارهای زمان‌بر استفاده کنیم
+- از Queues برای پردازش async استفاده کنیم
+
+## امنیت
+
+- همیشه از Form Requests برای Validation استفاده کنیم
+- SQL Injection: از Query Builder یا Eloquent استفاده کنیم
+- XSS: از Blade escaping استفاده کنیم
+- CSRF: Laravel به صورت خودکار handle می‌کند
+- Authentication: از Laravel Sanctum استفاده کنیم
+
