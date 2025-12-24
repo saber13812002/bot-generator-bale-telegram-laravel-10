@@ -70,8 +70,16 @@ class PersonnelRegistrationController extends Controller
             }
 
         } catch (Exception $e) {
-            Log::error('Personnel registration error: ' . $e->getMessage());
-            if (isset($bot)) {
+            Log::error('Personnel registration error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'chat_id' => $bot->ChatID() ?? null,
+                'text' => $bot->Text() ?? null
+            ]);
+            if (isset($bot) && isset($botUser)) {
+                BotHelper::sendMessage($bot, 'خطایی رخ داد. لطفا دوباره از دستور /start استفاده کنید.');
+                // Reset registration state
+                $botUser->settings(['registration_step' => 'start']);
+            } elseif (isset($bot)) {
                 BotHelper::sendMessage($bot, 'خطایی رخ داد. لطفا دوباره تلاش کنید.');
             }
         }
