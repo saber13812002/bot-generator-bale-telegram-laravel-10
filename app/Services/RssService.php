@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use SimpleXMLElement;
 

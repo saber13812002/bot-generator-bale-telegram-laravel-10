@@ -142,7 +142,7 @@ https://hadith.academyofislam.com/?q=_id:" . $hadith->id2 . "
 
     private function getPhraseAndPage(Telegram $bot): array
     {
-        $text = $bot->Text();
+        $text = $bot->Text() ?? '';
         [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($text);
         $limit = 15;
         return [$searchPhrase, $pageNumber, $limit];
