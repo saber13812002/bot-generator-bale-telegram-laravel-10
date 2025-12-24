@@ -267,24 +267,23 @@ class PersonnelRegistrationController extends Controller
             $message = "✅ ثبت‌نام شما با موفقیت انجام شد!\n\n";
             $message .= "درجه شما: سرباز صفر\n\n";
             
-            // Get bot links (these should be configured in env or config)
-            $baleBotUsername = env('PERSONNEL_BALE_BOT_USERNAME', '');
-            $telegramBotUsername = env('PERSONNEL_TELEGRAM_BOT_USERNAME', '');
+            // Get messenger bot links (these should be configured in env or config)
+            // These are the messenger bots, NOT the registration bot
+            $baleMessengerBotUsername = env('PERSONNEL_MESSENGER_BALE_BOT_USERNAME', '');
+            $telegramMessengerBotUsername = env('PERSONNEL_MESSENGER_TELEGRAM_BOT_USERNAME', '');
             
-            if ($baleBotUsername || $telegramBotUsername) {
+            if ($baleMessengerBotUsername || $telegramMessengerBotUsername) {
                 $message .= "لینک‌های ربات‌های اختصاصی شما:\n";
                 
-                if ($baleBotUsername) {
-                    $baleBotLink = config('bot.base_url.bale') . $baleBotUsername;
-                    // Create invite link with personnel ID as parameter
-                    $baleInviteLink = BotHelper::createChatInviteLink($baleBotUsername, 'personnel_id', $personnel->id, 'bale');
+                if ($baleMessengerBotUsername) {
+                    // Create invite link with personnel ID as parameter for messenger bot
+                    $baleInviteLink = BotHelper::createChatInviteLink($baleMessengerBotUsername, 'personnel_id', $personnel->id, 'bale');
                     $message .= "🔵 بله: " . $baleInviteLink . "\n";
                 }
                 
-                if ($telegramBotUsername) {
-                    $telegramBotLink = config('bot.base_url.telegram') . $telegramBotUsername;
-                    // Create invite link with personnel ID as parameter
-                    $telegramInviteLink = BotHelper::createChatInviteLink($telegramBotUsername, 'personnel_id', $personnel->id, 'telegram');
+                if ($telegramMessengerBotUsername) {
+                    // Create invite link with personnel ID as parameter for messenger bot
+                    $telegramInviteLink = BotHelper::createChatInviteLink($telegramMessengerBotUsername, 'personnel_id', $personnel->id, 'telegram');
                     $message .= "🔷 تلگرام: " . $telegramInviteLink . "\n";
                 }
             }

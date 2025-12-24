@@ -24,9 +24,9 @@ php artisan db:seed --class=TenantSeeder
 PERSONNEL_REGISTRATION_BOT_TOKEN_TELEGRAM=your_telegram_bot_token
 PERSONNEL_REGISTRATION_BOT_TOKEN_BALE=your_bale_bot_token
 
-# نام کاربری ربات‌ها (برای ارسال لینک‌ها)
-PERSONNEL_BALE_BOT_USERNAME=your_bale_bot_username
-PERSONNEL_TELEGRAM_BOT_USERNAME=your_telegram_bot_username
+# نام کاربری ربات‌های رسان (برای ارسال لینک‌ها به کاربران - این ربات‌های رسان هستند نه ربات ثبت‌نام)
+PERSONNEL_MESSENGER_BALE_BOT_USERNAME=your_messenger_bale_bot_username
+PERSONNEL_MESSENGER_TELEGRAM_BOT_USERNAME=your_messenger_telegram_bot_username
 ```
 
 ### ۴. تنظیم وب‌هوک
