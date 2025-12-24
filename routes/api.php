@@ -16,8 +16,10 @@ use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
+use App\Http\Controllers\MissionBotController;
 use App\Http\Controllers\PersonnelRegistrationController;
 use App\Http\Controllers\SongSaraPostController;
+use App\Http\Controllers\TaskApprovalController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
@@ -96,6 +98,10 @@ Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 
 // personnel registration
 Route::post('/webhook-personnel-registration', [PersonnelRegistrationController::class, 'index']);
+
+// mission bot
+Route::post('/webhook-mission-bot', [MissionBotController::class, 'index']);
+Route::post('/webhook-task-approval', [TaskApprovalController::class, 'index']);
 
 // use App\Services\RssService;
 

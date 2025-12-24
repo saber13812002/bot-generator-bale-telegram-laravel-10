@@ -36,4 +36,22 @@ class Personnel extends Model
     {
         return $this->hasMany(PersonnelMessageQueue::class);
     }
+
+    /**
+     * Get the tasks assigned to this personnel.
+     */
+    public function tasks()
+    {
+        return $this->hasMany(Task::class, 'assigned_user_id');
+    }
+
+    /**
+     * Calculate total points from approved tasks
+     */
+    public function getTotalPointsAttribute(): int
+    {
+        return $this->tasks()
+            ->where('task_status', 'approved')
+            ->sum('points');
+    }
 }

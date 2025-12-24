@@ -1,0 +1,25 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Prompt extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'content',
+        'task_id',
+    ];
+
+    /**
+     * Get the task that owns the prompt.
+     */
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class);
+    }
+}
