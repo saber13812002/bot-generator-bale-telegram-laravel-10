@@ -57,17 +57,42 @@ class GenerateAudioBookId extends Command
 
         // Call the API with the valid audioBookId
         $response = AudioBookService::callDetailApi($audioBookId);
-        $responseData = $response->json();
-
-        \Log::info("API Response: " . json_encode($responseData));
-//        $this->info("API Response: " . json_encode($responseData));
-
-        // Check if the response is successful
+        
+        // Log response status and basic info
+        \Log::info("API Response Status: {$response->status()}");
+        
+        // Check if the response is successful before parsing JSON
         if ($response->successful()) {
-            $responseData = AudioBookService::createAndGetResponseData($response, $audioBookId);
-            $this->info("Response successful");
+            $responseData = $response->json();
+            
+            if ($responseData === null) {
+                \Log::error("API Response is null or invalid JSON for ID: {$audioBookId}", [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                $this->error("API Response is null or invalid JSON for ID: {$audioBookId}");
+                return;
+            }
+            
+            \Log::info("API Response: " . json_encode($responseData));
+            
+            try {
+                $responseData = AudioBookService::createAndGetResponseData($response, $audioBookId);
+                $this->info("Response successful");
+                \Log::info("Audio book data created successfully for ID: {$audioBookId}");
+            } catch (\Exception $e) {
+                \Log::error("Error creating audio book data: " . $e->getMessage(), [
+                    'audio_book_id' => $audioBookId,
+                    'exception' => $e,
+                ]);
+                $this->error("Error creating audio book data: " . $e->getMessage());
+            }
         } else {
-            $this->info("Response not successful");
+            \Log::error("API Response not successful for ID: {$audioBookId}", [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            $this->error("Response not successful. Status: {$response->status()}");
         }
     }
 
