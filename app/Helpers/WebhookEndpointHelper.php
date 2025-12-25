@@ -44,6 +44,15 @@ class WebhookEndpointHelper
                 'requires_language' => false,
             ],
             [
+                'id' => 'webhook-mission-media',
+                'name' => 'ربات مدیا ماموریت',
+                'route' => '/api/webhook-mission-media',
+                'description' => 'ربات مدیریت و آپلود مدیاهای آموزشی ماموریت‌ها',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-task-approval',
                 'name' => 'تایید وظایف',
                 'route' => '/api/webhook-task-approval',
