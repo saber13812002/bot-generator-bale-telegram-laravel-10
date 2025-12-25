@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\TokenHelper;
+use App\Helpers\WebhookEndpointHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
@@ -20,7 +23,7 @@ use Gap\SDP\Api as GapBot;
 class BotMotherController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Handle bot mother webhook with interactive bot creation
      * @throws Exception
      */
     public function botMotherWebhook(BotRequest $request)
@@ -34,13 +37,57 @@ class BotMotherController extends Controller
                 $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
             }
 
-            if ($request->has('language')) {
+            // چک کردن ادمین بودن کاربر
+            $chatId = $bot->ChatID();
+            if (!AdminHelper::isAdmin($chatId)) {
+                $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            // Log the request
+            try {
+                LogHelper::log($request, $type, $bot);
+            } catch (Exception $e) {
+                Log::info($e->getMessage());
+            }
+
+            $text = $bot->Text();
+            $currentState = BotMotherStateHelper::getCurrentState($chatId);
+            $stateData = BotMotherStateHelper::getData($chatId);
+
+            // Handle /start or "ساختن" command
+            if ($text == '/start' || $text == 'ساختن' || $text == '/new' || strtolower($text) == 'new') {
+                $this->handleStart($bot, $type, $botMotherId);
+            }
+            // Handle endpoint selection
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
+                $this->handleEndpointSelection($bot, $text, $type, $botMotherId);
+            }
+            // Handle type selection (telegram/bale)
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_TYPE) {
+                $this->handleTypeSelection($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle language selection
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_LANGUAGE) {
+                $this->handleLanguageSelection($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle token input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_TOKEN) {
+                $this->handleTokenInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Legacy support - if language is provided in request
+            else if ($request->has('language')) {
                 $message = trans('bot.please wait');
                 BotHelper::sendMessage($bot, $message);
-                //echo($bot->reply);
-                $type = $request->input('origin');
                 $language = $request->input('language');
                 BotHelper::handleRequestBotMother($bot, $type, $language, $botMotherId);
+            }
+            // Unknown command
+            else {
+                $message = "❓ دستور نامعتبر است.\n\n";
+                $message .= "برای شروع، دستور /start یا 'ساختن' را ارسال کنید.";
+                BotHelper::sendMessage($bot, $message);
             }
         }
     }
@@ -299,6 +346,303 @@ class BotMotherController extends Controller
 
         return $message;
 
+    }
+
+    /**
+     * Handle start command - show endpoints list
+     * 
+     * @param Telegram $bot
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleStart(Telegram $bot, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        
+        // Clear any previous state
+        BotMotherStateHelper::clearState($chatId);
+        
+        $message = "🤖 ربات ساز\n\n";
+        $message .= "با این ربات می‌توانید ربات‌های جدید بسازید و به endpoint های مختلف متصل کنید.\n\n";
+        $message .= WebhookEndpointHelper::getEndpointsListMessage();
+        
+        BotHelper::sendMessage($bot, $message);
+        
+        // Set state to waiting for endpoint selection
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Handle endpoint selection
+     * 
+     * @param Telegram $bot
+     * @param string $text
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleEndpointSelection(Telegram $bot, string $text, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $endpoints = WebhookEndpointHelper::getAvailableEndpoints();
+        
+        // Check if input is a number
+        if (!is_numeric($text)) {
+            $message = "❌ لطفاً شماره endpoint را ارسال کنید (مثلاً: 1)";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+        
+        $selectedIndex = (int)$text - 1;
+        
+        if ($selectedIndex < 0 || $selectedIndex >= count($endpoints)) {
+            $message = "❌ شماره نامعتبر است. لطفاً شماره صحیح را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+        
+        $selectedEndpoint = $endpoints[$selectedIndex];
+        
+        $message = "✅ Endpoint انتخاب شد:\n\n";
+        $message .= "📝 نام: {$selectedEndpoint['name']}\n";
+        $message .= "🔗 Route: {$selectedEndpoint['route']}\n";
+        $message .= "📄 توضیحات: {$selectedEndpoint['description']}\n\n";
+        $message .= "نوع ربات را انتخاب کنید:\n";
+        $message .= "1. تلگرام (Telegram)\n";
+        $message .= "2. بله (Bale)\n\n";
+        $message .= "شماره نوع ربات را ارسال کنید:";
+        
+        BotHelper::sendMessage($bot, $message);
+        
+        // Set state to waiting for type selection
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TYPE, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+            'endpoint_id' => $selectedEndpoint['id'],
+            'endpoint' => $selectedEndpoint,
+        ]);
+    }
+
+    /**
+     * Handle type selection (telegram/bale)
+     * 
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleTypeSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        
+        $selectedType = null;
+        if ($text == '1' || strtolower($text) == 'telegram') {
+            $selectedType = 'telegram';
+        } else if ($text == '2' || strtolower($text) == 'bale') {
+            $selectedType = 'bale';
+        } else {
+            $message = "❌ لطفاً 1 برای تلگرام یا 2 برای بله را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+        
+        $endpoint = $stateData['endpoint'];
+        
+        // Check if endpoint requires language
+        if ($endpoint['requires_language']) {
+            $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
+            $message .= "زبان را انتخاب کنید:\n";
+            $message .= "1. فارسی (fa)\n";
+            $message .= "2. انگلیسی (en)\n\n";
+            $message .= "شماره زبان را ارسال کنید:";
+            
+            BotHelper::sendMessage($bot, $message);
+            
+            // Set state to waiting for language
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LANGUAGE, array_merge($stateData, [
+                'bot_type' => $selectedType,
+            ]));
+        } else {
+            // If doesn't require language, ask for token directly
+            $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
+            $message .= "لطفاً توکن ربات را ارسال کنید:";
+            
+            BotHelper::sendMessage($bot, $message);
+            
+            // Set state to waiting for token
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+                'bot_type' => $selectedType,
+                'language' => 'fa', // Default language
+            ]));
+        }
+    }
+
+    /**
+     * Handle language selection
+     * 
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleLanguageSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        
+        $selectedLanguage = 'fa'; // Default
+        if ($text == '1' || strtolower($text) == 'fa' || strtolower($text) == 'فارسی') {
+            $selectedLanguage = 'fa';
+        } else if ($text == '2' || strtolower($text) == 'en' || strtolower($text) == 'انگلیسی') {
+            $selectedLanguage = 'en';
+        }
+        
+        $message = "✅ زبان انتخاب شد: " . ($selectedLanguage == 'fa' ? 'فارسی' : 'انگلیسی') . "\n\n";
+        $message .= "لطفاً توکن ربات را ارسال کنید:";
+        
+        BotHelper::sendMessage($bot, $message);
+        
+        // Set state to waiting for token
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+            'language' => $selectedLanguage,
+        ]));
+    }
+
+    /**
+     * Handle token input and create bot
+     * 
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     * @throws Exception
+     */
+    private function handleTokenInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $endpointId = $stateData['endpoint_id'];
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+        
+        // Validate token
+        if (!TokenHelper::isToken($text, $botType)) {
+            $message = "❌ توکن نامعتبر است. لطفاً توکن صحیح را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+        
+        $message = "⏳ در حال ساخت ربات و تنظیم webhook...\nلطفاً صبر کنید.";
+        BotHelper::sendMessage($bot, $message);
+        
+        try {
+            // Create bot instance with the provided token
+            $newBot = new Telegram($text, $botType);
+            
+            // Get bot info
+            $getMe = $newBot->getMe();
+            
+            if (!$getMe['ok']) {
+                throw new Exception("خطا در دریافت اطلاعات ربات: " . ($getMe['description'] ?? 'Unknown error'));
+            }
+            
+            // Create bot in database
+            $botItem = new Bot();
+            $botItem->bot_mother_id = $botMotherId;
+            
+            if ($botType == 'bale') {
+                $botItem->bale_owner_chat_id = $chatId;
+                $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
+                $botItem->bale_bot_token = $text;
+                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                $botItem->bale_bot_status = 'Active';
+            } else {
+                $botItem->telegram_owner_chat_id = $chatId;
+                $botItem->telegram_bot_name = $getMe['result']['username'] ?? null;
+                $botItem->telegram_bot_token = $text;
+                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                $botItem->telegram_bot_status = 'Active';
+            }
+            
+            $botItem->save();
+            
+            // Create webhook URL
+            $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+            
+            // Set webhook
+            $setWebhookResult = $newBot->setWebhook($webhookUrl);
+            
+            if (!$setWebhookResult['ok']) {
+                throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
+            }
+            
+            // Update webhook status in database
+            if ($botType == 'bale') {
+                $botItem->bale_webhook_is_set = 1;
+            } else {
+                $botItem->telegram_webhook_is_set = 1;
+            }
+            $botItem->save();
+            
+            // Verify webhook
+            $webhookInfo = BotHelper::checkWebhookInfo($text, $botType);
+            
+            // Send success message
+            $successMessage = "✅ ربات با موفقیت ساخته و ثبت شد!\n\n";
+            $successMessage .= "📝 اطلاعات ربات:\n";
+            $successMessage .= "• نام: @" . ($getMe['result']['username'] ?? 'N/A') . "\n";
+            $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+            $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
+            $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
+            $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n";
+            $successMessage .= "• Bot ID: {$botItem->id}\n\n";
+            $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+            
+            if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+            } else {
+                $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+            }
+            
+            $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
+            
+            BotHelper::sendMessage($bot, $successMessage);
+            
+            // Clear state
+            BotMotherStateHelper::clearState($chatId);
+            
+            // Log success
+            Log::info('Bot created successfully via Bot Mother', [
+                'bot_id' => $botItem->id,
+                'endpoint' => $endpointId,
+                'type' => $botType,
+                'chat_id' => $chatId,
+            ]);
+            
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در ساخت ربات:\n\n";
+            $errorMessage .= $e->getMessage() . "\n\n";
+            $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+            
+            BotHelper::sendMessage($bot, $errorMessage);
+            
+            // Log error
+            Log::error('Error creating bot via Bot Mother', [
+                'error' => $e->getMessage(),
+                'endpoint' => $endpointId,
+                'type' => $botType,
+                'chat_id' => $chatId,
+            ]);
+        }
     }
 
 }
