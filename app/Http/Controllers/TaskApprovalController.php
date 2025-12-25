@@ -113,8 +113,12 @@ class TaskApprovalController extends Controller
                         Log::info('✅ Task Approval Bot - Approving task', ['task_id' => $task->id]);
                         $this->approveTask($bot, $task, $chatId, $type);
                     } else {
-                        Log::info('❌ Task Approval Bot - Rejecting task', ['task_id' => $task->id, 'reason' => $text]);
-                        $this->rejectTask($bot, $task, $text, $chatId, $type);
+                        // If it's not "تایید", send feedback message to user instead of rejecting
+                        Log::info('💬 Task Approval Bot - Sending feedback to user', [
+                            'task_id' => $task->id,
+                            'feedback' => $text
+                        ]);
+                        $this->sendFeedbackToUser($bot, $task, $text, $chatId, $type);
                     }
                     return;
                 }
@@ -131,8 +135,12 @@ class TaskApprovalController extends Controller
                         Log::info('✅ Task Approval Bot - Approving mission', ['mission_personnel_id' => $missionPersonnel->id]);
                         $this->approveMission($bot, $missionPersonnel, $chatId, $type);
                     } else {
-                        Log::info('❌ Task Approval Bot - Rejecting mission', ['mission_personnel_id' => $missionPersonnel->id, 'reason' => $text]);
-                        $this->rejectMission($bot, $missionPersonnel, $text, $chatId, $type);
+                        // If it's not "تایید", send feedback message to user instead of rejecting
+                        Log::info('💬 Task Approval Bot - Sending feedback to user for mission', [
+                            'mission_personnel_id' => $missionPersonnel->id,
+                            'feedback' => $text
+                        ]);
+                        $this->sendFeedbackToUserMission($bot, $missionPersonnel, $text, $chatId, $type);
                     }
                     return;
                 }
@@ -470,6 +478,153 @@ class TaskApprovalController extends Controller
         }
 
         BotHelper::sendMessageByChatId($bot, $botUser->chat_id, $message);
+    }
+
+    /**
+     * Send feedback message to user when admin replies (not approval)
+     */
+    private function sendFeedbackToUser($bot, $task, $feedbackText, $groupChatId, $type)
+    {
+        $personnel = $task->personnel;
+        
+        try {
+            // Find bot user for this personnel
+            $botUser = \App\Models\BotUsers::where('settings->personnel_id', $personnel->id)
+                ->where('origin', $type)
+                ->first();
+
+            if (!$botUser) {
+                Log::warning("Bot user not found for personnel: " . $personnel->id);
+                // Still send confirmation to group
+                $message = "⚠️ پیام برای کاربر ارسال نشد (کاربر یافت نشد)\n";
+                $message .= "تسک: " . $task->id . "\n";
+                $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+                $message .= "پیام: " . $feedbackText;
+                BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+                return;
+            }
+
+            $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+            $userBot = new Telegram($token, $type);
+
+            // Send feedback message to user
+            $message = "📩 پیام از ادمین برای تسک شما:\n\n";
+            $message .= "📋 نام تسک: " . $task->task_name . "\n";
+            $message .= "🔗 لینک ارسال شده: " . $task->final_link . "\n\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "💬 پیام ادمین:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $message .= $feedbackText . "\n\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "💡 لطفا اقدامات لازم را انجام داده و دوباره لینک جدید را ارسال کنید.";
+
+            BotHelper::sendMessageByChatId($userBot, $botUser->chat_id, $message);
+
+            // Send confirmation to group
+            $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
+            $groupMessage .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $groupMessage .= "تسک: " . $task->id . "\n";
+            $groupMessage .= "پیام: " . $feedbackText;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $groupMessage);
+
+            Log::info("Feedback sent to user", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'feedback' => $feedbackText
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error sending feedback to user", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Try to notify group about error
+            try {
+                $errorMessage = "❌ خطا در ارسال پیام به کاربر:\n";
+                $errorMessage .= "تسک: " . $task->id . "\n";
+                $errorMessage .= "خطا: " . $e->getMessage();
+                BotHelper::sendMessageByChatId($bot, $groupChatId, $errorMessage);
+            } catch (Exception $e2) {
+                Log::error("Failed to send error message to group", ['error' => $e2->getMessage()]);
+            }
+        }
+    }
+
+    /**
+     * Send feedback message to user for mission when admin replies (not approval)
+     */
+    private function sendFeedbackToUserMission($bot, $missionPersonnel, $feedbackText, $groupChatId, $type)
+    {
+        $personnel = $missionPersonnel->personnel;
+        $mission = $missionPersonnel->mission;
+        
+        try {
+            // Find bot user for this personnel
+            $botUser = \App\Models\BotUsers::where('settings->personnel_id', $personnel->id)
+                ->where('origin', $type)
+                ->first();
+
+            if (!$botUser) {
+                Log::warning("Bot user not found for personnel: " . $personnel->id);
+                // Still send confirmation to group
+                $message = "⚠️ پیام برای کاربر ارسال نشد (کاربر یافت نشد)\n";
+                $message .= "ماموریت: " . $mission->id . "\n";
+                $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+                $message .= "پیام: " . $feedbackText;
+                BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+                return;
+            }
+
+            $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+            $userBot = new Telegram($token, $type);
+
+            // Send feedback message to user
+            $message = "📩 پیام از ادمین برای ماموریت شما:\n\n";
+            $message .= "📋 عنوان ماموریت: " . $mission->title . "\n";
+            $message .= "🔗 لینک ارسال شده: " . $missionPersonnel->result_link . "\n\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "💬 پیام ادمین:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $message .= $feedbackText . "\n\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "💡 لطفا اقدامات لازم را انجام داده و دوباره لینک جدید را ارسال کنید.";
+
+            BotHelper::sendMessageByChatId($userBot, $botUser->chat_id, $message);
+
+            // Send confirmation to group
+            $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
+            $groupMessage .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $groupMessage .= "ماموریت: " . $mission->id . "\n";
+            $groupMessage .= "پیام: " . $feedbackText;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $groupMessage);
+
+            Log::info("Feedback sent to user for mission", [
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'feedback' => $feedbackText
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error sending feedback to user for mission", [
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Try to notify group about error
+            try {
+                $errorMessage = "❌ خطا در ارسال پیام به کاربر:\n";
+                $errorMessage .= "ماموریت: " . $mission->id . "\n";
+                $errorMessage .= "خطا: " . $e->getMessage();
+                BotHelper::sendMessageByChatId($bot, $groupChatId, $errorMessage);
+            } catch (Exception $e2) {
+                Log::error("Failed to send error message to group", ['error' => $e2->getMessage()]);
+            }
+        }
     }
 
     /**
