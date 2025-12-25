@@ -138,6 +138,9 @@ class PersonnelRegistrationController extends Controller
         if ($personnelId) {
             $personnel = Personnel::find($personnelId);
             if ($personnel) {
+                // سلام اولیه برای اطمینان از کارکرد ربات
+                BotHelper::sendMessage($bot, "👋 سلام! ربات ثبت‌نام آماده است.");
+                
                 $message = "شما قبلاً ثبت‌نام کرده‌اید!\n\n";
                 $message .= "نام: " . $personnel->first_name . " " . $personnel->last_name . "\n";
                 $message .= "کد ملی: " . $personnel->national_code . "\n";
@@ -163,7 +166,10 @@ class PersonnelRegistrationController extends Controller
             }
         }
         
-        $message = "سلام خوش آمدید!\n\n";
+        // سلام اولیه برای اطمینان از کارکرد ربات
+        BotHelper::sendMessage($bot, "👋 سلام! ربات ثبت‌نام آماده است.");
+        
+        $message = "خوش آمدید!\n\n";
         $message .= "برای ثبت‌نام در سیستم، لطفا اطلاعات زیر را وارد کنید:\n";
         $message .= "نام خود را وارد کنید:";
         

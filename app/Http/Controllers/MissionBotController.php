@@ -168,6 +168,8 @@ class MissionBotController extends Controller
         }
 
         if (!$personnelId) {
+            // سلام اولیه برای اطمینان از کارکرد ربات
+            BotHelper::sendMessage($bot, "👋 سلام! ربات ماموریت آماده است.");
             BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
             return;
         }
@@ -182,6 +184,9 @@ class MissionBotController extends Controller
         // Save personnel_id to bot user settings
         $botUser = BotUsers::firstOrNew($bot->ChatID(), $botMotherId, $type);
         $botUser->settings(['personnel_id' => $personnelId]);
+
+        // سلام اولیه برای اطمینان از کارکرد ربات
+        BotHelper::sendMessage($bot, "👋 سلام! ربات ماموریت آماده است.");
 
         // Welcome message
         $message = "سلام " . $personnel->first_name . " " . $personnel->last_name . "!\n\n";

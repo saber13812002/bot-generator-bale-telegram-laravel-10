@@ -86,6 +86,12 @@ class TaskApprovalController extends Controller
             }
 
             Log::info('✅ Task Approval Bot - Message from approval group', ['chat_id' => $chatId]);
+            
+            // سلام اولیه برای اطمینان از کارکرد ربات (فقط برای پیام‌های متنی)
+            if ($text && !empty(trim($text))) {
+                // فقط برای پیام‌های متنی (نه برای update های دیگر)
+                Log::info('👋 Task Approval Bot - سلام: ربات تایید آماده است', ['chat_id' => $chatId, 'text' => $text]);
+            }
 
             // If it's a reply to a message, find the task by message_id
             if ($replyToMessageId) {
