@@ -82,8 +82,9 @@ class Personnel extends Model
             ->where('task_status', 'approved')
             ->sum('points');
 
+        // Use mission_personnel.status to avoid ambiguity after join
         $missionPoints = $this->missionPersonnel()
-            ->where('status', 'approved')
+            ->where('mission_personnel.status', 'approved')
             ->join('missions', 'mission_personnel.mission_id', '=', 'missions.id')
             ->sum('missions.points');
 
