@@ -19,6 +19,14 @@ class TaskApprovalController extends Controller
      */
     public function index(BotRequest $request)
     {
+        // Log webhook received
+        Log::info('🔔 Task Approval Bot - Webhook received', [
+            'origin' => $request->input('origin'),
+            'bot_mother_id' => $request->input('bot_mother_id'),
+            'has_token' => $request->has('token'),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+        
         try {
             $type = $request->input('origin');
             $botMotherId = $request->input('bot_mother_id');
@@ -31,6 +39,15 @@ class TaskApprovalController extends Controller
                 $bot = new Telegram($token);
             }
 
+            // Verify webhook is set correctly
+            $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+            Log::info('📡 Task Approval Bot - Webhook status check', [
+                'type' => $type,
+                'webhook_ok' => $webhookInfo['ok'] ?? false,
+                'webhook_url' => $webhookInfo['result']['url'] ?? null,
+                'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+            ]);
+
             // Log the request
             try {
                 LogHelper::log($request, $type, $bot);
@@ -42,6 +59,15 @@ class TaskApprovalController extends Controller
             $chatId = $bot->ChatID();
             $messageId = $bot->MessageID();
             
+            // Log message received
+            Log::info('📨 Task Approval Bot - Message received', [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'message_id' => $messageId,
+                'type' => $type,
+                'is_group' => $chatId < 0
+            ]);
+            
             // Get reply_to_message_id from request data
             $replyToMessageId = null;
             $update = $bot->Update();
@@ -52,11 +78,22 @@ class TaskApprovalController extends Controller
             // Check if this is the approval group
             $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
             if ($chatId != $approvalGroupChatId) {
+                Log::info('ℹ️ Task Approval Bot - Not approval group, ignoring', [
+                    'chat_id' => $chatId,
+                    'approval_group_chat_id' => $approvalGroupChatId
+                ]);
                 return; // Not the approval group, ignore
             }
 
+            Log::info('✅ Task Approval Bot - Message from approval group', ['chat_id' => $chatId]);
+
             // If it's a reply to a message, find the task by message_id
             if ($replyToMessageId) {
+                Log::info('💬 Task Approval Bot - Reply detected', [
+                    'reply_to_message_id' => $replyToMessageId,
+                    'text' => $text
+                ]);
+                
                 $task = Task::where('approval_message_id', $replyToMessageId)
                     ->where('task_status', 'pending_approval')
                     ->first();
@@ -65,18 +102,28 @@ class TaskApprovalController extends Controller
                     $approvalText = mb_strtolower(trim($text));
                     
                     if ($approvalText == 'تایید' || $approvalText == 'تاييد') {
+                        Log::info('✅ Task Approval Bot - Approving task', ['task_id' => $task->id]);
                         $this->approveTask($bot, $task, $chatId, $type);
                     } else {
+                        Log::info('❌ Task Approval Bot - Rejecting task', ['task_id' => $task->id, 'reason' => $text]);
                         $this->rejectTask($bot, $task, $text, $chatId, $type);
                     }
+                } else {
+                    Log::warning('⚠️ Task Approval Bot - Task not found for reply', ['reply_to_message_id' => $replyToMessageId]);
                 }
+            } else {
+                Log::info('ℹ️ Task Approval Bot - Not a reply message', ['chat_id' => $chatId]);
             }
+            
+            Log::info('✅ Task Approval Bot - Message processed successfully', ['chat_id' => $chatId]);
 
         } catch (Exception $e) {
-            Log::error('Task approval error: ' . $e->getMessage(), [
+            Log::error('❌ Task Approval Bot - Error occurred', [
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'chat_id' => $chatId ?? null,
-                'text' => $text ?? null
+                'text' => $text ?? null,
+                'origin' => $request->input('origin') ?? null
             ]);
         }
     }

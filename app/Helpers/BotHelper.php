@@ -97,19 +97,38 @@ class BotHelper
                     $botItem->save();
                     
                     // بررسی webhook بعد از ست کردن (الزامی!)
+                    Log::info('🔍 BotHelper - Verifying webhook after setting', [
+                        'type' => $type,
+                        'token_preview' => substr($token, 0, 10) . '...',
+                        'webhook_url_set' => $webHookUrl
+                    ]);
+                    
                     $webhookInfo = self::checkWebhookInfo($token, $type);
                     if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'] ?? null)) {
-                        Log::error('Webhook verification failed after setting', [
+                        Log::error('❌ BotHelper - Webhook verification FAILED after setting', [
                             'type' => $type,
                             'token_preview' => substr($token, 0, 10) . '...',
+                            'webhook_url_expected' => $webHookUrl,
                             'webhook_info' => $webhookInfo
                         ]);
                     } else {
-                        Log::info('Webhook verified successfully', [
+                        $actualUrl = $webhookInfo['result']['url'] ?? null;
+                        $urlMatches = $actualUrl === $webHookUrl;
+                        
+                        Log::info('✅ BotHelper - Webhook verified successfully', [
                             'type' => $type,
-                            'url' => $webhookInfo['result']['url'] ?? null,
+                            'url_expected' => $webHookUrl,
+                            'url_actual' => $actualUrl,
+                            'url_matches' => $urlMatches,
                             'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
                         ]);
+                        
+                        if (!$urlMatches) {
+                            Log::warning('⚠️ BotHelper - Webhook URL mismatch', [
+                                'expected' => $webHookUrl,
+                                'actual' => $actualUrl
+                            ]);
+                        }
                     }
                     
                     if (config('app.env') == 'local') {
@@ -790,17 +809,48 @@ class BotHelper
                 ? "https://tapi.bale.ai/bot{$token}/getWebhookInfo"
                 : "https://api.telegram.org/bot{$token}/getWebhookInfo";
             
+            Log::info('🔍 BotHelper - Checking webhook info', [
+                'type' => $type,
+                'token_preview' => substr($token, 0, 10) . '...',
+                'api_url' => str_replace($token, substr($token, 0, 10) . '...', $apiUrl)
+            ]);
+            
             $response = Http::get($apiUrl);
             $result = $response->json();
             
-            Log::info("Webhook check result for {$type} bot", [
-                'token' => substr($token, 0, 10) . '...',
-                'result' => $result
-            ]);
+            if (isset($result['ok']) && $result['ok']) {
+                $webhookUrl = $result['result']['url'] ?? null;
+                $pendingUpdates = $result['result']['pending_update_count'] ?? 0;
+                
+                Log::info('✅ BotHelper - Webhook is SET and ACTIVE', [
+                    'type' => $type,
+                    'webhook_url' => $webhookUrl,
+                    'pending_updates' => $pendingUpdates,
+                    'has_custom_certificate' => $result['result']['has_custom_certificate'] ?? false
+                ]);
+                
+                if (empty($webhookUrl)) {
+                    Log::warning('⚠️ BotHelper - Webhook OK but URL is empty', [
+                        'type' => $type,
+                        'result' => $result
+                    ]);
+                }
+            } else {
+                Log::error('❌ BotHelper - Webhook is NOT SET or FAILED', [
+                    'type' => $type,
+                    'result' => $result,
+                    'error_code' => $result['error_code'] ?? null,
+                    'description' => $result['description'] ?? null
+                ]);
+            }
             
             return $result;
         } catch (Exception $e) {
-            Log::error("Error checking webhook info: " . $e->getMessage());
+            Log::error('❌ BotHelper - Error checking webhook info', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return ['ok' => false, 'error' => $e->getMessage()];
         }
     }
@@ -843,7 +893,13 @@ class BotHelper
             'text' => $text,
         ];
         
-        Log::info("Chat info detected", $info);
+        Log::info('🔍 BotHelper - Chat info detected', [
+            'chat_id' => $chatId,
+            'is_group' => $isGroup,
+            'chat_type' => $chatType,
+            'is_started' => $isStarted,
+            'text_preview' => mb_substr($text, 0, 50)
+        ]);
         
         return $info;
     }

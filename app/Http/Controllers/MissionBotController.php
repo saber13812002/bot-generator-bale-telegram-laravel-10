@@ -21,6 +21,14 @@ class MissionBotController extends Controller
      */
     public function index(BotRequest $request)
     {
+        // Log webhook received
+        Log::info('🔔 Mission Bot - Webhook received', [
+            'origin' => $request->input('origin'),
+            'bot_mother_id' => $request->input('bot_mother_id'),
+            'has_token' => $request->has('token'),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+        
         try {
             $type = $request->input('origin');
             $botMotherId = $request->input('bot_mother_id');
@@ -32,6 +40,15 @@ class MissionBotController extends Controller
                 $token = $request->has('token') ? $request->input('token') : env('MISSION_BOT_TOKEN_TELEGRAM');
                 $bot = new Telegram($token);
             }
+
+            // Verify webhook is set correctly
+            $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+            Log::info('📡 Mission Bot - Webhook status check', [
+                'type' => $type,
+                'webhook_ok' => $webhookInfo['ok'] ?? false,
+                'webhook_url' => $webhookInfo['result']['url'] ?? null,
+                'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+            ]);
 
             // Log the request
             try {
@@ -47,27 +64,32 @@ class MissionBotController extends Controller
             $chatInfo = BotHelper::detectChatInfo($bot);
             $isGroup = $chatInfo['is_group'];
             
-            // Log chat info for debugging
-            Log::info('Mission bot chat info', [
+            // Log message received and chat info
+            Log::info('📨 Mission Bot - Message received', [
                 'chat_id' => $chatId,
+                'text' => $text,
+                'type' => $type,
                 'is_group' => $isGroup,
                 'chat_type' => $chatInfo['chat_type'],
-                'is_started' => $chatInfo['is_started'],
-                'text' => $text
+                'is_started' => $chatInfo['is_started']
             ]);
             
             if ($isGroup) {
                 // Handle group messages according to algorithm
+                Log::info('👥 Mission Bot - Processing group message', ['chat_id' => $chatId, 'text' => $text]);
                 $this->handleGroupMessage($bot, $text, $chatId, $type, $botMotherId);
+                Log::info('✅ Mission Bot - Group message processed', ['chat_id' => $chatId]);
                 return;
             }
 
             // Handle /start command with personnel_id parameter
             if ($text == '/start' || str_starts_with($text, '/start ')) {
+                Log::info('▶️ Mission Bot - Processing /start command', ['chat_id' => $chatId, 'text' => $text]);
                 $this->handleStart($bot, $text, $type, $botMotherId);
             } 
             // Handle task submission (final link)
             else if (filter_var($text, FILTER_VALIDATE_URL)) {
+                Log::info('🔗 Mission Bot - Processing URL submission', ['chat_id' => $chatId, 'url' => $text]);
                 $this->handleSubmitLink($bot, $text, $chatId, $type);
             }
             // Handle other commands
@@ -79,21 +101,34 @@ class MissionBotController extends Controller
                 
                 if ($botUser) {
                     $personnelId = $botUser->setting('personnel_id');
+                    Log::info('👤 Mission Bot - User found', [
+                        'chat_id' => $chatId,
+                        'has_personnel_id' => !empty($personnelId),
+                        'personnel_id' => $personnelId
+                    ]);
+                    
                     if ($personnelId) {
+                        Log::info('⚙️ Mission Bot - Processing command', ['chat_id' => $chatId, 'text' => $text, 'personnel_id' => $personnelId]);
                         $this->handleCommands($bot, $text, $personnelId, $type);
                     } else {
+                        Log::warning('⚠️ Mission Bot - User not registered', ['chat_id' => $chatId]);
                         BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
                     }
                 } else {
+                    Log::warning('⚠️ Mission Bot - User not found', ['chat_id' => $chatId]);
                     BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
                 }
             }
+            
+            Log::info('✅ Mission Bot - Message processed successfully', ['chat_id' => $chatId]);
 
         } catch (Exception $e) {
-            Log::error('Mission bot error: ' . $e->getMessage(), [
+            Log::error('❌ Mission Bot - Error occurred', [
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'chat_id' => $chatId ?? null,
-                'text' => $text ?? null
+                'text' => $text ?? null,
+                'origin' => $request->input('origin') ?? null
             ]);
             if (isset($bot)) {
                 BotHelper::sendMessage($bot, 'خطایی رخ داد. لطفا دوباره تلاش کنید.');
