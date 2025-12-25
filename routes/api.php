@@ -17,6 +17,7 @@ use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
 use App\Http\Controllers\MissionBotController;
+use App\Http\Controllers\MissionMediaBotController;
 use App\Http\Controllers\PersonnelAdminBotController;
 use App\Http\Controllers\PersonnelRegistrationController;
 use App\Http\Controllers\SongSaraPostController;
