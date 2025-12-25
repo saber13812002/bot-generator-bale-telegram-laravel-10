@@ -577,15 +577,67 @@ class MissionBotController extends Controller
     }
 
     /**
+     * Handle get training command - sends training content for active mission
+     */
+    private function handleGetTraining($bot, $personnel, $type)
+    {
+        Log::info('📥 Mission Bot - Get training request', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+
+        // Find active mission for this personnel
+        $missionPersonnel = \App\Models\MissionPersonnel::where('personnel_id', $personnel->id)
+            ->whereIn('status', ['reserved', 'in_progress'])
+            ->latest()
+            ->first();
+
+        if (!$missionPersonnel) {
+            BotHelper::sendMessage($bot, "❌ شما ماموریت فعالی ندارید.\n\nبرای درخواست ماموریت، دستور /request_mission را ارسال کنید.");
+            return;
+        }
+
+        $mission = $missionPersonnel->mission;
+        if (!$mission) {
+            BotHelper::sendMessage($bot, "❌ ماموریت یافت نشد.");
+            return;
+        }
+
+        try {
+            // Use ContentService to send training media
+            $this->contentService->sendTrainingMedia($mission->id, $personnel->id, $type);
+            
+            BotHelper::sendMessage($bot, "✅ آموزش‌های ماموریت در حال ارسال هستند...\n\n");
+            BotHelper::sendMessage($bot, "📋 ماموریت: {$mission->title}\n");
+            BotHelper::sendMessage($bot, "⏳ لطفا منتظر بمانید تا تمام محتواها ارسال شوند.");
+            
+            Log::info('✅ Mission Bot - Training request processed', [
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Mission Bot - Error sending training', [
+                'error' => $e->getMessage(),
+                'mission_id' => $mission->id ?? null,
+                'personnel_id' => $personnel->id
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در ارسال آموزش‌ها: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Handle help command
      */
     private function handleHelp($bot)
     {
         $message = "📖 دستورات ربات ماموریت:\n\n";
         $message .= "/reserve - رزرو یک تسک جدید\n";
-        $message .= "/status - مشاهده وضعیت تسک‌ها\n";
+        $message .= "/request_mission - درخواست یک ماموریت\n";
+        $message .= "/get_training - دریافت آموزش‌های ماموریت فعال\n";
+        $message .= "/cancel_mission - لغو ماموریت فعال\n";
+        $message .= "/status - مشاهده وضعیت تسک‌ها و ماموریت‌ها\n";
         $message .= "/help - نمایش این راهنما\n\n";
-        $message .= "برای ارسال لینک نهایی، فقط لینک را در ربات ارسال کنید.";
+        $message .= "💡 برای ارسال لینک نهایی، فقط لینک را در ربات ارسال کنید.";
 
         BotHelper::sendMessage($bot, $message);
     }
