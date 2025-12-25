@@ -301,7 +301,18 @@ class MissionBotController extends Controller
             $message .= $activeTask->task_name . "\n\n";
             
             $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
-            $message .= "💡 لطفا تسک فعلی را تکمیل کنید یا منتظر بمانید تا تسک فعلی تایید یا رد شود.";
+            $message .= "📌 راهنمای انجام تسک:\n\n";
+            $message .= "1️⃣ تسک را انجام دهید (مثلاً یک پست در وبلاگ، ویرگول، لینکدین، توییتر، مدیوم، یوتیوب و...)\n\n";
+            $message .= "2️⃣ لینک نتیجه کار خود را در این ربات ارسال کنید\n";
+            $message .= "   مثال: https://virgool.io/@username/post\n";
+            $message .= "   یا: https://www.linkedin.com/posts/...\n";
+            $message .= "   یا: https://twitter.com/username/status/...\n";
+            $message .= "   یا: https://medium.com/@username/...\n";
+            $message .= "   یا: https://youtube.com/watch?v=...\n\n";
+            $message .= "3️⃣ منتظر تایید بمانید\n\n";
+            $message .= "💡 توجه: لینک باید دال و دلیل انجام تسک شما باشد (مثلاً لینک پست وبلاگ، مقاله، ویدیو و...)\n\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "⚠️ تا زمانی که تسک فعلی تایید یا رد نشود، نمی‌توانید تسک جدیدی رزرو کنید.";
             
             BotHelper::sendMessage($bot, $message);
             return;
@@ -583,7 +594,7 @@ class MissionBotController extends Controller
     }
 
     /**
-     * Send task to approval group
+     * Send task to approval group with complete information
      */
     private function sendToApprovalGroup($task, $type)
     {
@@ -593,25 +604,84 @@ class MissionBotController extends Controller
             return;
         }
 
+        // Load task relationships
+        $task->load(['personnel', 'prompts']);
+
         $personnel = $task->personnel;
         $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
         $bot = new Telegram($token, $type);
 
         $message = "📋 تسک جدید برای تایید:\n\n";
-        $message .= "شناسه تسک: " . $task->id . "\n";
-        $message .= "نام تسک: " . $task->task_name . "\n";
-        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
-        $message .= "کد ملی: " . $personnel->national_code . "\n";
-        $message .= "امتیاز: " . $task->points . "\n";
-        $message .= "لینک: " . $task->final_link . "\n\n";
-        $message .= "برای تایید، کلمه 'تایید' را به این پیام reply کنید.\n";
-        $message .= "برای رد، پیام خود را به این پیام reply کنید.";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📌 اطلاعات تسک:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "🆔 شناسه تسک: " . $task->id . "\n";
+        $message .= "📝 نام تسک: " . $task->task_name . "\n";
+        $message .= "🎯 امتیاز: " . $task->points . "\n";
+        
+        if ($task->reserved_time) {
+            $message .= "⏰ زمان رزرو: " . $task->reserved_time->format('Y-m-d H:i:s') . "\n";
+        }
+        
+        if ($task->task_time) {
+            $message .= "📅 زمان ارسال: " . $task->task_time->format('Y-m-d H:i:s') . "\n";
+        }
+        
+        $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "👤 اطلاعات کاربر:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "👤 نام: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+        $message .= "🆔 کد ملی: " . $personnel->national_code . "\n";
+        $message .= "📞 شماره تماس: " . $personnel->phone_number . "\n";
+        $message .= "⭐ امتیاز کل: " . $personnel->total_points . "\n";
+        $message .= "🎖️ درجه: " . $personnel->rank . "\n";
+        
+        // Add prompt content if available
+        if ($task->prompts->isNotEmpty()) {
+            $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📝 پرامپت تسک:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            
+            foreach ($task->prompts as $index => $prompt) {
+                if ($task->prompts->count() > 1) {
+                    $message .= "پرامپت " . ($index + 1) . ":\n";
+                }
+                $message .= $prompt->content . "\n\n";
+            }
+        }
+        
+        // Add task name as text content
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📄 متن تسک:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= $task->task_name . "\n";
+        
+        $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "🔗 لینک ارسال شده:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= $task->final_link . "\n";
+        
+        $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "⚡ دستورات:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "✅ برای تایید: کلمه 'تایید' را به این پیام reply کنید\n";
+        $message .= "❌ برای رد: پیام خود را به این پیام reply کنید";
 
         $result = BotHelper::sendMessageByChatId($bot, $approvalGroupChatId, $message);
         
         // Save message_id to task for future reference
         if ($result && isset($result['result']['message_id'])) {
             $task->update(['approval_message_id' => $result['result']['message_id']]);
+            Log::info('Task sent to approval group', [
+                'task_id' => $task->id,
+                'approval_message_id' => $result['result']['message_id'],
+                'personnel_id' => $personnel->id
+            ]);
+        } else {
+            Log::warning('Failed to send task to approval group', [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id
+            ]);
         }
     }
 
