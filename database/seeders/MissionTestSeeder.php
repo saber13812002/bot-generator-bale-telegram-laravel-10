@@ -67,8 +67,8 @@ class MissionTestSeeder extends Seeder
 4. منتظر تایید بمانید
 
 نکته: این یک پرامپت نمونه است که می‌توانید آن را تغییر دهید.',
-            'task_id' => null,
-            'mission_id' => null,
+            'task_id' => null, // nullable - می‌تواند null باشد
+            'mission_id' => null, // بعداً به mission متصل می‌شود
         ]);
         $this->command->info("✅ Prompt created with ID: {$prompt->id}");
 
