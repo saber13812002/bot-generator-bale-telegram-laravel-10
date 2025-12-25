@@ -15,9 +15,11 @@ class TokenHelper
         $text = str_replace("\r", '', $text);
 
         if ($type == 'bale') {
-            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{40}$/", $text);
+            // توکن بله می‌تواند 35 یا 40 کاراکتر داشته باشد
+            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{35,40}$/", $text);
         } else {
-            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{35}/", $text);
+            // توکن تلگرام حداقل 35 کاراکتر دارد
+            $check = preg_match("/^[0-9]{8,10}:[a-zA-Z0-9_-]{35,}/", $text);
         }
 //        dd($check);
         if ($check) {
