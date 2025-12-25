@@ -17,6 +17,7 @@ use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
 use App\Http\Controllers\MissionBotController;
+use App\Http\Controllers\PersonnelAdminBotController;
 use App\Http\Controllers\PersonnelRegistrationController;
 use App\Http\Controllers\SongSaraPostController;
 use App\Http\Controllers\TaskApprovalController;
@@ -98,6 +99,7 @@ Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 
 // personnel registration
 Route::post('/webhook-personnel-registration', [PersonnelRegistrationController::class, 'index']);
+Route::post('/webhook-personnel-admin', [PersonnelAdminBotController::class, 'index']);
 
 // mission bot
 Route::post('/webhook-mission-bot', [MissionBotController::class, 'index']);

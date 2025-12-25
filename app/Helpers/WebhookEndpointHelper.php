@@ -26,6 +26,15 @@ class WebhookEndpointHelper
                 'requires_language' => true,
             ],
             [
+                'id' => 'webhook-personnel-admin',
+                'name' => 'ادمین ثبت‌نام پرسنل',
+                'route' => '/api/webhook-personnel-admin',
+                'description' => 'ربات ادمین برای مشاهده لیست ثبت‌نام‌های پرسنل',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-mission-bot',
                 'name' => 'ربات ماموریت',
                 'route' => '/api/webhook-mission-bot',
