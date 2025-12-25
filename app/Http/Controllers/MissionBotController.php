@@ -267,15 +267,42 @@ class MissionBotController extends Controller
                 'task_status' => $activeTask->task_status
             ]);
 
-            $message = "شما یک تسک فعال دارید:\n";
-            $message .= "نام تسک: " . $activeTask->task_name . "\n";
-            $message .= "وضعیت: " . $this->getStatusText($activeTask->task_status) . "\n";
+            // Load prompts for the task
+            $activeTask->load('prompts');
+
+            $message = "شما یک تسک فعال دارید:\n\n";
+            $message .= "📋 نام تسک: " . $activeTask->task_name . "\n";
+            $message .= "📊 وضعیت: " . $this->getStatusText($activeTask->task_status) . "\n";
             
             if ($activeTask->reserved_time) {
-                $message .= "زمان باقیمانده: " . $activeTask->reserved_time->diffForHumans() . "\n\n";
+                $message .= "⏰ زمان باقیمانده: " . $activeTask->reserved_time->diffForHumans() . "\n";
             }
             
-            $message .= "لطفا تسک فعلی را تکمیل کنید یا منتظر بمانید تا تسک فعلی تایید یا رد شود.";
+            $message .= "🎯 امتیاز: " . $activeTask->points . "\n\n";
+            
+            // Add prompt content if available
+            if ($activeTask->prompts->isNotEmpty()) {
+                $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+                $message .= "📝 پرامپت:\n";
+                $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                
+                foreach ($activeTask->prompts as $index => $prompt) {
+                    if ($activeTask->prompts->count() > 1) {
+                        $message .= "پرامپت " . ($index + 1) . ":\n";
+                    }
+                    $message .= $prompt->content . "\n\n";
+                }
+            }
+            
+            // Add task name as text content for copying
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📄 متن تسک (برای کپی):\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $message .= $activeTask->task_name . "\n\n";
+            
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "💡 لطفا تسک فعلی را تکمیل کنید یا منتظر بمانید تا تسک فعلی تایید یا رد شود.";
+            
             BotHelper::sendMessage($bot, $message);
             return;
         }
