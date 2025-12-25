@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Repositories\ContentRepository;
@@ -11,6 +12,7 @@ use App\Interfaces\Services\ContentService;
 use App\Models\Content;
 use App\Models\Mission;
 use App\Models\MissionContent;
+use App\Models\Personnel;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -80,17 +82,35 @@ class MissionMediaBotController extends Controller
                 return;
             }
 
+            // Check current state for file upload
+            $currentState = BotMotherStateHelper::getCurrentState($chatId);
+            $stateData = BotMotherStateHelper::getData($chatId);
+
             // Handle commands
             if ($text == '/start') {
                 $this->handleStart($bot);
+                BotMotherStateHelper::setState($chatId, null, []); // Clear state
             } elseif (str_starts_with($text, '/upload_mission_')) {
                 // Format: /upload_mission_123
                 $missionId = (int) str_replace('/upload_mission_', '', $text);
-                $this->handleUploadMedia($bot, $missionId, $type);
+                $this->handleUploadMediaStart($bot, $missionId, $chatId);
             } elseif (str_starts_with($text, '/get_training_')) {
                 // Format: /get_training_123
                 $missionId = (int) str_replace('/get_training_', '', $text);
                 $this->handleGetTraining($bot, $missionId, $type);
+            } elseif (str_starts_with($text, '/send_training_')) {
+                // Format: /send_training_123_to_456 (mission_id_to_personnel_id)
+                $parts = explode('_to_', str_replace('/send_training_', '', $text));
+                if (count($parts) == 2) {
+                    $missionId = (int) $parts[0];
+                    $personnelId = (int) $parts[1];
+                    $this->handleSendTrainingToPersonnel($bot, $missionId, $personnelId, $type);
+                } else {
+                    BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\nفرمت صحیح: /send_training_{mission_id}_to_{personnel_id}");
+                }
+            } elseif ($currentState == 'uploading_media' && isset($stateData['mission_id'])) {
+                // User is in upload mode, handle file upload
+                $this->handleUploadMediaFile($bot, $stateData['mission_id'], $type, $chatId);
             } else {
                 BotHelper::sendMessage($bot, "دستور نامعتبر است. از /start برای مشاهده دستورات استفاده کنید.");
             }
@@ -115,20 +135,60 @@ class MissionMediaBotController extends Controller
     private function handleStart($bot): void
     {
         $message = "👋 سلام! ربات مدیریت مدیا ماموریت‌ها\n\n";
-        $message .= "دستورات:\n";
-        $message .= "/upload_mission_{id} - آپلود مدیا برای ماموریت\n";
-        $message .= "/get_training_{id} - دریافت آموزش‌های یک ماموریت\n\n";
-        $message .= "مثال: /upload_mission_1";
+        $message .= "📋 دستورات:\n\n";
+        $message .= "1️⃣ آپلود مدیا:\n";
+        $message .= "   /upload_mission_{id}\n";
+        $message .= "   مثال: /upload_mission_1\n";
+        $message .= "   سپس فایل‌ها را ارسال کنید و /done برای پایان\n\n";
+        $message .= "2️⃣ مشاهده لیست آموزش‌ها:\n";
+        $message .= "   /get_training_{id}\n";
+        $message .= "   مثال: /get_training_1\n\n";
+        $message .= "3️⃣ ارسال آموزش به پرسنل:\n";
+        $message .= "   /send_training_{mission_id}_to_{personnel_id}\n";
+        $message .= "   مثال: /send_training_1_to_5\n\n";
+        $message .= "💡 نکته: بعد از /upload_mission_{id} فایل‌ها را ارسال کنید و /done برای پایان.";
 
         BotHelper::sendMessage($bot, $message);
     }
 
     /**
-     * Handle media upload for a mission.
+     * Start media upload process for a mission.
      */
-    private function handleUploadMedia($bot, int $missionId, string $type): void
+    private function handleUploadMediaStart($bot, int $missionId, $chatId): void
     {
-        Log::info('📤 Mission Media Bot - Upload media request', [
+        Log::info('📤 Mission Media Bot - Upload media start', [
+            'mission_id' => $missionId,
+            'chat_id' => $chatId
+        ]);
+
+        $mission = Mission::find($missionId);
+        if (!$mission) {
+            BotHelper::sendMessage($bot, "❌ ماموریت یافت نشد.");
+            return;
+        }
+
+        // Set state for file upload
+        BotMotherStateHelper::setState($chatId, 'uploading_media', [
+            'mission_id' => $missionId
+        ]);
+
+        $message = "📤 آماده دریافت فایل برای ماموریت: " . $mission->title . "\n\n";
+        $message .= "لطفا فایل‌های آموزشی را ارسال کنید:\n";
+        $message .= "• عکس\n";
+        $message .= "• ویدیو\n";
+        $message .= "• صوت\n";
+        $message .= "• PDF\n\n";
+        $message .= "برای پایان آپلود، دستور /done را ارسال کنید.";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle file upload when in upload mode.
+     */
+    private function handleUploadMediaFile($bot, int $missionId, string $type, $chatId): void
+    {
+        Log::info('📤 Mission Media Bot - Upload media file', [
             'mission_id' => $missionId,
             'type' => $type
         ]);
@@ -136,6 +196,7 @@ class MissionMediaBotController extends Controller
         $mission = Mission::find($missionId);
         if (!$mission) {
             BotHelper::sendMessage($bot, "❌ ماموریت یافت نشد.");
+            BotMotherStateHelper::setState($chatId, null, []);
             return;
         }
 
@@ -157,10 +218,15 @@ class MissionMediaBotController extends Controller
         } elseif (isset($update['message']['document'])) {
             $fileId = $update['message']['document']['file_id'];
             $fileType = 'pdf';
+        } elseif (isset($update['message']['text']) && strtolower(trim($update['message']['text'])) == '/done') {
+            // End upload mode
+            BotMotherStateHelper::setState($chatId, null, []);
+            BotHelper::sendMessage($bot, "✅ آپلود فایل‌ها به پایان رسید.");
+            return;
         }
 
         if (!$fileId) {
-            BotHelper::sendMessage($bot, "❌ لطفا یک فایل (عکس، ویدیو، صوت یا PDF) ارسال کنید.");
+            BotHelper::sendMessage($bot, "❌ لطفا یک فایل (عکس، ویدیو، صوت یا PDF) ارسال کنید یا /done برای پایان.");
             return;
         }
 
@@ -174,13 +240,14 @@ class MissionMediaBotController extends Controller
         }
 
         // Create content
+        $maxSortOrder = MissionContent::where('mission_id', $missionId)->max('sort_order') ?? 0;
         $content = $this->contentRepository->create([
             'tenant_id' => $mission->tenant_id,
-            'title' => $mission->title . ' - ' . $fileType,
+            'title' => $mission->title . ' - ' . $fileType . ' ' . ($maxSortOrder + 1),
             'content_type' => $fileType,
             'content_url' => $fileUrl,
             'description' => 'مدیا آموزشی برای ماموریت ' . $mission->title,
-            'sort_order' => MissionContent::where('mission_id', $missionId)->max('sort_order') + 1 ?? 1,
+            'sort_order' => $maxSortOrder + 1,
         ]);
 
         // Attach to mission
@@ -190,7 +257,7 @@ class MissionMediaBotController extends Controller
             'sort_order' => $content->sort_order,
         ]);
 
-        BotHelper::sendMessage($bot, "✅ مدیا با موفقیت به ماموریت اضافه شد.");
+        BotHelper::sendMessage($bot, "✅ مدیا با موفقیت به ماموریت اضافه شد.\nبرای پایان آپلود، /done را ارسال کنید.");
         Log::info('✅ Mission Media Bot - Media uploaded', [
             'mission_id' => $missionId,
             'content_id' => $content->id
@@ -198,7 +265,7 @@ class MissionMediaBotController extends Controller
     }
 
     /**
-     * Handle get training command.
+     * Handle get training command - shows list of training content.
      */
     private function handleGetTraining($bot, int $missionId, string $type): void
     {
@@ -227,7 +294,55 @@ class MissionMediaBotController extends Controller
             $message .= ($index + 1) . ". " . $content->title . " (" . $content->content_type . ")\n";
         }
 
+        $message .= "\n💡 برای ارسال این آموزش‌ها به یک پرسنل:\n";
+        $message .= "/send_training_{$missionId}_to_{personnel_id}";
+
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Send training content to a specific personnel.
+     */
+    private function handleSendTrainingToPersonnel($bot, int $missionId, int $personnelId, string $type): void
+    {
+        Log::info('📤 Mission Media Bot - Send training to personnel', [
+            'mission_id' => $missionId,
+            'personnel_id' => $personnelId,
+            'type' => $type
+        ]);
+
+        $mission = Mission::find($missionId);
+        if (!$mission) {
+            BotHelper::sendMessage($bot, "❌ ماموریت یافت نشد.");
+            return;
+        }
+
+        $personnel = Personnel::find($personnelId);
+        if (!$personnel) {
+            BotHelper::sendMessage($bot, "❌ پرسنل یافت نشد.");
+            return;
+        }
+
+        try {
+            // Use ContentService to send training media
+            $this->contentService->sendTrainingMedia($missionId, $personnelId, $type);
+            
+            BotHelper::sendMessage($bot, "✅ آموزش‌های ماموریت برای پرسنل ارسال شد.\n\n");
+            BotHelper::sendMessage($bot, "پرسنل: {$personnel->first_name} {$personnel->last_name}\n");
+            BotHelper::sendMessage($bot, "ماموریت: {$mission->title}");
+            
+            Log::info('✅ Mission Media Bot - Training sent to personnel', [
+                'mission_id' => $missionId,
+                'personnel_id' => $personnelId
+            ]);
+        } catch (\Exception $e) {
+            Log::error('❌ Mission Media Bot - Error sending training', [
+                'error' => $e->getMessage(),
+                'mission_id' => $missionId,
+                'personnel_id' => $personnelId
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در ارسال آموزش‌ها: " . $e->getMessage());
+        }
     }
 
     /**
