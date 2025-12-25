@@ -936,7 +936,9 @@ class BotHelper
     public static function detectChatInfo(Telegram $bot): array
     {
         $chatId = $bot->ChatID();
-        $update = $bot->Update();
+        // Get update from request instead of bot object
+        $request = request();
+        $update = $request->json()->all() ?? $request->all();
         
         $isGroup = $chatId < 0;
         $chatType = 'private';

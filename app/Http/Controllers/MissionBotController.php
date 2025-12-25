@@ -295,7 +295,8 @@ class MissionBotController extends Controller
         // If it's a URL, check if user is registered and has active task
         if (filter_var($text, FILTER_VALIDATE_URL)) {
             // Get user from message (if available in update)
-            $update = $bot->Update();
+            $request = request();
+            $update = $request->json()->all() ?? $request->all();
             $userId = null;
             
             if (isset($update['message']['from']['id'])) {

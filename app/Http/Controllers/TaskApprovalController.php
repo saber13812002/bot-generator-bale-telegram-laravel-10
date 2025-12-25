@@ -70,7 +70,7 @@ class TaskApprovalController extends Controller
             
             // Get reply_to_message_id from request data
             $replyToMessageId = null;
-            $update = $bot->Update();
+            $update = $request->json()->all() ?? $request->all();
             if (isset($update['message']['reply_to_message']['message_id'])) {
                 $replyToMessageId = $update['message']['reply_to_message']['message_id'];
             }
