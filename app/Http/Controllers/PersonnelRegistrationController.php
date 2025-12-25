@@ -90,6 +90,36 @@ class PersonnelRegistrationController extends Controller
      */
     private function handleStart($bot, $botUser, $type)
     {
+        // Check if user is already registered
+        $personnelId = $botUser->setting('personnel_id');
+        if ($personnelId) {
+            $personnel = Personnel::find($personnelId);
+            if ($personnel) {
+                $message = "شما قبلاً ثبت‌نام کرده‌اید!\n\n";
+                $message .= "نام: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+                $message .= "کد ملی: " . $personnel->national_code . "\n";
+                $message .= "درجه: " . $personnel->rank . "\n\n";
+                $message .= "برای شروع کار با ربات تسک، از لینک زیر استفاده کنید:\n\n";
+                
+                // Get messenger bot links
+                $baleMessengerBotUsername = env('PERSONNEL_MESSENGER_BALE_BOT_USERNAME', '');
+                $telegramMessengerBotUsername = env('PERSONNEL_MESSENGER_TELEGRAM_BOT_USERNAME', '');
+                
+                if ($baleMessengerBotUsername) {
+                    $baleInviteLink = BotHelper::createChatInviteLink($baleMessengerBotUsername, 'personnel_id', $personnel->id, 'bale');
+                    $message .= "🔵 بله: " . $baleInviteLink . "\n";
+                }
+                
+                if ($telegramMessengerBotUsername) {
+                    $telegramInviteLink = BotHelper::createChatInviteLink($telegramMessengerBotUsername, 'personnel_id', $personnel->id, 'telegram');
+                    $message .= "🔷 تلگرام: " . $telegramInviteLink . "\n";
+                }
+                
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+        }
+        
         $message = "سلام خوش آمدید!\n\n";
         $message .= "برای ثبت‌نام در سیستم، لطفا اطلاعات زیر را وارد کنید:\n";
         $message .= "نام خود را وارد کنید:";

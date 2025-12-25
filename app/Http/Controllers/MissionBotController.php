@@ -42,6 +42,15 @@ class MissionBotController extends Controller
 
             $text = $bot->Text();
             $chatId = $bot->ChatID();
+            
+            // Check if this is a group chat (chat_id < 0 means group/channel)
+            $isGroup = $chatId < 0;
+            
+            if ($isGroup) {
+                // Handle group messages according to algorithm
+                $this->handleGroupMessage($bot, $text, $chatId, $type, $botMotherId);
+                return;
+            }
 
             // Handle /start command with personnel_id parameter
             if ($text == '/start' || str_starts_with($text, '/start ')) {
@@ -63,10 +72,10 @@ class MissionBotController extends Controller
                     if ($personnelId) {
                         $this->handleCommands($bot, $text, $personnelId, $type);
                     } else {
-                        BotHelper::sendMessage($bot, "لطفا از لینک اختصاصی خود استفاده کنید. برای دریافت لینک، به ربات ثبت‌نام مراجعه کنید.");
+                        BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
                     }
                 } else {
-                    BotHelper::sendMessage($bot, "لطفا از لینک اختصاصی خود استفاده کنید. برای دریافت لینک، به ربات ثبت‌نام مراجعه کنید.");
+                    BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
                 }
             }
 
@@ -102,8 +111,19 @@ class MissionBotController extends Controller
             }
         }
 
+        // If no personnel_id in command, check if user is already registered
         if (!$personnelId) {
-            BotHelper::sendMessage($bot, "لطفا از لینک اختصاصی خود استفاده کنید.");
+            $botUser = BotUsers::where('chat_id', $bot->ChatID())
+                ->where('origin', $type)
+                ->first();
+            
+            if ($botUser) {
+                $personnelId = $botUser->setting('personnel_id');
+            }
+        }
+
+        if (!$personnelId) {
+            BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
             return;
         }
 
@@ -171,25 +191,142 @@ class MissionBotController extends Controller
             return;
         }
 
-        // Get available tasks (you can implement logic to select a task)
+        // Check if there are available tasks to assign
+        // TODO: In the future, this should check a task pool or configuration table
+        // For now, we'll check if we can create a task
+        // You should implement proper task availability logic based on your business requirements
+        
         // For now, we'll create a simple task
+        // In production, you should check a task pool/configuration to see if tasks are available
         $reservedTime = now()->addHours(2);
 
-        $task = Task::create([
-            'task_name' => 'تسک نمونه ' . now()->format('Y-m-d H:i'),
-            'assigned_user_id' => $personnel->id,
-            'task_status' => 'reserved',
-            'reserved_time' => $reservedTime,
-            'assigned_time' => now(),
-            'points' => 10, // Default points, should come from task configuration
+        try {
+            $task = Task::create([
+                'task_name' => 'تسک نمونه ' . now()->format('Y-m-d H:i'),
+                'assigned_user_id' => $personnel->id,
+                'task_status' => 'reserved',
+                'reserved_time' => $reservedTime,
+                'assigned_time' => now(),
+                'points' => 10, // Default points, should come from task configuration
+            ]);
+
+            $message = "✅ تسک شما با موفقیت رزرو شد!\n\n";
+            $message .= "نام تسک: " . $task->task_name . "\n";
+            $message .= "امتیاز: " . $task->points . "\n";
+            $message .= "مهلت ارسال: " . $reservedTime->format('Y-m-d H:i') . "\n";
+            $message .= "زمان باقیمانده: " . $reservedTime->diffForHumans() . "\n\n";
+            $message .= "لطفا پس از انجام تسک، لینک نهایی را در این ربات ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('Error creating task: ' . $e->getMessage());
+            // If task creation fails, inform user that no tasks are available
+            BotHelper::sendMessage($bot, "در حال حاضر تسک موجود نیست. لطفا بعداً تلاش کنید.");
+        }
+    }
+    
+    /**
+     * Handle group messages
+     * This method handles messages in group chats according to the algorithm
+     */
+    private function handleGroupMessage($bot, $text, $chatId, $type, $botMotherId)
+    {
+        // Check if this is the approval group
+        $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
+        if ($chatId == $approvalGroupChatId) {
+            // This is handled by TaskApprovalController
+            // We can ignore it here or handle additional group logic
+            return;
+        }
+        
+        // Handle group messages according to algorithm
+        // For now, we'll check if it's a command or URL
+        if ($text == '/start' || str_starts_with($text, '/start ')) {
+            // In group, we might want to respond differently
+            // For now, we'll just ignore or send a message that bot is active
+            return;
+        }
+        
+        // If it's a URL, check if user is registered and has active task
+        if (filter_var($text, FILTER_VALIDATE_URL)) {
+            // Get user from message (if available in update)
+            $update = $bot->Update();
+            $userId = null;
+            
+            if (isset($update['message']['from']['id'])) {
+                $userId = $update['message']['from']['id'];
+            }
+            
+            if ($userId) {
+                // Find bot user by user_id (not chat_id, as chat_id is group)
+                // Note: In groups, we need to track user_id separately
+                // For now, we'll try to find by user_id if available
+                $botUser = BotUsers::where('chat_id', $userId)
+                    ->where('origin', $type)
+                    ->first();
+                
+                if ($botUser) {
+                    $personnelId = $botUser->setting('personnel_id');
+                    if ($personnelId) {
+                        // Check if user has active task
+                        $activeTask = Task::where('assigned_user_id', $personnelId)
+                            ->whereIn('task_status', ['reserved', 'in_progress'])
+                            ->where('reserved_time', '>', now())
+                            ->latest()
+                            ->first();
+                        
+                        if ($activeTask) {
+                            // Handle link submission in group
+                            $this->handleSubmitLinkInGroup($bot, $text, $userId, $personnelId, $type, $chatId);
+                        } else {
+                            BotHelper::sendMessage($bot, "شما تسک فعالی ندارید.");
+                        }
+                    } else {
+                        BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
+                    }
+                } else {
+                    BotHelper::sendMessage($bot, "شما ثبت‌نام نکرده‌اید. لطفا ابتدا در ربات ثبت‌نام، ثبت‌نام خود را تکمیل کنید.");
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle link submission in group
+     */
+    private function handleSubmitLinkInGroup($bot, $link, $userId, $personnelId, $type, $groupChatId)
+    {
+        // Find active task
+        $task = Task::where('assigned_user_id', $personnelId)
+            ->whereIn('task_status', ['reserved', 'in_progress'])
+            ->where('reserved_time', '>', now())
+            ->latest()
+            ->first();
+
+        if (!$task) {
+            BotHelper::sendMessage($bot, "شما تسک فعالی ندارید.");
+            return;
+        }
+
+        // Check if reserved time has passed
+        if (now() > $task->reserved_time) {
+            $task->update(['task_status' => 'rejected', 'rejected_at' => now()]);
+            BotHelper::sendMessage($bot, "متاسفانه زمان رزرو تسک به پایان رسیده است.");
+            return;
+        }
+
+        // Update task with final link
+        $task->update([
+            'final_link' => $link,
+            'task_status' => 'pending_approval',
+            'task_time' => now(),
         ]);
 
-        $message = "✅ تسک شما با موفقیت رزرو شد!\n\n";
-        $message .= "نام تسک: " . $task->task_name . "\n";
-        $message .= "امتیاز: " . $task->points . "\n";
-        $message .= "مهلت ارسال: " . $reservedTime->format('Y-m-d H:i') . "\n";
-        $message .= "زمان باقیمانده: " . $reservedTime->diffForHumans() . "\n\n";
-        $message .= "لطفا پس از انجام تسک، لینک نهایی را در این ربات ارسال کنید.";
+        // Send to approval group
+        $this->sendToApprovalGroup($task, $type);
+
+        $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
+        $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
         BotHelper::sendMessage($bot, $message);
     }
