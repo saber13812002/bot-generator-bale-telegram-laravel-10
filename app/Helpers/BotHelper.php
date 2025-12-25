@@ -95,6 +95,23 @@ class BotHelper
                         $botItem->telegram_webhook_is_set = 1;
                     }
                     $botItem->save();
+                    
+                    // بررسی webhook بعد از ست کردن (الزامی!)
+                    $webhookInfo = self::checkWebhookInfo($token, $type);
+                    if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'] ?? null)) {
+                        Log::error('Webhook verification failed after setting', [
+                            'type' => $type,
+                            'token_preview' => substr($token, 0, 10) . '...',
+                            'webhook_info' => $webhookInfo
+                        ]);
+                    } else {
+                        Log::info('Webhook verified successfully', [
+                            'type' => $type,
+                            'url' => $webhookInfo['result']['url'] ?? null,
+                            'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+                        ]);
+                    }
+                    
                     if (config('app.env') == 'local') {
                         $message = 'وب هوک :' . $webHookUrl;
                         self::sendMessage($messenger, $message);
@@ -756,6 +773,110 @@ class BotHelper
             ],
             $arrayCommands
         ];
+    }
+
+    /**
+     * بررسی وضعیت webhook ربات
+     * 
+     * @param string $token توکن ربات
+     * @param string $type نوع ربات ('bale' یا 'telegram')
+     * @return array اطلاعات webhook شامل ['ok', 'result' => ['url', 'has_custom_certificate', 'pending_update_count']]
+     */
+    public static function checkWebhookInfo(string $token, string $type = 'telegram'): array
+    {
+        try {
+            $bot = new Telegram($token, $type);
+            $apiUrl = $type == 'bale' 
+                ? "https://tapi.bale.ai/bot{$token}/getWebhookInfo"
+                : "https://api.telegram.org/bot{$token}/getWebhookInfo";
+            
+            $response = Http::get($apiUrl);
+            $result = $response->json();
+            
+            Log::info("Webhook check result for {$type} bot", [
+                'token' => substr($token, 0, 10) . '...',
+                'result' => $result
+            ]);
+            
+            return $result;
+        } catch (Exception $e) {
+            Log::error("Error checking webhook info: " . $e->getMessage());
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * تشخیص نوع چت (گروه/خصوصی) و وضعیت استارت
+     * 
+     * @param Telegram $bot نمونه کلاس Telegram
+     * @return array شامل ['is_group' => bool, 'chat_id' => int, 'chat_type' => string, 'is_started' => bool]
+     */
+    public static function detectChatInfo(Telegram $bot): array
+    {
+        $chatId = $bot->ChatID();
+        $update = $bot->Update();
+        
+        $isGroup = $chatId < 0;
+        $chatType = 'private';
+        
+        if ($isGroup) {
+            if (isset($update['message']['chat']['type'])) {
+                $chatType = $update['message']['chat']['type']; // 'group', 'supergroup', 'channel'
+            } else {
+                $chatType = 'group'; // پیش‌فرض
+            }
+        }
+        
+        // بررسی اینکه آیا این اولین استارت است یا نه
+        // با چک کردن اینکه آیا پیام /start است
+        $isStarted = false;
+        $text = $bot->Text();
+        if ($text == '/start' || str_starts_with($text, '/start ')) {
+            $isStarted = true;
+        }
+        
+        $info = [
+            'is_group' => $isGroup,
+            'chat_id' => $chatId,
+            'chat_type' => $chatType,
+            'is_started' => $isStarted,
+            'text' => $text,
+        ];
+        
+        Log::info("Chat info detected", $info);
+        
+        return $info;
+    }
+
+    /**
+     * بررسی و لاگ کردن اطلاعات webhook و چت
+     * این متد باید بعد از ساخت یا تست ربات جدید فراخوانی شود
+     * 
+     * @param string $token توکن ربات
+     * @param string $type نوع ربات
+     * @param Telegram|null $bot نمونه کلاس Telegram (اختیاری)
+     * @return array نتیجه بررسی
+     */
+    public static function verifyBotSetup(string $token, string $type = 'telegram', ?Telegram $bot = null): array
+    {
+        $result = [
+            'webhook' => self::checkWebhookInfo($token, $type),
+            'chat_info' => null,
+        ];
+        
+        if ($bot) {
+            $result['chat_info'] = self::detectChatInfo($bot);
+        }
+        
+        // لاگ کردن نتیجه
+        Log::info("Bot setup verification", [
+            'type' => $type,
+            'token_preview' => substr($token, 0, 10) . '...',
+            'webhook_ok' => $result['webhook']['ok'] ?? false,
+            'webhook_url' => $result['webhook']['result']['url'] ?? null,
+        ]);
+        
+        return $result;
     }
 
     public

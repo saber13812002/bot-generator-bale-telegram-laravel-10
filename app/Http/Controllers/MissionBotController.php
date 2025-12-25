@@ -43,8 +43,18 @@ class MissionBotController extends Controller
             $text = $bot->Text();
             $chatId = $bot->ChatID();
             
-            // Check if this is a group chat (chat_id < 0 means group/channel)
-            $isGroup = $chatId < 0;
+            // Detect chat info (group/private and start status)
+            $chatInfo = BotHelper::detectChatInfo($bot);
+            $isGroup = $chatInfo['is_group'];
+            
+            // Log chat info for debugging
+            Log::info('Mission bot chat info', [
+                'chat_id' => $chatId,
+                'is_group' => $isGroup,
+                'chat_type' => $chatInfo['chat_type'],
+                'is_started' => $chatInfo['is_started'],
+                'text' => $text
+            ]);
             
             if ($isGroup) {
                 // Handle group messages according to algorithm

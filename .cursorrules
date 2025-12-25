@@ -246,3 +246,99 @@ public function registerPersonnel(array $data): Personnel
 - CSRF: Laravel به صورت خودکار handle می‌کند
 - Authentication: از Laravel Sanctum استفاده کنیم
 
+## تست و بررسی Webhook ربات‌ها
+
+### الزامات تست Webhook
+
+**⚠️ مهم: با هر کدی که ربات جدید قراره تست بشه یا ساخته میشه، حتماً باید webhook را بررسی کنیم!**
+
+1. **بعد از ساخت ربات جدید:**
+   - حتماً باید با curl یا Http::get چک کنیم که webhook درست ست شده باشد
+   - از متد `BotHelper::checkWebhookInfo()` استفاده کنیم
+   - نتیجه را در لاگ ذخیره کنیم
+
+2. **بعد از تغییر webhook URL:**
+   - حتماً باید دوباره چک کنیم که webhook به‌روز شده باشد
+   - از `BotHelper::verifyBotSetup()` استفاده کنیم
+
+3. **قبل از deploy به production:**
+   - حتماً باید webhook را در محیط production چک کنیم
+   - از curl command استفاده کنیم:
+   
+   ```bash
+   # برای Telegram
+   curl https://api.telegram.org/bot{TOKEN}/getWebhookInfo
+   
+   # برای Bale
+   curl https://tapi.bale.ai/bot{TOKEN}/getWebhookInfo
+   ```
+
+4. **در کد:**
+   ```php
+   // ✅ درست - بررسی webhook بعد از ساخت ربات
+   $bot = BotHelper::defineBotInDbThenSetWebHook($token, $messenger, $botItem, $type, $language, $botMotherId);
+   $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+   if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'])) {
+       Log::error('Webhook not set properly', ['token' => substr($token, 0, 10) . '...']);
+       // ارسال پیام به ادمین
+   }
+   
+   // ✅ درست - بررسی webhook در تست
+   public function testBotWebhook()
+   {
+       $token = env('TEST_BOT_TOKEN');
+       $type = 'telegram';
+       $result = BotHelper::verifyBotSetup($token, $type);
+       $this->assertTrue($result['webhook']['ok']);
+       $this->assertNotEmpty($result['webhook']['result']['url']);
+   }
+   ```
+
+5. **تشخیص نوع چت و وضعیت استارت:**
+   - از متد `BotHelper::detectChatInfo()` برای تشخیص گروه/خصوصی استفاده کنیم
+   - این متد اطلاعات مفیدی درباره چت برمی‌گرداند:
+     - `is_group`: آیا چت در گروه است؟
+     - `chat_type`: نوع چت (private, group, supergroup, channel)
+     - `is_started`: آیا پیام /start است؟
+   
+   ```php
+   // ✅ درست - تشخیص نوع چت
+   $chatInfo = BotHelper::detectChatInfo($bot);
+   if ($chatInfo['is_group']) {
+       // منطق مخصوص گروه
+   } else {
+       // منطق مخصوص چت خصوصی
+   }
+   ```
+
+### مثال کامل تست Webhook
+
+```php
+// در Controller یا Service
+public function createBot($token, $type)
+{
+    // ساخت ربات
+    $bot = BotHelper::defineBotInDbThenSetWebHook($token, $messenger, $botItem, $type, $language, $botMotherId);
+    
+    // بررسی webhook (الزامی!)
+    $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+    
+    if (!$webhookInfo['ok']) {
+        Log::error('Webhook check failed', ['token' => substr($token, 0, 10) . '...']);
+        throw new Exception('Webhook not set properly');
+    }
+    
+    if (empty($webhookInfo['result']['url'])) {
+        Log::error('Webhook URL is empty', ['token' => substr($token, 0, 10) . '...']);
+        throw new Exception('Webhook URL is empty');
+    }
+    
+    Log::info('Webhook verified successfully', [
+        'url' => $webhookInfo['result']['url'],
+        'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+    ]);
+    
+    return $bot;
+}
+```
+
