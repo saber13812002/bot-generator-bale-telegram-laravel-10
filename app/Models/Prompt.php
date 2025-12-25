@@ -13,6 +13,8 @@ class Prompt extends Model
     protected $fillable = [
         'content',
         'task_id',
+        'tenant_id',
+        'mission_id',
     ];
 
     /**
@@ -21,5 +23,21 @@ class Prompt extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    /**
+     * Get the tenant that owns the prompt.
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Get the mission that owns the prompt.
+     */
+    public function mission(): BelongsTo
+    {
+        return $this->belongsTo(Mission::class);
     }
 }

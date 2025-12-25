@@ -46,12 +46,47 @@ class Personnel extends Model
     }
 
     /**
-     * Calculate total points from approved tasks
+     * Get the missions assigned to this personnel.
+     */
+    public function missions()
+    {
+        return $this->belongsToMany(Mission::class, 'mission_personnel')
+            ->withPivot([
+                'status',
+                'result_link',
+                'approval_message_id',
+                'rejection_reason',
+                'approved_by_chat_id',
+                'approved_at',
+                'rejected_at',
+                'started_at',
+                'completed_at',
+            ])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get mission personnel pivot records.
+     */
+    public function missionPersonnel()
+    {
+        return $this->hasMany(MissionPersonnel::class);
+    }
+
+    /**
+     * Calculate total points from approved tasks and missions
      */
     public function getTotalPointsAttribute(): int
     {
-        return $this->tasks()
+        $taskPoints = $this->tasks()
             ->where('task_status', 'approved')
             ->sum('points');
+
+        $missionPoints = $this->missionPersonnel()
+            ->where('status', 'approved')
+            ->join('missions', 'mission_personnel.mission_id', '=', 'missions.id')
+            ->sum('missions.points');
+
+        return $taskPoints + $missionPoints;
     }
 }

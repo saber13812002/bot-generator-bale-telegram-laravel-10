@@ -103,7 +103,19 @@ Route::post('/webhook-personnel-admin', [PersonnelAdminBotController::class, 'in
 
 // mission bot
 Route::post('/webhook-mission-bot', [MissionBotController::class, 'index']);
+Route::post('/webhook-mission-media', [MissionMediaBotController::class, 'index']);
 Route::post('/webhook-task-approval', [TaskApprovalController::class, 'index']);
+
+// mission API routes
+Route::prefix('missions')->group(function () {
+    Route::get('/', [\App\Http\Controllers\MissionController::class, 'index']);
+    Route::get('/{id}', [\App\Http\Controllers\MissionController::class, 'show']);
+    Route::post('/{id}/request', [\App\Http\Controllers\MissionController::class, 'request']);
+    Route::post('/{id}/cancel', [\App\Http\Controllers\MissionController::class, 'cancel']);
+    Route::post('/{id}/submit', [\App\Http\Controllers\MissionController::class, 'submitResult']);
+    Route::post('/cancel', [\App\Http\Controllers\MissionController::class, 'cancel']);
+    Route::post('/submit', [\App\Http\Controllers\MissionController::class, 'submitResult']);
+});
 
 // use App\Services\RssService;
 

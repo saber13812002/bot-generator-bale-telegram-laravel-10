@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
 use App\Http\Requests\BotRequest;
+use App\Interfaces\Services\ContentService;
+use App\Interfaces\Services\MissionService;
 use App\Models\BotUsers;
+use App\Models\Mission;
 use App\Models\Personnel;
 use App\Models\Task;
 use Exception;
@@ -15,6 +18,16 @@ use Telegram;
 
 class MissionBotController extends Controller
 {
+    private MissionService $missionService;
+    private ContentService $contentService;
+
+    public function __construct(
+        MissionService $missionService,
+        ContentService $contentService
+    ) {
+        $this->missionService = $missionService;
+        $this->contentService = $contentService;
+    }
     /**
      * Handle mission bot webhook
      * @throws Exception
@@ -211,6 +224,12 @@ class MissionBotController extends Controller
 
         if ($text == '/reserve') {
             $this->handleReserveTask($bot, $personnel, $type);
+        } elseif ($text == '/request_mission' || $text == '/request') {
+            $this->handleRequestMission($bot, $personnel, $type);
+        } elseif ($text == '/cancel_mission' || $text == '/cancel') {
+            $this->handleCancelMission($bot, $personnel, $type);
+        } elseif ($text == '/get_training' || $text == '/training') {
+            $this->handleGetTraining($bot, $personnel, $type);
         } elseif ($text == '/status') {
             $this->handleTaskStatus($bot, $personnel);
         } elseif ($text == '/help') {
@@ -403,7 +422,28 @@ class MissionBotController extends Controller
             return;
         }
 
-        // Find active task
+        // Try to submit for mission first
+        try {
+            $result = $this->missionService->submitResult($personnelId, $link);
+            if ($result) {
+                // Find mission to send to approval group
+                $missionPersonnel = \App\Models\MissionPersonnel::where('personnel_id', $personnelId)
+                    ->where('status', 'pending_approval')
+                    ->where('result_link', $link)
+                    ->latest()
+                    ->first();
+
+                if ($missionPersonnel) {
+                    $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
+                    BotHelper::sendMessage($bot, "✅ لینک شما با موفقیت ثبت شد!\n\nماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.");
+                    return;
+                }
+            }
+        } catch (Exception $e) {
+            Log::info('Mission submission failed, trying task', ['error' => $e->getMessage()]);
+        }
+
+        // Fallback to task submission
         $task = Task::where('assigned_user_id', $personnelId)
             ->whereIn('task_status', ['reserved', 'in_progress'])
             ->where('reserved_time', '>', now())
@@ -411,7 +451,7 @@ class MissionBotController extends Controller
             ->first();
 
         if (!$task) {
-            BotHelper::sendMessage($bot, "شما تسک فعالی ندارید.");
+            BotHelper::sendMessage($bot, "شما تسک یا ماموریت فعالی ندارید.");
             return;
         }
 
@@ -436,6 +476,39 @@ class MissionBotController extends Controller
         $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Send mission to approval group.
+     */
+    private function sendMissionToApprovalGroup($mission, $missionPersonnel, $type)
+    {
+        $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
+        if (!$approvalGroupChatId) {
+            Log::warning('MISSION_APPROVAL_GROUP_CHAT_ID not set');
+            return;
+        }
+
+        $personnel = $missionPersonnel->personnel;
+        $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        $bot = new Telegram($token, $type);
+
+        $message = "📋 ماموریت جدید برای تایید:\n\n";
+        $message .= "شناسه ماموریت: " . $mission->id . "\n";
+        $message .= "عنوان: " . $mission->title . "\n";
+        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+        $message .= "کد ملی: " . $personnel->national_code . "\n";
+        $message .= "امتیاز: " . $mission->points . "\n";
+        $message .= "لینک: " . $missionPersonnel->result_link . "\n\n";
+        $message .= "برای تایید، کلمه 'تایید' را به این پیام reply کنید.\n";
+        $message .= "برای رد، پیام خود را به این پیام reply کنید.";
+
+        $result = BotHelper::sendMessageByChatId($bot, $approvalGroupChatId, $message);
+        
+        // Save message_id to mission_personnel for future reference
+        if ($result && isset($result['result']['message_id'])) {
+            $missionPersonnel->update(['approval_message_id' => $result['result']['message_id']]);
+        }
     }
 
     /**
