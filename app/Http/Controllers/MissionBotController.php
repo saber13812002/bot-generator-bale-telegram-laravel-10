@@ -244,18 +244,38 @@ class MissionBotController extends Controller
      */
     private function handleReserveTask($bot, $personnel, $type)
     {
-        // Check if user has an active reserved task
+        Log::info('📋 Mission Bot - Reserve task request', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+
+        // Check if user has an active task (only reserved, in_progress, or pending_approval)
+        // Note: approved and rejected tasks are not considered active
         $activeTask = Task::where('assigned_user_id', $personnel->id)
             ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
-            ->where('reserved_time', '>', now())
+            ->where(function($query) {
+                // Either reserved_time is in the future, or task is pending_approval (no time limit)
+                $query->where('reserved_time', '>', now())
+                      ->orWhere('task_status', 'pending_approval');
+            })
             ->first();
 
         if ($activeTask) {
+            Log::info('⚠️ Mission Bot - Personnel has active task', [
+                'personnel_id' => $personnel->id,
+                'task_id' => $activeTask->id,
+                'task_status' => $activeTask->task_status
+            ]);
+
             $message = "شما یک تسک فعال دارید:\n";
             $message .= "نام تسک: " . $activeTask->task_name . "\n";
             $message .= "وضعیت: " . $this->getStatusText($activeTask->task_status) . "\n";
-            $message .= "زمان باقیمانده: " . $activeTask->reserved_time->diffForHumans() . "\n\n";
-            $message .= "لطفا تسک فعلی را تکمیل کنید یا منتظر بمانید تا زمان رزرو به پایان برسد.";
+            
+            if ($activeTask->reserved_time) {
+                $message .= "زمان باقیمانده: " . $activeTask->reserved_time->diffForHumans() . "\n\n";
+            }
+            
+            $message .= "لطفا تسک فعلی را تکمیل کنید یا منتظر بمانید تا تسک فعلی تایید یا رد شود.";
             BotHelper::sendMessage($bot, $message);
             return;
         }
@@ -338,10 +358,14 @@ class MissionBotController extends Controller
                 if ($botUser) {
                     $personnelId = $botUser->setting('personnel_id');
                     if ($personnelId) {
-                        // Check if user has active task
+                        // Check if user has active task (reserved, in_progress, or pending_approval)
                         $activeTask = Task::where('assigned_user_id', $personnelId)
-                            ->whereIn('task_status', ['reserved', 'in_progress'])
-                            ->where('reserved_time', '>', now())
+                            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+                            ->where(function($query) {
+                                // Either reserved_time is in the future, or task is pending_approval (no time limit)
+                                $query->where('reserved_time', '>', now())
+                                      ->orWhere('task_status', 'pending_approval');
+                            })
                             ->latest()
                             ->first();
                         
@@ -366,10 +390,14 @@ class MissionBotController extends Controller
      */
     private function handleSubmitLinkInGroup($bot, $link, $userId, $personnelId, $type, $groupChatId)
     {
-        // Find active task
+        // Find active task (reserved, in_progress, or pending_approval)
         $task = Task::where('assigned_user_id', $personnelId)
-            ->whereIn('task_status', ['reserved', 'in_progress'])
-            ->where('reserved_time', '>', now())
+            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+            ->where(function($query) {
+                // Either reserved_time is in the future, or task is pending_approval (no time limit)
+                $query->where('reserved_time', '>', now())
+                      ->orWhere('task_status', 'pending_approval');
+            })
             ->latest()
             ->first();
 
@@ -378,8 +406,14 @@ class MissionBotController extends Controller
             return;
         }
 
-        // Check if reserved time has passed
-        if (now() > $task->reserved_time) {
+        // If task is already pending_approval, don't allow resubmission
+        if ($task->task_status === 'pending_approval') {
+            BotHelper::sendMessage($bot, "تسک شما در حال بررسی است. لطفا منتظر نتیجه تایید باشید.");
+            return;
+        }
+
+        // Check if reserved time has passed (only for reserved/in_progress tasks)
+        if ($task->reserved_time && now() > $task->reserved_time) {
             $task->update(['task_status' => 'rejected', 'rejected_at' => now()]);
             BotHelper::sendMessage($bot, "متاسفانه زمان رزرو تسک به پایان رسیده است.");
             return;
@@ -445,8 +479,12 @@ class MissionBotController extends Controller
 
         // Fallback to task submission
         $task = Task::where('assigned_user_id', $personnelId)
-            ->whereIn('task_status', ['reserved', 'in_progress'])
-            ->where('reserved_time', '>', now())
+            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+            ->where(function($query) {
+                // Either reserved_time is in the future, or task is pending_approval (no time limit)
+                $query->where('reserved_time', '>', now())
+                      ->orWhere('task_status', 'pending_approval');
+            })
             ->latest()
             ->first();
 
@@ -455,8 +493,14 @@ class MissionBotController extends Controller
             return;
         }
 
-        // Check if reserved time has passed
-        if (now() > $task->reserved_time) {
+        // If task is already pending_approval, don't allow resubmission
+        if ($task->task_status === 'pending_approval') {
+            BotHelper::sendMessage($bot, "تسک شما در حال بررسی است. لطفا منتظر نتیجه تایید باشید.");
+            return;
+        }
+
+        // Check if reserved time has passed (only for reserved/in_progress tasks)
+        if ($task->reserved_time && now() > $task->reserved_time) {
             $task->update(['task_status' => 'rejected', 'rejected_at' => now()]);
             BotHelper::sendMessage($bot, "متاسفانه زمان رزرو تسک به پایان رسیده است.");
             return;
@@ -574,6 +618,154 @@ class MissionBotController extends Controller
         $message .= "درجه فعلی: " . $personnel->rank;
 
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle request mission command
+     */
+    private function handleRequestMission($bot, $personnel, $type)
+    {
+        Log::info('📋 Mission Bot - Request mission', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+
+        try {
+            // Check if personnel has an active mission
+            $activeMission = \App\Models\MissionPersonnel::where('personnel_id', $personnel->id)
+                ->whereIn('status', ['reserved', 'in_progress', 'pending_approval'])
+                ->latest()
+                ->first();
+
+            if ($activeMission) {
+                Log::info('⚠️ Mission Bot - Personnel has active mission', [
+                    'personnel_id' => $personnel->id,
+                    'mission_personnel_id' => $activeMission->id,
+                    'mission_id' => $activeMission->mission_id,
+                    'status' => $activeMission->status
+                ]);
+
+                $mission = $activeMission->mission;
+                $message = "شما یک ماموریت فعال دارید:\n";
+                $message .= "عنوان ماموریت: " . $mission->title . "\n";
+                $message .= "وضعیت: " . $this->getMissionStatusText($activeMission->status) . "\n\n";
+                $message .= "لطفا ماموریت فعلی را تکمیل کنید یا آن را لغو کنید.";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            // Request mission
+            $mission = $this->missionService->requestMission($personnel->id, 'random');
+
+            if (!$mission) {
+                Log::warning('❌ Mission Bot - No mission available', [
+                    'personnel_id' => $personnel->id
+                ]);
+                BotHelper::sendMessage($bot, "❌ در حال حاضر ماموریت در دسترس نیست.\n\nلطفا بعداً تلاش کنید.");
+                return;
+            }
+
+            Log::info('✅ Mission Bot - Mission requested successfully', [
+                'personnel_id' => $personnel->id,
+                'mission_id' => $mission->id
+            ]);
+
+            $message = "✅ ماموریت شما با موفقیت اختصاص یافت!\n\n";
+            $message .= "عنوان ماموریت: " . $mission->title . "\n";
+            $message .= "توضیحات: " . $mission->description . "\n";
+            $message .= "امتیاز: " . $mission->points . "\n\n";
+            $message .= "برای دریافت آموزش‌ها، دستور /get_training را ارسال کنید.\n";
+            $message .= "برای لغو ماموریت، دستور /cancel_mission را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error requesting mission', [
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در درخواست ماموریت: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle cancel mission command
+     */
+    private function handleCancelMission($bot, $personnel, $type)
+    {
+        Log::info('🚫 Mission Bot - Cancel mission request', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+
+        try {
+            // Find active mission
+            $activeMission = \App\Models\MissionPersonnel::where('personnel_id', $personnel->id)
+                ->whereIn('status', ['reserved', 'in_progress'])
+                ->latest()
+                ->first();
+
+            if (!$activeMission) {
+                Log::info('⚠️ Mission Bot - No active mission to cancel', [
+                    'personnel_id' => $personnel->id
+                ]);
+                BotHelper::sendMessage($bot, "❌ شما ماموریت فعالی برای لغو ندارید.");
+                return;
+            }
+
+            // Cancel mission
+            $result = $this->missionService->cancelMission($personnel->id, $activeMission->mission_id);
+
+            if (!$result) {
+                Log::warning('❌ Mission Bot - Failed to cancel mission', [
+                    'personnel_id' => $personnel->id,
+                    'mission_id' => $activeMission->mission_id
+                ]);
+                BotHelper::sendMessage($bot, "❌ خطا در لغو ماموریت. لطفا دوباره تلاش کنید.");
+                return;
+            }
+
+            // Refresh to get updated status
+            $activeMission->refresh();
+            $mission = $activeMission->mission;
+
+            Log::info('✅ Mission Bot - Mission cancelled successfully', [
+                'personnel_id' => $personnel->id,
+                'mission_id' => $mission->id,
+                'mission_personnel_id' => $activeMission->id,
+                'new_status' => $activeMission->status
+            ]);
+
+            $message = "✅ ماموریت شما با موفقیت لغو شد.\n\n";
+            $message .= "عنوان ماموریت: " . $mission->title . "\n";
+            $message .= "وضعیت جدید: " . $this->getMissionStatusText($activeMission->status) . "\n\n";
+            $message .= "اکنون می‌توانید ماموریت جدیدی درخواست کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error cancelling mission', [
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در لغو ماموریت: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get mission status text in Persian
+     */
+    private function getMissionStatusText($status): string
+    {
+        return match($status) {
+            'reserved' => 'رزرو شده',
+            'in_progress' => 'در حال انجام',
+            'pending_approval' => 'در انتظار تایید',
+            'approved' => 'تایید شده',
+            'rejected' => 'رد شده',
+            'cancelled' => 'لغو شده',
+            default => $status,
+        };
     }
 
     /**

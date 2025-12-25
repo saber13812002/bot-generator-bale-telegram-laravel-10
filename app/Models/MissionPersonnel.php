@@ -54,12 +54,33 @@ class MissionPersonnel extends Model
      */
     public function approve(int $approvedByChatId): bool
     {
-        return $this->update([
+        \Illuminate\Support\Facades\Log::info('Approving mission personnel', [
+            'mission_personnel_id' => $this->id,
+            'mission_id' => $this->mission_id,
+            'personnel_id' => $this->personnel_id,
+            'approved_by_chat_id' => $approvedByChatId
+        ]);
+
+        $result = $this->update([
             'status' => 'approved',
             'approved_by_chat_id' => $approvedByChatId,
             'approved_at' => now(),
             'completed_at' => now(),
         ]);
+
+        if ($result) {
+            \Illuminate\Support\Facades\Log::info('Mission personnel approved successfully', [
+                'mission_personnel_id' => $this->id,
+                'status' => $this->status,
+                'approved_at' => $this->approved_at?->toDateTimeString()
+            ]);
+        } else {
+            \Illuminate\Support\Facades\Log::error('Failed to approve mission personnel', [
+                'mission_personnel_id' => $this->id
+            ]);
+        }
+
+        return $result;
     }
 
     /**
@@ -67,12 +88,35 @@ class MissionPersonnel extends Model
      */
     public function reject(string $reason, int $rejectedByChatId = null): bool
     {
-        return $this->update([
+        \Illuminate\Support\Facades\Log::info('Rejecting mission personnel', [
+            'mission_personnel_id' => $this->id,
+            'mission_id' => $this->mission_id,
+            'personnel_id' => $this->personnel_id,
+            'rejected_by_chat_id' => $rejectedByChatId,
+            'reason' => $reason
+        ]);
+
+        $result = $this->update([
             'status' => 'rejected',
             'rejection_reason' => $reason,
             'approved_by_chat_id' => $rejectedByChatId,
             'rejected_at' => now(),
         ]);
+
+        if ($result) {
+            \Illuminate\Support\Facades\Log::info('Mission personnel rejected successfully', [
+                'mission_personnel_id' => $this->id,
+                'status' => $this->status,
+                'rejected_at' => $this->rejected_at?->toDateTimeString(),
+                'rejection_reason' => $reason
+            ]);
+        } else {
+            \Illuminate\Support\Facades\Log::error('Failed to reject mission personnel', [
+                'mission_personnel_id' => $this->id
+            ]);
+        }
+
+        return $result;
     }
 
     /**

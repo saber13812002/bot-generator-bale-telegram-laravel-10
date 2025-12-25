@@ -162,27 +162,56 @@ class TaskApprovalController extends Controller
     {
         $personnel = $task->personnel;
         
-        // Update task status
-        $task->update([
-            'task_status' => 'approved',
-            'approved_at' => now(),
-            'approved_by_chat_id' => $bot->ChatID(),
-        ]);
+        try {
+            // Update task status with transaction to ensure data integrity
+            $updated = $task->update([
+                'task_status' => 'approved',
+                'approved_at' => now(),
+                'approved_by_chat_id' => $bot->ChatID(),
+            ]);
 
-        // Send confirmation to group
-        $message = "✅ تسک با شناسه " . $task->id . " تایید شد.\n";
-        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
-        $message .= "امتیاز اضافه شده: " . $task->points;
-        
-        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            if (!$updated) {
+                Log::error("Failed to update task status", [
+                    'task_id' => $task->id,
+                    'personnel_id' => $personnel->id
+                ]);
+                throw new Exception("خطا در ثبت تغییرات تسک در دیتابیس");
+            }
 
-        // Send notification to user via mission bot
-        $this->notifyUser($task, $personnel, 'approved', $type);
+            // Log successful update
+            Log::info("Task approved and saved to database", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_at' => now()->toDateTimeString()
+            ]);
 
-        // Update personnel rank if needed
-        $this->updatePersonnelRank($personnel);
+            // Send confirmation to group
+            $message = "✅ تسک با شناسه " . $task->id . " تایید شد.\n";
+            $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $message .= "امتیاز اضافه شده: " . $task->points;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
 
-        Log::info("Task approved: " . $task->id . " - Personnel: " . $personnel->id);
+            // Send notification to user via mission bot
+            $this->notifyUser($task, $personnel, 'approved', $type);
+
+            // Update personnel rank if needed
+            $this->updatePersonnelRank($personnel);
+
+            Log::info("Task approval process completed", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error approving task", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -192,25 +221,56 @@ class TaskApprovalController extends Controller
     {
         $personnel = $task->personnel;
         
-        // Update task status
-        $task->update([
-            'task_status' => 'rejected',
-            'rejected_at' => now(),
-            'rejection_reason' => $rejectionReason,
-            'approved_by_chat_id' => $bot->ChatID(),
-        ]);
+        try {
+            // Update task status with transaction to ensure data integrity
+            $updated = $task->update([
+                'task_status' => 'rejected',
+                'rejected_at' => now(),
+                'rejection_reason' => $rejectionReason,
+                'approved_by_chat_id' => $bot->ChatID(),
+            ]);
 
-        // Send confirmation to group
-        $message = "❌ تسک با شناسه " . $task->id . " رد شد.\n";
-        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
-        $message .= "دلیل: " . $rejectionReason;
-        
-        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            if (!$updated) {
+                Log::error("Failed to update task status", [
+                    'task_id' => $task->id,
+                    'personnel_id' => $personnel->id
+                ]);
+                throw new Exception("خطا در ثبت تغییرات تسک در دیتابیس");
+            }
 
-        // Send notification to user via mission bot
-        $this->notifyUser($task, $personnel, 'rejected', $type, $rejectionReason);
+            // Log successful update
+            Log::info("Task rejected and saved to database", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'approved_by_chat_id' => $bot->ChatID(),
+                'rejected_at' => now()->toDateTimeString(),
+                'rejection_reason' => $rejectionReason
+            ]);
 
-        Log::info("Task rejected: " . $task->id . " - Personnel: " . $personnel->id . " - Reason: " . $rejectionReason);
+            // Send confirmation to group
+            $message = "❌ تسک با شناسه " . $task->id . " رد شد.\n";
+            $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $message .= "دلیل: " . $rejectionReason;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+
+            // Send notification to user via mission bot
+            $this->notifyUser($task, $personnel, 'rejected', $type, $rejectionReason);
+
+            Log::info("Task rejection process completed", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'reason' => $rejectionReason
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error rejecting task", [
+                'task_id' => $task->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -257,23 +317,59 @@ class TaskApprovalController extends Controller
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
         
-        // Update mission personnel status
-        $missionPersonnel->approve($bot->ChatID());
+        try {
+            // Update mission personnel status
+            $updated = $missionPersonnel->approve($bot->ChatID());
 
-        // Send confirmation to group
-        $message = "✅ ماموریت با شناسه " . $mission->id . " تایید شد.\n";
-        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
-        $message .= "امتیاز اضافه شده: " . $mission->points;
-        
-        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            if (!$updated) {
+                Log::error("Failed to update mission status", [
+                    'mission_personnel_id' => $missionPersonnel->id,
+                    'mission_id' => $mission->id,
+                    'personnel_id' => $personnel->id
+                ]);
+                throw new Exception("خطا در ثبت تغییرات ماموریت در دیتابیس");
+            }
 
-        // Send notification to user via mission bot
-        $this->notifyUserMission($missionPersonnel, $personnel, 'approved', $type);
+            // Refresh to get latest data
+            $missionPersonnel->refresh();
 
-        // Update personnel rank if needed
-        $this->updatePersonnelRank($personnel);
+            // Log successful update
+            Log::info("Mission approved and saved to database", [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_at' => $missionPersonnel->approved_at?->toDateTimeString(),
+                'status' => $missionPersonnel->status
+            ]);
 
-        Log::info("Mission approved: " . $mission->id . " - Personnel: " . $personnel->id);
+            // Send confirmation to group
+            $message = "✅ ماموریت با شناسه " . $mission->id . " تایید شد.\n";
+            $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $message .= "امتیاز اضافه شده: " . $mission->points;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+
+            // Send notification to user via mission bot
+            $this->notifyUserMission($missionPersonnel, $personnel, 'approved', $type);
+
+            // Update personnel rank if needed
+            $this->updatePersonnelRank($personnel);
+
+            Log::info("Mission approval process completed", [
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error approving mission", [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -284,20 +380,58 @@ class TaskApprovalController extends Controller
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
         
-        // Update mission personnel status
-        $missionPersonnel->reject($rejectionReason, $bot->ChatID());
+        try {
+            // Update mission personnel status
+            $updated = $missionPersonnel->reject($rejectionReason, $bot->ChatID());
 
-        // Send confirmation to group
-        $message = "❌ ماموریت با شناسه " . $mission->id . " رد شد.\n";
-        $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
-        $message .= "دلیل: " . $rejectionReason;
-        
-        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            if (!$updated) {
+                Log::error("Failed to update mission status", [
+                    'mission_personnel_id' => $missionPersonnel->id,
+                    'mission_id' => $mission->id,
+                    'personnel_id' => $personnel->id
+                ]);
+                throw new Exception("خطا در ثبت تغییرات ماموریت در دیتابیس");
+            }
 
-        // Send notification to user via mission bot
-        $this->notifyUserMission($missionPersonnel, $personnel, 'rejected', $type, $rejectionReason);
+            // Refresh to get latest data
+            $missionPersonnel->refresh();
 
-        Log::info("Mission rejected: " . $mission->id . " - Personnel: " . $personnel->id . " - Reason: " . $rejectionReason);
+            // Log successful update
+            Log::info("Mission rejected and saved to database", [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'approved_by_chat_id' => $bot->ChatID(),
+                'rejected_at' => $missionPersonnel->rejected_at?->toDateTimeString(),
+                'rejection_reason' => $rejectionReason,
+                'status' => $missionPersonnel->status
+            ]);
+
+            // Send confirmation to group
+            $message = "❌ ماموریت با شناسه " . $mission->id . " رد شد.\n";
+            $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
+            $message .= "دلیل: " . $rejectionReason;
+            
+            BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+
+            // Send notification to user via mission bot
+            $this->notifyUserMission($missionPersonnel, $personnel, 'rejected', $type, $rejectionReason);
+
+            Log::info("Mission rejection process completed", [
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'reason' => $rejectionReason
+            ]);
+        } catch (Exception $e) {
+            Log::error("Error rejecting mission", [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'mission_id' => $mission->id,
+                'personnel_id' => $personnel->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
