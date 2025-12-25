@@ -15,6 +15,7 @@ use App\Models\Bot;
 use App\Models\BotUsers;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Telegram;
 use Gap\SDP\Api as GapBot;
@@ -60,6 +61,10 @@ class BotMotherController extends Controller
             if ($text == '/start' || $text == 'ساختن' || $text == '/new' || strtolower($text) == 'new') {
                 $this->handleStart($bot, $type, $botMotherId);
             }
+            // Handle duplicate bots list command
+            else if ($text == '/duplicates' || $text == '/تکراری' || $text == 'تکراری' || strtolower($text) == 'duplicates') {
+                $this->handleDuplicateBots($bot, $type);
+            }
             // Handle endpoint selection
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
                 $this->handleEndpointSelection($bot, $text, $type, $botMotherId);
@@ -86,7 +91,8 @@ class BotMotherController extends Controller
             // Unknown command
             else {
                 $message = "❓ دستور نامعتبر است.\n\n";
-                $message .= "برای شروع، دستور /start یا 'ساختن' را ارسال کنید.";
+                $message .= "برای شروع، دستور /start یا 'ساختن' را ارسال کنید.\n";
+                $message .= "برای مشاهده ربات‌های تکراری، دستور /duplicates یا 'تکراری' را ارسال کنید.";
                 BotHelper::sendMessage($bot, $message);
             }
         }
@@ -349,6 +355,86 @@ class BotMotherController extends Controller
     }
 
     /**
+     * Handle duplicate bots list command
+     * 
+     * @param Telegram $bot
+     * @param string $type
+     * @return void
+     */
+    private function handleDuplicateBots(Telegram $bot, string $type): void
+    {
+        try {
+            // Find duplicate tokens in Telegram bots
+            $telegramDuplicates = Bot::select('telegram_bot_token', DB::raw('COUNT(*) as count'), DB::raw('GROUP_CONCAT(id SEPARATOR ", ") as bot_ids'))
+                ->whereNotNull('telegram_bot_token')
+                ->where('telegram_bot_token', '!=', '')
+                ->groupBy('telegram_bot_token')
+                ->havingRaw('COUNT(*) > 1')
+                ->get();
+
+            // Find duplicate tokens in Bale bots
+            $baleDuplicates = Bot::select('bale_bot_token', DB::raw('COUNT(*) as count'), DB::raw('GROUP_CONCAT(id SEPARATOR ", ") as bot_ids'))
+                ->whereNotNull('bale_bot_token')
+                ->where('bale_bot_token', '!=', '')
+                ->groupBy('bale_bot_token')
+                ->havingRaw('COUNT(*) > 1')
+                ->get();
+
+            $message = "🔍 لیست ربات‌های تکراری:\n\n";
+
+            if ($telegramDuplicates->isEmpty() && $baleDuplicates->isEmpty()) {
+                $message .= "✅ هیچ ربات تکراری یافت نشد.\n";
+                $message .= "همه ربات‌ها توکن‌های منحصر به فرد دارند.";
+            } else {
+                if ($telegramDuplicates->isNotEmpty()) {
+                    $message .= "📱 ربات‌های تلگرام تکراری:\n";
+                    foreach ($telegramDuplicates as $duplicate) {
+                        $botIds = explode(',', $duplicate->bot_ids);
+                        $tokenPreview = substr($duplicate->telegram_bot_token, 0, 15) . '...';
+                        $message .= "• توکن: {$tokenPreview}\n";
+                        $message .= "  تعداد: {$duplicate->count}\n";
+                        $message .= "  Bot IDs: " . implode(', ', $botIds) . "\n\n";
+                    }
+                }
+
+                if ($baleDuplicates->isNotEmpty()) {
+                    $message .= "📱 ربات‌های بله تکراری:\n";
+                    foreach ($baleDuplicates as $duplicate) {
+                        $botIds = explode(',', $duplicate->bot_ids);
+                        $tokenPreview = substr($duplicate->bale_bot_token, 0, 15) . '...';
+                        $message .= "• توکن: {$tokenPreview}\n";
+                        $message .= "  تعداد: {$duplicate->count}\n";
+                        $message .= "  Bot IDs: " . implode(', ', $botIds) . "\n\n";
+                    }
+                }
+
+                $message .= "💡 نکته: وقتی توکن تکراری ثبت می‌شود، ربات قبلی به‌روزرسانی می‌شود.\n";
+            }
+
+            BotHelper::sendMessage($bot, $message);
+
+            // Log
+            Log::info('Duplicate bots list requested', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'telegram_duplicates_count' => $telegramDuplicates->count(),
+                'bale_duplicates_count' => $baleDuplicates->count(),
+            ]);
+
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در دریافت لیست ربات‌های تکراری:\n\n";
+            $errorMessage .= $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error getting duplicate bots list', [
+                'error' => $e->getMessage(),
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+            ]);
+        }
+    }
+
+    /**
      * Handle start command - show endpoints list
      * 
      * @param Telegram $bot
@@ -365,6 +451,9 @@ class BotMotherController extends Controller
         
         $message = "🤖 ربات ساز\n\n";
         $message .= "با این ربات می‌توانید ربات‌های جدید بسازید و به endpoint های مختلف متصل کنید.\n\n";
+        $message .= "📋 دستورات:\n";
+        $message .= "/start یا 'ساختن' - شروع ساخت ربات جدید\n";
+        $message .= "/duplicates یا 'تکراری' - مشاهده ربات‌های تکراری\n\n";
         $message .= WebhookEndpointHelper::getEndpointsListMessage();
         
         BotHelper::sendMessage($bot, $message);
@@ -554,22 +643,53 @@ class BotMotherController extends Controller
                 throw new Exception("خطا در دریافت اطلاعات ربات: " . ($getMe['description'] ?? 'Unknown error'));
             }
             
-            // Create bot in database
-            $botItem = new Bot();
-            $botItem->bot_mother_id = $botMotherId;
+            // Check if bot with this token already exists
+            $existingBot = null;
+            $isDuplicate = false;
             
             if ($botType == 'bale') {
-                $botItem->bale_owner_chat_id = $chatId;
-                $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
-                $botItem->bale_bot_token = $text;
-                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
-                $botItem->bale_bot_status = 'Active';
+                $existingBot = Bot::where('bale_bot_token', $text)->first();
             } else {
-                $botItem->telegram_owner_chat_id = $chatId;
-                $botItem->telegram_bot_name = $getMe['result']['username'] ?? null;
-                $botItem->telegram_bot_token = $text;
-                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
-                $botItem->telegram_bot_status = 'Active';
+                $existingBot = Bot::where('telegram_bot_token', $text)->first();
+            }
+            
+            if ($existingBot) {
+                // Bot exists, update it instead of creating new
+                $isDuplicate = true;
+                $botItem = $existingBot;
+                $botItem->bot_mother_id = $botMotherId;
+                
+                if ($botType == 'bale') {
+                    $botItem->bale_owner_chat_id = $chatId;
+                    $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
+                    $botItem->bale_bot_token = $text;
+                    $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                    $botItem->bale_bot_status = 'Active';
+                } else {
+                    $botItem->telegram_owner_chat_id = $chatId;
+                    $botItem->telegram_bot_name = $getMe['result']['username'] ?? null;
+                    $botItem->telegram_bot_token = $text;
+                    $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                    $botItem->telegram_bot_status = 'Active';
+                }
+            } else {
+                // Create new bot
+                $botItem = new Bot();
+                $botItem->bot_mother_id = $botMotherId;
+                
+                if ($botType == 'bale') {
+                    $botItem->bale_owner_chat_id = $chatId;
+                    $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
+                    $botItem->bale_bot_token = $text;
+                    $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                    $botItem->bale_bot_status = 'Active';
+                } else {
+                    $botItem->telegram_owner_chat_id = $chatId;
+                    $botItem->telegram_bot_name = $getMe['result']['username'] ?? null;
+                    $botItem->telegram_bot_token = $text;
+                    $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                    $botItem->telegram_bot_status = 'Active';
+                }
             }
             
             $botItem->save();
@@ -596,24 +716,45 @@ class BotMotherController extends Controller
             $webhookInfo = BotHelper::checkWebhookInfo($text, $botType);
             
             // Send success message
-            $successMessage = "✅ ربات با موفقیت ساخته و ثبت شد!\n\n";
-            $successMessage .= "📝 اطلاعات ربات:\n";
-            $successMessage .= "• نام: @" . ($getMe['result']['username'] ?? 'N/A') . "\n";
-            $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
-            $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
-            $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
-            $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n";
-            $successMessage .= "• Bot ID: {$botItem->id}\n\n";
-            $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
-            
-            if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
-                $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
-                $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+            if ($isDuplicate) {
+                $successMessage = "⚠️ این توکن قبلاً ثبت شده است. ربات قبلی به‌روزرسانی شد.\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• نام: @" . ($getMe['result']['username'] ?? 'N/A') . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+                $successMessage .= "• Bot ID قبلی: {$botItem->id}\n";
+                $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
+                $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
+                $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+                
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+                
+                $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
             } else {
-                $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                $successMessage = "✅ ربات با موفقیت ساخته و ثبت شد!\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• نام: @" . ($getMe['result']['username'] ?? 'N/A') . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+                $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
+                $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
+                $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n";
+                $successMessage .= "• Bot ID: {$botItem->id}\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+                
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+                
+                $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
             }
-            
-            $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
             
             BotHelper::sendMessage($bot, $successMessage);
             
@@ -621,12 +762,22 @@ class BotMotherController extends Controller
             BotMotherStateHelper::clearState($chatId);
             
             // Log success
-            Log::info('Bot created successfully via Bot Mother', [
-                'bot_id' => $botItem->id,
-                'endpoint' => $endpointId,
-                'type' => $botType,
-                'chat_id' => $chatId,
-            ]);
+            if ($isDuplicate) {
+                Log::info('Bot updated (duplicate token) via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'endpoint' => $endpointId,
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                    'is_duplicate' => true,
+                ]);
+            } else {
+                Log::info('Bot created successfully via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'endpoint' => $endpointId,
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                ]);
+            }
             
         } catch (Exception $e) {
             $errorMessage = "❌ خطا در ساخت ربات:\n\n";

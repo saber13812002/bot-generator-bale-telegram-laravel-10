@@ -639,30 +639,102 @@ class BotHelper
      */
     private static function defineCreateBot(Telegram $messenger, $getMe, $type, $botMotherId): Bot
     {
-        $botItem = new Bot();
-        $botItem->bot_mother_id = $botMotherId;
+        $token = $messenger->Text();
+        
+        // Check if bot with this token already exists
+        $existingBot = null;
+        
         if ($type == 'bale') {
-            $botItem->bale_owner_chat_id = $messenger->ChatID();
-            $botItem->bale_bot_name = $getMe['result']['username'];
-            $botItem->bale_bot_token = $messenger->Text();
-            $botItem->bale_get_me_api_response = json_encode($getMe['result']);
-            $botItem->bale_bot_status = 'Active';
+            $existingBot = Bot::where('bale_bot_token', $token)->first();
         } else if ($type == 'telegram') {
-            $botItem->telegram_owner_chat_id = $messenger->ChatID();
-            $botItem->telegram_bot_name = $getMe['result']['username'];
-            $botItem->telegram_bot_token = $messenger->Text();
-            $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
-            $botItem->telegram_bot_status = 'Active';
-        }// todo:gap
-        try {
+            $existingBot = Bot::where('telegram_bot_token', $token)->first();
+        }
+        
+        if ($existingBot) {
+            // Bot exists, update it instead of creating new
+            $botItem = $existingBot;
+            $botItem->bot_mother_id = $botMotherId;
+            
+            if ($type == 'bale') {
+                $botItem->bale_owner_chat_id = $messenger->ChatID();
+                $botItem->bale_bot_name = $getMe['result']['username'];
+                $botItem->bale_bot_token = $token;
+                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                $botItem->bale_bot_status = 'Active';
+            } else if ($type == 'telegram') {
+                $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                $botItem->telegram_bot_name = $getMe['result']['username'];
+                $botItem->telegram_bot_token = $token;
+                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                $botItem->telegram_bot_status = 'Active';
+            }
+            
             $botItem->save();
-        } catch (Exception $e) {
-            if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
-                self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
-            } else {
-                self::sendMessage($messenger, $e->getMessage());
+            
+            // Log update
+            Log::info('Bot updated (duplicate token) via legacy method', [
+                'bot_id' => $botItem->id,
+                'type' => $type,
+                'chat_id' => $messenger->ChatID(),
+            ]);
+        } else {
+            // Create new bot
+            $botItem = new Bot();
+            $botItem->bot_mother_id = $botMotherId;
+            
+            if ($type == 'bale') {
+                $botItem->bale_owner_chat_id = $messenger->ChatID();
+                $botItem->bale_bot_name = $getMe['result']['username'];
+                $botItem->bale_bot_token = $token;
+                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                $botItem->bale_bot_status = 'Active';
+            } else if ($type == 'telegram') {
+                $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                $botItem->telegram_bot_name = $getMe['result']['username'];
+                $botItem->telegram_bot_token = $token;
+                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                $botItem->telegram_bot_status = 'Active';
+            }// todo:gap
+            
+            try {
+                $botItem->save();
+            } catch (Exception $e) {
+                if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
+                    // Try to find and update existing bot
+                    if ($type == 'bale') {
+                        $existingBot = Bot::where('bale_bot_token', $token)->first();
+                    } else if ($type == 'telegram') {
+                        $existingBot = Bot::where('telegram_bot_token', $token)->first();
+                    }
+                    
+                    if ($existingBot) {
+                        $botItem = $existingBot;
+                        $botItem->bot_mother_id = $botMotherId;
+                        
+                        if ($type == 'bale') {
+                            $botItem->bale_owner_chat_id = $messenger->ChatID();
+                            $botItem->bale_bot_name = $getMe['result']['username'];
+                            $botItem->bale_bot_token = $token;
+                            $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                            $botItem->bale_bot_status = 'Active';
+                        } else if ($type == 'telegram') {
+                            $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                            $botItem->telegram_bot_name = $getMe['result']['username'];
+                            $botItem->telegram_bot_token = $token;
+                            $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                            $botItem->telegram_bot_status = 'Active';
+                        }
+                        
+                        $botItem->save();
+                    } else {
+                        self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
+                    }
+                } else {
+                    self::sendMessage($messenger, $e->getMessage());
+                }
             }
         }
+        
         return $botItem;
     }
 
