@@ -69,11 +69,16 @@ class TaskApprovalController extends Controller
                 'is_group' => $chatId < 0
             ]);
             
-            // Get reply_to_message_id from request data
+            // Get reply_to_message_id and user_id from request data
             $replyToMessageId = null;
+            $userId = null; // User ID of the person who replied
             $update = $request->json()->all() ?? $request->all();
             if (isset($update['message']['reply_to_message']['message_id'])) {
                 $replyToMessageId = $update['message']['reply_to_message']['message_id'];
+            }
+            // Get user_id from the message sender (not chat_id which is group id)
+            if (isset($update['message']['from']['id'])) {
+                $userId = $update['message']['from']['id'];
             }
 
             // Check if this is the approval group
@@ -110,15 +115,19 @@ class TaskApprovalController extends Controller
                     $approvalText = mb_strtolower(trim($text));
                     
                     if ($approvalText == 'تایید' || $approvalText == 'تاييد') {
-                        Log::info('✅ Task Approval Bot - Approving task', ['task_id' => $task->id]);
-                        $this->approveTask($bot, $task, $chatId, $type);
+                        Log::info('✅ Task Approval Bot - Approving task', [
+                            'task_id' => $task->id,
+                            'user_id' => $userId
+                        ]);
+                        $this->approveTask($bot, $task, $userId, $type);
                     } else {
                         // If it's not "تایید", send feedback message to user instead of rejecting
                         Log::info('💬 Task Approval Bot - Sending feedback to user', [
                             'task_id' => $task->id,
+                            'user_id' => $userId,
                             'feedback' => $text
                         ]);
-                        $this->sendFeedbackToUser($bot, $task, $text, $chatId, $type);
+                        $this->sendFeedbackToUser($bot, $task, $text, $userId, $type);
                     }
                     return;
                 }
@@ -132,15 +141,19 @@ class TaskApprovalController extends Controller
                     $approvalText = mb_strtolower(trim($text));
                     
                     if ($approvalText == 'تایید' || $approvalText == 'تاييد') {
-                        Log::info('✅ Task Approval Bot - Approving mission', ['mission_personnel_id' => $missionPersonnel->id]);
-                        $this->approveMission($bot, $missionPersonnel, $chatId, $type);
+                        Log::info('✅ Task Approval Bot - Approving mission', [
+                            'mission_personnel_id' => $missionPersonnel->id,
+                            'user_id' => $userId
+                        ]);
+                        $this->approveMission($bot, $missionPersonnel, $userId, $type);
                     } else {
                         // If it's not "تایید", send feedback message to user instead of rejecting
                         Log::info('💬 Task Approval Bot - Sending feedback to user for mission', [
                             'mission_personnel_id' => $missionPersonnel->id,
+                            'user_id' => $userId,
                             'feedback' => $text
                         ]);
-                        $this->sendFeedbackToUserMission($bot, $missionPersonnel, $text, $chatId, $type);
+                        $this->sendFeedbackToUserMission($bot, $missionPersonnel, $text, $userId, $type);
                     }
                     return;
                 }
@@ -166,16 +179,17 @@ class TaskApprovalController extends Controller
     /**
      * Approve task
      */
-    private function approveTask($bot, $task, $groupChatId, $type)
+    private function approveTask($bot, $task, $approvedByUserId, $type)
     {
         $personnel = $task->personnel;
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         
         try {
             // Update task status with transaction to ensure data integrity
             $updated = $task->update([
                 'task_status' => 'approved',
                 'approved_at' => now(),
-                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_by_chat_id' => $approvedByUserId, // Use user_id, not group chat_id
             ]);
 
             if (!$updated) {
@@ -190,7 +204,7 @@ class TaskApprovalController extends Controller
             Log::info("Task approved and saved to database", [
                 'task_id' => $task->id,
                 'personnel_id' => $personnel->id,
-                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_by_user_id' => $approvedByUserId,
                 'approved_at' => now()->toDateTimeString()
             ]);
 
@@ -225,9 +239,10 @@ class TaskApprovalController extends Controller
     /**
      * Reject task
      */
-    private function rejectTask($bot, $task, $rejectionReason, $groupChatId, $type)
+    private function rejectTask($bot, $task, $rejectionReason, $rejectedByUserId, $type)
     {
         $personnel = $task->personnel;
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         
         try {
             // Update task status with transaction to ensure data integrity
@@ -235,7 +250,7 @@ class TaskApprovalController extends Controller
                 'task_status' => 'rejected',
                 'rejected_at' => now(),
                 'rejection_reason' => $rejectionReason,
-                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_by_chat_id' => $rejectedByUserId, // Use user_id, not group chat_id
             ]);
 
             if (!$updated) {
@@ -250,7 +265,7 @@ class TaskApprovalController extends Controller
             Log::info("Task rejected and saved to database", [
                 'task_id' => $task->id,
                 'personnel_id' => $personnel->id,
-                'approved_by_chat_id' => $bot->ChatID(),
+                'rejected_by_user_id' => $rejectedByUserId,
                 'rejected_at' => now()->toDateTimeString(),
                 'rejection_reason' => $rejectionReason
             ]);
@@ -320,14 +335,15 @@ class TaskApprovalController extends Controller
     /**
      * Approve mission
      */
-    private function approveMission($bot, $missionPersonnel, $groupChatId, $type)
+    private function approveMission($bot, $missionPersonnel, $approvedByUserId, $type)
     {
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         
         try {
             // Update mission personnel status
-            $updated = $missionPersonnel->approve($bot->ChatID());
+            $updated = $missionPersonnel->approve($approvedByUserId); // Use user_id, not group chat_id
 
             if (!$updated) {
                 Log::error("Failed to update mission status", [
@@ -346,7 +362,7 @@ class TaskApprovalController extends Controller
                 'mission_personnel_id' => $missionPersonnel->id,
                 'mission_id' => $mission->id,
                 'personnel_id' => $personnel->id,
-                'approved_by_chat_id' => $bot->ChatID(),
+                'approved_by_user_id' => $approvedByUserId,
                 'approved_at' => $missionPersonnel->approved_at?->toDateTimeString(),
                 'status' => $missionPersonnel->status
             ]);
@@ -383,14 +399,15 @@ class TaskApprovalController extends Controller
     /**
      * Reject mission
      */
-    private function rejectMission($bot, $missionPersonnel, $rejectionReason, $groupChatId, $type)
+    private function rejectMission($bot, $missionPersonnel, $rejectionReason, $rejectedByUserId, $type)
     {
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         
         try {
             // Update mission personnel status
-            $updated = $missionPersonnel->reject($rejectionReason, $bot->ChatID());
+            $updated = $missionPersonnel->reject($rejectionReason, $rejectedByUserId); // Use user_id, not group chat_id
 
             if (!$updated) {
                 Log::error("Failed to update mission status", [
@@ -409,7 +426,7 @@ class TaskApprovalController extends Controller
                 'mission_personnel_id' => $missionPersonnel->id,
                 'mission_id' => $mission->id,
                 'personnel_id' => $personnel->id,
-                'approved_by_chat_id' => $bot->ChatID(),
+                'rejected_by_user_id' => $rejectedByUserId,
                 'rejected_at' => $missionPersonnel->rejected_at?->toDateTimeString(),
                 'rejection_reason' => $rejectionReason,
                 'status' => $missionPersonnel->status
@@ -483,8 +500,9 @@ class TaskApprovalController extends Controller
     /**
      * Send feedback message to user when admin replies (not approval)
      */
-    private function sendFeedbackToUser($bot, $task, $feedbackText, $groupChatId, $type)
+    private function sendFeedbackToUser($bot, $task, $feedbackText, $userId, $type)
     {
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         $personnel = $task->personnel;
         
         try {
@@ -556,8 +574,9 @@ class TaskApprovalController extends Controller
     /**
      * Send feedback message to user for mission when admin replies (not approval)
      */
-    private function sendFeedbackToUserMission($bot, $missionPersonnel, $feedbackText, $groupChatId, $type)
+    private function sendFeedbackToUserMission($bot, $missionPersonnel, $feedbackText, $userId, $type)
     {
+        $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
         
