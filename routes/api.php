@@ -118,6 +118,22 @@ Route::prefix('missions')->group(function () {
     Route::post('/submit', [\App\Http\Controllers\MissionController::class, 'submitResult']);
 });
 
+// API Token Management (protected routes - should be admin only)
+Route::prefix('api-tokens')->middleware('api.token')->group(function () {
+    Route::post('/generate', [\App\Http\Controllers\Api\ApiTokenController::class, 'generateToken']);
+});
+
+// Mission API with Token Authentication
+Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
+    Route::post('/', [\App\Http\Controllers\Api\MissionApiController::class, 'createMission']);
+    Route::get('/', [\App\Http\Controllers\Api\MissionApiController::class, 'listMissions']);
+    Route::get('/{id}', [\App\Http\Controllers\Api\MissionApiController::class, 'getMission']);
+    Route::get('/{id}/status', [\App\Http\Controllers\Api\MissionApiController::class, 'getMissionStatus']);
+    Route::post('/{id}/content', [\App\Http\Controllers\Api\MissionApiController::class, 'addContent']);
+    Route::post('/{id}/assign', [\App\Http\Controllers\Api\MissionApiController::class, 'assignMission']);
+    Route::post('/{id}/submit', [\App\Http\Controllers\Api\MissionApiController::class, 'submitResult']);
+});
+
 // use App\Services\RssService;
 
 
