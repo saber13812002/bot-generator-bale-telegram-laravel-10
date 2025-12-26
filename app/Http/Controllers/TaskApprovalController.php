@@ -60,19 +60,12 @@ class TaskApprovalController extends Controller
             $chatId = $bot->ChatID();
             $messageId = $bot->MessageID();
             
-            // Log message received
-            Log::info('📨 Task Approval Bot - Message received', [
-                'chat_id' => $chatId,
-                'text' => $text,
-                'message_id' => $messageId,
-                'type' => $type,
-                'is_group' => $chatId < 0
-            ]);
+            // Get raw update data for debugging
+            $update = $request->json()->all() ?? $request->all();
             
             // Get reply_to_message_id and user_id from request data
             $replyToMessageId = null;
             $userId = null; // User ID of the person who replied
-            $update = $request->json()->all() ?? $request->all();
             if (isset($update['message']['reply_to_message']['message_id'])) {
                 $replyToMessageId = $update['message']['reply_to_message']['message_id'];
             }
@@ -80,6 +73,25 @@ class TaskApprovalController extends Controller
             if (isset($update['message']['from']['id'])) {
                 $userId = $update['message']['from']['id'];
             }
+            
+            // Log message received with full context
+            Log::info('📨 Task Approval Bot - Message received', [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'message_id' => $messageId,
+                'type' => $type,
+                'is_group' => $chatId < 0,
+                'user_id' => $userId,
+                'reply_to_message_id' => $replyToMessageId,
+                'update_structure' => [
+                    'has_message' => isset($update['message']),
+                    'has_reply_to_message' => isset($update['message']['reply_to_message']),
+                    'has_from' => isset($update['message']['from']),
+                    'from_id' => $update['message']['from']['id'] ?? null,
+                    'from_username' => $update['message']['from']['username'] ?? null,
+                    'from_first_name' => $update['message']['from']['first_name'] ?? null
+                ]
+            ]);
 
             // Check if this is the approval group
             $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
@@ -103,21 +115,42 @@ class TaskApprovalController extends Controller
             if ($replyToMessageId) {
                 Log::info('💬 Task Approval Bot - Reply detected', [
                     'reply_to_message_id' => $replyToMessageId,
-                    'text' => $text
+                    'text' => $text,
+                    'user_id' => $userId,
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'raw_update_keys' => array_keys($update)
                 ]);
                 
                 // First check for Task
+                Log::info('🔍 Task Approval Bot - Searching for task', [
+                    'approval_message_id' => $replyToMessageId
+                ]);
+                
                 $task = Task::where('approval_message_id', $replyToMessageId)
                     ->where('task_status', 'pending_approval')
                     ->first();
 
                 if ($task) {
+                    Log::info('✅ Task Approval Bot - Task found', [
+                        'task_id' => $task->id,
+                        'task_name' => $task->task_name,
+                        'task_status' => $task->task_status,
+                        'approval_message_id' => $task->approval_message_id
+                    ]);
+                    
                     $approvalText = mb_strtolower(trim($text));
+                    Log::info('📝 Task Approval Bot - Processing approval text', [
+                        'original_text' => $text,
+                        'normalized_text' => $approvalText,
+                        'is_approval' => ($approvalText == 'تایید' || $approvalText == 'تاييد')
+                    ]);
                     
                     if ($approvalText == 'تایید' || $approvalText == 'تاييد') {
                         Log::info('✅ Task Approval Bot - Approving task', [
                             'task_id' => $task->id,
-                            'user_id' => $userId
+                            'user_id' => $userId,
+                            'type' => $type
                         ]);
                         $this->approveTask($bot, $task, $userId, $type);
                     } else {
@@ -130,22 +163,49 @@ class TaskApprovalController extends Controller
                         $this->sendFeedbackToUser($bot, $task, $text, $userId, $type);
                     }
                     return;
+                } else {
+                    Log::info('❌ Task Approval Bot - Task not found', [
+                        'approval_message_id' => $replyToMessageId,
+                        'query_result' => 'no task found with this approval_message_id and pending_approval status'
+                    ]);
                 }
 
                 // Then check for Mission
+                Log::info('🔍 Task Approval Bot - Searching for mission', [
+                    'approval_message_id' => $replyToMessageId
+                ]);
+                
                 $missionPersonnel = MissionPersonnel::where('approval_message_id', $replyToMessageId)
                     ->where('status', 'pending_approval')
                     ->first();
 
                 if ($missionPersonnel) {
+                    Log::info('✅ Task Approval Bot - Mission found', [
+                        'mission_personnel_id' => $missionPersonnel->id,
+                        'mission_id' => $missionPersonnel->mission_id,
+                        'personnel_id' => $missionPersonnel->personnel_id,
+                        'status' => $missionPersonnel->status,
+                        'approval_message_id' => $missionPersonnel->approval_message_id
+                    ]);
+                    
                     $approvalText = mb_strtolower(trim($text));
+                    Log::info('📝 Task Approval Bot - Processing approval text for mission', [
+                        'original_text' => $text,
+                        'normalized_text' => $approvalText,
+                        'is_approval' => ($approvalText == 'تایید' || $approvalText == 'تاييد')
+                    ]);
                     
                     if ($approvalText == 'تایید' || $approvalText == 'تاييد') {
-                        Log::info('✅ Task Approval Bot - Approving mission', [
+                        Log::info('✅ Task Approval Bot - Approving mission - Starting process', [
                             'mission_personnel_id' => $missionPersonnel->id,
-                            'user_id' => $userId
+                            'mission_id' => $missionPersonnel->mission_id,
+                            'user_id' => $userId,
+                            'type' => $type
                         ]);
                         $this->approveMission($bot, $missionPersonnel, $userId, $type);
+                        Log::info('✅ Task Approval Bot - Approving mission - Process completed', [
+                            'mission_personnel_id' => $missionPersonnel->id
+                        ]);
                     } else {
                         // If it's not "تایید", send feedback message to user instead of rejecting
                         Log::info('💬 Task Approval Bot - Sending feedback to user for mission', [
@@ -156,9 +216,19 @@ class TaskApprovalController extends Controller
                         $this->sendFeedbackToUserMission($bot, $missionPersonnel, $text, $userId, $type);
                     }
                     return;
+                } else {
+                    Log::warning('❌ Task Approval Bot - Mission not found', [
+                        'approval_message_id' => $replyToMessageId,
+                        'query_result' => 'no mission_personnel found with this approval_message_id and pending_approval status',
+                        'debug_query' => 'SELECT * FROM mission_personnel WHERE approval_message_id = ' . $replyToMessageId . ' AND status = "pending_approval"'
+                    ]);
                 }
 
-                Log::warning('⚠️ Task Approval Bot - Task or Mission not found for reply', ['reply_to_message_id' => $replyToMessageId]);
+                Log::warning('⚠️ Task Approval Bot - Task or Mission not found for reply', [
+                    'reply_to_message_id' => $replyToMessageId,
+                    'searched_tasks' => 'no task found',
+                    'searched_missions' => 'no mission found'
+                ]);
             } else {
                 Log::info('ℹ️ Task Approval Bot - Not a reply message', ['chat_id' => $chatId]);
             }
@@ -337,59 +407,114 @@ class TaskApprovalController extends Controller
      */
     private function approveMission($bot, $missionPersonnel, $approvedByUserId, $type)
     {
+        Log::info('🚀 Mission Approval - Starting approveMission method', [
+            'mission_personnel_id' => $missionPersonnel->id,
+            'approved_by_user_id' => $approvedByUserId,
+            'type' => $type,
+            'current_status' => $missionPersonnel->status
+        ]);
+        
         $personnel = $missionPersonnel->personnel;
         $mission = $missionPersonnel->mission;
         $groupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         
+        Log::info('📋 Mission Approval - Loaded related data', [
+            'personnel_id' => $personnel?->id,
+            'mission_id' => $mission?->id,
+            'group_chat_id' => $groupChatId,
+            'personnel_name' => $personnel ? ($personnel->first_name . ' ' . $personnel->last_name) : 'null',
+            'mission_title' => $mission?->title
+        ]);
+        
         try {
             // Update mission personnel status
+            Log::info('💾 Mission Approval - Calling approve method on MissionPersonnel', [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'approved_by_user_id' => $approvedByUserId
+            ]);
+            
             $updated = $missionPersonnel->approve($approvedByUserId); // Use user_id, not group chat_id
 
+            Log::info('💾 Mission Approval - Approve method returned', [
+                'mission_personnel_id' => $missionPersonnel->id,
+                'updated' => $updated
+            ]);
+
             if (!$updated) {
-                Log::error("Failed to update mission status", [
+                Log::error("❌ Mission Approval - Failed to update mission status", [
                     'mission_personnel_id' => $missionPersonnel->id,
                     'mission_id' => $mission->id,
-                    'personnel_id' => $personnel->id
+                    'personnel_id' => $personnel->id,
+                    'approved_by_user_id' => $approvedByUserId
                 ]);
                 throw new Exception("خطا در ثبت تغییرات ماموریت در دیتابیس");
             }
 
             // Refresh to get latest data
+            Log::info('🔄 Mission Approval - Refreshing mission personnel data', [
+                'mission_personnel_id' => $missionPersonnel->id
+            ]);
             $missionPersonnel->refresh();
 
             // Log successful update
-            Log::info("Mission approved and saved to database", [
+            Log::info("✅ Mission Approval - Mission approved and saved to database", [
                 'mission_personnel_id' => $missionPersonnel->id,
                 'mission_id' => $mission->id,
                 'personnel_id' => $personnel->id,
                 'approved_by_user_id' => $approvedByUserId,
                 'approved_at' => $missionPersonnel->approved_at?->toDateTimeString(),
-                'status' => $missionPersonnel->status
+                'status' => $missionPersonnel->status,
+                'completed_at' => $missionPersonnel->completed_at?->toDateTimeString()
             ]);
 
             // Send confirmation to group
+            Log::info('📤 Mission Approval - Sending confirmation to group', [
+                'group_chat_id' => $groupChatId,
+                'mission_id' => $mission->id
+            ]);
+            
             $message = "✅ ماموریت با شناسه " . $mission->id . " تایید شد.\n";
             $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
             $message .= "امتیاز اضافه شده: " . $mission->points;
             
-            BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            $groupMessageResult = BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+            Log::info('📤 Mission Approval - Group message sent', [
+                'group_chat_id' => $groupChatId,
+                'result' => $groupMessageResult
+            ]);
 
             // Send notification to user via mission bot
+            Log::info('📤 Mission Approval - Sending notification to user', [
+                'personnel_id' => $personnel->id,
+                'type' => $type
+            ]);
             $this->notifyUserMission($missionPersonnel, $personnel, 'approved', $type);
+            Log::info('📤 Mission Approval - User notification sent');
 
             // Update personnel rank if needed
+            Log::info('⭐ Mission Approval - Updating personnel rank', [
+                'personnel_id' => $personnel->id,
+                'current_rank' => $personnel->rank,
+                'total_points' => $personnel->total_points
+            ]);
             $this->updatePersonnelRank($personnel);
+            Log::info('⭐ Mission Approval - Personnel rank updated');
 
-            Log::info("Mission approval process completed", [
+            Log::info("✅ Mission Approval - Mission approval process completed successfully", [
                 'mission_id' => $mission->id,
+                'mission_personnel_id' => $missionPersonnel->id,
                 'personnel_id' => $personnel->id
             ]);
         } catch (Exception $e) {
-            Log::error("Error approving mission", [
+            Log::error("❌ Mission Approval - Error approving mission", [
                 'mission_personnel_id' => $missionPersonnel->id,
-                'mission_id' => $mission->id,
-                'personnel_id' => $personnel->id,
+                'mission_id' => $mission->id ?? null,
+                'personnel_id' => $personnel->id ?? null,
+                'approved_by_user_id' => $approvedByUserId,
                 'error' => $e->getMessage(),
+                'error_code' => $e->getCode(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
             throw $e;
@@ -464,17 +589,44 @@ class TaskApprovalController extends Controller
      */
     private function notifyUserMission($missionPersonnel, $personnel, $status, $type, $rejectionReason = null)
     {
+        Log::info('📨 Mission Notification - Starting notifyUserMission', [
+            'mission_personnel_id' => $missionPersonnel->id,
+            'personnel_id' => $personnel->id,
+            'status' => $status,
+            'type' => $type
+        ]);
+        
         // Find bot user for this personnel
+        Log::info('🔍 Mission Notification - Searching for bot user', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+        
         $botUser = \App\Models\BotUsers::where('settings->personnel_id', $personnel->id)
             ->where('origin', $type)
             ->first();
 
         if (!$botUser) {
-            Log::warning("Bot user not found for personnel: " . $personnel->id);
+            Log::warning("❌ Mission Notification - Bot user not found for personnel", [
+                'personnel_id' => $personnel->id,
+                'type' => $type,
+                'query' => 'settings->personnel_id = ' . $personnel->id . ' AND origin = ' . $type
+            ]);
             return;
         }
 
+        Log::info('✅ Mission Notification - Bot user found', [
+            'bot_user_id' => $botUser->id,
+            'chat_id' => $botUser->chat_id,
+            'origin' => $botUser->origin
+        ]);
+
         $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        Log::info('🔑 Mission Notification - Bot token prepared', [
+            'type' => $type,
+            'token_preview' => substr($token, 0, 10) . '...'
+        ]);
+        
         $bot = new Telegram($token, $type);
 
         $mission = $missionPersonnel->mission;
@@ -494,7 +646,19 @@ class TaskApprovalController extends Controller
             $message .= "لطفا ماموریت را اصلاح کرده و دوباره ارسال کنید.";
         }
 
-        BotHelper::sendMessageByChatId($bot, $botUser->chat_id, $message);
+        Log::info('📤 Mission Notification - Sending message to user', [
+            'chat_id' => $botUser->chat_id,
+            'message_length' => strlen($message),
+            'status' => $status
+        ]);
+        
+        $result = BotHelper::sendMessageByChatId($bot, $botUser->chat_id, $message);
+        
+        Log::info('📤 Mission Notification - Message sent result', [
+            'chat_id' => $botUser->chat_id,
+            'result' => $result,
+            'status' => $status
+        ]);
     }
 
     /**

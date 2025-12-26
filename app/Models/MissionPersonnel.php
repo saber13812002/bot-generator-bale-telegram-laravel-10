@@ -54,29 +54,54 @@ class MissionPersonnel extends Model
      */
     public function approve(int $approvedByChatId): bool
     {
-        \Illuminate\Support\Facades\Log::info('Approving mission personnel', [
+        \Illuminate\Support\Facades\Log::info('🔐 MissionPersonnel Model - Approving mission personnel', [
             'mission_personnel_id' => $this->id,
             'mission_id' => $this->mission_id,
             'personnel_id' => $this->personnel_id,
-            'approved_by_chat_id' => $approvedByChatId
+            'approved_by_chat_id' => $approvedByChatId,
+            'current_status' => $this->status,
+            'current_attributes' => $this->getAttributes()
         ]);
 
-        $result = $this->update([
+        $updateData = [
             'status' => 'approved',
             'approved_by_chat_id' => $approvedByChatId,
             'approved_at' => now(),
             'completed_at' => now(),
+        ];
+        
+        \Illuminate\Support\Facades\Log::info('🔐 MissionPersonnel Model - Update data prepared', [
+            'mission_personnel_id' => $this->id,
+            'update_data' => $updateData
+        ]);
+
+        $result = $this->update($updateData);
+
+        \Illuminate\Support\Facades\Log::info('🔐 MissionPersonnel Model - Update result', [
+            'mission_personnel_id' => $this->id,
+            'result' => $result,
+            'was_changed' => $this->wasChanged(),
+            'changes' => $this->getChanges()
         ]);
 
         if ($result) {
-            \Illuminate\Support\Facades\Log::info('Mission personnel approved successfully', [
+            // Refresh to get latest data
+            $this->refresh();
+            
+            \Illuminate\Support\Facades\Log::info('✅ MissionPersonnel Model - Mission personnel approved successfully', [
                 'mission_personnel_id' => $this->id,
                 'status' => $this->status,
-                'approved_at' => $this->approved_at?->toDateTimeString()
+                'approved_at' => $this->approved_at?->toDateTimeString(),
+                'completed_at' => $this->completed_at?->toDateTimeString(),
+                'approved_by_chat_id' => $this->approved_by_chat_id,
+                'all_attributes' => $this->getAttributes()
             ]);
         } else {
-            \Illuminate\Support\Facades\Log::error('Failed to approve mission personnel', [
-                'mission_personnel_id' => $this->id
+            \Illuminate\Support\Facades\Log::error('❌ MissionPersonnel Model - Failed to approve mission personnel', [
+                'mission_personnel_id' => $this->id,
+                'update_result' => $result,
+                'current_status' => $this->status,
+                'attributes' => $this->getAttributes()
             ]);
         }
 
