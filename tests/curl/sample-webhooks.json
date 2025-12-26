@@ -1,0 +1,186 @@
+{
+  "salam": {
+    "update_id": 1,
+    "message": {
+      "message_id": -1515335176,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680340954,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "title": "",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی",
+        "last_name": "",
+        "all_members_are_administrators": false,
+        "photo": null,
+        "pinned_message": null
+      },
+      "text": "salam",
+      "forward_from_chat": {
+        "id": 234
+      },
+      "forward_from": {
+        "id": 234
+      }
+    }
+  },
+  "start": {
+    "update_id": 2,
+    "message": {
+      "message_id": -687281639,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680438429,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی"
+      },
+      "text": "/start"
+    }
+  },
+  "new_bot": {
+    "update_id": 1,
+    "message": {
+      "message_id": -1515335176,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680340954,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "title": "",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی",
+        "last_name": "",
+        "all_members_are_administrators": false,
+        "photo": null,
+        "pinned_message": null
+      },
+      "text": "/new_bot",
+      "forward_from_chat": {
+        "id": 234
+      },
+      "forward_from": {
+        "id": 234
+      }
+    }
+  },
+  "send_token": {
+    "update_id": 2,
+    "message": {
+      "message_id": -687281639,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680438429,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی"
+      },
+      "text": "737102910:Kj1bsD3XeCEjnOPcVBOmrwlGNON7BYPTd171L8Qj"
+    }
+  },
+  "callback_query": {
+    "update_id": 6,
+    "callback_query": {
+      "id": "cq_123456789",
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "message": {
+        "message_id": -1515335176,
+        "chat": {
+          "id": 485750575,
+          "type": "private"
+        }
+      },
+      "data": "/1"
+    }
+  },
+  "quran_word": {
+    "update_id": 3,
+    "message": {
+      "message_id": -1515335176,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680340954,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی"
+      },
+      "text": "/1"
+    }
+  },
+  "weather": {
+    "update_id": 4,
+    "message": {
+      "message_id": -1515335176,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680340954,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی"
+      },
+      "text": "/current"
+    }
+  },
+  "hadith_search": {
+    "update_id": 5,
+    "message": {
+      "message_id": -1515335176,
+      "from": {
+        "id": 485750575,
+        "first_name": "صابر طباطبایی یزدی",
+        "username": "sabertaba",
+        "is_bot": false
+      },
+      "date": 1680340954,
+      "chat": {
+        "id": 485750575,
+        "type": "private",
+        "username": "sabertaba",
+        "first_name": "صابر طباطبایی یزدی"
+      },
+      "text": "/search صبر"
+    }
+  }
+}
+
+

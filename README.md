@@ -136,6 +136,7 @@ readme-bot.md
 ## 📚 مستندات پروژه
 
 ### مستندات کلی
+- [🚀 راهنمای شروع کار](docs/GETTING-STARTED.md) - راهنمای کامل نصب و راه‌اندازی پروژه از صفر
 - [PROJECT_ROLES.md](PROJECT_ROLES.md) - نقش‌ها و مسئولیت‌های پروژه
 - [CHECKLIST.md](CHECKLIST.md) - چک‌لیست کامل پروژه
 - [README-DEVELOP.md](README-DEVELOP.md) - راهنمای توسعه
