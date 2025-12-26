@@ -19,6 +19,7 @@ class Mission extends Model
         'description',
         'prompt_id',
         'content_id',
+        'ai_id',
         'points',
         'duration',
         'max_personnel',
@@ -48,6 +49,14 @@ class Mission extends Model
     public function content(): BelongsTo
     {
         return $this->belongsTo(Content::class);
+    }
+
+    /**
+     * Get the AI/LLM recommended for this mission.
+     */
+    public function ai(): BelongsTo
+    {
+        return $this->belongsTo(AiLlm::class, 'ai_id');
     }
 
     /**

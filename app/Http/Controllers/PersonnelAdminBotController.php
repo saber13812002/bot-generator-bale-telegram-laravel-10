@@ -106,6 +106,10 @@ class PersonnelAdminBotController extends Controller
                 $this->handleToday($bot, $tenant);
             } elseif ($command == '/all' || $command == 'همه' || $command == 'کل') {
                 $this->handleAll($bot, $tenant);
+            } elseif ($command == '/add_ai' || str_starts_with($command, '/add_ai ')) {
+                $this->handleAddAi($bot, $text, $tenant);
+            } elseif ($command == '/list_ai' || $command == 'لیست_ai') {
+                $this->handleListAi($bot);
             } elseif ($command == '/help' || $command == 'راهنما') {
                 $this->handleHelp($bot);
             } else {
@@ -270,9 +274,111 @@ class PersonnelAdminBotController extends Controller
         $message .= "/start - شروع کار با ربات\n";
         $message .= "/today یا 'امروز' - نمایش لیست ثبت‌نام‌های امروز\n";
         $message .= "/all یا 'همه' یا 'کل' - نمایش لیست کل ثبت‌نام‌ها\n";
+        $message .= "/add_ai [نام] - اضافه کردن هوش مصنوعی جدید\n";
+        $message .= "/list_ai - نمایش لیست هوش مصنوعی‌ها\n";
         $message .= "/help یا 'راهنما' - نمایش این راهنما";
         
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle add AI command
+     */
+    private function handleAddAi($bot, $text, $tenant)
+    {
+        // Extract AI name from command
+        $parts = explode(' ', $text, 2);
+        $aiName = isset($parts[1]) ? trim($parts[1]) : null;
+
+        if (!$aiName || empty($aiName)) {
+            BotHelper::sendMessage($bot, "❌ لطفا نام هوش مصنوعی را وارد کنید:\n\nمثال: /add_ai نام هوش مصنوعی");
+            return;
+        }
+
+        try {
+            // Generate slug from name
+            $slug = \Illuminate\Support\Str::slug($aiName);
+            
+            // Check if slug already exists
+            $existing = \App\Models\AiLlm::where('slug', $slug)->first();
+            if ($existing) {
+                BotHelper::sendMessage($bot, "❌ هوش مصنوعی با این نام قبلاً وجود دارد:\n" . $existing->name);
+                return;
+            }
+
+            // Get max sort_order
+            $maxSortOrder = \App\Models\AiLlm::max('sort_order') ?? 0;
+
+            // Create new AI
+            $ai = \App\Models\AiLlm::create([
+                'name' => $aiName,
+                'slug' => $slug,
+                'is_active' => true,
+                'sort_order' => $maxSortOrder + 1,
+            ]);
+
+            Log::info('✅ Personnel Admin Bot - AI added', [
+                'ai_id' => $ai->id,
+                'ai_name' => $ai->name,
+                'tenant_id' => $tenant->id
+            ]);
+
+            $message = "✅ هوش مصنوعی با موفقیت اضافه شد!\n\n";
+            $message .= "🆔 شناسه: " . $ai->id . "\n";
+            $message .= "📝 نام: " . $ai->name . "\n";
+            $message .= "🔗 Slug: " . $ai->slug . "\n\n";
+            $message .= "💡 می‌توانید لینک و توضیحات را از طریق Nova Admin Panel اضافه کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ Personnel Admin Bot - Error adding AI', [
+                'error' => $e->getMessage(),
+                'ai_name' => $aiName,
+                'tenant_id' => $tenant->id
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در اضافه کردن هوش مصنوعی: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle list AI command
+     */
+    private function handleListAi($bot)
+    {
+        try {
+            $aiLmms = \App\Models\AiLlm::orderBy('sort_order')->get();
+
+            if ($aiLmms->isEmpty()) {
+                BotHelper::sendMessage($bot, "📋 لیست هوش مصنوعی‌ها\n\nهیچ هوش مصنوعی‌ای ثبت نشده است.");
+                return;
+            }
+
+            $message = "📋 لیست هوش مصنوعی‌ها\n";
+            $message .= "تعداد کل: " . $aiLmms->count() . "\n\n";
+
+            foreach ($aiLmms as $index => $ai) {
+                $status = $ai->is_active ? "✅ فعال" : "❌ غیرفعال";
+                $message .= ($index + 1) . ". " . $ai->name . "\n";
+                $message .= "   🆔 شناسه: " . $ai->id . "\n";
+                $message .= "   🔗 Slug: " . $ai->slug . "\n";
+                $message .= "   📊 وضعیت: " . $status . "\n";
+                if ($ai->url) {
+                    $message .= "   🔗 لینک: " . $ai->url . "\n";
+                }
+                $message .= "\n";
+            }
+
+            BotHelper::sendMessage($bot, $message);
+
+            Log::info('📋 Personnel Admin Bot - List AI command processed', [
+                'count' => $aiLmms->count()
+            ]);
+        } catch (Exception $e) {
+            Log::error('❌ Personnel Admin Bot - Error listing AI', [
+                'error' => $e->getMessage()
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا در نمایش لیست: " . $e->getMessage());
+        }
     }
 }
 

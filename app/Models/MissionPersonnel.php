@@ -15,6 +15,7 @@ class MissionPersonnel extends Model
     protected $fillable = [
         'mission_id',
         'personnel_id',
+        'selected_ai_id',
         'status',
         'result_link',
         'approval_message_id',
@@ -47,6 +48,14 @@ class MissionPersonnel extends Model
     public function personnel(): BelongsTo
     {
         return $this->belongsTo(Personnel::class);
+    }
+
+    /**
+     * Get the AI/LLM selected by the personnel for this mission.
+     */
+    public function selectedAi(): BelongsTo
+    {
+        return $this->belongsTo(AiLlm::class, 'selected_ai_id');
     }
 
     /**

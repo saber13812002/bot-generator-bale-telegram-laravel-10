@@ -520,6 +520,13 @@ class MissionBotController extends Controller
                     ->first();
 
                 if ($missionPersonnel) {
+                    // Check if AI is not selected
+                    if (!$missionPersonnel->selected_ai_id) {
+                        // Ask user to select AI
+                        $this->askForAiSelection($bot, $missionPersonnel, $type);
+                        return;
+                    }
+                    
                     $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
                     BotHelper::sendMessage($bot, "✅ لینک شما با موفقیت ثبت شد!\n\nماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.");
                     return;
@@ -974,6 +981,9 @@ class MissionBotController extends Controller
         $callbackData = $callbackQuery['data'] ?? '';
         $chatId = $callbackQuery['from']['id'] ?? null;
         $callbackQueryId = $callbackQuery['id'] ?? null;
+        
+        // Store callback data in bot for later use
+        $bot->Callback_Data($callbackData);
 
         Log::info('🔘 Mission Bot - Callback query received', [
             'callback_data' => $callbackData,
@@ -1021,6 +1031,15 @@ class MissionBotController extends Controller
         } elseif (str_starts_with($callbackData, 'select_mission_')) {
             $missionId = (int) str_replace('select_mission_', '', $callbackData);
             $this->handleSelectMission($bot, $personnel, $missionId, $type, $callbackQueryId);
+        } elseif (str_starts_with($callbackData, 'select_ai_')) {
+            // Format: select_ai_{aiId} or select_ai_{aiId}_{missionPersonnelId}
+            $parts = explode('_', $callbackData);
+            $aiId = isset($parts[2]) && is_numeric($parts[2]) ? (int) $parts[2] : null;
+            if ($aiId) {
+                $this->handleSelectAi($bot, $personnel, $aiId, $callbackData, $type, $callbackQueryId);
+            }
+        } elseif ($callbackData == 'show_ai_list') {
+            $this->handleShowAiList($bot, $personnel, $type, $callbackQueryId);
         } else {
             $this->answerCallbackQuery($bot, $callbackQueryId, 'دستور نامعتبر است', $type);
         }
@@ -1050,7 +1069,20 @@ class MissionBotController extends Controller
             }
             $message .= "\nبرای دریافت آموزش‌ها، دستور /get_training را ارسال کنید.";
 
-            BotHelper::sendMessage($bot, $message);
+            // Add AI selection button if mission has recommended AI
+            $option = [];
+            if ($mission->ai_id) {
+                $option[] = array($bot->buildInlineKeyBoardButton('🤖 انتخاب هوش مصنوعی', callback_data: 'show_ai_list'));
+            }
+            if (!empty($option)) {
+                $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+                BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+            } else {
+                BotHelper::sendMessage($bot, $message);
+            }
+            
+            // Send prompt and content in plain format
+            $this->sendMissionContentPlain($bot, $mission, $type);
             $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
         } catch (Exception $e) {
             Log::error('❌ Mission Bot - Error in random mission', ['error' => $e->getMessage()]);
@@ -1238,7 +1270,14 @@ class MissionBotController extends Controller
             }
             $message .= "\nبرای دریافت آموزش‌ها، دستور /get_training را ارسال کنید.";
 
-            BotHelper::sendMessage($bot, $message);
+            // Add AI selection button
+            $option = [];
+            $option[] = array($bot->buildInlineKeyBoardButton('🤖 انتخاب هوش مصنوعی', callback_data: 'show_ai_list'));
+            $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+            BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+            
+            // Send prompt and content in plain format
+            $this->sendMissionContentPlain($bot, $mission, $type);
             $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
         } catch (Exception $e) {
             Log::error('❌ Mission Bot - Error selecting mission', ['error' => $e->getMessage()]);
@@ -1300,5 +1339,158 @@ class MissionBotController extends Controller
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
         curl_exec($ch);
         curl_close($ch);
+    }
+
+    /**
+     * Ask user to select AI after link submission.
+     */
+    private function askForAiSelection($bot, $missionPersonnel, string $type): void
+    {
+        $message = "🤖 لطفا هوش مصنوعی که برای انجام این ماموریت استفاده کرده‌اید را انتخاب کنید:\n\n";
+        $message .= "این اطلاعات برای گزارش‌ها و ارزیابی‌ها استفاده می‌شود.";
+
+        $aiLmms = \App\Models\AiLlm::active()->orderBy('sort_order')->get();
+
+        if ($aiLmms->isEmpty()) {
+            BotHelper::sendMessage($bot, "❌ در حال حاضر هوش مصنوعی‌ای در دسترس نیست.");
+            return;
+        }
+
+        $option = [];
+        foreach ($aiLmms as $ai) {
+            $buttonText = "🤖 " . $ai->name;
+            if (strlen($buttonText) > 64) {
+                $buttonText = substr($buttonText, 0, 61) . '...';
+            }
+            $option[] = array($bot->buildInlineKeyBoardButton($buttonText, callback_data: 'select_ai_' . $ai->id . '_' . $missionPersonnel->id));
+        }
+
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+    }
+
+    /**
+     * Handle AI selection.
+     */
+    private function handleSelectAi($bot, $personnel, int $aiId, string $callbackData, string $type, ?string $callbackQueryId): void
+    {
+        // Extract mission_personnel_id from callback data (format: select_ai_{aiId}_{missionPersonnelId})
+        $parts = explode('_', $callbackData);
+        $missionPersonnelId = isset($parts[3]) && is_numeric($parts[3]) ? (int) $parts[3] : null;
+
+        if (!$missionPersonnelId) {
+            // Try to find active mission personnel
+            $missionPersonnel = \App\Models\MissionPersonnel::where('personnel_id', $personnel->id)
+                ->whereIn('status', ['in_progress', 'pending_approval'])
+                ->latest()
+                ->first();
+        } else {
+            $missionPersonnel = \App\Models\MissionPersonnel::find($missionPersonnelId);
+        }
+
+        if (!$missionPersonnel) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'ماموریت یافت نشد', $type);
+            BotHelper::sendMessage($bot, "❌ ماموریت فعالی یافت نشد.");
+            return;
+        }
+
+        $ai = \App\Models\AiLlm::find($aiId);
+        if (!$ai) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'هوش مصنوعی یافت نشد', $type);
+            return;
+        }
+
+        // Update mission personnel with selected AI
+        $missionPersonnel->update(['selected_ai_id' => $aiId]);
+
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'هوش مصنوعی انتخاب شد', $type);
+
+        // If mission is pending_approval, send to approval group
+        if ($missionPersonnel->status === 'pending_approval') {
+            $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
+            BotHelper::sendMessage($bot, "✅ هوش مصنوعی انتخاب شد: " . $ai->name . "\n\nماموریت شما در صف تایید قرار گرفت.");
+        } else {
+            BotHelper::sendMessage($bot, "✅ هوش مصنوعی انتخاب شد: " . $ai->name);
+        }
+    }
+
+    /**
+     * Handle show AI list.
+     */
+    private function handleShowAiList($bot, $personnel, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, '', $type);
+
+        $message = "🤖 لیست هوش مصنوعی‌های در دسترس:\n\n";
+        $message .= "لطفا یکی را انتخاب کنید:";
+
+        $aiLmms = \App\Models\AiLlm::active()->orderBy('sort_order')->get();
+
+        if ($aiLmms->isEmpty()) {
+            BotHelper::sendMessage($bot, "❌ در حال حاضر هوش مصنوعی‌ای در دسترس نیست.");
+            return;
+        }
+
+        // Find active mission personnel
+        $missionPersonnel = \App\Models\MissionPersonnel::where('personnel_id', $personnel->id)
+            ->whereIn('status', ['reserved', 'in_progress', 'pending_approval'])
+            ->latest()
+            ->first();
+
+        $option = [];
+        foreach ($aiLmms as $ai) {
+            $buttonText = "🤖 " . $ai->name;
+            if (strlen($buttonText) > 64) {
+                $buttonText = substr($buttonText, 0, 61) . '...';
+            }
+            $callbackData = 'select_ai_' . $ai->id;
+            if ($missionPersonnel) {
+                $callbackData .= '_' . $missionPersonnel->id;
+            }
+            $option[] = array($bot->buildInlineKeyBoardButton($buttonText, callback_data: $callbackData));
+        }
+
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+    }
+
+    /**
+     * Send mission prompt and content in plain format (for copying to AI).
+     */
+    private function sendMissionContentPlain($bot, $mission, string $type): void
+    {
+        try {
+            // Send prompt if exists (plain, no extra text)
+            if ($mission->prompt) {
+                BotHelper::sendMessage($bot, $mission->prompt->content);
+                Log::info('Prompt sent (plain)', ['mission_id' => $mission->id]);
+            }
+
+            // Send contents in order (plain)
+            $contents = $mission->contents;
+            foreach ($contents as $content) {
+                $message = $content->title;
+                if ($content->description) {
+                    $message .= "\n\n" . $content->description;
+                }
+                if ($content->content_url) {
+                    $message .= "\n\n" . $content->content_url;
+                }
+                BotHelper::sendMessage($bot, $message);
+                // Small delay between messages
+                sleep(1);
+            }
+
+            // Send AI URL if mission has recommended AI
+            if ($mission->ai && $mission->ai->url) {
+                $aiMessage = "🔗 لینک دسترسی به " . $mission->ai->name . ":\n" . $mission->ai->url;
+                BotHelper::sendMessage($bot, $aiMessage);
+            }
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error sending plain content', [
+                'error' => $e->getMessage(),
+                'mission_id' => $mission->id
+            ]);
+        }
     }
 }

@@ -91,11 +91,11 @@ class SendMissionMediaJob implements ShouldQueue
                 return;
             }
 
-            // Send prompt if exists
+            // Send prompt if exists (خالص بدون توضیحات اضافی)
             if ($mission->prompt) {
-                $promptMessage = "📋 دستورالعمل ماموریت:\n\n" . $mission->prompt->content;
-                BotHelper::sendMessageByChatId($messenger, $chatId, $promptMessage);
-                Log::info('Prompt sent', ['mission_id' => $this->missionId, 'chat_id' => $chatId]);
+                // ارسال Prompt به صورت خالص برای کپی کردن
+                BotHelper::sendMessageByChatId($messenger, $chatId, $mission->prompt->content);
+                Log::info('Prompt sent (plain)', ['mission_id' => $this->missionId, 'chat_id' => $chatId]);
             }
 
             // Send contents in order
@@ -154,12 +154,13 @@ class SendMissionMediaJob implements ShouldQueue
 
                 case 'text':
                 default:
-                    $message = "📄 " . $content->title;
+                    // ارسال Content به صورت خالص برای کپی کردن
+                    $message = $content->title;
                     if ($content->description) {
                         $message .= "\n\n" . $content->description;
                     }
                     if ($content->content_url) {
-                        $message .= "\n\n🔗 " . $content->content_url;
+                        $message .= "\n\n" . $content->content_url;
                     }
                     BotHelper::sendMessageByChatId($messenger, $chatId, $message);
                     break;
