@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Prompt extends Model
 {
@@ -39,5 +40,13 @@ class Prompt extends Model
     public function mission(): BelongsTo
     {
         return $this->belongsTo(Mission::class);
+    }
+
+    /**
+     * Get all tags for this prompt.
+     */
+    public function tags(): MorphToMany
+    {
+        return $this->morphToMany(Tag::class, 'taggable');
     }
 }

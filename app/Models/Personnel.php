@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Personnel extends Model
 {
@@ -89,5 +90,13 @@ class Personnel extends Model
             ->sum('missions.points');
 
         return $taskPoints + $missionPoints;
+    }
+
+    /**
+     * Get all tags for this personnel.
+     */
+    public function tags(): MorphToMany
+    {
+        return $this->morphToMany(Tag::class, 'taggable');
     }
 }

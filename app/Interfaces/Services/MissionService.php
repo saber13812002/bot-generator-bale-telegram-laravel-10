@@ -32,5 +32,25 @@ interface MissionService
      * Get available missions for a tenant.
      */
     public function getAvailableMissions(int $tenantId = null): Collection;
+
+    /**
+     * Get missions by duration.
+     */
+    public function getMissionsByDuration(int $duration, int $tenantId = null): Collection;
+
+    /**
+     * Get missions by minimum points.
+     */
+    public function getMissionsByMinPoints(int $minPoints, int $tenantId = null): Collection;
+
+    /**
+     * Get missions by tags.
+     */
+    public function getMissionsByTags(array $tagIds, int $tenantId = null): Collection;
+
+    /**
+     * Get missions by filters.
+     */
+    public function getMissionsByFilters(array $filters, int $tenantId = null): Collection;
 }
 

@@ -139,5 +139,80 @@ class MissionRepositoryImpl implements MissionRepository
             return false;
         }
     }
+
+    /**
+     * Find missions by duration.
+     */
+    public function findByDuration(int $duration, int $tenantId = null): Collection
+    {
+        $query = Mission::available()
+            ->where('duration', $duration);
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Find missions by minimum points.
+     */
+    public function findByMinPoints(int $minPoints, int $tenantId = null): Collection
+    {
+        $query = Mission::available()
+            ->where('points', '>=', $minPoints);
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Find missions by tags.
+     */
+    public function findByTags(array $tagIds, int $tenantId = null): Collection
+    {
+        $query = Mission::available()
+            ->whereHas('tags', function ($q) use ($tagIds) {
+                $q->whereIn('tags.id', $tagIds);
+            });
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Find missions by filters.
+     */
+    public function findByFilters(array $filters, int $tenantId = null): Collection
+    {
+        $query = Mission::available();
+
+        if ($tenantId) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        if (isset($filters['duration'])) {
+            $query->where('duration', $filters['duration']);
+        }
+
+        if (isset($filters['min_points'])) {
+            $query->where('points', '>=', $filters['min_points']);
+        }
+
+        if (isset($filters['tag_ids']) && is_array($filters['tag_ids']) && !empty($filters['tag_ids'])) {
+            $query->whereHas('tags', function ($q) use ($filters) {
+                $q->whereIn('tags.id', $filters['tag_ids']);
+            });
+        }
+
+        return $query->get();
+    }
 }
 

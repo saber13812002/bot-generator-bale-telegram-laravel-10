@@ -86,10 +86,19 @@ class MissionMediaBotController extends Controller
             $currentState = BotMotherStateHelper::getCurrentState($chatId);
             $stateData = BotMotherStateHelper::getData($chatId);
 
+            // Check for callback query (inline button clicks)
+            $update = $request->json()->all() ?? $request->all();
+            if (isset($update['callback_query'])) {
+                $this->handleCallbackQuery($bot, $update['callback_query'], $type);
+                return;
+            }
+
             // Handle commands
             if ($text == '/start') {
                 $this->handleStart($bot);
                 BotMotherStateHelper::setState($chatId, null, []); // Clear state
+            } elseif ($text == '/list_missions') {
+                $this->handleListMissions($bot, $type);
             } elseif (str_starts_with($text, '/upload_mission_')) {
                 // Format: /upload_mission_123
                 $missionId = (int) str_replace('/upload_mission_', '', $text);
@@ -136,19 +145,144 @@ class MissionMediaBotController extends Controller
     {
         $message = "👋 سلام! ربات مدیریت مدیا ماموریت‌ها\n\n";
         $message .= "📋 دستورات:\n\n";
-        $message .= "1️⃣ آپلود مدیا:\n";
+        $message .= "1️⃣ مشاهده لیست ماموریت‌ها:\n";
+        $message .= "   /list_missions\n\n";
+        $message .= "2️⃣ آپلود مدیا:\n";
         $message .= "   /upload_mission_{id}\n";
         $message .= "   مثال: /upload_mission_1\n";
         $message .= "   سپس فایل‌ها را ارسال کنید و /done برای پایان\n\n";
-        $message .= "2️⃣ مشاهده لیست آموزش‌ها:\n";
+        $message .= "3️⃣ مشاهده لیست آموزش‌ها:\n";
         $message .= "   /get_training_{id}\n";
         $message .= "   مثال: /get_training_1\n\n";
-        $message .= "3️⃣ ارسال آموزش به پرسنل:\n";
+        $message .= "4️⃣ ارسال آموزش به پرسنل:\n";
         $message .= "   /send_training_{mission_id}_to_{personnel_id}\n";
         $message .= "   مثال: /send_training_1_to_5\n\n";
         $message .= "💡 نکته: بعد از /upload_mission_{id} فایل‌ها را ارسال کنید و /done برای پایان.";
 
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle list missions command - shows list of all missions.
+     */
+    private function handleListMissions($bot, string $type): void
+    {
+        Log::info('📋 Mission Media Bot - List missions request', ['type' => $type]);
+
+        $missions = Mission::orderBy('id')->get();
+
+        if ($missions->isEmpty()) {
+            BotHelper::sendMessage($bot, "❌ هیچ ماموریتی یافت نشد.");
+            return;
+        }
+
+        $message = "📋 لیست ماموریت‌ها:\n\n";
+        $message .= "بین ماموریت‌های زیر یکی را انتخاب کنید:\n\n";
+
+        foreach ($missions as $mission) {
+            $message .= "🆔 ID: " . $mission->id . "\n";
+            $message .= "📝 عنوان: " . $mission->title . "\n";
+            if ($mission->duration) {
+                $message .= "⏱️ مدت زمان: " . $mission->duration . " دقیقه\n";
+            }
+            if ($mission->points) {
+                $message .= "🎯 امتیاز: " . $mission->points . "\n";
+            }
+            $message .= "\n";
+        }
+
+        $message .= "💡 برای آپلود مدیا برای یک ماموریت، از دستور زیر استفاده کنید:\n";
+        $message .= "/upload_mission_{id}";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle callback query (inline button clicks).
+     */
+    private function handleCallbackQuery($bot, array $callbackQuery, string $type): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        $chatId = $callbackQuery['from']['id'] ?? null;
+        $messageId = $callbackQuery['message']['message_id'] ?? null;
+
+        Log::info('🔘 Mission Media Bot - Callback query received', [
+            'callback_data' => $callbackData,
+            'chat_id' => $chatId
+        ]);
+
+        if (str_starts_with($callbackData, 'download_')) {
+            $contentId = (int) str_replace('download_', '', $callbackData);
+            $this->handleDownloadContent($bot, $contentId, $type, $chatId, $messageId);
+        } else {
+            // Answer callback query to remove loading state
+            $this->answerCallbackQuery($bot, $callbackQuery['id'], 'دستور نامعتبر است', $type);
+        }
+    }
+
+    /**
+     * Handle download content request.
+     */
+    private function handleDownloadContent($bot, int $contentId, string $type, $chatId, $messageId): void
+    {
+        Log::info('📥 Mission Media Bot - Download content request', [
+            'content_id' => $contentId,
+            'chat_id' => $chatId
+        ]);
+
+        $content = Content::find($contentId);
+        if (!$content) {
+            $this->answerCallbackQuery($bot, null, 'محتوا یافت نشد', $type);
+            BotHelper::sendMessageByChatId($bot, $chatId, "❌ محتوا یافت نشد.");
+            return;
+        }
+
+        // Answer callback query
+        $this->answerCallbackQuery($bot, null, 'در حال ارسال...', $type);
+
+        // Send download link
+        $message = "📥 لینک دانلود:\n\n";
+        $message .= "📝 عنوان: " . $content->title . "\n";
+        $message .= "🔗 لینک: " . $content->content_url;
+
+        BotHelper::sendMessageByChatId($bot, $chatId, $message);
+
+        Log::info('✅ Mission Media Bot - Download link sent', [
+            'content_id' => $contentId,
+            'chat_id' => $chatId
+        ]);
+    }
+
+    /**
+     * Answer callback query.
+     */
+    private function answerCallbackQuery($bot, ?string $callbackQueryId, string $text, string $type): void
+    {
+        if (!$callbackQueryId) {
+            return;
+        }
+
+        $token = $type == 'bale' ? env('MISSION_MEDIA_BOT_TOKEN_BALE') : env('MISSION_MEDIA_BOT_TOKEN_TELEGRAM');
+        
+        if ($type == 'bale') {
+            $url = "https://tapi.bale.ai/bot{$token}/answerCallbackQuery";
+        } else {
+            $url = "https://api.telegram.org/bot{$token}/answerCallbackQuery";
+        }
+
+        $data = [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => false
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_exec($ch);
+        curl_close($ch);
     }
 
     /**
@@ -257,7 +391,17 @@ class MissionMediaBotController extends Controller
             'sort_order' => $content->sort_order,
         ]);
 
-        BotHelper::sendMessage($bot, "✅ مدیا با موفقیت به ماموریت اضافه شد.\nبرای پایان آپلود، /done را ارسال کنید.");
+        // Send confirmation with download button
+        $message = "✅ مدیا با موفقیت به ماموریت اضافه شد.\nبرای پایان آپلود، /done را ارسال کنید.";
+        
+        // Create inline keyboard with download button
+        $option = [
+            array($bot->buildInlineKeyBoardButton('📥 دانلود', callback_data: 'download_' . $content->id))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+        
         Log::info('✅ Mission Media Bot - Media uploaded', [
             'mission_id' => $missionId,
             'content_id' => $content->id

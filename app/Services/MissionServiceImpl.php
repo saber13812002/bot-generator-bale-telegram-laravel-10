@@ -202,5 +202,37 @@ class MissionServiceImpl implements MissionService
     {
         return $this->missionRepository->findAvailable($tenantId);
     }
+
+    /**
+     * Get missions by duration.
+     */
+    public function getMissionsByDuration(int $duration, int $tenantId = null): Collection
+    {
+        return $this->missionRepository->findByDuration($duration, $tenantId);
+    }
+
+    /**
+     * Get missions by minimum points.
+     */
+    public function getMissionsByMinPoints(int $minPoints, int $tenantId = null): Collection
+    {
+        return $this->missionRepository->findByMinPoints($minPoints, $tenantId);
+    }
+
+    /**
+     * Get missions by tags.
+     */
+    public function getMissionsByTags(array $tagIds, int $tenantId = null): Collection
+    {
+        return $this->missionRepository->findByTags($tagIds, $tenantId);
+    }
+
+    /**
+     * Get missions by filters.
+     */
+    public function getMissionsByFilters(array $filters, int $tenantId = null): Collection
+    {
+        return $this->missionRepository->findByFilters($filters, $tenantId);
+    }
 }
 

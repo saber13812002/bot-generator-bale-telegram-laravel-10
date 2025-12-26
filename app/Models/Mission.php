@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 
 class Mission extends Model
 {
@@ -19,6 +20,7 @@ class Mission extends Model
         'prompt_id',
         'content_id',
         'points',
+        'duration',
         'max_personnel',
         'current_personnel_count',
         'status',
@@ -101,5 +103,13 @@ class Mission extends Model
     {
         return $query->where('status', 'active')
             ->whereColumn('current_personnel_count', '<', 'max_personnel');
+    }
+
+    /**
+     * Get all tags for this mission.
+     */
+    public function tags(): MorphToMany
+    {
+        return $this->morphToMany(Tag::class, 'taggable');
     }
 }

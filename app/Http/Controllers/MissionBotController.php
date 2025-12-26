@@ -70,6 +70,13 @@ class MissionBotController extends Controller
                 Log::info($e->getMessage());
             }
 
+            // Check for callback query (inline button clicks)
+            $update = $request->json()->all() ?? $request->all();
+            if (isset($update['callback_query'])) {
+                $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botMotherId);
+                return;
+            }
+
             $text = $bot->Text();
             $chatId = $bot->ChatID();
             
@@ -201,14 +208,21 @@ class MissionBotController extends Controller
         // سلام اولیه برای اطمینان از کارکرد ربات
         BotHelper::sendMessage($bot, "👋 سلام! ربات ماموریت آماده است.");
 
-        // Welcome message
+        // Welcome message with inline buttons
         $message = "سلام " . $personnel->first_name . " " . $personnel->last_name . "!\n\n";
         $message .= "به ربات ماموریت خوش آمدید.\n";
         $message .= "درجه فعلی شما: " . $personnel->rank . "\n";
         $message .= "امتیاز کل شما: " . $personnel->total_points . "\n\n";
-        $message .= "برای رزرو یک تسک، دستور /reserve را ارسال کنید.";
+        $message .= "لطفا یکی از گزینه‌های زیر را انتخاب کنید:";
 
-        BotHelper::sendMessage($bot, $message);
+        // Create inline keyboard with buttons
+        $option = [
+            array($bot->buildInlineKeyBoardButton('🎲 ماموریت رندوم', callback_data: 'mission_random')),
+            array($bot->buildInlineKeyBoardButton('🔍 انتخاب نوع ماموریت', callback_data: 'mission_filter'))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
     }
 
     /**
@@ -775,6 +789,12 @@ class MissionBotController extends Controller
             $message .= "برای لغو ماموریت، دستور /cancel_mission را ارسال کنید.";
 
             BotHelper::sendMessage($bot, $message);
+            
+            // Send training media links if available
+            $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
+
+            // Send training media links if available (for sequential missions)
+            $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
         } catch (Exception $e) {
             Log::error('❌ Mission Bot - Error requesting mission', [
                 'personnel_id' => $personnel->id,
@@ -944,5 +964,341 @@ class MissionBotController extends Controller
             'rejected' => 'رد شده',
             default => $status,
         };
+    }
+
+    /**
+     * Handle callback query (inline button clicks).
+     */
+    private function handleCallbackQuery($bot, array $callbackQuery, string $type, $botMotherId): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        $chatId = $callbackQuery['from']['id'] ?? null;
+        $callbackQueryId = $callbackQuery['id'] ?? null;
+
+        Log::info('🔘 Mission Bot - Callback query received', [
+            'callback_data' => $callbackData,
+            'chat_id' => $chatId
+        ]);
+
+        // Get bot user
+        $botUser = \App\Models\BotUsers::where('chat_id', $chatId)
+            ->where('origin', $type)
+            ->first();
+
+        if (!$botUser) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'کاربر یافت نشد', $type);
+            return;
+        }
+
+        $personnelId = $botUser->setting('personnel_id');
+        if (!$personnelId) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'شما ثبت‌نام نکرده‌اید', $type);
+            return;
+        }
+
+        $personnel = Personnel::find($personnelId);
+        if (!$personnel) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'کاربر یافت نشد', $type);
+            return;
+        }
+
+        // Handle different callback data
+        if ($callbackData == 'mission_random') {
+            $this->handleMissionRandom($bot, $personnel, $type, $callbackQueryId);
+        } elseif ($callbackData == 'mission_filter') {
+            $this->handleMissionFilterMenu($bot, $personnel, $type, $callbackQueryId);
+        } elseif (str_starts_with($callbackData, 'filter_duration_')) {
+            $duration = (int) str_replace('filter_duration_', '', $callbackData);
+            $this->handleMissionFilterByDuration($bot, $personnel, $duration, $type, $callbackQueryId);
+        } elseif (str_starts_with($callbackData, 'filter_points_')) {
+            $minPoints = (int) str_replace('filter_points_', '', $callbackData);
+            $this->handleMissionFilterByPoints($bot, $personnel, $minPoints, $type, $callbackQueryId);
+        } elseif ($callbackData == 'filter_tags_menu') {
+            $this->handleMissionFilterTagsMenu($bot, $personnel, $type, $callbackQueryId);
+        } elseif (str_starts_with($callbackData, 'filter_tag_')) {
+            $tagId = (int) str_replace('filter_tag_', '', $callbackData);
+            $this->handleMissionFilterByTag($bot, $personnel, $tagId, $type, $callbackQueryId);
+        } elseif (str_starts_with($callbackData, 'select_mission_')) {
+            $missionId = (int) str_replace('select_mission_', '', $callbackData);
+            $this->handleSelectMission($bot, $personnel, $missionId, $type, $callbackQueryId);
+        } else {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'دستور نامعتبر است', $type);
+        }
+    }
+
+    /**
+     * Handle random mission request.
+     */
+    private function handleMissionRandom($bot, $personnel, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال انتخاب ماموریت رندوم...', $type);
+        
+        try {
+            $mission = $this->missionService->requestMission($personnel->id, 'random');
+            
+            if (!$mission) {
+                BotHelper::sendMessage($bot, "❌ در حال حاضر ماموریت در دسترس نیست.\n\nلطفا بعداً تلاش کنید.");
+                return;
+            }
+
+            $message = "✅ ماموریت رندوم شما:\n\n";
+            $message .= "📋 عنوان: " . $mission->title . "\n";
+            $message .= "📝 توضیحات: " . ($mission->description ?? 'ندارد') . "\n";
+            $message .= "🎯 امتیاز: " . $mission->points . "\n";
+            if ($mission->duration) {
+                $message .= "⏱️ مدت زمان: " . $mission->duration . " دقیقه\n";
+            }
+            $message .= "\nبرای دریافت آموزش‌ها، دستور /get_training را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+            $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error in random mission', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در درخواست ماموریت: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle mission filter menu.
+     */
+    private function handleMissionFilterMenu($bot, $personnel, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, '', $type);
+
+        $message = "🔍 انتخاب نوع ماموریت:\n\n";
+        $message .= "لطفا یکی از گزینه‌های زیر را انتخاب کنید:";
+
+        $option = [
+            array($bot->buildInlineKeyBoardButton('⏱️ ماموریت 1 دقیقه‌ای', callback_data: 'filter_duration_1')),
+            array($bot->buildInlineKeyBoardButton('🎯 امتیاز 10 یا بیشتر', callback_data: 'filter_points_10')),
+            array($bot->buildInlineKeyBoardButton('🏷️ بر اساس تگ', callback_data: 'filter_tags_menu'))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+    }
+
+    /**
+     * Handle mission filter by duration.
+     */
+    private function handleMissionFilterByDuration($bot, $personnel, int $duration, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال جستجو...', $type);
+
+        try {
+            $missions = $this->missionService->getMissionsByDuration($duration, $personnel->tenant_id);
+            
+            if ($missions->isEmpty()) {
+                BotHelper::sendMessage($bot, "❌ ماموریتی با مدت زمان " . $duration . " دقیقه یافت نشد.");
+                return;
+            }
+
+            $this->showMissionSelection($bot, $missions, $type);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error filtering by duration', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در جستجو: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle mission filter by points.
+     */
+    private function handleMissionFilterByPoints($bot, $personnel, int $minPoints, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال جستجو...', $type);
+
+        try {
+            $missions = $this->missionService->getMissionsByMinPoints($minPoints, $personnel->tenant_id);
+            
+            if ($missions->isEmpty()) {
+                BotHelper::sendMessage($bot, "❌ ماموریتی با امتیاز " . $minPoints . " یا بیشتر یافت نشد.");
+                return;
+            }
+
+            $this->showMissionSelection($bot, $missions, $type);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error filtering by points', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در جستجو: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle mission filter tags menu.
+     */
+    private function handleMissionFilterTagsMenu($bot, $personnel, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, '', $type);
+
+        try {
+            // Get tags that have missions
+            $tags = \App\Models\Tag::whereHas('missions', function ($q) use ($personnel) {
+                $q->where('tenant_id', $personnel->tenant_id)
+                  ->where('status', 'active');
+            })->orderBy('order_column')->get();
+
+            if ($tags->isEmpty()) {
+                BotHelper::sendMessage($bot, "❌ هیچ تگی یافت نشد.");
+                return;
+            }
+
+            $message = "🏷️ انتخاب تگ:\n\n";
+            $message .= "لطفا یکی از تگ‌های زیر را انتخاب کنید:";
+
+            $option = [];
+            foreach ($tags as $tag) {
+                $tagName = $tag->persian_name ?? $tag->name;
+                if (is_array($tagName)) {
+                    $tagName = $tagName['fa'] ?? '';
+                }
+                $buttonText = "🏷️ " . $tagName;
+                if (strlen($buttonText) > 64) {
+                    $buttonText = substr($buttonText, 0, 61) . '...';
+                }
+                $option[] = array($bot->buildInlineKeyBoardButton($buttonText, callback_data: 'filter_tag_' . $tag->id));
+            }
+
+            $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+            BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error showing tags menu', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در نمایش تگ‌ها: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle mission filter by tag.
+     */
+    private function handleMissionFilterByTag($bot, $personnel, int $tagId, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال جستجو...', $type);
+
+        try {
+            $missions = $this->missionService->getMissionsByTags([$tagId], $personnel->tenant_id);
+            
+            if ($missions->isEmpty()) {
+                BotHelper::sendMessage($bot, "❌ ماموریتی با این تگ یافت نشد.");
+                return;
+            }
+
+            $this->showMissionSelection($bot, $missions, $type);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error filtering by tag', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در جستجو: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Show mission selection menu.
+     */
+    private function showMissionSelection($bot, $missions, string $type): void
+    {
+        $message = "📋 ماموریت‌های یافت شده:\n\n";
+        $message .= "لطفا یکی را انتخاب کنید:";
+
+        $option = [];
+        foreach ($missions as $mission) {
+            $buttonText = "🆔 " . $mission->id . " - " . $mission->title;
+            if (strlen($buttonText) > 64) {
+                $buttonText = substr($buttonText, 0, 61) . '...';
+            }
+            $option[] = array($bot->buildInlineKeyBoardButton($buttonText, callback_data: 'select_mission_' . $mission->id));
+        }
+
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+    }
+
+    /**
+     * Handle mission selection.
+     */
+    private function handleSelectMission($bot, $personnel, int $missionId, string $type, ?string $callbackQueryId): void
+    {
+        $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال اختصاص ماموریت...', $type);
+
+        try {
+            $assigned = $this->missionService->assignMission($missionId, $personnel->id);
+            
+            if (!$assigned) {
+                BotHelper::sendMessage($bot, "❌ خطا در اختصاص ماموریت. ممکن است ماموریت پر باشد یا شما ماموریت فعالی داشته باشید.");
+                return;
+            }
+
+            $mission = \App\Models\Mission::find($missionId);
+            if (!$mission) {
+                BotHelper::sendMessage($bot, "❌ ماموریت یافت نشد.");
+                return;
+            }
+
+            $message = "✅ ماموریت با موفقیت اختصاص یافت!\n\n";
+            $message .= "📋 عنوان: " . $mission->title . "\n";
+            $message .= "📝 توضیحات: " . ($mission->description ?? 'ندارد') . "\n";
+            $message .= "🎯 امتیاز: " . $mission->points . "\n";
+            if ($mission->duration) {
+                $message .= "⏱️ مدت زمان: " . $mission->duration . " دقیقه\n";
+            }
+            $message .= "\nبرای دریافت آموزش‌ها، دستور /get_training را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+            $this->sendTrainingMediaLinks($bot, $mission, $personnel, $type);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error selecting mission', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا در اختصاص ماموریت: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send training media links for mission.
+     */
+    private function sendTrainingMediaLinks($bot, $mission, $personnel, string $type): void
+    {
+        try {
+            $contents = $mission->contents;
+            
+            if ($contents->isEmpty()) {
+                return;
+            }
+
+            $message = "📚 لینک‌های آموزش مرتبط با ماموریت:\n\n";
+            foreach ($contents as $index => $content) {
+                $message .= ($index + 1) . ". " . $content->title . "\n";
+                $message .= "🔗 " . $content->content_url . "\n\n";
+            }
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ Mission Bot - Error sending training links', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Answer callback query.
+     */
+    private function answerCallbackQuery($bot, ?string $callbackQueryId, string $text, string $type): void
+    {
+        if (!$callbackQueryId) {
+            return;
+        }
+
+        $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        
+        if ($type == 'bale') {
+            $url = "https://tapi.bale.ai/bot{$token}/answerCallbackQuery";
+        } else {
+            $url = "https://api.telegram.org/bot{$token}/answerCallbackQuery";
+        }
+
+        $data = [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => false
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_exec($ch);
+        curl_close($ch);
     }
 }

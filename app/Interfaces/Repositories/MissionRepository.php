@@ -37,5 +37,25 @@ interface MissionRepository
      * Update mission personnel count.
      */
     public function updatePersonnelCount(int $missionId, int $increment = 1): bool;
+
+    /**
+     * Find missions by duration.
+     */
+    public function findByDuration(int $duration, int $tenantId = null): Collection;
+
+    /**
+     * Find missions by minimum points.
+     */
+    public function findByMinPoints(int $minPoints, int $tenantId = null): Collection;
+
+    /**
+     * Find missions by tags.
+     */
+    public function findByTags(array $tagIds, int $tenantId = null): Collection;
+
+    /**
+     * Find missions by filters.
+     */
+    public function findByFilters(array $filters, int $tenantId = null): Collection;
 }
 
