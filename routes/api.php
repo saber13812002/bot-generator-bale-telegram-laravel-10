@@ -123,6 +123,16 @@ Route::prefix('api-tokens')->middleware('api.token')->group(function () {
     Route::post('/generate', [\App\Http\Controllers\Api\ApiTokenController::class, 'generateToken']);
 });
 
+// Metadata API (no auth required for basic metadata)
+Route::prefix('api/v1')->group(function () {
+    Route::get('/metadata', [\App\Http\Controllers\Api\MetadataApiController::class, 'getMetadata']);
+});
+
+// Token test endpoint
+Route::prefix('api/v1')->middleware('api.token')->group(function () {
+    Route::get('/test-token', [\App\Http\Controllers\Api\MetadataApiController::class, 'testToken']);
+});
+
 // Mission API with Token Authentication
 Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
     Route::post('/', [\App\Http\Controllers\Api\MissionApiController::class, 'createMission']);
