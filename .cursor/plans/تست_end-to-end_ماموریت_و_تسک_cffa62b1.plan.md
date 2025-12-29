@@ -141,4 +141,3 @@ End-to-End ماموریت و تسک
 
 - `app/Services/MissionServiceImpl.php` - سرویس ماموریت
 - `app/Repositories/MissionRepositoryImpl.php` - ریپازیتوری ماموریت
-- `app/Models/MissionPersonnel.php` - مدل pivot ماموریت-پرسنل

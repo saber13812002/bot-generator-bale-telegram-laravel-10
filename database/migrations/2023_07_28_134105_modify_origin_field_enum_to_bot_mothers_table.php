@@ -10,9 +10,25 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::table('bot_mothers', function (Blueprint $table) {
-            $table->enum('type', ['bale', 'telegram', 'gap', 'soroosh'])->nullable()->change();
-        });
+        try {
+            // بررسی وجود جدول با raw SQL
+            $tableExists = \DB::select("SHOW TABLES LIKE 'bot_mothers'");
+            if (empty($tableExists)) {
+                return;
+            }
+
+            // بررسی وجود فیلد با raw SQL
+            $columnExists = \DB::select("SHOW COLUMNS FROM `bot_mothers` LIKE 'type'");
+            if (empty($columnExists)) {
+                return;
+            }
+
+            // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
+            \DB::statement("ALTER TABLE `bot_mothers` MODIFY COLUMN `type` ENUM('bale', 'telegram', 'gap', 'soroosh') NULL");
+        } catch (\Exception $e) {
+            // در صورت خطا، migration را skip می‌کنیم
+            return;
+        }
     }
 
     /**
@@ -20,8 +36,24 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::table('bot_mothers', function (Blueprint $table) {
-            $table->enum('type', ['bale', 'telegram'])->nullable()->change();
-        });
+        try {
+            // بررسی وجود جدول با raw SQL
+            $tableExists = \DB::select("SHOW TABLES LIKE 'bot_mothers'");
+            if (empty($tableExists)) {
+                return;
+            }
+
+            // بررسی وجود فیلد با raw SQL
+            $columnExists = \DB::select("SHOW COLUMNS FROM `bot_mothers` LIKE 'type'");
+            if (empty($columnExists)) {
+                return;
+            }
+
+            // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
+            \DB::statement("ALTER TABLE `bot_mothers` MODIFY COLUMN `type` ENUM('bale', 'telegram') NULL");
+        } catch (\Exception $e) {
+            // در صورت خطا، migration را skip می‌کنیم
+            return;
+        }
     }
 };

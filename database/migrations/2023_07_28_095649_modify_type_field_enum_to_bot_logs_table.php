@@ -10,9 +10,18 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::table('bot_logs', function (Blueprint $table) {
-            $table->enum('type', ['bale', 'telegram', 'gap', 'soroosh'])->nullable()->change();
-        });
+        // بررسی وجود جدول قبل از تغییر
+        if (!Schema::hasTable('bot_logs')) {
+            return;
+        }
+
+        // بررسی وجود فیلد قبل از تغییر
+        if (!Schema::hasColumn('bot_logs', 'type')) {
+            return;
+        }
+
+        // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
+        \DB::statement("ALTER TABLE `bot_logs` MODIFY COLUMN `type` ENUM('bale', 'telegram', 'gap', 'soroosh') NULL");
     }
 
     /**
@@ -20,8 +29,17 @@ return new class extends Migration {
      */
     public function down(): void
     {
-        Schema::table('bot_logs', function (Blueprint $table) {
-            $table->enum('type', ['bale', 'telegram'])->nullable()->change();
-        });
+        // بررسی وجود جدول قبل از تغییر
+        if (!Schema::hasTable('bot_logs')) {
+            return;
+        }
+
+        // بررسی وجود فیلد قبل از تغییر
+        if (!Schema::hasColumn('bot_logs', 'type')) {
+            return;
+        }
+
+        // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
+        \DB::statement("ALTER TABLE `bot_logs` MODIFY COLUMN `type` ENUM('bale', 'telegram') NULL");
     }
 };

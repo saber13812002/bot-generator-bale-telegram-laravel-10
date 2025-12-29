@@ -39,18 +39,16 @@ class MissionServiceImpl implements MissionService
             $personnel = Personnel::findOrFail($personnelId);
 
             // Check if personnel has an active mission
-            $activeMission = $this->missionRepository->getByPersonnel(
-                $personnelId,
-                null
-            )->first(function ($mission) {
-                $pivot = $mission->pivot;
-                return in_array($pivot->status ?? null, ['reserved', 'in_progress', 'pending_approval']);
-            });
+            $activeMissionPersonnel = MissionPersonnel::where('personnel_id', $personnelId)
+                ->whereIn('status', ['reserved', 'in_progress', 'pending_approval'])
+                ->first();
 
-            if ($activeMission) {
+            if ($activeMissionPersonnel) {
                 Log::warning('Personnel already has an active mission', [
                     'personnel_id' => $personnelId,
-                    'mission_id' => $activeMission->id
+                    'mission_id' => $activeMissionPersonnel->mission_id,
+                    'mission_personnel_id' => $activeMissionPersonnel->id,
+                    'status' => $activeMissionPersonnel->status
                 ]);
                 return null;
             }
