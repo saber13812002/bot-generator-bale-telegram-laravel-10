@@ -238,6 +238,8 @@ class MissionBotController extends Controller
 
         if ($text == '/reserve') {
             $this->handleReserveTask($bot, $personnel, $type);
+        } elseif ($text == '/details') {
+            $this->handleTaskDetails($bot, $personnel, $type);
         } elseif ($text == '/request_mission' || $text == '/request') {
             $this->handleRequestMission($bot, $personnel, $type);
         } elseif ($text == '/cancel_mission' || $text == '/cancel') {
@@ -351,14 +353,11 @@ class MissionBotController extends Controller
                 'points' => 10, // Default points, should come from task configuration
             ]);
 
-            $message = "✅ تسک شما با موفقیت رزرو شد!\n\n";
-            $message .= "نام تسک: " . $task->task_name . "\n";
-            $message .= "امتیاز: " . $task->points . "\n";
-            $message .= "مهلت ارسال: " . $reservedTime->format('Y-m-d H:i') . "\n";
-            $message .= "زمان باقیمانده: " . $reservedTime->diffForHumans() . "\n\n";
-            $message .= "لطفا پس از انجام تسک، لینک نهایی را در این ربات ارسال کنید.";
+            // Load prompts for the task
+            $task->load('prompts');
 
-            BotHelper::sendMessage($bot, $message);
+            // Send complete task details with inline keyboard
+            $this->sendTaskDetailsMessage($bot, $task, $reservedTime, true);
         } catch (Exception $e) {
             Log::error('Error creating task: ' . $e->getMessage());
             // If task creation fails, inform user that no tasks are available
@@ -484,7 +483,8 @@ class MissionBotController extends Controller
         $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
         $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
-        BotHelper::sendMessage($bot, $message);
+        // Add /reserve button to message
+        $this->sendMessageWithReserveButton($bot, $message);
     }
 
     /**
@@ -528,7 +528,9 @@ class MissionBotController extends Controller
                     }
                     
                     $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
-                    BotHelper::sendMessage($bot, "✅ لینک شما با موفقیت ثبت شد!\n\nماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.");
+                    $message = "✅ لینک شما با موفقیت ثبت شد!\n\nماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
+                    // Add /reserve button to message
+                    $this->sendMessageWithReserveButton($bot, $message);
                     return;
                 }
             }
@@ -578,7 +580,8 @@ class MissionBotController extends Controller
         $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
         $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
-        BotHelper::sendMessage($bot, $message);
+        // Add /reserve button to message
+        $this->sendMessageWithReserveButton($bot, $message);
     }
 
     /**
@@ -948,6 +951,7 @@ class MissionBotController extends Controller
     {
         $message = "📖 دستورات ربات ماموریت:\n\n";
         $message .= "/reserve - رزرو یک تسک جدید\n";
+        $message .= "/details - مشاهده جزئیات کامل تسک فعال\n";
         $message .= "/request_mission - درخواست یک ماموریت\n";
         $message .= "/get_training - دریافت آموزش‌های ماموریت فعال\n";
         $message .= "/cancel_mission - لغو ماموریت فعال\n";
@@ -956,6 +960,115 @@ class MissionBotController extends Controller
         $message .= "💡 برای ارسال لینک نهایی، فقط لینک را در ربات ارسال کنید.";
 
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle task details command
+     */
+    private function handleTaskDetails($bot, $personnel, $type)
+    {
+        Log::info('📋 Mission Bot - Task details request', [
+            'personnel_id' => $personnel->id,
+            'type' => $type
+        ]);
+
+        // Find active task
+        $task = Task::where('assigned_user_id', $personnel->id)
+            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+            ->where(function($query) {
+                $query->where('reserved_time', '>', now())
+                      ->orWhere('task_status', 'pending_approval');
+            })
+            ->latest()
+            ->first();
+
+        if (!$task) {
+            BotHelper::sendMessage($bot, "❌ شما تسک فعالی ندارید.\n\nبرای رزرو تسک جدید، دستور /reserve را ارسال کنید.");
+            return;
+        }
+
+        // Load prompts
+        $task->load('prompts');
+
+        // Send complete task details
+        $this->sendTaskDetailsMessage($bot, $task, $task->reserved_time, false);
+    }
+
+    /**
+     * Send task details message with complete information
+     */
+    private function sendTaskDetailsMessage($bot, $task, $reservedTime, $isNewReservation = false)
+    {
+        $message = $isNewReservation 
+            ? "✅ تسک شما با موفقیت رزرو شد!\n\n"
+            : "📋 جزئیات کامل تسک شما:\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📌 اطلاعات تسک:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "📋 نام تسک: " . $task->task_name . "\n";
+        $message .= "🎯 امتیاز: " . $task->points . "\n";
+        
+        if ($reservedTime) {
+            $message .= "⏰ مهلت ارسال: " . $reservedTime->format('Y-m-d H:i') . "\n";
+            $message .= "⏳ زمان باقیمانده: " . $reservedTime->diffForHumans() . "\n";
+        }
+        
+        $message .= "📊 وضعیت: " . $this->getStatusText($task->task_status) . "\n\n";
+
+        // Add prompt content if available
+        if ($task->prompts->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📝 پرامپت:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            
+            foreach ($task->prompts as $index => $prompt) {
+                if ($task->prompts->count() > 1) {
+                    $message .= "پرامپت " . ($index + 1) . ":\n";
+                }
+                $message .= $prompt->content . "\n\n";
+            }
+        }
+        
+        // Add task name as text content for copying
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📄 متن تسک (برای کپی):\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= $task->task_name . "\n\n";
+        
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📌 راهنمای انجام تسک:\n\n";
+        $message .= "1️⃣ تسک را انجام دهید (مثلاً یک پست در وبلاگ، ویرگول، لینکدین، توییتر، مدیوم، یوتیوب و...)\n\n";
+        $message .= "2️⃣ لینک نتیجه کار خود را در این ربات ارسال کنید\n";
+        $message .= "   مثال: https://virgool.io/@username/post\n";
+        $message .= "   یا: https://www.linkedin.com/posts/...\n";
+        $message .= "   یا: https://twitter.com/username/status/...\n";
+        $message .= "   یا: https://medium.com/@username/...\n";
+        $message .= "   یا: https://youtube.com/watch?v=...\n\n";
+        $message .= "3️⃣ منتظر تایید بمانید\n\n";
+        $message .= "💡 توجه: لینک باید دال و دلیل انجام تسک شما باشد (مثلاً لینک پست وبلاگ، مقاله، ویدیو و...)\n\n";
+
+        // Create inline keyboard with /details button (if not new reservation) and /reserve button
+        $option = [];
+        if (!$isNewReservation) {
+            $option[] = array($bot->buildInlineKeyBoardButton('📋 جزئیات کامل', callback_data: 'task_details'));
+        }
+        $option[] = array($bot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'));
+        
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+    }
+
+    /**
+     * Send message with /reserve button
+     */
+    private function sendMessageWithReserveButton($bot, string $message)
+    {
+        $option = [
+            array($bot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
     }
 
     /**
@@ -1040,6 +1153,12 @@ class MissionBotController extends Controller
             }
         } elseif ($callbackData == 'show_ai_list') {
             $this->handleShowAiList($bot, $personnel, $type, $callbackQueryId);
+        } elseif ($callbackData == 'task_details') {
+            $this->handleTaskDetails($bot, $personnel, $type);
+            $this->answerCallbackQuery($bot, $callbackQueryId, '', $type);
+        } elseif ($callbackData == 'reserve_task') {
+            $this->handleReserveTask($bot, $personnel, $type);
+            $this->answerCallbackQuery($bot, $callbackQueryId, '', $type);
         } else {
             $this->answerCallbackQuery($bot, $callbackQueryId, 'دستور نامعتبر است', $type);
         }

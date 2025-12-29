@@ -399,7 +399,12 @@ class TaskApprovalController extends Controller
             $message .= "لطفا تسک را اصلاح کرده و دوباره ارسال کنید، یا از رزرو تسک جدید استفاده کنید.";
         }
 
-        BotHelper::sendMessageByChatId($bot, $botUser->chat_id, $message);
+        // Add /reserve button to message
+        $option = [
+            array($bot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $botUser->chat_id);
     }
 
     /**
@@ -652,7 +657,12 @@ class TaskApprovalController extends Controller
             'status' => $status
         ]);
         
-        $result = BotHelper::sendMessageByChatId($bot, $botUser->chat_id, $message);
+        // Add /reserve button to message
+        $option = [
+            array($bot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        $result = BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $botUser->chat_id);
         
         Log::info('📤 Mission Notification - Message sent result', [
             'chat_id' => $botUser->chat_id,
@@ -700,7 +710,12 @@ class TaskApprovalController extends Controller
             $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
             $message .= "💡 لطفا اقدامات لازم را انجام داده و دوباره لینک جدید را ارسال کنید.";
 
-            BotHelper::sendMessageByChatId($userBot, $botUser->chat_id, $message);
+            // Add /reserve button to message
+            $option = [
+                array($userBot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'))
+            ];
+            $inlineKeyboard = $userBot->buildInlineKeyBoard($option);
+            BotHelper::sendKeyboardMessageToChatId($userBot, $message, $inlineKeyboard, $botUser->chat_id);
 
             // Send confirmation to group
             $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
@@ -775,7 +790,12 @@ class TaskApprovalController extends Controller
             $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
             $message .= "💡 لطفا اقدامات لازم را انجام داده و دوباره لینک جدید را ارسال کنید.";
 
-            BotHelper::sendMessageByChatId($userBot, $botUser->chat_id, $message);
+            // Add /reserve button to message
+            $option = [
+                array($userBot->buildInlineKeyBoardButton('🔄 رزرو تسک جدید', callback_data: 'reserve_task'))
+            ];
+            $inlineKeyboard = $userBot->buildInlineKeyBoard($option);
+            BotHelper::sendKeyboardMessageToChatId($userBot, $message, $inlineKeyboard, $botUser->chat_id);
 
             // Send confirmation to group
             $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
