@@ -669,10 +669,16 @@ class MissionBotController extends Controller
         $message .= "کد ملی: " . $personnel->national_code . "\n";
         $message .= "امتیاز: " . $mission->points . "\n";
         $message .= "لینک: " . $missionPersonnel->result_link . "\n\n";
-        $message .= "برای تایید، کلمه 'تایید' را به این پیام reply کنید.\n";
-        $message .= "برای رد، پیام خود را به این پیام reply کنید.";
+        $message .= "✅ برای تایید: دکمه زیر را بزنید یا کلمه 'تایید' را reply کنید\n";
+        $message .= "❌ برای رد: پیام خود را به این پیام reply کنید";
 
-        $result = BotHelper::sendMessageByChatId($bot, $approvalGroupChatId, $message);
+        // Add inline approve button
+        $option = [
+            array($bot->buildInlineKeyBoardButton('✅ تایید', callback_data: 'approve_mission_' . $missionPersonnel->id))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        
+        $result = BotHelper::sendKeyboardMessageToChatIdWithResult($bot, $message, $inlineKeyboard, $approvalGroupChatId);
         
         // Save message_id to mission_personnel for future reference
         if ($result && isset($result['result']['message_id'])) {
@@ -756,10 +762,16 @@ class MissionBotController extends Controller
         $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "⚡ دستورات:\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-        $message .= "✅ برای تایید: کلمه 'تایید' را به این پیام reply کنید\n";
+        $message .= "✅ برای تایید: دکمه زیر را بزنید یا کلمه 'تایید' را reply کنید\n";
         $message .= "❌ برای رد: پیام خود را به این پیام reply کنید";
 
-        $result = BotHelper::sendMessageByChatId($bot, $approvalGroupChatId, $message);
+        // Add inline approve button
+        $option = [
+            array($bot->buildInlineKeyBoardButton('✅ تایید', callback_data: 'approve_task_' . $task->id))
+        ];
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+        
+        $result = BotHelper::sendKeyboardMessageToChatIdWithResult($bot, $message, $inlineKeyboard, $approvalGroupChatId);
         
         // Save message_id to task for future reference
         if ($result && isset($result['result']['message_id'])) {

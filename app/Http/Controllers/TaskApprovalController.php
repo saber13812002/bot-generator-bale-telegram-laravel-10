@@ -56,12 +56,18 @@ class TaskApprovalController extends Controller
                 Log::info($e->getMessage());
             }
 
+            // Get raw update data for debugging
+            $update = $request->json()->all() ?? $request->all();
+            
+            // Check for callback query (inline button clicks)
+            if (isset($update['callback_query'])) {
+                $this->handleCallbackQuery($bot, $update['callback_query'], $type);
+                return;
+            }
+
             $text = $bot->Text();
             $chatId = $bot->ChatID();
             $messageId = $bot->MessageID();
-            
-            // Get raw update data for debugging
-            $update = $request->json()->all() ?? $request->all();
             
             // Get reply_to_message_id and user_id from request data
             $replyToMessageId = null;
@@ -123,6 +129,15 @@ class TaskApprovalController extends Controller
                     return;
                 } elseif ($text == '/stats') {
                     $this->handleAllStats($bot, $type, $chatId);
+                    return;
+                } elseif (str_starts_with($text, '/approve ')) {
+                    // Handle /approve {id} command
+                    $id = trim(str_replace('/approve', '', $text));
+                    if (is_numeric($id)) {
+                        $this->handleApproveCommand($bot, (int)$id, $userId, $type, $chatId);
+                    } else {
+                        BotHelper::sendMessageByChatId($bot, $chatId, "❌ شناسه نامعتبر است. فرمت صحیح: /approve {id}");
+                    }
                     return;
                 }
             }
@@ -1174,5 +1189,122 @@ class TaskApprovalController extends Controller
         }
 
         BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+    }
+
+    /**
+     * Handle callback query (inline button clicks)
+     */
+    private function handleCallbackQuery($bot, array $callbackQuery, string $type): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        $userId = $callbackQuery['from']['id'] ?? null;
+        $callbackQueryId = $callbackQuery['id'] ?? null;
+        $messageId = $callbackQuery['message']['message_id'] ?? null;
+        $chatId = $callbackQuery['message']['chat']['id'] ?? null;
+
+        Log::info('🔘 Task Approval Bot - Callback query received', [
+            'callback_data' => $callbackData,
+            'user_id' => $userId,
+            'message_id' => $messageId,
+            'chat_id' => $chatId
+        ]);
+
+        // Check if this is the approval group
+        $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
+        if ($chatId != $approvalGroupChatId) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'این دستور فقط در گروه approval کار می‌کند', $type);
+            return;
+        }
+
+        // Handle approve button clicks
+        if (str_starts_with($callbackData, 'approve_task_')) {
+            $taskId = (int) str_replace('approve_task_', '', $callbackData);
+            $task = Task::where('id', $taskId)
+                ->where('task_status', 'pending_approval')
+                ->first();
+
+            if ($task) {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال تایید...', $type);
+                $this->approveTask($bot, $task, $userId, $type);
+            } else {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'تسک یافت نشد یا قبلاً تایید/رد شده است', $type);
+            }
+        } elseif (str_starts_with($callbackData, 'approve_mission_')) {
+            $missionPersonnelId = (int) str_replace('approve_mission_', '', $callbackData);
+            $missionPersonnel = MissionPersonnel::where('id', $missionPersonnelId)
+                ->where('status', 'pending_approval')
+                ->first();
+
+            if ($missionPersonnel) {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال تایید...', $type);
+                $this->approveMission($bot, $missionPersonnel, $userId, $type);
+            } else {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'ماموریت یافت نشد یا قبلاً تایید/رد شده است', $type);
+            }
+        } else {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'دستور نامعتبر است', $type);
+        }
+    }
+
+    /**
+     * Handle /approve {id} command
+     */
+    private function handleApproveCommand($bot, int $id, $userId, string $type, $chatId): void
+    {
+        // Try to find task first
+        $task = Task::where('id', $id)
+            ->where('task_status', 'pending_approval')
+            ->first();
+
+        if ($task) {
+            $this->approveTask($bot, $task, $userId, $type);
+            BotHelper::sendMessageByChatId($bot, $chatId, "✅ تسک #{$id} تایید شد.");
+            return;
+        }
+
+        // Try to find mission
+        $missionPersonnel = MissionPersonnel::where('id', $id)
+            ->where('status', 'pending_approval')
+            ->first();
+
+        if ($missionPersonnel) {
+            $this->approveMission($bot, $missionPersonnel, $userId, $type);
+            BotHelper::sendMessageByChatId($bot, $chatId, "✅ ماموریت #{$id} تایید شد.");
+            return;
+        }
+
+        BotHelper::sendMessageByChatId($bot, $chatId, "❌ تسک یا ماموریت با شناسه #{$id} یافت نشد یا قبلاً تایید/رد شده است.");
+    }
+
+    /**
+     * Answer callback query
+     */
+    private function answerCallbackQuery($bot, ?string $callbackQueryId, string $text, string $type): void
+    {
+        if (!$callbackQueryId) {
+            return;
+        }
+
+        $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        
+        if ($type == 'bale') {
+            $url = "https://tapi.bale.ai/bot{$token}/answerCallbackQuery";
+        } else {
+            $url = "https://api.telegram.org/bot{$token}/answerCallbackQuery";
+        }
+
+        $data = [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => false
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_exec($ch);
+        curl_close($ch);
     }
 }

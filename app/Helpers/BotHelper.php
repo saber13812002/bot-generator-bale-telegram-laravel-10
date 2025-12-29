@@ -230,6 +230,21 @@ class BotHelper
         $messenger->sendMessage($content);
     }
 
+    /**
+     * Send keyboard message to chat ID and return result
+     */
+    public static function sendKeyboardMessageToChatIdWithResult(Telegram $messenger, string $message, $keyboard, $chat_id)
+    {
+        $content = [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'reply_markup' => $keyboard,
+            'parse_mode' => "html"
+        ];
+
+        return $messenger->sendMessage($content);
+    }
+
 
     /**
      * @param $messenger
