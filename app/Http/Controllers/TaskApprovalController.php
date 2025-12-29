@@ -1104,9 +1104,10 @@ class TaskApprovalController extends Controller
         ->get();
 
         // Top users by total points (all time)
-        $topUsersByPoints = Personnel::orderBy('total_points', 'desc')
-            ->limit(10)
-            ->get();
+        // Note: total_points is an accessor, so we need to get all and sort in PHP
+        $topUsersByPoints = Personnel::all()
+            ->sortByDesc('total_points')
+            ->take(10);
 
         $message = "🏆 برترین کاربران امروز (" . now()->format('Y-m-d') . "):\n\n";
 
@@ -1209,9 +1210,10 @@ class TaskApprovalController extends Controller
             ->count();
 
         // Top users
-        $topUsers = Personnel::orderBy('total_points', 'desc')
-            ->limit(5)
-            ->get();
+        // Note: total_points is an accessor, so we need to get all and sort in PHP
+        $topUsers = Personnel::all()
+            ->sortByDesc('total_points')
+            ->take(5);
 
         $message = "📊 آمار کامل سیستم:\n\n";
 
