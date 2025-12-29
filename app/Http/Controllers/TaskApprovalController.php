@@ -14,6 +14,8 @@ use Telegram;
 
 class TaskApprovalController extends Controller
 {
+    // Cache for bot username to avoid multiple getMe calls
+    private static array $botUsernameCache = [];
     /**
      * Handle task approval/rejection in group
      * @throws Exception
@@ -115,24 +117,27 @@ class TaskApprovalController extends Controller
             if ($text && !empty(trim($text)) && !$replyToMessageId) {
                 $text = trim($text);
                 
-                if ($text == '/help') {
+                // Normalize command (remove @bot_username if present)
+                $normalizedCommand = $this->normalizeCommand($text, $bot, $type);
+                
+                if ($normalizedCommand == '/help') {
                     $this->handleHelp($bot, $type, $chatId);
                     return;
-                } elseif ($text == '/pending') {
+                } elseif ($normalizedCommand == '/pending') {
                     $this->handlePendingStats($bot, $type, $chatId);
                     return;
-                } elseif ($text == '/today') {
+                } elseif ($normalizedCommand == '/today') {
                     $this->handleTodayStats($bot, $type, $chatId);
                     return;
-                } elseif ($text == '/top') {
+                } elseif ($normalizedCommand == '/top') {
                     $this->handleTopUsers($bot, $type, $chatId);
                     return;
-                } elseif ($text == '/stats') {
+                } elseif ($normalizedCommand == '/stats') {
                     $this->handleAllStats($bot, $type, $chatId);
                     return;
-                } elseif (str_starts_with($text, '/approve ')) {
+                } elseif (str_starts_with($normalizedCommand, '/approve ')) {
                     // Handle /approve {id} command
-                    $id = trim(str_replace('/approve', '', $text));
+                    $id = trim(str_replace('/approve', '', $normalizedCommand));
                     if (is_numeric($id)) {
                         $this->handleApproveCommand($bot, (int)$id, $userId, $type, $chatId);
                     } else {
@@ -1274,6 +1279,68 @@ class TaskApprovalController extends Controller
         }
 
         BotHelper::sendMessageByChatId($bot, $chatId, "❌ تسک یا ماموریت با شناسه #{$id} یافت نشد یا قبلاً تایید/رد شده است.");
+    }
+
+    /**
+     * Normalize command by removing @bot_username if present
+     */
+    private function normalizeCommand(string $command, $bot, string $type): string
+    {
+        // Check if command contains @ (bot mention)
+        if (!str_contains($command, '@')) {
+            return trim($command);
+        }
+        
+        // Get bot username from cache or getMe
+        // Use token as cache key for better uniqueness
+        $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        $cacheKey = $type . '_' . substr($token, 0, 10);
+        
+        if (!isset(self::$botUsernameCache[$cacheKey])) {
+            try {
+                $getMe = $bot->getMe();
+                if ($getMe && isset($getMe['ok']) && $getMe['ok'] && isset($getMe['result']['username'])) {
+                    self::$botUsernameCache[$cacheKey] = $getMe['result']['username'];
+                } else {
+                    // Fallback: extract from command pattern
+                    if (preg_match('/@(\w+)$/', $command, $matches)) {
+                        self::$botUsernameCache[$cacheKey] = $matches[1];
+                    } else {
+                        self::$botUsernameCache[$cacheKey] = null;
+                    }
+                }
+            } catch (Exception $e) {
+                Log::warning('⚠️ Task Approval Bot - Could not get bot username, trying fallback', [
+                    'error' => $e->getMessage()
+                ]);
+                // Fallback: extract from command pattern
+                if (preg_match('/@(\w+)$/', $command, $matches)) {
+                    self::$botUsernameCache[$cacheKey] = $matches[1];
+                } else {
+                    self::$botUsernameCache[$cacheKey] = null;
+                }
+            }
+        }
+        
+        $botUsername = self::$botUsernameCache[$cacheKey];
+        
+        if ($botUsername) {
+            // Remove @bot_username from command if present
+            $pattern = '/@' . preg_quote($botUsername, '/') . '$/';
+            $normalized = preg_replace($pattern, '', $command);
+            
+            Log::info('📝 Task Approval Bot - Command normalized', [
+                'original' => $command,
+                'bot_username' => $botUsername,
+                'normalized' => $normalized
+            ]);
+            
+            return trim($normalized);
+        }
+        
+        // Fallback: remove any @username pattern
+        $normalized = preg_replace('/@\w+$/', '', $command);
+        return trim($normalized);
     }
 
     /**
