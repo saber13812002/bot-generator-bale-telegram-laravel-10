@@ -105,6 +105,28 @@ class TaskApprovalController extends Controller
 
             Log::info('✅ Task Approval Bot - Message from approval group', ['chat_id' => $chatId]);
             
+            // Handle commands (only if not a reply)
+            if ($text && !empty(trim($text)) && !$replyToMessageId) {
+                $text = trim($text);
+                
+                if ($text == '/help') {
+                    $this->handleHelp($bot, $type, $chatId);
+                    return;
+                } elseif ($text == '/pending') {
+                    $this->handlePendingStats($bot, $type, $chatId);
+                    return;
+                } elseif ($text == '/today') {
+                    $this->handleTodayStats($bot, $type, $chatId);
+                    return;
+                } elseif ($text == '/top') {
+                    $this->handleTopUsers($bot, $type, $chatId);
+                    return;
+                } elseif ($text == '/stats') {
+                    $this->handleAllStats($bot, $type, $chatId);
+                    return;
+                }
+            }
+
             // سلام اولیه برای اطمینان از کارکرد ربات (فقط برای پیام‌های متنی)
             if ($text && !empty(trim($text))) {
                 // فقط برای پیام‌های متنی (نه برای update های دیگر)
@@ -282,6 +304,12 @@ class TaskApprovalController extends Controller
             $message = "✅ تسک با شناسه " . $task->id . " تایید شد.\n";
             $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
             $message .= "امتیاز اضافه شده: " . $task->points;
+            
+            // Add pending counts
+            $pendingTasksCount = Task::where('task_status', 'pending_approval')->count();
+            $pendingMissionsCount = MissionPersonnel::where('status', 'pending_approval')->count();
+            $message .= "\n\n📊 تعداد تسک‌های در انتظار: {$pendingTasksCount}";
+            $message .= "\n📊 تعداد ماموریت‌های در انتظار: {$pendingMissionsCount}";
             
             BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
 
@@ -481,6 +509,12 @@ class TaskApprovalController extends Controller
             $message = "✅ ماموریت با شناسه " . $mission->id . " تایید شد.\n";
             $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
             $message .= "امتیاز اضافه شده: " . $mission->points;
+            
+            // Add pending counts
+            $pendingTasksCount = Task::where('task_status', 'pending_approval')->count();
+            $pendingMissionsCount = MissionPersonnel::where('status', 'pending_approval')->count();
+            $message .= "\n\n📊 تعداد تسک‌های در انتظار: {$pendingTasksCount}";
+            $message .= "\n📊 تعداد ماموریت‌های در انتظار: {$pendingMissionsCount}";
             
             $groupMessageResult = BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
             Log::info('📤 Mission Approval - Group message sent', [
@@ -872,5 +906,273 @@ class TaskApprovalController extends Controller
             $personnel->update(['rank' => $newRank]);
             Log::info("Personnel rank updated: " . $personnel->id . " - New rank: " . $newRank);
         }
+    }
+
+    /**
+     * Handle /help command
+     */
+    private function handleHelp($bot, $type, $groupChatId)
+    {
+        $message = "📖 دستورات ربات تایید:\n\n";
+        $message .= "/help - نمایش این راهنما\n";
+        $message .= "/pending - تعداد و لیست تسک‌ها/ماموریت‌های در انتظار\n";
+        $message .= "/today - آمار امروز (تایید شده، رد شده، در انتظار)\n";
+        $message .= "/top - برترین کاربران امروز\n";
+        $message .= "/stats - آمار کامل\n\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "💡 برای تایید: کلمه 'تایید' را به پیام reply کنید\n";
+        $message .= "💡 برای رد: پیام خود را به پیام reply کنید";
+
+        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+    }
+
+    /**
+     * Handle /pending command
+     */
+    private function handlePendingStats($bot, $type, $groupChatId)
+    {
+        $pendingTasks = Task::where('task_status', 'pending_approval')
+            ->with('personnel')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        $pendingMissions = MissionPersonnel::where('status', 'pending_approval')
+            ->with(['personnel', 'mission'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
+        $pendingTasksCount = Task::where('task_status', 'pending_approval')->count();
+        $pendingMissionsCount = MissionPersonnel::where('status', 'pending_approval')->count();
+
+        $message = "⏳ تسک‌ها و ماموریت‌های در انتظار:\n\n";
+        $message .= "📋 تعداد تسک‌های در انتظار: {$pendingTasksCount}\n";
+        $message .= "📋 تعداد ماموریت‌های در انتظار: {$pendingMissionsCount}\n\n";
+
+        if ($pendingTasks->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📝 آخرین تسک‌های در انتظار:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            foreach ($pendingTasks as $task) {
+                $personnelName = $task->personnel ? $task->personnel->first_name . ' ' . $task->personnel->last_name : 'نامشخص';
+                $message .= "🆔 تسک #{$task->id}\n";
+                $message .= "👤 کاربر: {$personnelName}\n";
+                $message .= "🎯 امتیاز: {$task->points}\n";
+                $message .= "📅 زمان: " . $task->created_at->format('Y-m-d H:i') . "\n\n";
+            }
+        }
+
+        if ($pendingMissions->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📝 آخرین ماموریت‌های در انتظار:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            foreach ($pendingMissions as $missionPersonnel) {
+                $personnelName = $missionPersonnel->personnel ? $missionPersonnel->personnel->first_name . ' ' . $missionPersonnel->personnel->last_name : 'نامشخص';
+                $missionTitle = $missionPersonnel->mission ? $missionPersonnel->mission->title : 'نامشخص';
+                $message .= "🆔 ماموریت #{$missionPersonnel->mission_id}\n";
+                $message .= "👤 کاربر: {$personnelName}\n";
+                $message .= "📋 عنوان: {$missionTitle}\n";
+                $message .= "📅 زمان: " . $missionPersonnel->created_at->format('Y-m-d H:i') . "\n\n";
+            }
+        }
+
+        if ($pendingTasks->isEmpty() && $pendingMissions->isEmpty()) {
+            $message .= "✅ هیچ تسک یا ماموریتی در انتظار تایید نیست.";
+        }
+
+        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+    }
+
+    /**
+     * Handle /today command
+     */
+    private function handleTodayStats($bot, $type, $groupChatId)
+    {
+        $today = now()->startOfDay();
+
+        // Task stats
+        $tasksApprovedToday = Task::where('task_status', 'approved')
+            ->whereDate('approved_at', $today)
+            ->count();
+        
+        $tasksRejectedToday = Task::where('task_status', 'rejected')
+            ->whereDate('rejected_at', $today)
+            ->count();
+        
+        $tasksPending = Task::where('task_status', 'pending_approval')->count();
+
+        // Mission stats
+        $missionsApprovedToday = MissionPersonnel::where('status', 'approved')
+            ->whereDate('approved_at', $today)
+            ->count();
+        
+        $missionsRejectedToday = MissionPersonnel::where('status', 'rejected')
+            ->whereDate('rejected_at', $today)
+            ->count();
+        
+        $missionsPending = MissionPersonnel::where('status', 'pending_approval')->count();
+
+        $message = "📊 آمار امروز (" . now()->format('Y-m-d') . "):\n\n";
+        
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📋 تسک‌ها:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تایید شده: {$tasksApprovedToday}\n";
+        $message .= "❌ رد شده: {$tasksRejectedToday}\n";
+        $message .= "⏳ در انتظار: {$tasksPending}\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📋 ماموریت‌ها:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تایید شده: {$missionsApprovedToday}\n";
+        $message .= "❌ رد شده: {$missionsRejectedToday}\n";
+        $message .= "⏳ در انتظار: {$missionsPending}\n\n";
+
+        $totalApproved = $tasksApprovedToday + $missionsApprovedToday;
+        $totalRejected = $tasksRejectedToday + $missionsRejectedToday;
+        $totalPending = $tasksPending + $missionsPending;
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📊 مجموع:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تایید شده: {$totalApproved}\n";
+        $message .= "❌ رد شده: {$totalRejected}\n";
+        $message .= "⏳ در انتظار: {$totalPending}";
+
+        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+    }
+
+    /**
+     * Handle /top command
+     */
+    private function handleTopUsers($bot, $type, $groupChatId)
+    {
+        $today = now()->startOfDay();
+
+        // Top users by approved tasks today
+        $topUsersByTasks = Personnel::withCount([
+            'tasks' => function($query) use ($today) {
+                $query->where('task_status', 'approved')
+                      ->whereDate('approved_at', $today);
+            }
+        ])
+        ->having('tasks_count', '>', 0)
+        ->orderBy('tasks_count', 'desc')
+        ->limit(10)
+        ->get();
+
+        // Top users by total points (all time)
+        $topUsersByPoints = Personnel::orderBy('total_points', 'desc')
+            ->limit(10)
+            ->get();
+
+        $message = "🏆 برترین کاربران امروز (" . now()->format('Y-m-d') . "):\n\n";
+
+        if ($topUsersByTasks->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "📋 برترین کاربران بر اساس تعداد تسک‌های تایید شده:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $rank = 1;
+            foreach ($topUsersByTasks as $personnel) {
+                $message .= "{$rank}. {$personnel->first_name} {$personnel->last_name}\n";
+                $message .= "   ✅ {$personnel->tasks_count} تسک تایید شده\n";
+                $message .= "   ⭐ {$personnel->total_points} امتیاز کل\n\n";
+                $rank++;
+            }
+        }
+
+        if ($topUsersByPoints->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "⭐ برترین کاربران بر اساس امتیاز کل:\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $rank = 1;
+            foreach ($topUsersByPoints->take(10) as $personnel) {
+                $message .= "{$rank}. {$personnel->first_name} {$personnel->last_name}\n";
+                $message .= "   ⭐ {$personnel->total_points} امتیاز\n";
+                $message .= "   🎖️ {$personnel->rank}\n\n";
+                $rank++;
+            }
+        }
+
+        if ($topUsersByTasks->isEmpty() && $topUsersByPoints->isEmpty()) {
+            $message .= "📭 هیچ فعالیتی امروز ثبت نشده است.";
+        }
+
+        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
+    }
+
+    /**
+     * Handle /stats command
+     */
+    private function handleAllStats($bot, $type, $groupChatId)
+    {
+        $today = now()->startOfDay();
+
+        // Overall stats
+        $totalTasks = Task::count();
+        $totalMissions = MissionPersonnel::count();
+        $tasksApproved = Task::where('task_status', 'approved')->count();
+        $tasksRejected = Task::where('task_status', 'rejected')->count();
+        $tasksPending = Task::where('task_status', 'pending_approval')->count();
+        $missionsApproved = MissionPersonnel::where('status', 'approved')->count();
+        $missionsRejected = MissionPersonnel::where('status', 'rejected')->count();
+        $missionsPending = MissionPersonnel::where('status', 'pending_approval')->count();
+
+        // Today's stats
+        $tasksApprovedToday = Task::where('task_status', 'approved')
+            ->whereDate('approved_at', $today)
+            ->count();
+        $tasksRejectedToday = Task::where('task_status', 'rejected')
+            ->whereDate('rejected_at', $today)
+            ->count();
+        $missionsApprovedToday = MissionPersonnel::where('status', 'approved')
+            ->whereDate('approved_at', $today)
+            ->count();
+        $missionsRejectedToday = MissionPersonnel::where('status', 'rejected')
+            ->whereDate('rejected_at', $today)
+            ->count();
+
+        // Top users
+        $topUsers = Personnel::orderBy('total_points', 'desc')
+            ->limit(5)
+            ->get();
+
+        $message = "📊 آمار کامل سیستم:\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📋 آمار کلی:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📝 کل تسک‌ها: {$totalTasks}\n";
+        $message .= "   ✅ تایید شده: {$tasksApproved}\n";
+        $message .= "   ❌ رد شده: {$tasksRejected}\n";
+        $message .= "   ⏳ در انتظار: {$tasksPending}\n\n";
+        $message .= "📝 کل ماموریت‌ها: {$totalMissions}\n";
+        $message .= "   ✅ تایید شده: {$missionsApproved}\n";
+        $message .= "   ❌ رد شده: {$missionsRejected}\n";
+        $message .= "   ⏳ در انتظار: {$missionsPending}\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📅 آمار امروز (" . now()->format('Y-m-d') . "):\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تسک‌های تایید شده: {$tasksApprovedToday}\n";
+        $message .= "❌ تسک‌های رد شده: {$tasksRejectedToday}\n";
+        $message .= "✅ ماموریت‌های تایید شده: {$missionsApprovedToday}\n";
+        $message .= "❌ ماموریت‌های رد شده: {$missionsRejectedToday}\n\n";
+
+        if ($topUsers->isNotEmpty()) {
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+            $message .= "🏆 برترین کاربران (امتیاز کل):\n";
+            $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            $rank = 1;
+            foreach ($topUsers as $personnel) {
+                $message .= "{$rank}. {$personnel->first_name} {$personnel->last_name}\n";
+                $message .= "   ⭐ {$personnel->total_points} امتیاز\n";
+                $message .= "   🎖️ {$personnel->rank}\n\n";
+                $rank++;
+            }
+        }
+
+        BotHelper::sendMessageByChatId($bot, $groupChatId, $message);
     }
 }
