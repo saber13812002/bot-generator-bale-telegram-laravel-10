@@ -120,6 +120,11 @@ class TaskApprovalController extends Controller
                 // Normalize command (remove @bot_username if present)
                 $normalizedCommand = $this->normalizeCommand($text, $bot, $type);
                 
+                Log::info('📝 Task Approval Bot - Command processing', [
+                    'original' => $text,
+                    'normalized' => $normalizedCommand
+                ]);
+                
                 if ($normalizedCommand == '/help') {
                     $this->handleHelp($bot, $type, $chatId);
                     return;
@@ -130,10 +135,26 @@ class TaskApprovalController extends Controller
                     $this->handleTodayStats($bot, $type, $chatId);
                     return;
                 } elseif ($normalizedCommand == '/top') {
-                    $this->handleTopUsers($bot, $type, $chatId);
+                    try {
+                        $this->handleTopUsers($bot, $type, $chatId);
+                    } catch (Exception $e) {
+                        Log::error('❌ Task Approval Bot - Error in handleTopUsers', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        BotHelper::sendMessageByChatId($bot, $chatId, "❌ خطا در دریافت آمار: " . $e->getMessage());
+                    }
                     return;
                 } elseif ($normalizedCommand == '/stats') {
-                    $this->handleAllStats($bot, $type, $chatId);
+                    try {
+                        $this->handleAllStats($bot, $type, $chatId);
+                    } catch (Exception $e) {
+                        Log::error('❌ Task Approval Bot - Error in handleAllStats', [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        BotHelper::sendMessageByChatId($bot, $chatId, "❌ خطا در دریافت آمار: " . $e->getMessage());
+                    }
                     return;
                 } elseif (str_starts_with($normalizedCommand, '/approve ')) {
                     // Handle /approve {id} command
@@ -1128,6 +1149,9 @@ class TaskApprovalController extends Controller
     private function handleAllStats($bot, $type, $groupChatId)
     {
         $today = now()->startOfDay();
+        $lastWeek = now()->subWeek()->startOfDay();
+        $lastMonth = now()->subMonth()->startOfDay();
+        $lastYear = now()->subYear()->startOfDay();
 
         // Overall stats
         $totalTasks = Task::count();
@@ -1135,6 +1159,7 @@ class TaskApprovalController extends Controller
         $tasksApproved = Task::where('task_status', 'approved')->count();
         $tasksRejected = Task::where('task_status', 'rejected')->count();
         $tasksPending = Task::where('task_status', 'pending_approval')->count();
+        $tasksReserved = Task::where('task_status', 'reserved')->count(); // بی‌صاحب
         $missionsApproved = MissionPersonnel::where('status', 'approved')->count();
         $missionsRejected = MissionPersonnel::where('status', 'rejected')->count();
         $missionsPending = MissionPersonnel::where('status', 'pending_approval')->count();
@@ -1153,6 +1178,36 @@ class TaskApprovalController extends Controller
             ->whereDate('rejected_at', $today)
             ->count();
 
+        // Last week stats (from last week start to now)
+        $tasksApprovedLastWeek = Task::where('task_status', 'approved')
+            ->where('approved_at', '>=', $lastWeek)
+            ->where('approved_at', '<=', now())
+            ->count();
+        $missionsApprovedLastWeek = MissionPersonnel::where('status', 'approved')
+            ->where('approved_at', '>=', $lastWeek)
+            ->where('approved_at', '<=', now())
+            ->count();
+
+        // Last month stats (from last month start to now)
+        $tasksApprovedLastMonth = Task::where('task_status', 'approved')
+            ->where('approved_at', '>=', $lastMonth)
+            ->where('approved_at', '<=', now())
+            ->count();
+        $missionsApprovedLastMonth = MissionPersonnel::where('status', 'approved')
+            ->where('approved_at', '>=', $lastMonth)
+            ->where('approved_at', '<=', now())
+            ->count();
+
+        // Last year stats (from last year start to now)
+        $tasksApprovedLastYear = Task::where('task_status', 'approved')
+            ->where('approved_at', '>=', $lastYear)
+            ->where('approved_at', '<=', now())
+            ->count();
+        $missionsApprovedLastYear = MissionPersonnel::where('status', 'approved')
+            ->where('approved_at', '>=', $lastYear)
+            ->where('approved_at', '<=', now())
+            ->count();
+
         // Top users
         $topUsers = Personnel::orderBy('total_points', 'desc')
             ->limit(5)
@@ -1166,7 +1221,8 @@ class TaskApprovalController extends Controller
         $message .= "📝 کل تسک‌ها: {$totalTasks}\n";
         $message .= "   ✅ تایید شده: {$tasksApproved}\n";
         $message .= "   ❌ رد شده: {$tasksRejected}\n";
-        $message .= "   ⏳ در انتظار: {$tasksPending}\n\n";
+        $message .= "   ⏳ در انتظار: {$tasksPending}\n";
+        $message .= "   🔒 بی‌صاحب (رزرو شده): {$tasksReserved}\n\n";
         $message .= "📝 کل ماموریت‌ها: {$totalMissions}\n";
         $message .= "   ✅ تایید شده: {$missionsApproved}\n";
         $message .= "   ❌ رد شده: {$missionsRejected}\n";
@@ -1179,6 +1235,24 @@ class TaskApprovalController extends Controller
         $message .= "❌ تسک‌های رد شده: {$tasksRejectedToday}\n";
         $message .= "✅ ماموریت‌های تایید شده: {$missionsApprovedToday}\n";
         $message .= "❌ ماموریت‌های رد شده: {$missionsRejectedToday}\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📅 آمار هفته گذشته:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تسک‌های تایید شده: {$tasksApprovedLastWeek}\n";
+        $message .= "✅ ماموریت‌های تایید شده: {$missionsApprovedLastWeek}\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📅 آمار ماه گذشته:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تسک‌های تایید شده: {$tasksApprovedLastMonth}\n";
+        $message .= "✅ ماموریت‌های تایید شده: {$missionsApprovedLastMonth}\n\n";
+
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "📅 آمار سال گذشته:\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "✅ تسک‌های تایید شده: {$tasksApprovedLastYear}\n";
+        $message .= "✅ ماموریت‌های تایید شده: {$missionsApprovedLastYear}\n\n";
 
         if ($topUsers->isNotEmpty()) {
             $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
