@@ -73,6 +73,15 @@ class MissionBotController extends Controller
             // Check for callback query (inline button clicks)
             $update = $request->json()->all() ?? $request->all();
             if (isset($update['callback_query'])) {
+                $callbackData = $update['callback_query']['data'] ?? '';
+                
+                // Check if this is an approval callback (should be handled by TaskApprovalController)
+                if (str_starts_with($callbackData, 'approve_task_') || str_starts_with($callbackData, 'approve_mission_')) {
+                    // Handle approval callbacks directly here
+                    $this->handleApprovalCallbackQuery($bot, $update['callback_query'], $type);
+                    return;
+                }
+                
                 $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botMotherId);
                 return;
             }
@@ -1697,6 +1706,89 @@ class MissionBotController extends Controller
                 'error' => $e->getMessage(),
                 'mission_id' => $mission->id
             ]);
+        }
+    }
+
+    /**
+     * Handle approval callback queries (for inline approve buttons)
+     * This is needed because approval buttons are sent by MissionBot but callback goes to MissionBot webhook
+     */
+    private function handleApprovalCallbackQuery($bot, array $callbackQuery, string $type): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        $userId = $callbackQuery['from']['id'] ?? null;
+        $callbackQueryId = $callbackQuery['id'] ?? null;
+        $messageId = $callbackQuery['message']['message_id'] ?? null;
+        $chatId = $callbackQuery['message']['chat']['id'] ?? null;
+
+        Log::info('🔘 Mission Bot - Approval callback query received', [
+            'callback_data' => $callbackData,
+            'user_id' => $userId,
+            'message_id' => $messageId,
+            'chat_id' => $chatId
+        ]);
+
+        // Check if this is the approval group
+        $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
+        if ($chatId != $approvalGroupChatId) {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'این دستور فقط در گروه approval کار می‌کند', $type);
+            return;
+        }
+
+        // Use the approval bot token (same as mission bot token in this case)
+        $approvalToken = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
+        $approvalBot = new Telegram($approvalToken, $type);
+
+        // Handle approve button clicks
+        if (str_starts_with($callbackData, 'approve_task_')) {
+            $taskId = (int) str_replace('approve_task_', '', $callbackData);
+            $task = \App\Models\Task::where('id', $taskId)
+                ->where('task_status', 'pending_approval')
+                ->first();
+
+            if ($task) {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال تایید...', $type);
+                // Call TaskApprovalController's approveTask method using reflection
+                $this->callApprovalMethod('approveTask', $approvalBot, $task, $userId, $type);
+            } else {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'تسک یافت نشد یا قبلاً تایید/رد شده است', $type);
+            }
+        } elseif (str_starts_with($callbackData, 'approve_mission_')) {
+            $missionPersonnelId = (int) str_replace('approve_mission_', '', $callbackData);
+            $missionPersonnel = \App\Models\MissionPersonnel::where('id', $missionPersonnelId)
+                ->where('status', 'pending_approval')
+                ->first();
+
+            if ($missionPersonnel) {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'در حال تایید...', $type);
+                // Call TaskApprovalController's approveMission method using reflection
+                $this->callApprovalMethod('approveMission', $approvalBot, $missionPersonnel, $userId, $type);
+            } else {
+                $this->answerCallbackQuery($bot, $callbackQueryId, 'ماموریت یافت نشد یا قبلاً تایید/رد شده است', $type);
+            }
+        } else {
+            $this->answerCallbackQuery($bot, $callbackQueryId, 'دستور نامعتبر است', $type);
+        }
+    }
+
+    /**
+     * Call TaskApprovalController method using reflection
+     */
+    private function callApprovalMethod(string $methodName, $bot, $entity, $userId, string $type): void
+    {
+        try {
+            $approvalController = new \App\Http\Controllers\TaskApprovalController();
+            $reflection = new \ReflectionClass($approvalController);
+            $method = $reflection->getMethod($methodName);
+            $method->setAccessible(true);
+            $method->invoke($approvalController, $bot, $entity, $userId, $type);
+        } catch (Exception $e) {
+            Log::error('Error calling approval method', [
+                'method' => $methodName,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         }
     }
 }
