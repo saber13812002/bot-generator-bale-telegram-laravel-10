@@ -717,18 +717,28 @@ class TaskApprovalController extends Controller
             $inlineKeyboard = $userBot->buildInlineKeyBoard($option);
             BotHelper::sendKeyboardMessageToChatId($userBot, $message, $inlineKeyboard, $botUser->chat_id);
 
+            // Update task status to rejected so user can resubmit
+            $task->update([
+                'task_status' => 'rejected',
+                'rejected_at' => now(),
+                'rejection_reason' => $feedbackText,
+                'approved_by_chat_id' => $userId,
+            ]);
+
             // Send confirmation to group
             $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
             $groupMessage .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
             $groupMessage .= "تسک: " . $task->id . "\n";
             $groupMessage .= "پیام: " . $feedbackText;
+            $groupMessage .= "\n\n⚠️ تسک به وضعیت 'رد شده' تغییر کرد تا کاربر بتواند لینک جدید ارسال کند.";
             
             BotHelper::sendMessageByChatId($bot, $groupChatId, $groupMessage);
 
-            Log::info("Feedback sent to user", [
+            Log::info("Feedback sent to user and task status updated to rejected", [
                 'task_id' => $task->id,
                 'personnel_id' => $personnel->id,
-                'feedback' => $feedbackText
+                'feedback' => $feedbackText,
+                'new_status' => 'rejected'
             ]);
         } catch (Exception $e) {
             Log::error("Error sending feedback to user", [
@@ -797,18 +807,29 @@ class TaskApprovalController extends Controller
             $inlineKeyboard = $userBot->buildInlineKeyBoard($option);
             BotHelper::sendKeyboardMessageToChatId($userBot, $message, $inlineKeyboard, $botUser->chat_id);
 
+            // Update mission personnel status to rejected so user can resubmit
+            $missionPersonnel->update([
+                'status' => 'rejected',
+                'rejected_at' => now(),
+                'rejection_reason' => $feedbackText,
+                'approved_by_chat_id' => $userId,
+            ]);
+
             // Send confirmation to group
             $groupMessage = "✅ پیام برای کاربر ارسال شد:\n";
             $groupMessage .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
             $groupMessage .= "ماموریت: " . $mission->id . "\n";
             $groupMessage .= "پیام: " . $feedbackText;
+            $groupMessage .= "\n\n⚠️ ماموریت به وضعیت 'رد شده' تغییر کرد تا کاربر بتواند لینک جدید ارسال کند.";
             
             BotHelper::sendMessageByChatId($bot, $groupChatId, $groupMessage);
 
-            Log::info("Feedback sent to user for mission", [
+            Log::info("Feedback sent to user for mission and mission status updated to rejected", [
                 'mission_id' => $mission->id,
+                'mission_personnel_id' => $missionPersonnel->id,
                 'personnel_id' => $personnel->id,
-                'feedback' => $feedbackText
+                'feedback' => $feedbackText,
+                'new_status' => 'rejected'
             ]);
         } catch (Exception $e) {
             Log::error("Error sending feedback to user for mission", [

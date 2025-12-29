@@ -159,27 +159,48 @@ class MissionServiceImpl implements MissionService
         ]);
 
         try {
+            // Check for active missions (reserved, in_progress) or rejected missions (for resubmission)
             $query = MissionPersonnel::where('personnel_id', $personnelId)
-                ->whereIn('status', ['reserved', 'in_progress']);
+                ->where(function($q) {
+                    // Active missions
+                    $q->whereIn('status', ['reserved', 'in_progress'])
+                      // Or rejected missions (for resubmission)
+                      ->orWhere(function($subQ) {
+                          $subQ->where('status', 'rejected')
+                               ->whereNotNull('rejection_reason');
+                      });
+                });
 
             if ($missionId) {
                 $query->where('mission_id', $missionId);
             }
 
-            $missionPersonnel = $query->first();
+            $missionPersonnel = $query->latest()->first();
 
             if (!$missionPersonnel) {
-                Log::warning('No active mission found', [
+                Log::warning('No active or rejected mission found', [
                     'personnel_id' => $personnelId,
                     'mission_id' => $missionId
                 ]);
                 return false;
             }
 
-            $missionPersonnel->update([
+            // Check if this is a resubmission after rejection
+            $isResubmission = $missionPersonnel->status === 'rejected' && $missionPersonnel->rejection_reason;
+            
+            $updateData = [
                 'result_link' => $resultLink,
                 'status' => 'pending_approval',
-            ]);
+            ];
+            
+            // If this is a resubmission, clear rejection fields
+            if ($isResubmission) {
+                $updateData['rejection_reason'] = null;
+                $updateData['rejected_at'] = null;
+                $updateData['approved_by_chat_id'] = null;
+            }
+            
+            $missionPersonnel->update($updateData);
 
             Log::info('Result submitted successfully', [
                 'mission_id' => $missionPersonnel->mission_id,

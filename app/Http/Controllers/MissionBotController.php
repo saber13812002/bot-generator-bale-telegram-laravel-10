@@ -441,13 +441,20 @@ class MissionBotController extends Controller
      */
     private function handleSubmitLinkInGroup($bot, $link, $userId, $personnelId, $type, $groupChatId)
     {
-        // Find active task (reserved, in_progress, or pending_approval)
+        // Find active task (reserved, in_progress, pending_approval) or rejected tasks (for resubmission)
         $task = Task::where('assigned_user_id', $personnelId)
-            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
             ->where(function($query) {
-                // Either reserved_time is in the future, or task is pending_approval (no time limit)
-                $query->where('reserved_time', '>', now())
-                      ->orWhere('task_status', 'pending_approval');
+                // Active tasks
+                $query->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+                      ->where(function($q) {
+                          $q->where('reserved_time', '>', now())
+                            ->orWhere('task_status', 'pending_approval');
+                      })
+                      // Or rejected tasks (for resubmission)
+                      ->orWhere(function($q) {
+                          $q->where('task_status', 'rejected')
+                            ->whereNotNull('rejection_reason');
+                      });
             })
             ->latest()
             ->first();
@@ -457,30 +464,45 @@ class MissionBotController extends Controller
             return;
         }
 
-        // If task is already pending_approval, don't allow resubmission
-        if ($task->task_status === 'pending_approval') {
+        // If task is already pending_approval and not rejected, don't allow resubmission
+        if ($task->task_status === 'pending_approval' && !$task->rejection_reason) {
             BotHelper::sendMessage($bot, "تسک شما در حال بررسی است. لطفا منتظر نتیجه تایید باشید.");
             return;
         }
 
-        // Check if reserved time has passed (only for reserved/in_progress tasks)
-        if ($task->reserved_time && now() > $task->reserved_time) {
+        // Check if reserved time has passed (only for reserved/in_progress tasks, not for rejected tasks being resubmitted)
+        if ($task->task_status !== 'rejected' && $task->reserved_time && now() > $task->reserved_time) {
             $task->update(['task_status' => 'rejected', 'rejected_at' => now()]);
             BotHelper::sendMessage($bot, "متاسفانه زمان رزرو تسک به پایان رسیده است.");
             return;
         }
 
+        // Check if this is a resubmission after rejection
+        $isResubmission = $task->task_status === 'rejected' && $task->rejection_reason;
+        
         // Update task with final link
-        $task->update([
+        $updateData = [
             'final_link' => $link,
             'task_status' => 'pending_approval',
             'task_time' => now(),
-        ]);
+        ];
+        
+        // If this is a resubmission, clear rejection fields
+        if ($isResubmission) {
+            $updateData['rejection_reason'] = null;
+            $updateData['rejected_at'] = null;
+            $updateData['approved_by_chat_id'] = null;
+        }
+        
+        $task->update($updateData);
 
         // Send to approval group
-        $this->sendToApprovalGroup($task, $type);
+        $this->sendToApprovalGroup($task, $type, $isResubmission);
 
         $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
+        if ($isResubmission) {
+            $message .= "🔄 لینک جدید شما برای بررسی مجدد ارسال شد.\n\n";
+        }
         $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
         // Add /reserve button to message
@@ -510,6 +532,15 @@ class MissionBotController extends Controller
 
         // Try to submit for mission first
         try {
+            // Check if there's a rejected mission for resubmission
+            $rejectedMission = \App\Models\MissionPersonnel::where('personnel_id', $personnelId)
+                ->where('status', 'rejected')
+                ->whereNotNull('rejection_reason')
+                ->latest()
+                ->first();
+            
+            $isResubmission = $rejectedMission !== null;
+            
             $result = $this->missionService->submitResult($personnelId, $link);
             if ($result) {
                 // Find mission to send to approval group
@@ -527,8 +558,12 @@ class MissionBotController extends Controller
                         return;
                     }
                     
-                    $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
-                    $message = "✅ لینک شما با موفقیت ثبت شد!\n\nماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
+                    $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type, $isResubmission);
+                    $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
+                    if ($isResubmission) {
+                        $message .= "🔄 لینک جدید شما برای بررسی مجدد ارسال شد.\n\n";
+                    }
+                    $message .= "ماموریت شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
                     // Add /reserve button to message
                     $this->sendMessageWithReserveButton($bot, $message);
                     return;
@@ -539,12 +574,20 @@ class MissionBotController extends Controller
         }
 
         // Fallback to task submission
+        // Check for active tasks (reserved, in_progress, pending_approval) or rejected tasks (for resubmission)
         $task = Task::where('assigned_user_id', $personnelId)
-            ->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
             ->where(function($query) {
-                // Either reserved_time is in the future, or task is pending_approval (no time limit)
-                $query->where('reserved_time', '>', now())
-                      ->orWhere('task_status', 'pending_approval');
+                // Active tasks
+                $query->whereIn('task_status', ['reserved', 'in_progress', 'pending_approval'])
+                      ->where(function($q) {
+                          $q->where('reserved_time', '>', now())
+                            ->orWhere('task_status', 'pending_approval');
+                      })
+                      // Or rejected tasks (for resubmission)
+                      ->orWhere(function($q) {
+                          $q->where('task_status', 'rejected')
+                            ->whereNotNull('rejection_reason');
+                      });
             })
             ->latest()
             ->first();
@@ -554,30 +597,45 @@ class MissionBotController extends Controller
             return;
         }
 
-        // If task is already pending_approval, don't allow resubmission
-        if ($task->task_status === 'pending_approval') {
+        // If task is already pending_approval and not rejected, don't allow resubmission
+        if ($task->task_status === 'pending_approval' && !$task->rejection_reason) {
             BotHelper::sendMessage($bot, "تسک شما در حال بررسی است. لطفا منتظر نتیجه تایید باشید.");
             return;
         }
 
-        // Check if reserved time has passed (only for reserved/in_progress tasks)
-        if ($task->reserved_time && now() > $task->reserved_time) {
+        // Check if reserved time has passed (only for reserved/in_progress tasks, not for rejected tasks being resubmitted)
+        if ($task->task_status !== 'rejected' && $task->reserved_time && now() > $task->reserved_time) {
             $task->update(['task_status' => 'rejected', 'rejected_at' => now()]);
             BotHelper::sendMessage($bot, "متاسفانه زمان رزرو تسک به پایان رسیده است.");
             return;
         }
 
+        // Check if this is a resubmission after rejection
+        $isResubmission = $task->task_status === 'rejected' && $task->rejection_reason;
+        
         // Update task with final link
-        $task->update([
+        $updateData = [
             'final_link' => $link,
             'task_status' => 'pending_approval',
             'task_time' => now(),
-        ]);
+        ];
+        
+        // If this is a resubmission, clear rejection fields
+        if ($isResubmission) {
+            $updateData['rejection_reason'] = null;
+            $updateData['rejected_at'] = null;
+            $updateData['approved_by_chat_id'] = null;
+        }
+        
+        $task->update($updateData);
 
         // Send to approval group
-        $this->sendToApprovalGroup($task, $type);
+        $this->sendToApprovalGroup($task, $type, $isResubmission);
 
         $message = "✅ لینک شما با موفقیت ثبت شد!\n\n";
+        if ($isResubmission) {
+            $message .= "🔄 لینک جدید شما برای بررسی مجدد ارسال شد.\n\n";
+        }
         $message .= "تسک شما در صف تایید قرار گرفت. پس از بررسی، نتیجه به شما اطلاع داده خواهد شد.";
 
         // Add /reserve button to message
@@ -587,7 +645,7 @@ class MissionBotController extends Controller
     /**
      * Send mission to approval group.
      */
-    private function sendMissionToApprovalGroup($mission, $missionPersonnel, $type)
+    private function sendMissionToApprovalGroup($mission, $missionPersonnel, $type, $isResubmission = false)
     {
         $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         if (!$approvalGroupChatId) {
@@ -599,7 +657,12 @@ class MissionBotController extends Controller
         $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
         $bot = new Telegram($token, $type);
 
-        $message = "📋 ماموریت جدید برای تایید:\n\n";
+        if ($isResubmission) {
+            $message = "🔄 ماموریت برای بررسی مجدد (ارسال مجدد لینک):\n\n";
+            $message .= "⚠️ این ماموریت قبلاً رد شده و کاربر لینک جدید ارسال کرده است.\n\n";
+        } else {
+            $message = "📋 ماموریت جدید برای تایید:\n\n";
+        }
         $message .= "شناسه ماموریت: " . $mission->id . "\n";
         $message .= "عنوان: " . $mission->title . "\n";
         $message .= "کاربر: " . $personnel->first_name . " " . $personnel->last_name . "\n";
@@ -620,7 +683,7 @@ class MissionBotController extends Controller
     /**
      * Send task to approval group with complete information
      */
-    private function sendToApprovalGroup($task, $type)
+    private function sendToApprovalGroup($task, $type, $isResubmission = false)
     {
         $approvalGroupChatId = env('MISSION_APPROVAL_GROUP_CHAT_ID');
         if (!$approvalGroupChatId) {
@@ -635,7 +698,12 @@ class MissionBotController extends Controller
         $token = $type == 'bale' ? env('MISSION_BOT_TOKEN_BALE') : env('MISSION_BOT_TOKEN_TELEGRAM');
         $bot = new Telegram($token, $type);
 
-        $message = "📋 تسک جدید برای تایید:\n\n";
+        if ($isResubmission) {
+            $message = "🔄 تسک برای بررسی مجدد (ارسال مجدد لینک):\n\n";
+            $message .= "⚠️ این تسک قبلاً رد شده و کاربر لینک جدید ارسال کرده است.\n\n";
+        } else {
+            $message = "📋 تسک جدید برای تایید:\n\n";
+        }
         $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
         $message .= "📌 اطلاعات تسک:\n";
         $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
@@ -1526,8 +1594,15 @@ class MissionBotController extends Controller
 
         // If mission is pending_approval, send to approval group
         if ($missionPersonnel->status === 'pending_approval') {
-            $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type);
-            BotHelper::sendMessage($bot, "✅ هوش مصنوعی انتخاب شد: " . $ai->name . "\n\nماموریت شما در صف تایید قرار گرفت.");
+            // Check if this is a resubmission (mission was previously rejected)
+            $isResubmission = $missionPersonnel->rejection_reason !== null;
+            $this->sendMissionToApprovalGroup($missionPersonnel->mission, $missionPersonnel, $type, $isResubmission);
+            $message = "✅ هوش مصنوعی انتخاب شد: " . $ai->name . "\n\n";
+            if ($isResubmission) {
+                $message .= "🔄 ماموریت شما برای بررسی مجدد ارسال شد.\n\n";
+            }
+            $message .= "ماموریت شما در صف تایید قرار گرفت.";
+            BotHelper::sendMessage($bot, $message);
         } else {
             BotHelper::sendMessage($bot, "✅ هوش مصنوعی انتخاب شد: " . $ai->name);
         }
