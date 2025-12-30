@@ -19,26 +19,23 @@ class PersonnelPointsStats extends Value
      */
     public function calculate(NovaRequest $request)
     {
-        // Calculate total points from approved tasks in the selected range
-        $taskPoints = $this->sum($request, Task::class, 'points', 'approved_at', function ($query) {
-            return $query->where('task_status', 'approved');
-        });
-
-        // For missions, we'll calculate separately and add to task points
-        // Note: This is a simplified approach. For more complex scenarios, 
-        // we might need to create a custom query builder
-        $taskPointsValue = is_object($taskPoints) ? $taskPoints->value : $taskPoints;
-        
-        // Get the date range from the request
-        $range = $request->range ?? 30;
+        // Get the date range from request
+        $range = $request->input('range', 30);
         $startDate = now()->subDays($range);
         
-        $missionPoints = MissionPersonnel::where('status', 'approved')
+        // Calculate total points from approved tasks in the selected range
+        $taskPoints = Task::where('task_status', 'approved')
             ->where('approved_at', '>=', $startDate)
+            ->sum('points');
+        
+        // Calculate mission points separately to avoid join issues
+        // Use table prefix to avoid ambiguous column error
+        $missionPoints = MissionPersonnel::where('mission_personnel.status', 'approved')
+            ->where('mission_personnel.approved_at', '>=', $startDate)
             ->join('missions', 'mission_personnel.mission_id', '=', 'missions.id')
             ->sum('missions.points');
 
-        $totalPoints = ($taskPointsValue ?? 0) + $missionPoints;
+        $totalPoints = ($taskPoints ?? 0) + ($missionPoints ?? 0);
         
         return $this->result($totalPoints)
             ->format('0,0');

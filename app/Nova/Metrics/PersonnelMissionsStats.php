@@ -17,9 +17,16 @@ class PersonnelMissionsStats extends Value
      */
     public function calculate(NovaRequest $request)
     {
-        return $this->count($request, MissionPersonnel::class, function ($query) {
-            return $query->where('status', 'approved');
-        });
+        // Get the date range from request
+        $range = $request->input('range', 30);
+        $startDate = now()->subDays($range);
+        
+        $count = MissionPersonnel::where('status', 'approved')
+            ->where('approved_at', '>=', $startDate)
+            ->count();
+        
+        return $this->result($count)
+            ->format('0,0');
     }
 
     /**
