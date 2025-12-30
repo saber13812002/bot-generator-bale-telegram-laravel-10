@@ -2,6 +2,14 @@
 
 namespace App\Nova;
 
+use App\Nova\Metrics\NewPersonnel;
+use App\Nova\Metrics\NewPersonnelProgress;
+use App\Nova\Metrics\PersonnelPerDay;
+use App\Nova\Metrics\PersonnelPerRank;
+use App\Nova\Metrics\PersonnelPerTenant;
+use App\Nova\Metrics\PersonnelTasksStats;
+use App\Nova\Metrics\PersonnelMissionsStats;
+use App\Nova\Metrics\PersonnelPointsStats;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\ID;
@@ -90,7 +98,16 @@ class Personnel extends Resource
      */
     public function cards(NovaRequest $request)
     {
-        return [];
+        return [
+            new NewPersonnel,
+            new NewPersonnelProgress,
+            new PersonnelPerDay,
+            new PersonnelPerRank,
+            new PersonnelPerTenant,
+            new PersonnelTasksStats,
+            new PersonnelMissionsStats,
+            new PersonnelPointsStats,
+        ];
     }
 
     /**
