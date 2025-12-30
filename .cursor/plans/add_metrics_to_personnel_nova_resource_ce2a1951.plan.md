@@ -138,8 +138,3 @@ public function cards(NovaRequest $request)
 2. ایجاد Metric های فعالیت (3 فایل)
 3. ویرایش `Personnel.php` برای اضافه کردن Metric ها
 4. تست نمایش Metric ها در Nova dashboard
-
-## نکات مهم
-
-- همه Metric ها باید `uriKey()` منحصر به فرد داشته باشند
-- Cache time برای همه Metric ها 12 ساعت است
