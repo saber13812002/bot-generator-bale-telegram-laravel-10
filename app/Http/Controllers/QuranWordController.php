@@ -288,11 +288,23 @@ class QuranWordController extends Controller
                         } else {
                             QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
                         }
+                        
+                        // Send last activities after fehrest
+                        $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
+                        if (!empty($lastActivitiesMessage)) {
+                            BotHelper::sendMessage($bot, $lastActivitiesMessage);
+                        }
                     } else if ($command == "joz") {
                         if ($type != 'bale') {
                             QuranHelper::generateJozLinksThenSendItTelegram($bot);
                         } else {
                             QuranHelper::generateJozLinksThenSendItBale($bot);
+                        }
+                        
+                        // Send last activities after joz
+                        $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
+                        if (!empty($lastActivitiesMessage)) {
+                            BotHelper::sendMessage($bot, $lastActivitiesMessage);
                         }
                     } else if ($command == "report") {
                         $chatId = $bot->ChatID();

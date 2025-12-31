@@ -109,14 +109,14 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         }
         
         // Last activities section
-        $lastActivities = $this->getLastVerseActivities($chatId);
+        $lastActivities = QuranHelper::getLastVerseActivities($chatId);
         if ($lastActivities->count() > 0) {
             $message .= "\n📚 " . trans("bot.your last activities") . ":\n\n";
             
             $emojiNumbers = ['1️⃣', '2️⃣', '3️⃣'];
             $index = 0;
             foreach ($lastActivities as $activity) {
-                $formattedActivity = $this->formatActivity($activity->text);
+                $formattedActivity = QuranHelper::formatActivity($activity->text);
                 $message .= $emojiNumbers[$index] . " " . $formattedActivity . " (" . $activity->text . ")\n";
                 $index++;
             }
@@ -135,8 +135,8 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
             [$lastSure, $lastAyah] = StringHelper::getSureAyeByRegex($lastActivity->text);
             
             if ($lastSure > 0 && $lastAyah > 0) {
-                $formattedLastActivity = $this->formatActivity($lastActivity->text);
-                $nextCommand = $this->getNextAyahCommand($lastSure, $lastAyah);
+                $formattedLastActivity = QuranHelper::formatActivity($lastActivity->text);
+                $nextCommand = QuranHelper::getNextAyahCommand($lastSure, $lastAyah);
                 
                 $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
                 $message .= "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
@@ -158,107 +158,6 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
      * @param string $chatId
      * @return Collection
      */
-    private function getLastVerseActivities(string $chatId): Collection
-    {
-        try {
-            // Get all command logs first, then filter in PHP for better compatibility
-            $allCommands = BotLog::whereChatId($chatId)
-                ->whereWebhookEndpointUri('webhook-quran-word')
-                ->where('is_command', true)
-                ->orderBy('created_at', 'desc')
-                ->limit(50) // Get more to filter
-                ->get(['text', 'created_at']);
-
-            // Filter by regex pattern
-            $lastActivities = $allCommands->filter(function ($log) {
-                return preg_match('/\/sure[0-9]+ayah[0-9]+/', $log->text);
-            })->take(3);
-
-            return $lastActivities;
-        } catch (\Exception $e) {
-            \Log::error('Error getting last verse activities', [
-                'chat_id' => $chatId,
-                'error' => $e->getMessage()
-            ]);
-            return collect();
-        }
-    }
-
-    /**
-     * Format activity text to readable format
-     * 
-     * @param string $text
-     * @return string
-     */
-    private function formatActivity(string $text): string
-    {
-        try {
-            [$sure, $ayah] = StringHelper::getSureAyeByRegex($text);
-            
-            if ($sure > 0 && $ayah > 0) {
-                return trans("bot.surah number:") . $sure . "، " . trans("bot.ayah") . " " . $ayah;
-            }
-            
-            return $text;
-        } catch (\Exception $e) {
-            \Log::error('Error formatting activity', [
-                'text' => $text,
-                'error' => $e->getMessage()
-            ]);
-            return $text;
-        }
-    }
-
-    /**
-     * Get next ayah command
-     * 
-     * @param int $sure
-     * @param int $ayah
-     * @return string|null
-     */
-    private function getNextAyahCommand(int $sure, int $ayah): ?string
-    {
-        try {
-            [$maxAyah, $arabic] = QuranHelper::getLastAyeBySurehId($sure);
-            
-            // Check if surah exists and has valid max ayah
-            if (!$maxAyah || $maxAyah == 0) {
-                // If surah not found, just increment ayah (fallback)
-                $nextAyah = $ayah + 1;
-                $nextSure = $sure;
-                
-                // If we're at surah 114, wrap to first surah
-                if ($nextSure > 114) {
-                    $nextSure = 1;
-                }
-                
-                return StringHelper::command_template_sure . $nextSure . StringHelper::command_template_ayah . $nextAyah;
-            }
-            
-            $nextAyah = $ayah + 1;
-            $nextSure = $sure;
-            
-            // If current ayah is the last in surah, go to next surah
-            if ($ayah >= $maxAyah) {
-                $nextSure = $sure + 1;
-                $nextAyah = 1;
-                
-                // If we're at the last surah (114), wrap to first surah
-                if ($nextSure > 114) {
-                    $nextSure = 1;
-                }
-            }
-            
-            return StringHelper::command_template_sure . $nextSure . StringHelper::command_template_ayah . $nextAyah;
-        } catch (\Exception $e) {
-            \Log::error('Error getting next ayah command', [
-                'sure' => $sure,
-                'ayah' => $ayah,
-                'error' => $e->getMessage()
-            ]);
-            return null;
-        }
-    }
 
     public function specificUserReport($chatId, $bot = null)
     {
