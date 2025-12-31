@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'Bu gün və dünən oxumadınız',
     'suggested verse from other users today' => 'Bu gün digər istifadəçilərin fəaliyyətindən təklif olunan ayə',
     'start from here' => 'Buradan başlayın',
+    'last activities' => 'Son Fəaliyyətlər',
+    'return to menu' => 'Menyuya Qayıt',
+    'yesterday with users you read rounds' => 'Dünən, :users_count nəfərlə birlikdə, ümumilikdə təxminən :rounds tam Quran dövrü oxudunuz.',
+    'referral statistics message' => 'Son 7 gündə siz və sizin dəvət etdiyiniz :invitees_count nəfər, ümumilikdə :total_ayahs ayə oxudunuz.',
+    'how to invite others' => 'Başqalarını necə dəvət edim?',
+    'just forward this message' => 'Sadəcə bu mesajı yönləndirin!',
+    'invitation message' => 'Salam
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Rə'd surəsinin 28-ci ayəsi)
+Mən və minlərlə istifadəçi Quran Köməkçi Botundan istifadə edirik və müntəzəm Quran təkrarlama, axtarış, təfsirə çıxış, nazil olma səbəbi, istixarə və s. kimi funksiyalara əlavə olaraq, hər gün təxminən 7 dəfə Quran oxuyuruq.
+Sizə də dəvətimə qoşulmağınızı təklif edirəm😊',
+    'accept invitation' => 'Dəvəti Qəbul Et',
+    'copy invitation link' => 'Dəvət Linkini Kopyala',
+    'complete quran rounds' => 'Tam Quran Dövrləri',
+    'invited users' => 'Dəvət Edilən İstifadəçilər',
+    'invited users count' => 'Dəvət Edilən İstifadəçilərin Sayı',
+    'invited users active last 7 days' => 'Son 7 Gündə Aktiv Dəvət Edilən İstifadəçilər',
+    'your invitation link' => 'Dəvət Linkiniz',
+    'error generating invitation link' => 'Dəvət linki yaratmada xəta',
 ];

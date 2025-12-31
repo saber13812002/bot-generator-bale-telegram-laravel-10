@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Models\Bot;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
@@ -1553,3 +1554,68 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 // https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page593.mp3
 // https://quran.com/page/604
 // https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/112.mp3
+
+    /**
+     * ساخت لینک دعوت اختصاصی برای کاربر
+     * 
+     * @param string $chatId
+     * @param string $type (bale یا telegram)
+     * @param string|null $token (اختیاری - برای getMe API)
+     * @return string|null
+     */
+    public static function getInvitationLink(string $chatId, string $type, ?string $token = null): ?string
+    {
+        $botUsername = null;
+        
+        // روش 1: دریافت از دیتابیس
+        if ($type == 'bale') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_BALE");
+            $bot = Bot::where('bale_bot_token', $token)->first();
+            if ($bot && $bot->bale_bot_name) {
+                $botUsername = $bot->bale_bot_name;
+            }
+        } elseif ($type == 'telegram') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+            $bot = Bot::where('telegram_bot_token', $token)->first();
+            if ($bot && $bot->telegram_bot_name) {
+                $botUsername = $bot->telegram_bot_name;
+            }
+        }
+        
+        // روش 2: دریافت از getMe API (اگر در دیتابیس نبود)
+        if (!$botUsername && $token) {
+            $cacheKey = 'bot_username_' . $type . '_' . substr($token, 0, 10);
+            $botUsername = Cache::remember($cacheKey, now()->addHours(24), function () use ($token, $type) {
+                try {
+                    $telegramBot = new Telegram($token, $type == 'bale' ? 'bale' : null);
+                    $getMe = $telegramBot->getMe();
+                    if ($getMe && isset($getMe['ok']) && $getMe['ok'] && isset($getMe['result']['username'])) {
+                        return $getMe['result']['username'];
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Could not get bot username from getMe API', [
+                        'type' => $type,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+                return null;
+            });
+        }
+        
+        if (!$botUsername) {
+            Log::warning('Bot username not found for invitation link', [
+                'chat_id' => $chatId,
+                'type' => $type
+            ]);
+            return null;
+        }
+        
+        // ساخت لینک دعوت
+        if ($type == 'bale') {
+            return "https://ble.ir/{$botUsername}?start={$chatId}";
+        } elseif ($type == 'telegram') {
+            return "https://t.me/{$botUsername}?start={$chatId}";
+        }
+        
+        return null;
+    }

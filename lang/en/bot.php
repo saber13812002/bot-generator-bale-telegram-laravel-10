@@ -178,4 +178,22 @@ return [
     'you had no reading today and yesterday' => 'You had no reading today and yesterday',
     'suggested verse from other users today' => 'Suggested verse from other users\' activities today',
     'start from here' => 'Start from here',
+    'last activities' => 'Last Activities',
+    'return to menu' => 'Return to Menu',
+    'yesterday with users you read rounds' => 'Yesterday, along with :users_count people, you collectively recited about :rounds complete rounds of the Quran.',
+    'referral statistics message' => 'Over the past 7 days, you and :invitees_count people invited by you, collectively recited :total_ayahs verses.',
+    'how to invite others' => 'How do I invite others?',
+    'just forward this message' => 'Just forward this message!',
+    'invitation message' => 'Hello
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Verse 28 of Surah Ra\'d)
+I and several thousand users use the Quran Assistant Bot, and in addition to features like helping with regular Quran review, search, access to interpretation, revelation context, istikhara, and more, we collectively recite the Quran about 7 times a day together.
+I suggest you also accept my invitation😊',
+    'accept invitation' => 'Accept Invitation',
+    'copy invitation link' => 'Copy Invitation Link',
+    'complete quran rounds' => 'Complete Quran Rounds',
+    'invited users' => 'Invited Users',
+    'invited users count' => 'Invited Users Count',
+    'invited users active last 7 days' => 'Invited Users Active Last 7 Days',
+    'your invitation link' => 'Your Invitation Link',
+    'error generating invitation link' => 'Error generating invitation link',
 ];

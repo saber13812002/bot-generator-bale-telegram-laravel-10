@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'Sie haben heute und gestern nicht gelesen',
     'suggested verse from other users today' => 'Vorgeschlagener Vers aus den Aktivitäten anderer Benutzer heute',
     'start from here' => 'Von hier aus beginnen',
+    'last activities' => 'Letzte Aktivitäten',
+    'return to menu' => 'Zurück zum Menü',
+    'yesterday with users you read rounds' => 'Gestern haben Sie zusammen mit :users_count Personen insgesamt etwa :rounds vollständige Runden des Korans rezitiert.',
+    'referral statistics message' => 'In den letzten 7 Tagen haben Sie und :invitees_count von Ihnen eingeladene Personen insgesamt :total_ayahs Verse rezitiert.',
+    'how to invite others' => 'Wie lade ich andere ein?',
+    'just forward this message' => 'Leiten Sie einfach diese Nachricht weiter!',
+    'invitation message' => 'Hallo
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Vers 28 der Sure Ra\'d)
+Ich und mehrere tausend Benutzer nutzen den Koran-Assistenten-Bot, und zusätzlich zu Funktionen wie Hilfe bei regelmäßiger Koran-Rezension, Suche, Zugang zu Interpretation, Offenbarungskontext, Istikhara und mehr, rezitieren wir den Koran gemeinsam etwa 7 Mal täglich.
+Ich schlage vor, dass Sie auch meine Einladung annehmen😊',
+    'accept invitation' => 'Einladung Annehmen',
+    'copy invitation link' => 'Einladungslink Kopieren',
+    'complete quran rounds' => 'Vollständige Koran-Runden',
+    'invited users' => 'Eingeladene Benutzer',
+    'invited users count' => 'Anzahl Eingeladener Benutzer',
+    'invited users active last 7 days' => 'Aktive Eingeladene Benutzer in den Letzten 7 Tagen',
+    'your invitation link' => 'Ihr Einladungslink',
+    'error generating invitation link' => 'Fehler beim Generieren des Einladungslinks',
 ];

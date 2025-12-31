@@ -161,4 +161,22 @@ return [
     'you had no reading today and yesterday' => '您今天和昨天都没有阅读',
     'suggested verse from other users today' => '今天其他用户活动中的推荐经文',
     'start from here' => '从这里开始',
+    'last activities' => '最近活动',
+    'return to menu' => '返回菜单',
+    'yesterday with users you read rounds' => '昨天，您与 :users_count 人一起，总共诵读约 :rounds 轮完整的古兰经。',
+    'referral statistics message' => '在过去7天中，您和您邀请的 :invitees_count 人总共诵读 :total_ayahs 节经文。',
+    'how to invite others' => '如何邀请他人？',
+    'just forward this message' => '只需转发此消息！',
+    'invitation message' => '你好
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (雷霆章第28节)
+我和数千名用户使用古兰经助手机器人，除了帮助定期复习古兰经、搜索、访问注释、启示背景、占卜等功能外，我们每天一起诵读古兰经约7次。
+我建议您也接受我的邀请😊',
+    'accept invitation' => '接受邀请',
+    'copy invitation link' => '复制邀请链接',
+    'complete quran rounds' => '完整的古兰经轮次',
+    'invited users' => '被邀请的用户',
+    'invited users count' => '被邀请用户数量',
+    'invited users active last 7 days' => '过去7天活跃的被邀请用户',
+    'your invitation link' => '您的邀请链接',
+    'error generating invitation link' => '生成邀请链接时出错',
 ];

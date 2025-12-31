@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'Vous n\'avez pas lu aujourd\'hui ni hier',
     'suggested verse from other users today' => 'Verset suggéré des activités d\'autres utilisateurs aujourd\'hui',
     'start from here' => 'Commencez d\'ici',
+    'last activities' => 'Dernières Activités',
+    'return to menu' => 'Retour au Menu',
+    'yesterday with users you read rounds' => 'Hier, avec :users_count personnes, vous avez collectivement récité environ :rounds tours complets du Coran.',
+    'referral statistics message' => 'Au cours des 7 derniers jours, vous et :invitees_count personnes que vous avez invitées, avez collectivement récité :total_ayahs versets.',
+    'how to invite others' => 'Comment inviter les autres?',
+    'just forward this message' => 'Il suffit de transférer ce message!',
+    'invitation message' => 'Bonjour
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Verset 28 de la Sourate Ra\'d)
+Moi et plusieurs milliers d\'utilisateurs utilisons le Bot Assistant du Coran, et en plus de fonctionnalités comme l\'aide à la révision régulière du Coran, la recherche, l\'accès à l\'interprétation, le contexte de révélation, l\'istikhara et plus encore, nous récitons le Coran ensemble environ 7 fois par jour.
+Je vous suggère d\'accepter également mon invitation😊',
+    'accept invitation' => 'Accepter l\'Invitation',
+    'copy invitation link' => 'Copier le Lien d\'Invitation',
+    'complete quran rounds' => 'Tours Complets du Coran',
+    'invited users' => 'Utilisateurs Invités',
+    'invited users count' => 'Nombre d\'Utilisateurs Invités',
+    'invited users active last 7 days' => 'Utilisateurs Invités Actifs au Cours des 7 Derniers Jours',
+    'your invitation link' => 'Votre Lien d\'Invitation',
+    'error generating invitation link' => 'Erreur lors de la génération du lien d\'invitation',
 ];

@@ -8,8 +8,10 @@ use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
+use App\Models\BotUsers;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Telegram;
 
 class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
@@ -345,5 +347,124 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         }
 
         return 0;
+    }
+
+    /**
+     * محاسبه آمار روزانه (روز گذشته)
+     * 
+     * @return array
+     */
+    public function getDailyStatistics(): array
+    {
+        $cacheKey = 'daily_quran_stats_' . Carbon::yesterday()->format('Y-m-d');
+        
+        return Cache::remember($cacheKey, Carbon::now()->addHours(24), function () {
+            $yesterday = Carbon::yesterday()->startOfDay();
+            $today = Carbon::today()->startOfDay();
+            
+            $totalAyahs = BotLog::where('created_at', '>=', $yesterday)
+                ->where('created_at', '<', $today)
+                ->whereWebhookEndpointUri('webhook-quran-word')
+                ->where('is_command', true)
+                ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+                ->count();
+            
+            $uniqueUsers = BotLog::where('created_at', '>=', $yesterday)
+                ->where('created_at', '<', $today)
+                ->whereWebhookEndpointUri('webhook-quran-word')
+                ->where('is_command', true)
+                ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+                ->distinct('chat_id')
+                ->count('chat_id');
+            
+            $completeRounds = floor($totalAyahs / 6236);
+            
+            return [
+                'total_ayahs' => $totalAyahs,
+                'unique_users' => $uniqueUsers,
+                'complete_rounds' => $completeRounds,
+            ];
+        });
+    }
+
+    /**
+     * محاسبه آمار دعوت‌شدگان یک کاربر
+     * 
+     * @param string $chatId
+     * @return array
+     */
+    public function getReferralStatistics(string $chatId): array
+    {
+        $invitees = BotUsers::where('invited_by', $chatId)->pluck('chat_id');
+        
+        $totalInvitees = $invitees->count();
+        
+        // دعوت‌شدگان فعال در 7 روز گذشته
+        $activeInviteesLast7Days = BotLog::whereIn('chat_id', $invitees)
+            ->where('created_at', '>=', Carbon::now()->subDays(7))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->where('is_command', true)
+            ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+            ->distinct('chat_id')
+            ->count('chat_id');
+        
+        // تعداد آیات خوانده شده توسط دعوت‌شدگان در 7 روز گذشته
+        $inviteesAyahsLast7Days = BotLog::whereIn('chat_id', $invitees)
+            ->where('created_at', '>=', Carbon::now()->subDays(7))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->where('is_command', true)
+            ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+            ->count();
+        
+        // تعداد آیات خوانده شده توسط خود کاربر در 7 روز گذشته
+        $userAyahsLast7Days = BotLog::where('chat_id', $chatId)
+            ->where('created_at', '>=', Carbon::now()->subDays(7))
+            ->whereWebhookEndpointUri('webhook-quran-word')
+            ->where('is_command', true)
+            ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+            ->count();
+        
+        return [
+            'total_invitees' => $totalInvitees,
+            'active_invitees_last_7_days' => $activeInviteesLast7Days,
+            'invitees_ayahs_last_7_days' => $inviteesAyahsLast7Days,
+            'user_ayahs_last_7_days' => $userAyahsLast7Days,
+            'total_ayahs_last_7_days' => $inviteesAyahsLast7Days + $userAyahsLast7Days,
+        ];
+    }
+
+    /**
+     * ساخت پیام آماری روز گذشته
+     * 
+     * @return string
+     */
+    public function getDailyStatisticsMessage(): string
+    {
+        $stats = $this->getDailyStatistics();
+        
+        $message = trans("bot.yesterday with users you read rounds", [
+            'users_count' => $stats['unique_users'],
+            'rounds' => $stats['complete_rounds']
+        ]);
+        
+        return $message;
+    }
+
+    /**
+     * ساخت پیام آمار دعوت‌شدگان
+     * 
+     * @param string $chatId
+     * @return string
+     */
+    public function getReferralStatisticsMessage(string $chatId): string
+    {
+        $stats = $this->getReferralStatistics($chatId);
+        
+        $message = trans("bot.referral statistics message", [
+            'invitees_count' => $stats['active_invitees_last_7_days'],
+            'total_ayahs' => $stats['total_ayahs_last_7_days']
+        ]);
+        
+        return $message;
     }
 }

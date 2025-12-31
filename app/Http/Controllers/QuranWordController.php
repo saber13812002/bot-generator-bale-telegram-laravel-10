@@ -87,8 +87,43 @@ class QuranWordController extends Controller
                 }
 
                 $userSettings = null;
-                if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
+                if ($bot->ChatID() && $request->input('bot_mother_id') && $type) {
                     $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+                    
+                    // پردازش پارامتر دعوت در دستور /start
+                    $botText = $bot->Text();
+                    if (str_starts_with($botText, '/start')) {
+                        // بررسی پارامتر دعوت: /start 123456 یا /start?start=123456
+                        $referralCode = null;
+                        
+                        // روش 1: /start 123456 (مستقیم)
+                        if (preg_match('/^\/start\s+(\d+)$/i', $botText, $matches)) {
+                            $referralCode = $matches[1];
+                        }
+                        // روش 2: /start?start=123456 (از لینک)
+                        elseif (str_contains($botText, '?')) {
+                            [$command, $params] = BotHelper::getCommandRefferralWhenStart($botText, '?');
+                            if (isset($params['start'])) {
+                                $referralCode = $params['start'];
+                            }
+                        }
+                        
+                        // ذخیره invited_by اگر پارامتر وجود داشت و کاربر قبلاً invited_by نداشت
+                        if ($referralCode && !$userSettings->invited_by) {
+                            // بررسی اینکه referralCode با chat_id خود کاربر متفاوت باشد
+                            if ($referralCode != $bot->ChatID()) {
+                                $userSettings->invited_by = $referralCode;
+                                $userSettings->save();
+                                
+                                Log::info('Referral code saved', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'invited_by' => $referralCode,
+                                    'type' => $type
+                                ]);
+                            }
+                        }
+                    }
+                }
 
 
                 $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
@@ -339,6 +374,48 @@ class QuranWordController extends Controller
                             $lastActivitiesMessage = "📚 " . trans("bot.your last activities") . "\n\n" . trans("bot.no activities found");
                         }
                         QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
+                    } else if ($command == "invite" || $command == "دعوت") {
+                        // دستور دعوت
+                        $chatId = $bot->ChatID();
+                        $invitationLink = QuranHelper::getInvitationLink($chatId, $type, $token);
+                        
+                        if (!$invitationLink) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.error generating invitation link"));
+                            return 0;
+                        }
+                        
+                        // پیام دعوت
+                        $message = trans("bot.invitation message") . "\n\n";
+                        $message .= "🔗 " . trans("bot.your invitation link") . ":\n";
+                        $message .= $invitationLink . "\n\n";
+                        $message .= "💡 " . trans("bot.how to invite others") . " 🤔\n";
+                        $message .= trans("bot.just forward this message") . " ⨁👉\n\n";
+                        
+                        // آمار دعوت‌شدگان (اگر وجود داشته باشد)
+                        $referralStats = $this->quranBotUserRankingService->getReferralStatistics($chatId);
+                        if ($referralStats['total_invitees'] > 0) {
+                            $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                            $message .= $this->quranBotUserRankingService->getReferralStatisticsMessage($chatId) . "\n";
+                        }
+                        
+                        // دکمه‌ها
+                        $buttonText = trans('bot.copy invitation link');
+                        $buttonCallback = 'copy_invite_link_' . $chatId;
+                        
+                        if ($type == 'telegram') {
+                            $buttons = [[
+                                'text' => $buttonText,
+                                'callback_data' => $buttonCallback
+                            ]];
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $buttons);
+                        } else {
+                            // برای Bale
+                            $buttonArray = [[$buttonText, $buttonCallback]];
+                            $inlineKeyboard = $bot->buildInlineKeyBoard([[
+                                $bot->buildInlineKeyBoardButton($buttonText, callback_data: $buttonCallback)
+                            ]]);
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                        }
                     }
 
                     $subCommand = substr($command, 0, strpos($command, "_"));

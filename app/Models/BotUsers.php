@@ -79,4 +79,22 @@ class BotUsers extends Model
 
         return $user;
     }
+
+    /**
+     * Relationship: کاربری که این کاربر را دعوت کرده است
+     */
+    public function inviter()
+    {
+        return $this->belongsTo(BotUsers::class, 'invited_by', 'chat_id')
+            ->where('origin', $this->origin);
+    }
+
+    /**
+     * Relationship: کاربرانی که این کاربر دعوت کرده است
+     */
+    public function invitees()
+    {
+        return $this->hasMany(BotUsers::class, 'invited_by', 'chat_id')
+            ->where('origin', $this->origin);
+    }
 }

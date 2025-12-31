@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'آپ نے آج اور کل نہیں پڑھا',
     'suggested verse from other users today' => 'آج دوسرے صارفین کی سرگرمیوں سے تجویز کردہ آیت',
     'start from here' => 'یہاں سے شروع کریں',
+    'last activities' => 'آخری سرگرمیاں',
+    'return to menu' => 'مینو پر واپس جائیں',
+    'yesterday with users you read rounds' => 'کل، :users_count لوگوں کے ساتھ، آپ نے مجموعی طور پر تقریباً :rounds مکمل قرآن کے دور پڑھے۔',
+    'referral statistics message' => 'پچھلے 7 دنوں میں، آپ اور آپ کے ذریعے مدعو کیے گئے :invitees_count افراد نے مجموعی طور پر :total_ayahs آیات پڑھیں۔',
+    'how to invite others' => 'میں دوسروں کو کیسے دعوت دوں؟',
+    'just forward this message' => 'بس اس پیغام کو آگے بھیجیں!',
+    'invitation message' => 'السلام علیکم
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (سورہ رعد کی آیت 28)
+میں اور کئی ہزار صارفین قرآن اسسٹنٹ بوٹ استعمال کرتے ہیں، اور باقاعدہ قرآن کی نظر ثانی، تلاش، تفسیر تک رسائی، نزول کا سیاق، استخارہ اور مزید جیسی خصوصیات کے علاوہ، ہم روزانہ تقریباً 7 بار مل کر قرآن پڑھتے ہیں۔
+میں آپ کو بھی اپنی دعوت قبول کرنے کی تجویز دیتا ہوں😊',
+    'accept invitation' => 'دعوت قبول کریں',
+    'copy invitation link' => 'دعوت کا لنک کاپی کریں',
+    'complete quran rounds' => 'مکمل قرآن کے دور',
+    'invited users' => 'مدعو صارفین',
+    'invited users count' => 'مدعو صارفین کی تعداد',
+    'invited users active last 7 days' => 'پچھلے 7 دنوں میں فعال مدعو صارفین',
+    'your invitation link' => 'آپ کا دعوت کا لنک',
+    'error generating invitation link' => 'دعوت کا لنک بنانے میں خرابی',
 ];

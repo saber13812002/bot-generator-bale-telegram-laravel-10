@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'Niste čitali danas ni jučer',
     'suggested verse from other users today' => 'Predloženi ajet iz aktivnosti drugih korisnika danas',
     'start from here' => 'Počnite odavde',
+    'last activities' => 'Posljednje Aktivnosti',
+    'return to menu' => 'Povratak na Meni',
+    'yesterday with users you read rounds' => 'Jučer, zajedno sa :users_count ljudi, kolektivno ste pročitali oko :rounds kompletnih krugova Kur\'ana.',
+    'referral statistics message' => 'Tokom posljednjih 7 dana, vi i :invitees_count osoba koje ste pozvali, kolektivno ste pročitali :total_ayahs ajeta.',
+    'how to invite others' => 'Kako da pozovem druge?',
+    'just forward this message' => 'Samo prosledite ovu poruku!',
+    'invitation message' => 'Zdravo
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Ajat 28 iz sure Ra\'d)
+Ja i nekoliko hiljada korisnika koristimo Kur\'anski Asistent Bot, i pored funkcija kao što je pomoć u redovnoj reviziji Kur\'ana, pretraga, pristup tumačenju, razlog objave, istihara i više, kolektivno čitamo Kur\'an oko 7 puta dnevno zajedno.
+Predlažem vam da takođe prihvatite moj poziv😊',
+    'accept invitation' => 'Prihvati Poziv',
+    'copy invitation link' => 'Kopiraj Link za Poziv',
+    'complete quran rounds' => 'Kompletni Krugovi Kur\'ana',
+    'invited users' => 'Pozvani Korisnici',
+    'invited users count' => 'Broj Pozvanih Korisnika',
+    'invited users active last 7 days' => 'Aktivni Pozvani Korisnici u Posljednjih 7 Dana',
+    'your invitation link' => 'Vaš Link za Poziv',
+    'error generating invitation link' => 'Greška pri generisanju linka za poziv',
 ];

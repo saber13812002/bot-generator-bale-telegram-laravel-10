@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'לא קראת היום ולא אתמול',
     'suggested verse from other users today' => 'איה מוצע מפעילויות משתמשים אחרים היום',
     'start from here' => 'התחל מכאן',
+    'last activities' => 'פעילויות אחרונות',
+    'return to menu' => 'חזרה לתפריט',
+    'yesterday with users you read rounds' => 'אתמול, יחד עם :users_count אנשים, קראתם יחד בערך :rounds סיבובים מלאים של הקוראן.',
+    'referral statistics message' => 'במהלך 7 הימים האחרונים, אתה ו-:invitees_count אנשים שהזמנת, קראתם יחד :total_ayahs פסוקים.',
+    'how to invite others' => 'איך אני מזמין אחרים?',
+    'just forward this message' => 'פשוט העבר את ההודעה הזו!',
+    'invitation message' => 'שלום
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (פסוק 28 מסורת רעד)
+אני וכמה אלפי משתמשים משתמשים בבוט עוזר הקוראן, ובנוסף לתכונות כמו עזרה בסקירה קבועה של הקוראן, חיפוש, גישה לפרשנות, הקשר התגלות, איסטיחרה ועוד, אנו קוראים את הקוראן יחד בערך 7 פעמים ביום.
+אני מציע לך גם לקבל את ההזמנה שלי😊',
+    'accept invitation' => 'קבל הזמנה',
+    'copy invitation link' => 'העתק קישור הזמנה',
+    'complete quran rounds' => 'סיבובים מלאים של הקוראן',
+    'invited users' => 'משתמשים שהוזמנו',
+    'invited users count' => 'מספר משתמשים שהוזמנו',
+    'invited users active last 7 days' => 'משתמשים שהוזמנו פעילים ב-7 הימים האחרונים',
+    'your invitation link' => 'קישור ההזמנה שלך',
+    'error generating invitation link' => 'שגיאה ביצירת קישור הזמנה',
 ];

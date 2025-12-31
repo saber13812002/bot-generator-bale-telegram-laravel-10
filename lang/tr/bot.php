@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'Bugün ve dün okumadınız',
     'suggested verse from other users today' => 'Bugün diğer kullanıcıların etkinliklerinden önerilen ayet',
     'start from here' => 'Buradan başlayın',
+    'last activities' => 'Son Aktiviteler',
+    'return to menu' => 'Menüye Dön',
+    'yesterday with users you read rounds' => 'Dün, :users_count kişiyle birlikte, toplu olarak yaklaşık :rounds tam Kur\'an turu okudunuz.',
+    'referral statistics message' => 'Son 7 gün içinde, siz ve davet ettiğiniz :invitees_count kişi, toplu olarak :total_ayahs ayet okudunuz.',
+    'how to invite others' => 'Başkalarını nasıl davet ederim?',
+    'just forward this message' => 'Sadece bu mesajı iletin!',
+    'invitation message' => 'Merhaba
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (Ra\'d Suresi 28. Ayet)
+Ben ve binlerce kullanıcı Kur\'an Asistan Botunu kullanıyoruz ve düzenli Kur\'an tekrarı, arama, tefsire erişim, iniş bağlamı, istihare ve daha fazlası gibi özelliklere ek olarak, günde yaklaşık 7 kez birlikte Kur\'an okuyoruz.
+Sana da davetimi kabul etmeni öneriyorum😊',
+    'accept invitation' => 'Daveti Kabul Et',
+    'copy invitation link' => 'Davet Bağlantısını Kopyala',
+    'complete quran rounds' => 'Tam Kur\'an Turları',
+    'invited users' => 'Davet Edilen Kullanıcılar',
+    'invited users count' => 'Davet Edilen Kullanıcı Sayısı',
+    'invited users active last 7 days' => 'Son 7 Günde Aktif Davet Edilen Kullanıcılar',
+    'your invitation link' => 'Davet Bağlantınız',
+    'error generating invitation link' => 'Davet bağlantısı oluşturulurken hata',
 ];

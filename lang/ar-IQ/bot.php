@@ -158,4 +158,22 @@ return [
     'you had no reading today and yesterday' => 'لم تقرأ اليوم ولا أمس',
     'suggested verse from other users today' => 'آية مقترحة من أنشطة المستخدمين الآخرين اليوم',
     'start from here' => 'ابدأ من هنا',
+    'last activities' => 'آخر الأنشطة',
+    'return to menu' => 'العودة إلى القائمة',
+    'yesterday with users you read rounds' => 'في اليوم السابق، مع :users_count شخص، قرأتم معاً حوالي :rounds دور كامل من القرآن.',
+    'referral statistics message' => 'خلال الأيام السبعة الماضية، أنت و :invitees_count شخص دعوتهم، قرأتم معاً :total_ayahs آية.',
+    'how to invite others' => 'كيف أدعو الآخرين؟',
+    'just forward this message' => 'فقط أعد توجيه هذه الرسالة!',
+    'invitation message' => 'السلام عليكم
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (الآية 28 من سورة الرعد)
+أنا والعديد من المستخدمين نستخدم مساعد القرآن، وبالإضافة إلى ميزات مثل المساعدة في مراجعة القرآن بانتظام، البحث، الوصول إلى التفسير، سبب النزول، الاستخارة وغيرها، نقرأ القرآن معاً حوالي 7 مرات يومياً.
+أقترح عليك أن تقبل دعوتي أيضاً😊',
+    'accept invitation' => 'قبول الدعوة',
+    'copy invitation link' => 'نسخ رابط الدعوة',
+    'complete quran rounds' => 'دور كامل من القرآن',
+    'invited users' => 'المستخدمون المدعوون',
+    'invited users count' => 'عدد المستخدمين المدعوين',
+    'invited users active last 7 days' => 'المستخدمون المدعوون النشطون في آخر 7 أيام',
+    'your invitation link' => 'رابط دعوتك',
+    'error generating invitation link' => 'خطأ في إنشاء رابط الدعوة',
 ];

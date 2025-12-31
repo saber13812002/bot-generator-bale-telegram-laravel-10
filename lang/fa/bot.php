@@ -163,4 +163,20 @@ return [
     'start from here' => 'از اینجا شروع کنید',
     'last activities' => 'آخرین فعالیت‌ها',
     'return to menu' => 'بازگشت به فهرست',
+    'yesterday with users you read rounds' => 'در روز گذشته به همراه :users_count نفر، مجموعاً حدود :rounds دور کامل قرآن رو قرائت کرده‌اید.',
+    'referral statistics message' => 'طی ۷ روز گذشته شما و :invitees_count فرد دعوت‌شده توسط شما، مجموعاً :total_ayahs آیه رو قرائت کرده‌اید.',
+    'how to invite others' => 'چطوری از دیگران دعوت کنم؟',
+    'just forward this message' => 'کافیه همین پیام رو فوروارد کنین!',
+    'invitation message' => 'سلام
+أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ (آیه ۲۸ سوره‌ی رعد)
+من و چند هزار کاربر از بازوی دستیار قرآنی استفاده می‌کنیم و علاوه بر امکاناتی مثل کمک به مرور منظم قرآن، جستجو، دسترسی به تفسیر، شان نزول، استخاره و ... هر روز در کنار هم حدوداً ۷ بار قرآن را قرائت می‌کنیم.
+پیشنهاد می‌کنم شما هم به دعوتم لبیک بگی😊',
+    'accept invitation' => 'لبیک به دعوت',
+    'copy invitation link' => 'رونوشت لینک اختصاصی',
+    'complete quran rounds' => 'دور کامل قرآن',
+    'invited users' => 'کاربران دعوت‌شده',
+    'invited users count' => 'تعداد کاربران دعوت‌شده',
+    'invited users active last 7 days' => 'کاربران دعوت‌شده فعال در 7 روز گذشته',
+    'your invitation link' => 'لینک دعوت شما',
+    'error generating invitation link' => 'خطا در ساخت لینک دعوت',
 ];

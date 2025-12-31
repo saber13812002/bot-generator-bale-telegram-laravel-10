@@ -650,6 +650,30 @@ class BotHelper
     }
 
     /**
+     * Send inline keyboard message with custom buttons array
+     * 
+     * @param Telegram $messenger
+     * @param string $message
+     * @param array $buttons Array of button arrays: [['text' => 'Button 1', 'callback_data' => 'data1'], ...]
+     * @return void
+     */
+    public static function sendTelegramInlineMessageWithButtons(Telegram $messenger, string $message, array $buttons): void
+    {
+        $option = [];
+        foreach ($buttons as $button) {
+            $option[] = [
+                $messenger->buildInlineKeyBoardButton(
+                    $button['text'],
+                    callback_data: $button['callback_data'] ?? '',
+                    url: $button['url'] ?? ''
+                )
+            ];
+        }
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
+    }
+
+    /**
      * @throws Exception
      */
     private static function defineCreateBot(Telegram $messenger, $getMe, $type, $botMotherId): Bot
