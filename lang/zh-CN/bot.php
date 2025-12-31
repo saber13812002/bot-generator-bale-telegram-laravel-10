@@ -149,4 +149,13 @@ return [
     'the last verse you were reading' => '您最后阅读的经文',
     'continue' => '继续',
     'you have completed the quran' => '您已完成古兰经！',
+    'this command not work in telegram' => '此命令在 Telegram 中不起作用',
+    'you are not admin' => '您不是管理员',
+    'statistics report' => '古兰经机器人统计报告',
+    'daily statistics' => '每日统计',
+    'weekly statistics' => '每周统计',
+    'monthly statistics' => '每月统计',
+    'yearly statistics' => '每年统计',
+    'total ayah' => '总经文数',
+    'unique users' => '唯一用户',
 ];

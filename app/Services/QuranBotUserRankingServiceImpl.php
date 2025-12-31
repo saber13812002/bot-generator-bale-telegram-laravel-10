@@ -351,32 +351,36 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
 
         $postfix_local = env('APP_ENV');
 
-        $message = trans("bot.today usage of this bot") . $count_daily . trans("bot.ayah") . "
-" . trans("bot.unique users of todays statistics") . ":" . $count_unique_daily . "
-
-" . trans("bot.number of ayah in last week by all users") . ":" . $count_weekly . "
-" . trans("bot.unique users in last week") . ":" . $count_unique_weekly . "
-
-" . trans("bot.number of ayah in last month by all users") . ":" . $count_monthly . "
-" . trans("bot.unique users in last month") . ":" . $count_unique_monthly . "
-
-" . trans("bot.number of ayah in last year by all users") . ":" . $count_yearly . "
-" . trans("bot.unique users in last year") . ":" . $count_unique_yearly . "
-
-" . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
-
-" . trans("bot.please help us to promote this bot to other people") . "
-
-اللهم صل علی محمد و آل محمد و عجل فرجهم
-
-استغفر الله ربی و اتوب الیه
-
-" . trans("bot.to send your daily activity report please try it with this command") . "
-
-👇 👇 👇 👇 👇
-" . ($type == 'bale' ? "/report [/report](send:/report)
-" : "/report
-");
+        $message = "📊 " . trans("bot.statistics report") . "\n\n";
+        
+        $message .= "📅 " . trans("bot.daily statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_daily . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_daily . "\n\n";
+        
+        $message .= "📆 " . trans("bot.weekly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_weekly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_weekly . "\n\n";
+        
+        $message .= "📆 " . trans("bot.monthly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_monthly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_monthly . "\n\n";
+        
+        $message .= "📆 " . trans("bot.yearly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_yearly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_yearly . "\n\n";
+        
+        if ($postfix_local != "production") {
+            $message .= "🔧 env: " . $postfix_local . "\n\n";
+        }
+        
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "💬 " . trans("bot.please help us to promote this bot to other people") . "\n\n";
+        $message .= "اللهم صل علی محمد و آل محمد و عجل فرجهم\n\n";
+        $message .= "استغفر الله ربی و اتوب الیه\n\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "📝 " . trans("bot.to send your daily activity report please try it with this command") . "\n\n";
+        $message .= "👇 👇 👇 👇 👇\n";
+        $message .= ($type == 'bale' ? "/report [/report](send:/report)\n" : "/report\n");
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');

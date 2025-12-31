@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'הפסוק האחרון שקראת',
     'continue' => 'המשך',
     'you have completed the quran' => 'סיימת את הקוראן!',
+    'this command not work in telegram' => 'פקודה זו לא עובדת בטלגרם',
+    'you are not admin' => 'אתה לא מנהל',
+    'statistics report' => 'דוח סטטיסטיקות בוט הקוראן',
+    'daily statistics' => 'סטטיסטיקות יומיות',
+    'weekly statistics' => 'סטטיסטיקות שבועיות',
+    'monthly statistics' => 'סטטיסטיקות חודשיות',
+    'yearly statistics' => 'סטטיסטיקות שנתיות',
+    'total ayah' => 'סה"כ איה',
+    'unique users' => 'משתמשים ייחודיים',
 ];

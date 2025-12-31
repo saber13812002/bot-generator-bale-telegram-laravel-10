@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'Der letzte Vers, den Sie gelesen haben',
     'continue' => 'Weiter',
     'you have completed the quran' => 'Sie haben den Quran abgeschlossen!',
+    'this command not work in telegram' => 'Dieser Befehl funktioniert nicht in Telegram',
+    'you are not admin' => 'Sie sind kein Administrator',
+    'statistics report' => 'Quran-Bot Statistikbericht',
+    'daily statistics' => 'Tagesstatistik',
+    'weekly statistics' => 'Wochenstatistik',
+    'monthly statistics' => 'Monatsstatistik',
+    'yearly statistics' => 'Jahresstatistik',
+    'total ayah' => 'Gesamt Ayah',
+    'unique users' => 'Eindeutige Benutzer',
 ];

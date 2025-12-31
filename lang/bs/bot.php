@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'Posljednji ajet koji ste čitali',
     'continue' => 'Nastavi',
     'you have completed the quran' => 'Završili ste Kur\'an!',
+    'this command not work in telegram' => 'Ova komanda ne radi u Telegramu',
+    'you are not admin' => 'Vi niste administrator',
+    'statistics report' => 'Izvještaj statistike Kur\'anskog bota',
+    'daily statistics' => 'Dnevna statistika',
+    'weekly statistics' => 'Sedmična statistika',
+    'monthly statistics' => 'Mjesečna statistika',
+    'yearly statistics' => 'Godišnja statistika',
+    'total ayah' => 'Ukupno ajeta',
+    'unique users' => 'Jedinstveni korisnici',
 ];

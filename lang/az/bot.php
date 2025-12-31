@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'Oxuduğunuz son ayə',
     'continue' => 'Davam et',
     'you have completed the quran' => 'Quranı tamamladınız!',
+    'this command not work in telegram' => 'Bu əmr Telegram-da işləmir',
+    'you are not admin' => 'Siz administrator deyilsiniz',
+    'statistics report' => 'Quran Bot Statistikası Hesabatı',
+    'daily statistics' => 'Günlük Statistikalar',
+    'weekly statistics' => 'Həftəlik Statistikalar',
+    'monthly statistics' => 'Aylıq Statistikalar',
+    'yearly statistics' => 'İllik Statistikalar',
+    'total ayah' => 'Ümumi Ayə',
+    'unique users' => 'Unikal İstifadəçilər',
 ];

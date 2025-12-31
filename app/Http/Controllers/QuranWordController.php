@@ -303,12 +303,12 @@ class QuranWordController extends Controller
                         BotHelper::sendMessageToSuperAdmin($message, $type);
                     } else if ($command == "reportall") {
                         if ($type == 'telegram') {
-                            BotHelper::sendMessage($bot, "this command not work in telegram");
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.this command not work in telegram"));
                         } else {
                             if (AdminHelper::isAdmin($bot->ChatID())) {
                                 $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
                             } else {
-                                BotHelper::sendMessage($bot, "you are not admin");
+                                BotHelper::sendMessage($bot, "🚫 " . trans("bot.you are not admin"));
                             }
                         }
                     } else if ($command == "listcommands" || $command == "help") {

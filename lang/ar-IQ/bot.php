@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'آخر آية كنت تقرأها',
     'continue' => 'تابع',
     'you have completed the quran' => 'لقد أكملت القرآن!',
+    'this command not work in telegram' => 'هذا الأمر لا يعمل في تيليجرام',
+    'you are not admin' => 'أنت لست مسؤولاً',
+    'statistics report' => 'تقرير إحصائيات روبوت القرآن',
+    'daily statistics' => 'إحصائيات يومية',
+    'weekly statistics' => 'إحصائيات أسبوعية',
+    'monthly statistics' => 'إحصائيات شهرية',
+    'yearly statistics' => 'إحصائيات سنوية',
+    'total ayah' => 'إجمالي الآيات',
+    'unique users' => 'مستخدمون فريدون',
 ];

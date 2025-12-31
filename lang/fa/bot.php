@@ -149,4 +149,13 @@ return [
     'the last verse you were reading' => 'آخرین آیه‌ای که می‌خوندی',
     'continue' => 'ادامه بده',
     'you have completed the quran' => 'شما قرآن را به پایان رساندید!',
+    'this command not work in telegram' => 'این دستور در تلگرام کار نمی‌کند',
+    'you are not admin' => 'شما ادمین نیستید',
+    'statistics report' => 'گزارش آمار ربات قرآن',
+    'daily statistics' => 'آمار روزانه',
+    'weekly statistics' => 'آمار هفتگی',
+    'monthly statistics' => 'آمار ماهانه',
+    'yearly statistics' => 'آمار سالانه',
+    'total ayah' => 'تعداد کل آیه',
+    'unique users' => 'کاربران منحصر به فرد',
 ];

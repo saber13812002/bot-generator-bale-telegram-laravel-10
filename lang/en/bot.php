@@ -166,4 +166,13 @@ return [
     'the last verse you were reading' => 'The last verse you were reading',
     'continue' => 'Continue',
     'you have completed the quran' => 'You have completed the Quran!',
+    'this command not work in telegram' => 'This command does not work in Telegram',
+    'you are not admin' => 'You are not an admin',
+    'statistics report' => 'Quran Bot Statistics Report',
+    'daily statistics' => 'Daily Statistics',
+    'weekly statistics' => 'Weekly Statistics',
+    'monthly statistics' => 'Monthly Statistics',
+    'yearly statistics' => 'Yearly Statistics',
+    'total ayah' => 'Total Ayah',
+    'unique users' => 'Unique Users',
 ];

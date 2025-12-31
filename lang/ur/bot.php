@@ -146,4 +146,13 @@ return [
     'the last verse you were reading' => 'آخری آیت جو آپ پڑھ رہے تھے',
     'continue' => 'جاری رکھیں',
     'you have completed the quran' => 'آپ نے قرآن مکمل کر لیا!',
+    'this command not work in telegram' => 'یہ کمانڈ ٹیلیگرام میں کام نہیں کرتی',
+    'you are not admin' => 'آپ منتظم نہیں ہیں',
+    'statistics report' => 'قرآن بوٹ کے اعداد و شمار کی رپورٹ',
+    'daily statistics' => 'روزانہ اعداد و شمار',
+    'weekly statistics' => 'ہفتہ وار اعداد و شمار',
+    'monthly statistics' => 'ماہانہ اعداد و شمار',
+    'yearly statistics' => 'سالانہ اعداد و شمار',
+    'total ayah' => 'کل آیات',
+    'unique users' => 'منفرد صارفین',
 ];
