@@ -111,7 +111,7 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         // Last activities section
         $lastActivities = $this->getLastVerseActivities($chatId);
         if ($lastActivities->count() > 0) {
-            $message .= "\n📚 آخرین فعالیت‌های شما:\n\n";
+            $message .= "\n📚 " . trans("bot.your last activities") . ":\n\n";
             
             $emojiNumbers = ['1️⃣', '2️⃣', '3️⃣'];
             $index = 0;
@@ -126,7 +126,7 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
         
         // Hadith section
-        $message .= "📜 حدیث روز:\n\n";
+        $message .= "📜 " . trans("bot.hadith of the day") . ":\n\n";
         $message .= HadithHelper::random_hadith();
         
         // Last verse and continue section
@@ -139,12 +139,12 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
                 $nextCommand = $this->getNextAyahCommand($lastSure, $lastAyah);
                 
                 $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-                $message .= "📖 آخرین آیه‌ای که می‌خوندی: " . $formattedLastActivity . "\n";
+                $message .= "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
                 
                 if ($nextCommand) {
-                    $message .= "ادامه بده: " . $nextCommand;
+                    $message .= trans("bot.continue") . ": " . $nextCommand;
                 } else {
-                    $message .= "✅ شما قرآن را به پایان رساندید!";
+                    $message .= "✅ " . trans("bot.you have completed the quran");
                 }
             }
         }

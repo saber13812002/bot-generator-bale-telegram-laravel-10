@@ -141,4 +141,9 @@ return [
     'to sending request for next result page please click here'                 => 'для отправки запроса на следующую страницу результатов нажмите здесь',
     'not found'                                                                 => 'не найден',
     'command is too long for process'                                           => 'команда слишком длинная для процесса',
+    'your last activities' => 'Ваши последние активности',
+    'hadith of the day' => 'Хадис дня',
+    'the last verse you were reading' => 'Последний аят, который вы читали',
+    'continue' => 'Продолжить',
+    'you have completed the quran' => 'Вы завершили Коран!',
 ];

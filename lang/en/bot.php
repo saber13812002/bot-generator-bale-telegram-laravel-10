@@ -161,4 +161,9 @@ return [
     "sent it for :count person" => "sent it for :count person",
     "for next or previous quran page click on these buttons" => "for next or previous quran page click on these buttons",
     'to sending request for next result page please click here' => 'to sending request for next result page please click here',
+    'your last activities' => 'Your last activities',
+    'hadith of the day' => 'Hadith of the day',
+    'the last verse you were reading' => 'The last verse you were reading',
+    'continue' => 'Continue',
+    'you have completed the quran' => 'You have completed the Quran!',
 ];

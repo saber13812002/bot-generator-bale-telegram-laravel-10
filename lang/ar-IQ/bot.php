@@ -141,4 +141,9 @@ return [
     'to sending request for next result page please click here'                 => 'لإرسال طلب لصفحة النتائج التالية الرجاء الضغط هنا',
     'not found'                                                                 => 'غير معثور عليه',
     'command is too long for process'                                           => 'الأمر طويل جدًا بحيث لا يمكن معالجته',
+    'your last activities' => 'أنشطتك الأخيرة',
+    'hadith of the day' => 'حديث اليوم',
+    'the last verse you were reading' => 'آخر آية كنت تقرأها',
+    'continue' => 'تابع',
+    'you have completed the quran' => 'لقد أكملت القرآن!',
 ];

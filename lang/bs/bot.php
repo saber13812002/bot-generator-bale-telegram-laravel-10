@@ -141,4 +141,9 @@ return [
     'to sending request for next result page please click here'                 => 'za slanje zahtjeva za sljedeću stranicu sa rezultatima kliknite ovdje',
     'not found'                                                                 => 'nije pronađeno',
     'command is too long for process'                                           => 'komanda je preduga za proces',
+    'your last activities' => 'Vaše posljednje aktivnosti',
+    'hadith of the day' => 'Hadis dana',
+    'the last verse you were reading' => 'Posljednji ajet koji ste čitali',
+    'continue' => 'Nastavi',
+    'you have completed the quran' => 'Završili ste Kur\'an!',
 ];

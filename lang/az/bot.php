@@ -141,4 +141,9 @@ return [
     'to sending request for next result page please click here'                 => 'Növbəti nəticə səhifəsi üçün sorğu göndərmək üçün bura klikləyin',
     'not found'                                                                 => 'tapılmadı',
     'command is too long for process'                                           => 'əmr proses üçün çox uzundur',
+    'your last activities' => 'Son fəaliyyətləriniz',
+    'hadith of the day' => 'Günün hədisi',
+    'the last verse you were reading' => 'Oxuduğunuz son ayə',
+    'continue' => 'Davam et',
+    'you have completed the quran' => 'Quranı tamamladınız!',
 ];

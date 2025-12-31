@@ -144,4 +144,9 @@ return [
     'if there is no results please try again with non long query with less words' => [
         ' thank you' => '如果没有结果，请用字数较少的非长查询再试一次。 谢谢。',
     ],
+    'your last activities' => '您最近的活动',
+    'hadith of the day' => '今日圣训',
+    'the last verse you were reading' => '您最后阅读的经文',
+    'continue' => '继续',
+    'you have completed the quran' => '您已完成古兰经！',
 ];

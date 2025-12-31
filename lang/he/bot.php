@@ -141,4 +141,9 @@ return [
     'to sending request for next result page please click here'                 => 'לשליחת בקשה לדף התוצאות הבא לחץ כאן',
     'not found'                                                                 => 'לא נמצא',
     'command is too long for process'                                           => 'הפקודה ארוכה מדי לתהליך',
+    'your last activities' => 'הפעילויות האחרונות שלך',
+    'hadith of the day' => 'חדית היום',
+    'the last verse you were reading' => 'הפסוק האחרון שקראת',
+    'continue' => 'המשך',
+    'you have completed the quran' => 'סיימת את הקוראן!',
 ];

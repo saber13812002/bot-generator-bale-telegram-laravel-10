@@ -144,4 +144,9 @@ return [
     'if there is no results please try again with non long query with less words' => [
         ' thank you' => 'اگر نتیجه ای حاصل نشد، لطفاً با پرس و جوی غیر طولانی با کلمات کمتر دوباره امتحان کنید. متشکرم',
     ],
+    'your last activities' => 'آخرین فعالیت‌های شما',
+    'hadith of the day' => 'حدیث روز',
+    'the last verse you were reading' => 'آخرین آیه‌ای که می‌خوندی',
+    'continue' => 'ادامه بده',
+    'you have completed the quran' => 'شما قرآن را به پایان رساندید!',
 ];
