@@ -90,16 +90,13 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         // Today's usage
         $message .= "📖 " . trans("bot.your todays usage of this bot") . ": " . $count_today . " " . trans("bot.ayah") . "\n";
         
-        // Yesterday's usage
-        $message .= "📊 " . trans("bot.which compared to the previous day") . ": " . $count_yesterday . " " . trans("bot.ayah") . "\n";
-        
-        // Comparison result
+        // Comparison result with complete sentence
         if ($result_ayat > 0) {
-            $message .= "📈 " . $result_ayat . " " . trans("bot.you have advantage") . "\n";
+            $message .= "📈 " . trans("bot.which compared to the previous day") . " " . $result_ayat . " " . trans("bot.ayah") . " مطالعه شما بیشتر از فعالیت دیروز است\n";
         } elseif ($result_ayat < 0) {
-            $message .= "📉 " . $result_ayat_if_negetive . " " . trans("bot.your readings less that yesterday activity") . "\n";
+            $message .= "📉 " . trans("bot.which compared to the previous day") . " " . $result_ayat_if_negetive . " " . trans("bot.ayah") . " مطالعه شما کمتر از فعالیت دیروز است\n";
         } else {
-            $message .= "➡️ تعداد آیه‌های امروز و دیروز برابر است\n";
+            $message .= "➡️ " . trans("bot.which compared to the previous day") . " تعداد آیه‌های مطالعه شما برابر با فعالیت دیروز است\n";
         }
         
         // Special message for zero readings
