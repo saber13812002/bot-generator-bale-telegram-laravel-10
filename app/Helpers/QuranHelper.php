@@ -1500,60 +1500,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
         }
     }
-}
-
-
-
-// https://qurano.com/en/1-al-fatiha/
-// https://static.qurano.com/dist/audio/001002.mp3
-
-// https://quranwbw.com/1
-// https://words.audios.quranwbw.com/1/001_001_001.mp3
-// https://words.audios.quranwbw.com/1/001_007_009.mp3
-
-// https://quran.com/1
-// https://audio.qurancdn.com/wbw/001_002_004.mp3
-// https://quran.com/3:71/tafsirs/en-tafisr-ibn-kathir
-
-// http://audio.recitequran.com/wbw/arabic/wisam_sharieff/
-
-// https://cors-proxy.elfsight.com/
-// http://wbwcradio.bw.edu:8000/
-
-// http://verses.quran.com/wbw/
-
-// https://server7.mp3quran.net/download/basit/Almusshaf-Al-Mojawwad/001.mp3
-// https://quranwbw.github.io/audio-words-new/001_002_001.mp3
-// https://quranwbw.github.io/audio-ayah-english/001_002_001.mp3
-// https://quranwbw.github.io/audio-ayah-arabic
-// https://github.com/marwan/quranwbw.com/blob/9f916b35f591f854c53ef0c8922fe3fcc18efa91/assets/js/main.js#L25
-
-// http://www.houseofquran.com/qsys/quranteacher1.html
-// http://3cba.houseofquran.com/01/1F_1_2.mp3
-// http://3cba.houseofquran.com/01/1S_2_3.mp3
-// http://3cba.houseofquran.com/01/1S_2_4.mp3
-
-// ar.abdulazizazzahrani
-// ar.abdulbariaththubaity
-// ar.abdulbarimohammed
-// ar.abdulbasitmujawwad
-// ar.abdulbasitmurattal
-// ar.abdulkareemalhazmi
-// ar.abdullahalmatrood
-// ar.abdullahawadaljuhani
-// ar.abdullahbasfar
-
-// https://bonyana.com/535/%D8%AF%D8%A7%D9%86%D9%84%D9%88%D8%AF-%D9%82%D8%B1%D8%A2%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D8%A7-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2/
-// http://www.yasinmedia.com/audio/quran/download-quran-audio-translation-makarem-fooladvand
-// https://p30download.ir/fa/entry/42534/%D9%82%D8%B1%D8%A7%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D9%87-%D9%87%D9%85%D8%B1%D8%A7%D9%87-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2%DB%8C%D9%87
-
-// https://everyayah.com/data/AbdulSamad_64kbps_QuranExplorer.Com/001001.mp3    https://www.versebyversequran.com/
-// https://everyayah.com/data/images_png/1_1.png
-// https://ia804504.us.archive.org/21/items/588083/003-002.mp3
-
-// https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page593.mp3
-// https://quran.com/page/604
-// https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/112.mp3
 
     /**
      * ساخت لینک دعوت اختصاصی برای کاربر
@@ -1619,3 +1565,57 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         
         return null;
     }
+}
+
+
+
+// https://qurano.com/en/1-al-fatiha/
+// https://static.qurano.com/dist/audio/001002.mp3
+
+// https://quranwbw.com/1
+// https://words.audios.quranwbw.com/1/001_001_001.mp3
+// https://words.audios.quranwbw.com/1/001_007_009.mp3
+
+// https://quran.com/1
+// https://audio.qurancdn.com/wbw/001_002_004.mp3
+// https://quran.com/3:71/tafsirs/en-tafisr-ibn-kathir
+
+// http://audio.recitequran.com/wbw/arabic/wisam_sharieff/
+
+// https://cors-proxy.elfsight.com/
+// http://wbwcradio.bw.edu:8000/
+
+// http://verses.quran.com/wbw/
+
+// https://server7.mp3quran.net/download/basit/Almusshaf-Al-Mojawwad/001.mp3
+// https://quranwbw.github.io/audio-words-new/001_002_001.mp3
+// https://quranwbw.github.io/audio-ayah-english/001_002_001.mp3
+// https://quranwbw.github.io/audio-ayah-arabic
+// https://github.com/marwan/quranwbw.com/blob/9f916b35f591f854c53ef0c8922fe3fcc18efa91/assets/js/main.js#L25
+
+// http://www.houseofquran.com/qsys/quranteacher1.html
+// http://3cba.houseofquran.com/01/1F_1_2.mp3
+// http://3cba.houseofquran.com/01/1S_2_3.mp3
+// http://3cba.houseofquran.com/01/1S_2_4.mp3
+
+// ar.abdulazizazzahrani
+// ar.abdulbariaththubaity
+// ar.abdulbarimohammed
+// ar.abdulbasitmujawwad
+// ar.abdulbasitmurattal
+// ar.abdulkareemalhazmi
+// ar.abdullahalmatrood
+// ar.abdullahawadaljuhani
+// ar.abdullahbasfar
+
+// https://bonyana.com/535/%D8%AF%D8%A7%D9%86%D9%84%D9%88%D8%AF-%D9%82%D8%B1%D8%A2%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D8%A7-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2/
+// http://www.yasinmedia.com/audio/quran/download-quran-audio-translation-makarem-fooladvand
+// https://p30download.ir/fa/entry/42534/%D9%82%D8%B1%D8%A7%D9%86-%D8%B5%D9%88%D8%AA%DB%8C-%D8%A8%D9%87-%D9%87%D9%85%D8%B1%D8%A7%D9%87-%D8%AA%D8%B1%D8%AC%D9%85%D9%87-%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-%D8%A2%DB%8C%D9%87-%D8%A8%D9%87-%D8%A2%DB%8C%D9%87
+
+// https://everyayah.com/data/AbdulSamad_64kbps_QuranExplorer.Com/001001.mp3    https://www.versebyversequran.com/
+// https://everyayah.com/data/images_png/1_1.png
+// https://ia804504.us.archive.org/21/items/588083/003-002.mp3
+
+// https://ia800304.us.archive.org/32/items/quran-by--maher-alm3eaqli---128-kb----604-part-full-quran-604-page--safahat-mp3/Page593.mp3
+// https://quran.com/page/604
+// https://download.quranicaudio.com/qdc/mishari_al_afasy/murattal/112.mp3
