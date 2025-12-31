@@ -16,7 +16,12 @@ use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
+use App\Http\Controllers\MissionBotController;
+use App\Http\Controllers\MissionMediaBotController;
+use App\Http\Controllers\PersonnelAdminBotController;
+use App\Http\Controllers\PersonnelRegistrationController;
 use App\Http\Controllers\SongSaraPostController;
+use App\Http\Controllers\TaskApprovalController;
 use App\Http\Controllers\TestController;
 use App\Http\Controllers\WeatherController;
 use Illuminate\Http\Request;
@@ -93,3 +98,63 @@ Route::get('/audiobooks/{audioBookId}', [AudioBookController::class, 'show']);
 
 Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 
+// personnel registration
+Route::post('/webhook-personnel-registration', [PersonnelRegistrationController::class, 'index']);
+Route::post('/webhook-personnel-admin', [PersonnelAdminBotController::class, 'index']);
+
+// mission bot
+Route::post('/webhook-mission-bot', [MissionBotController::class, 'index']);
+Route::post('/webhook-mission-media', [MissionMediaBotController::class, 'index']);
+Route::post('/webhook-task-approval', [TaskApprovalController::class, 'index']);
+
+// mission API routes
+Route::prefix('missions')->group(function () {
+    Route::get('/', [\App\Http\Controllers\MissionController::class, 'index']);
+    Route::get('/{id}', [\App\Http\Controllers\MissionController::class, 'show']);
+    Route::post('/{id}/request', [\App\Http\Controllers\MissionController::class, 'request']);
+    Route::post('/{id}/cancel', [\App\Http\Controllers\MissionController::class, 'cancel']);
+    Route::post('/{id}/submit', [\App\Http\Controllers\MissionController::class, 'submitResult']);
+    Route::post('/cancel', [\App\Http\Controllers\MissionController::class, 'cancel']);
+    Route::post('/submit', [\App\Http\Controllers\MissionController::class, 'submitResult']);
+});
+
+// API Token Management (protected routes - should be admin only)
+Route::prefix('api-tokens')->middleware('api.token')->group(function () {
+    Route::post('/generate', [\App\Http\Controllers\Api\ApiTokenController::class, 'generateToken']);
+});
+
+// Metadata API (no auth required for basic metadata)
+Route::prefix('api/v1')->group(function () {
+    Route::get('/metadata', [\App\Http\Controllers\Api\MetadataApiController::class, 'getMetadata']);
+});
+
+// Token test endpoint
+Route::prefix('api/v1')->middleware('api.token')->group(function () {
+    Route::get('/test-token', [\App\Http\Controllers\Api\MetadataApiController::class, 'testToken']);
+});
+
+// Mission API with Token Authentication
+Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
+    Route::post('/', [\App\Http\Controllers\Api\MissionApiController::class, 'createMission']);
+    Route::get('/', [\App\Http\Controllers\Api\MissionApiController::class, 'listMissions']);
+    Route::get('/{id}', [\App\Http\Controllers\Api\MissionApiController::class, 'getMission']);
+    Route::get('/{id}/status', [\App\Http\Controllers\Api\MissionApiController::class, 'getMissionStatus']);
+    Route::post('/{id}/content', [\App\Http\Controllers\Api\MissionApiController::class, 'addContent']);
+    Route::post('/{id}/assign', [\App\Http\Controllers\Api\MissionApiController::class, 'assignMission']);
+    Route::post('/{id}/submit', [\App\Http\Controllers\Api\MissionApiController::class, 'submitResult']);
+});
+
+// use App\Services\RssService;
+
+
+// Route::post('/test-rss', function(Request $request, RssService $rssService) {
+//     $rssId = $request->input('rss_id');
+//     $uniqueField = $request->input('unique_field', 'link');
+//     $rssUrl = $request->input('rss_url');
+
+//     // اجرای تابع اصلی
+//     $response = RssService::readRssAndSave($rssUrl, $rssId, $uniqueField);
+
+//     // برگرداندن نتیجه (JSON)
+//     return $response;
+// });

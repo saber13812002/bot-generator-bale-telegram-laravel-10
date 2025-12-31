@@ -11,10 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // بررسی وجود جدول قبل از تغییر
+        if (!Schema::hasTable('quran_translations')) {
+            return;
+        }
+
         Schema::table('quran_translations', function (Blueprint $table) {
-            $table->string('language', 7)->after('translation_id')->nullable();
-            $table->string('translator_name', 20)->after('language')->nullable();
-            $table->string('translate_full_name', 30)->after('translator_name')->nullable();
+            // بررسی وجود فیلدها قبل از اضافه کردن
+            if (!Schema::hasColumn('quran_translations', 'language')) {
+                $table->string('language', 7)->after('translation_id')->nullable();
+            }
+            if (!Schema::hasColumn('quran_translations', 'translator_name')) {
+                $table->string('translator_name', 20)->after('language')->nullable();
+            }
+            if (!Schema::hasColumn('quran_translations', 'translate_full_name')) {
+                $table->string('translate_full_name', 30)->after('translator_name')->nullable();
+            }
         });
     }
 
@@ -23,10 +35,22 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // بررسی وجود جدول قبل از تغییر
+        if (!Schema::hasTable('quran_translations')) {
+            return;
+        }
+
         Schema::table('quran_translations', function (Blueprint $table) {
-            $table->dropColumn('language');
-            $table->dropColumn('translator_name');
-            $table->dropColumn('translate_full_name');
+            // بررسی وجود فیلدها قبل از حذف
+            if (Schema::hasColumn('quran_translations', 'language')) {
+                $table->dropColumn('language');
+            }
+            if (Schema::hasColumn('quran_translations', 'translator_name')) {
+                $table->dropColumn('translator_name');
+            }
+            if (Schema::hasColumn('quran_translations', 'translate_full_name')) {
+                $table->dropColumn('translate_full_name');
+            }
         });
     }
 };

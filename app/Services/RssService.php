@@ -8,6 +8,7 @@ use DOMDocument;
 use DOMXPath;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use SimpleXMLElement;
 
@@ -91,16 +92,46 @@ class RssService
      * @param mixed $unique_field_name
      * @return JsonResponse
      */
-    public static function findTheNewOrNonExistentItems(SimpleXMLElement $xml, mixed $unique_field_name): JsonResponse
+    public static function findTheNewOrNonExistentItems(SimpleXMLElement $xml, string $unique_field_name): JsonResponse
     {
-// Find the new or non-existent items
-        $newItems = RssPostItem::query()
-            ->whereNotIn('link', function ($query) use ($xml, $unique_field_name) {
-                $query->select('link')
-                    ->from('rss_post_items')
-                    ->whereIn('link', array_column(iterator_to_array($xml->channel->item), $unique_field_name));
-            })
-            ->get();
+        $cacheKey = 'rss_links_last_week';
+        $cachedLinks = Cache::get($cacheKey);
+
+        if (!$cachedLinks) {
+            // گرفتن لینک‌ها از یک هفته اخیر از دیتابیس و کش کردن آن‌ها
+            $oneWeekAgo = now()->subWeek();
+
+            $cachedLinks = RssPostItem::query()
+                ->where('pub_date', '>=', $oneWeekAgo)
+                ->pluck('link')
+                ->toArray();
+
+            Cache::put($cacheKey, $cachedLinks, 3600); // کش به مدت 1 ساعت
+        }
+
+        $rssLinks = [];
+        foreach ($xml->channel->item as $item) {
+            $rssLinks[] = (string)$item->$unique_field_name;
+        }
+
+        // لینک‌های جدید که در کش و دیتابیس نیستند
+        $newLinks = array_filter($rssLinks, function ($link) use ($cachedLinks) {
+            return !in_array($link, $cachedLinks);
+        });
+
+        // حالا می‌تونید رکوردهای مربوط به این لینک‌ها رو برگردونید یا ذخیره کنید
+        $newItems = collect($newLinks)->map(function ($link) use ($xml, $unique_field_name) {
+            foreach ($xml->channel->item as $item) {
+                if ((string)$item->$unique_field_name === $link) {
+                    return [
+                        'title' => strip_tags((string)$item->title),
+                        'link' => $link,
+                        // دیگر فیلدهای مورد نیاز
+                    ];
+                }
+            }
+            return null;
+        })->filter()->values();
 
         return response()->json($newItems);
     }

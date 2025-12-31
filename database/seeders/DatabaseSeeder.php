@@ -38,5 +38,8 @@ class DatabaseSeeder extends Seeder
         $this->call(SongsaraMoodsTableSeeder::class);
         $this->call(SharabeBeheshtiMp3sTableSeeder::class);
         $this->call(UploadingMediaFilesTableSeeder::class);
+        
+        // Personnel seeder (اختیاری - فقط در صورت نیاز uncomment کنید)
+        // $this->call(PersonnelSeeder::class);
     }
 }

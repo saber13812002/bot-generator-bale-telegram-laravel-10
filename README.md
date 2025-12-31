@@ -237,6 +237,57 @@ list of Bot Types that you can clone it, is in next block of this document
 [http://bots.pardisania.ir](http://bots.pardisania.ir)
 
 
+## 📚 مستندات پروژه
+
+### مستندات کلی
+- [🚀 راهنمای شروع کار](docs/GETTING-STARTED.md) - راهنمای کامل نصب و راه‌اندازی پروژه از صفر
+- [PROJECT_ROLES.md](PROJECT_ROLES.md) - نقش‌ها و مسئولیت‌های پروژه
+- [CHECKLIST.md](CHECKLIST.md) - چک‌لیست کامل پروژه
+- [README-DEVELOP.md](README-DEVELOP.md) - راهنمای توسعه
+- [.cursorrules](.cursorrules) - قوانین پروژه و SOLID
+- [راهنمای لاگینگ](docs/LOGGING-GUIDE.md) - راهنمای کامل استفاده از سیستم لاگینگ
+
+### مستندات فیچرها
+
+هر فیچر دارای مستندات جداگانه است که شامل توضیحات، نحوه استفاده، ساختار فایل‌ها و ... می‌شود.
+
+#### فیچرهای موجود:
+
+- [📝 ثبت‌نام پرسنل (Personnel Registration)](docs/features/personnel-registration.md)
+  - ثبت‌نام پرسنل جدید از طریق ربات‌های پیام‌رسان
+  - اعتبارسنجی اطلاعات و ذخیره در دیتابیس
+  - ارسال لینک ربات‌های اختصاصی
+
+- [📖 قرآن (Quran Bot)](docs/features/quran-bot.md) - *در حال آماده‌سازی*
+  - مطالعه قرآن به صورت آیه به آیه
+  - جستجو در قرآن
+  - فایل‌های صوتی و ترجمه
+
+- [🌤️ هواشناسی (Weather Bot)](docs/features/weather-bot.md) - *در حال آماده‌سازی*
+  - اطلاع‌رسانی تغییرات آب و هوا
+  - تنظیم حد و کف دما و سرعت باد
+
+- [📰 RSS Bot](docs/features/rss-bot.md) - *در حال آماده‌سازی*
+  - دریافت و انتشار مطالب RSS
+  - ترجمه خودکار مطالب
+
+- [🔗 شبکه‌های اجتماعی (Social Bot)](docs/features/social-bot.md) - *در حال آماده‌سازی*
+  - انتشار مطالب در شبکه‌های اجتماعی
+  - یکپارچه‌سازی با توییتر، فیس‌بوک، لینکدین و اینستاگرام
+
+- [👤 ادمین (Admin Bot)](docs/features/admin-bot.md) - *در حال آماده‌سازی*
+  - مدیریت و انتشار مطالب در تمام پیام‌رسان‌ها
+  - مدیریت یکپارچه
+
+- [📜 حدیث (Hadith Bot)](docs/features/hadith-bot.md) - *در حال آماده‌سازی*
+  - جستجو و مطالعه احادیث
+
+- [📚 نهج البلاغه (Nahj Bot)](docs/features/nahj-bot.md) - *در حال آماده‌سازی*
+  - مطالعه نهج البلاغه
+  - جستجو در نهج البلاغه
+
+> **نکته**: برای ایجاد مستندات برای فیچر جدید، می‌توانید از [Template موجود](docs/features/README-TEMPLATE.md) استفاده کنید.
+
 ## Donate this project
 
 https://hamibash.com/quran_hefz_bale_telegram_bot

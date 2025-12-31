@@ -95,6 +95,42 @@ class BotHelper
                         $botItem->telegram_webhook_is_set = 1;
                     }
                     $botItem->save();
+                    
+                    // بررسی webhook بعد از ست کردن (الزامی!)
+                    Log::info('🔍 BotHelper - Verifying webhook after setting', [
+                        'type' => $type,
+                        'token_preview' => substr($token, 0, 10) . '...',
+                        'webhook_url_set' => $webHookUrl
+                    ]);
+                    
+                    $webhookInfo = self::checkWebhookInfo($token, $type);
+                    if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'] ?? null)) {
+                        Log::error('❌ BotHelper - Webhook verification FAILED after setting', [
+                            'type' => $type,
+                            'token_preview' => substr($token, 0, 10) . '...',
+                            'webhook_url_expected' => $webHookUrl,
+                            'webhook_info' => $webhookInfo
+                        ]);
+                    } else {
+                        $actualUrl = $webhookInfo['result']['url'] ?? null;
+                        $urlMatches = $actualUrl === $webHookUrl;
+                        
+                        Log::info('✅ BotHelper - Webhook verified successfully', [
+                            'type' => $type,
+                            'url_expected' => $webHookUrl,
+                            'url_actual' => $actualUrl,
+                            'url_matches' => $urlMatches,
+                            'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+                        ]);
+                        
+                        if (!$urlMatches) {
+                            Log::warning('⚠️ BotHelper - Webhook URL mismatch', [
+                                'expected' => $webHookUrl,
+                                'actual' => $actualUrl
+                            ]);
+                        }
+                    }
+                    
                     if (config('app.env') == 'local') {
                         $message = 'وب هوک :' . $webHookUrl;
                         self::sendMessage($messenger, $message);
@@ -192,6 +228,21 @@ class BotHelper
         ];
 
         $messenger->sendMessage($content);
+    }
+
+    /**
+     * Send keyboard message to chat ID and return result
+     */
+    public static function sendKeyboardMessageToChatIdWithResult(Telegram $messenger, string $message, $keyboard, $chat_id)
+    {
+        $content = [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'reply_markup' => $keyboard,
+            'parse_mode' => "html"
+        ];
+
+        return $messenger->sendMessage($content);
     }
 
 
@@ -603,30 +654,102 @@ class BotHelper
      */
     private static function defineCreateBot(Telegram $messenger, $getMe, $type, $botMotherId): Bot
     {
-        $botItem = new Bot();
-        $botItem->bot_mother_id = $botMotherId;
+        $token = $messenger->Text();
+        
+        // Check if bot with this token already exists
+        $existingBot = null;
+        
         if ($type == 'bale') {
-            $botItem->bale_owner_chat_id = $messenger->ChatID();
-            $botItem->bale_bot_name = $getMe['result']['username'];
-            $botItem->bale_bot_token = $messenger->Text();
-            $botItem->bale_get_me_api_response = json_encode($getMe['result']);
-            $botItem->bale_bot_status = 'Active';
+            $existingBot = Bot::where('bale_bot_token', $token)->first();
         } else if ($type == 'telegram') {
-            $botItem->telegram_owner_chat_id = $messenger->ChatID();
-            $botItem->telegram_bot_name = $getMe['result']['username'];
-            $botItem->telegram_bot_token = $messenger->Text();
-            $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
-            $botItem->telegram_bot_status = 'Active';
-        }// todo:gap
-        try {
+            $existingBot = Bot::where('telegram_bot_token', $token)->first();
+        }
+        
+        if ($existingBot) {
+            // Bot exists, update it instead of creating new
+            $botItem = $existingBot;
+            $botItem->bot_mother_id = $botMotherId;
+            
+            if ($type == 'bale') {
+                $botItem->bale_owner_chat_id = $messenger->ChatID();
+                $botItem->bale_bot_name = $getMe['result']['username'];
+                $botItem->bale_bot_token = $token;
+                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                $botItem->bale_bot_status = 'Active';
+            } else if ($type == 'telegram') {
+                $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                $botItem->telegram_bot_name = $getMe['result']['username'];
+                $botItem->telegram_bot_token = $token;
+                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                $botItem->telegram_bot_status = 'Active';
+            }
+            
             $botItem->save();
-        } catch (Exception $e) {
-            if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
-                self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
-            } else {
-                self::sendMessage($messenger, $e->getMessage());
+            
+            // Log update
+            Log::info('Bot updated (duplicate token) via legacy method', [
+                'bot_id' => $botItem->id,
+                'type' => $type,
+                'chat_id' => $messenger->ChatID(),
+            ]);
+        } else {
+            // Create new bot
+            $botItem = new Bot();
+            $botItem->bot_mother_id = $botMotherId;
+            
+            if ($type == 'bale') {
+                $botItem->bale_owner_chat_id = $messenger->ChatID();
+                $botItem->bale_bot_name = $getMe['result']['username'];
+                $botItem->bale_bot_token = $token;
+                $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                $botItem->bale_bot_status = 'Active';
+            } else if ($type == 'telegram') {
+                $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                $botItem->telegram_bot_name = $getMe['result']['username'];
+                $botItem->telegram_bot_token = $token;
+                $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                $botItem->telegram_bot_status = 'Active';
+            }// todo:gap
+            
+            try {
+                $botItem->save();
+            } catch (Exception $e) {
+                if (str_starts_with($e->getMessage(), 'SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry')) {
+                    // Try to find and update existing bot
+                    if ($type == 'bale') {
+                        $existingBot = Bot::where('bale_bot_token', $token)->first();
+                    } else if ($type == 'telegram') {
+                        $existingBot = Bot::where('telegram_bot_token', $token)->first();
+                    }
+                    
+                    if ($existingBot) {
+                        $botItem = $existingBot;
+                        $botItem->bot_mother_id = $botMotherId;
+                        
+                        if ($type == 'bale') {
+                            $botItem->bale_owner_chat_id = $messenger->ChatID();
+                            $botItem->bale_bot_name = $getMe['result']['username'];
+                            $botItem->bale_bot_token = $token;
+                            $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+                            $botItem->bale_bot_status = 'Active';
+                        } else if ($type == 'telegram') {
+                            $botItem->telegram_owner_chat_id = $messenger->ChatID();
+                            $botItem->telegram_bot_name = $getMe['result']['username'];
+                            $botItem->telegram_bot_token = $token;
+                            $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+                            $botItem->telegram_bot_status = 'Active';
+                        }
+                        
+                        $botItem->save();
+                    } else {
+                        self::sendMessage($messenger, trans("bot.Bot creation failed please contact us : ") . " @sabertaba ");
+                    }
+                } else {
+                    self::sendMessage($messenger, $e->getMessage());
+                }
             }
         }
+        
         return $botItem;
     }
 
@@ -756,6 +879,149 @@ class BotHelper
             ],
             $arrayCommands
         ];
+    }
+
+    /**
+     * بررسی وضعیت webhook ربات
+     * 
+     * @param string $token توکن ربات
+     * @param string $type نوع ربات ('bale' یا 'telegram')
+     * @return array اطلاعات webhook شامل ['ok', 'result' => ['url', 'has_custom_certificate', 'pending_update_count']]
+     */
+    public static function checkWebhookInfo(string $token, string $type = 'telegram'): array
+    {
+        try {
+            $bot = new Telegram($token, $type);
+            $apiUrl = $type == 'bale' 
+                ? "https://tapi.bale.ai/bot{$token}/getWebhookInfo"
+                : "https://api.telegram.org/bot{$token}/getWebhookInfo";
+            
+            Log::info('🔍 BotHelper - Checking webhook info', [
+                'type' => $type,
+                'token_preview' => substr($token, 0, 10) . '...',
+                'api_url' => str_replace($token, substr($token, 0, 10) . '...', $apiUrl)
+            ]);
+            
+            $response = Http::get($apiUrl);
+            $result = $response->json();
+            
+            if (isset($result['ok']) && $result['ok']) {
+                $webhookUrl = $result['result']['url'] ?? null;
+                $pendingUpdates = $result['result']['pending_update_count'] ?? 0;
+                
+                Log::info('✅ BotHelper - Webhook is SET and ACTIVE', [
+                    'type' => $type,
+                    'webhook_url' => $webhookUrl,
+                    'pending_updates' => $pendingUpdates,
+                    'has_custom_certificate' => $result['result']['has_custom_certificate'] ?? false
+                ]);
+                
+                if (empty($webhookUrl)) {
+                    Log::warning('⚠️ BotHelper - Webhook OK but URL is empty', [
+                        'type' => $type,
+                        'result' => $result
+                    ]);
+                }
+            } else {
+                Log::error('❌ BotHelper - Webhook is NOT SET or FAILED', [
+                    'type' => $type,
+                    'result' => $result,
+                    'error_code' => $result['error_code'] ?? null,
+                    'description' => $result['description'] ?? null
+                ]);
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            Log::error('❌ BotHelper - Error checking webhook info', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * تشخیص نوع چت (گروه/خصوصی) و وضعیت استارت
+     * 
+     * @param Telegram $bot نمونه کلاس Telegram
+     * @return array شامل ['is_group' => bool, 'chat_id' => int, 'chat_type' => string, 'is_started' => bool]
+     */
+    public static function detectChatInfo(Telegram $bot): array
+    {
+        $chatId = $bot->ChatID();
+        // Get update from request instead of bot object
+        $request = request();
+        $update = $request->json()->all() ?? $request->all();
+        
+        $isGroup = $chatId < 0;
+        $chatType = 'private';
+        
+        if ($isGroup) {
+            if (isset($update['message']['chat']['type'])) {
+                $chatType = $update['message']['chat']['type']; // 'group', 'supergroup', 'channel'
+            } else {
+                $chatType = 'group'; // پیش‌فرض
+            }
+        }
+        
+        // بررسی اینکه آیا این اولین استارت است یا نه
+        // با چک کردن اینکه آیا پیام /start است
+        $isStarted = false;
+        $text = $bot->Text();
+        if ($text == '/start' || str_starts_with($text, '/start ')) {
+            $isStarted = true;
+        }
+        
+        $info = [
+            'is_group' => $isGroup,
+            'chat_id' => $chatId,
+            'chat_type' => $chatType,
+            'is_started' => $isStarted,
+            'text' => $text,
+        ];
+        
+        Log::info('🔍 BotHelper - Chat info detected', [
+            'chat_id' => $chatId,
+            'is_group' => $isGroup,
+            'chat_type' => $chatType,
+            'is_started' => $isStarted,
+            'text_preview' => mb_substr($text, 0, 50)
+        ]);
+        
+        return $info;
+    }
+
+    /**
+     * بررسی و لاگ کردن اطلاعات webhook و چت
+     * این متد باید بعد از ساخت یا تست ربات جدید فراخوانی شود
+     * 
+     * @param string $token توکن ربات
+     * @param string $type نوع ربات
+     * @param Telegram|null $bot نمونه کلاس Telegram (اختیاری)
+     * @return array نتیجه بررسی
+     */
+    public static function verifyBotSetup(string $token, string $type = 'telegram', ?Telegram $bot = null): array
+    {
+        $result = [
+            'webhook' => self::checkWebhookInfo($token, $type),
+            'chat_info' => null,
+        ];
+        
+        if ($bot) {
+            $result['chat_info'] = self::detectChatInfo($bot);
+        }
+        
+        // لاگ کردن نتیجه
+        Log::info("Bot setup verification", [
+            'type' => $type,
+            'token_preview' => substr($token, 0, 10) . '...',
+            'webhook_ok' => $result['webhook']['ok'] ?? false,
+            'webhook_url' => $result['webhook']['result']['url'] ?? null,
+        ]);
+        
+        return $result;
     }
 
     public

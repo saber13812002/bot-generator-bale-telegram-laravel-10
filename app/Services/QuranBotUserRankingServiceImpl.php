@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Helpers\BotHelper;
 use App\Helpers\HadithHelper;
+use App\Helpers\QuranHelper;
+use App\Helpers\StringHelper;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use Carbon\Carbon;
@@ -81,24 +83,119 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $result_ayat = $count_today - $count_yesterday;
         $result_ayat_if_negetive = $count_yesterday - $count_today;
 
-        $postfix_hadith = "";
-        if ($result_ayat == 0 && $count_today == 0) {
-            $postfix_hadith = " ✍✍✍
-" . trans("bot.your today readings is zero") . "
-👇👇👇
-https://www.imamalicenter.se/fa/20hadith_om_Koran
-";
+        // Build the main report message
+        $message = "📊 گزارش فعالیت شما\n\n";
+        
+        // Ranking
+        $message .= "🏆 " . trans("bot.your ranking in last 30 days is") . ": " . $rank . "\n\n";
+        
+        // Today's usage
+        $message .= "📖 " . trans("bot.your todays usage of this bot") . ": " . $count_today . " " . trans("bot.ayah") . "\n";
+        
+        // Comparison result with complete sentence
+        if ($count_today == 0 && $count_yesterday == 0) {
+            // Both today and yesterday are zero
+            $message .= "💬 " . trans("bot.you had no reading today and yesterday") . "\n";
+        } elseif ($result_ayat > 0) {
+            $message .= "📈 " . trans("bot.which compared to the previous day") . " " . $result_ayat . " " . trans("bot.ayah") . " مطالعه شما بیشتر از فعالیت دیروز است\n";
+        } elseif ($result_ayat < 0) {
+            $message .= "📉 " . trans("bot.which compared to the previous day") . " " . $result_ayat_if_negetive . " " . trans("bot.ayah") . " مطالعه شما کمتر از فعالیت دیروز است\n";
+        } else {
+            $message .= "➡️ " . trans("bot.which compared to the previous day") . " تعداد آیه‌های مطالعه شما برابر با فعالیت دیروز است\n";
         }
-
-        $postfix = $result_ayat > 0 ? $result_ayat . trans("bot.you have advantage") : $result_ayat_if_negetive . trans("bot.your readings less that yesterday activity");
-
-        $message = trans("bot.your ranking in last 30 days is") . $rank . "
-" . trans("bot.your todays usage of this bot") . "
-:" . $count_today . trans("bot.ayah") . "
-" . trans("bot.which compared to the previous day") . $count_yesterday . "
-" . $postfix . $postfix_hadith . HadithHelper::random_hadith();
+        
+        // Special message for zero readings (only if today is zero but yesterday was not)
+        if ($result_ayat < 0 && $count_today == 0) {
+            $message .= "\n⚠️ " . trans("bot.your today readings is zero") . "\n";
+            $message .= "👇👇👇\n";
+            $message .= "https://www.imamalicenter.se/fa/20hadith_om_Koran\n";
+        }
+        
+        // Last activities section
+        $lastActivities = QuranHelper::getLastVerseActivities($chatId);
+        if ($lastActivities->count() > 0) {
+            $message .= "\n📚 " . trans("bot.your last activities") . ":\n\n";
+            
+            $emojiNumbers = ['1️⃣', '2️⃣', '3️⃣'];
+            $index = 0;
+            foreach ($lastActivities as $activity) {
+                $formattedActivity = QuranHelper::formatActivity($activity->text);
+                $message .= $emojiNumbers[$index] . " " . $formattedActivity . " (" . $activity->text . ")\n";
+                $index++;
+            }
+        }
+        
+        // Separator before hadith
+        $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        
+        // Hadith section
+        $message .= "📜 " . trans("bot.hadith of the day") . ":\n\n";
+        $message .= HadithHelper::random_hadith();
+        
+        // Last verse and continue section
+        // Special handling for zero activity (both today and yesterday)
+        if ($count_today == 0 && $count_yesterday == 0) {
+            $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            
+            if ($lastActivities->count() > 0) {
+                // User has previous activities, suggest continuing from last verse
+                $lastActivity = $lastActivities->first();
+                [$lastSure, $lastAyah] = StringHelper::getSureAyeByRegex($lastActivity->text);
+                
+                if ($lastSure > 0 && $lastAyah > 0) {
+                    $formattedLastActivity = QuranHelper::formatActivity($lastActivity->text);
+                    $nextCommand = QuranHelper::getNextAyahCommand($lastSure, $lastAyah);
+                    
+                    $message .= "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
+                    
+                    if ($nextCommand) {
+                        $message .= trans("bot.start from here") . ": " . $nextCommand;
+                    } else {
+                        $message .= "✅ " . trans("bot.you have completed the quran");
+                    }
+                }
+            } else {
+                // User has no previous activities, suggest random verse from other users
+                $randomVerse = QuranHelper::getRandomVerseFromTodayActivities($chatId);
+                
+                if ($randomVerse) {
+                    $formattedRandomVerse = QuranHelper::formatActivity($randomVerse);
+                    $message .= "💡 " . trans("bot.suggested verse from other users today") . ": " . $randomVerse . "\n";
+                    $message .= trans("bot.start from here") . ": " . $randomVerse;
+                } else {
+                    // No activities from other users, suggest first verse
+                    $message .= trans("bot.start from here") . ": /sure1ayah1";
+                }
+            }
+        } elseif ($lastActivities->count() > 0) {
+            // Normal case: show last verse and continue
+            $lastActivity = $lastActivities->first();
+            [$lastSure, $lastAyah] = StringHelper::getSureAyeByRegex($lastActivity->text);
+            
+            if ($lastSure > 0 && $lastAyah > 0) {
+                $formattedLastActivity = QuranHelper::formatActivity($lastActivity->text);
+                $nextCommand = QuranHelper::getNextAyahCommand($lastSure, $lastAyah);
+                
+                $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                $message .= "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
+                
+                if ($nextCommand) {
+                    $message .= trans("bot.continue") . ": " . $nextCommand;
+                } else {
+                    $message .= "✅ " . trans("bot.you have completed the quran");
+                }
+            }
+        }
+        
         return $message;
     }
+
+    /**
+     * Get last 3 verse activities for a user
+     * 
+     * @param string $chatId
+     * @return Collection
+     */
 
     public function specificUserReport($chatId, $bot = null)
     {
@@ -191,32 +288,36 @@ https://www.imamalicenter.se/fa/20hadith_om_Koran
 
         $postfix_local = env('APP_ENV');
 
-        $message = trans("bot.today usage of this bot") . $count_daily . trans("bot.ayah") . "
-" . trans("bot.unique users of todays statistics") . ":" . $count_unique_daily . "
-
-" . trans("bot.number of ayah in last week by all users") . ":" . $count_weekly . "
-" . trans("bot.unique users in last week") . ":" . $count_unique_weekly . "
-
-" . trans("bot.number of ayah in last month by all users") . ":" . $count_monthly . "
-" . trans("bot.unique users in last month") . ":" . $count_unique_monthly . "
-
-" . trans("bot.number of ayah in last year by all users") . ":" . $count_yearly . "
-" . trans("bot.unique users in last year") . ":" . $count_unique_yearly . "
-
-" . ($postfix_local == "production" ? "" : ("env:" . $postfix_local)) . "
-
-" . trans("bot.please help us to promote this bot to other people") . "
-
-اللهم صل علی محمد و آل محمد و عجل فرجهم
-
-استغفر الله ربی و اتوب الیه
-
-" . trans("bot.to send your daily activity report please try it with this command") . "
-
-👇 👇 👇 👇 👇
-" . ($type == 'bale' ? "/report [/report](send:/report)
-" : "/report
-");
+        $message = "📊 " . trans("bot.statistics report") . "\n\n";
+        
+        $message .= "📅 " . trans("bot.daily statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_daily . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_daily . "\n\n";
+        
+        $message .= "📆 " . trans("bot.weekly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_weekly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_weekly . "\n\n";
+        
+        $message .= "📆 " . trans("bot.monthly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_monthly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_monthly . "\n\n";
+        
+        $message .= "📆 " . trans("bot.yearly statistics") . ":\n";
+        $message .= "📖 " . trans("bot.total ayah") . ": " . $count_yearly . " " . trans("bot.ayah") . "\n";
+        $message .= "👥 " . trans("bot.unique users") . ": " . $count_unique_yearly . "\n\n";
+        
+        if ($postfix_local != "production") {
+            $message .= "🔧 env: " . $postfix_local . "\n\n";
+        }
+        
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "💬 " . trans("bot.please help us to promote this bot to other people") . "\n\n";
+        $message .= "اللهم صل علی محمد و آل محمد و عجل فرجهم\n\n";
+        $message .= "استغفر الله ربی و اتوب الیه\n\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        $message .= "📝 " . trans("bot.to send your daily activity report please try it with this command") . "\n\n";
+        $message .= "👇 👇 👇 👇 👇\n";
+        $message .= ($type == 'bale' ? "/report [/report](send:/report)\n" : "/report\n");
 
 
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
