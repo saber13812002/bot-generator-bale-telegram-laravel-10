@@ -53,6 +53,34 @@ class BotMotherController extends Controller
                 Log::info($e->getMessage());
             }
 
+            // Get raw update data for callback query handling
+            $update = $request->json()->all() ?? $request->all();
+            
+            // Handle callback query (for inline buttons)
+            if (isset($update['callback_query'])) {
+                $callbackQuery = $update['callback_query'];
+                $callbackData = $callbackQuery['data'] ?? '';
+                $callbackChatId = $callbackQuery['message']['chat']['id'] ?? $chatId;
+                $currentState = BotMotherStateHelper::getCurrentState($callbackChatId);
+                $stateData = BotMotherStateHelper::getData($callbackChatId);
+                
+                // Handle language selection from callback
+                if ($currentState == BotMotherStateHelper::STATE_WAITING_LANGUAGE && str_starts_with($callbackData, 'lang_')) {
+                    $selectedLanguage = str_replace('lang_', '', $callbackData);
+                    
+                    // Answer callback query first
+                    $bot->answerCallbackQuery([
+                        'callback_query_id' => $callbackQuery['id'],
+                        'text' => 'زبان انتخاب شد',
+                    ]);
+                    
+                    // Handle language selection - use callbackChatId for state management
+                    // But we need to send message to the same chat
+                    $this->handleLanguageSelectionFromCallback($bot, $selectedLanguage, $stateData, $type, $botMotherId, $callbackChatId);
+                    return;
+                }
+            }
+            
             $text = $bot->Text();
             $currentState = BotMotherStateHelper::getCurrentState($chatId);
             $stateData = BotMotherStateHelper::getData($chatId);
@@ -546,12 +574,40 @@ class BotMotherController extends Controller
         // Check if endpoint requires language
         if ($endpoint['requires_language']) {
             $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
-            $message .= "زبان را انتخاب کنید:\n";
-            $message .= "1. فارسی (fa)\n";
-            $message .= "2. انگلیسی (en)\n\n";
-            $message .= "شماره زبان را ارسال کنید:";
             
-            BotHelper::sendMessage($bot, $message);
+            // Check if endpoint supports multiple languages
+            if (isset($endpoint['supports_multiple_languages']) && $endpoint['supports_multiple_languages']) {
+                // Show 15 languages with inline buttons
+                $message .= "🌍 زبان را انتخاب کنید:\n\n";
+                $languages = $this->getSupportedLanguages();
+                
+                // Create inline keyboard with language buttons
+                $buttons = [];
+                $row = [];
+                foreach ($languages as $langCode => $langName) {
+                    $row[] = $bot->buildInlineKeyBoardButton($langName, callback_data: 'lang_' . $langCode);
+                    // هر 2 دکمه در یک ردیف
+                    if (count($row) == 2) {
+                        $buttons[] = $row;
+                        $row = [];
+                    }
+                }
+                // اضافه کردن ردیف آخر اگر خالی نبود
+                if (!empty($row)) {
+                    $buttons[] = $row;
+                }
+                
+                $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+                BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+            } else {
+                // Show only 2 languages (legacy)
+                $message .= "زبان را انتخاب کنید:\n";
+                $message .= "1. فارسی (fa)\n";
+                $message .= "2. انگلیسی (en)\n\n";
+                $message .= "شماره زبان را ارسال کنید:";
+                
+                BotHelper::sendMessage($bot, $message);
+            }
             
             // Set state to waiting for language
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LANGUAGE, array_merge($stateData, [
@@ -585,23 +641,87 @@ class BotMotherController extends Controller
     private function handleLanguageSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
     {
         $chatId = $bot->ChatID();
-        
+        $this->handleLanguageSelectionInternal($bot, $text, $stateData, $type, $botMotherId, $chatId);
+    }
+
+    /**
+     * Handle language selection from callback query
+     * 
+     * @param Telegram $bot
+     * @param string $selectedLanguage
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @param int|string $chatId
+     * @return void
+     */
+    private function handleLanguageSelectionFromCallback(Telegram $bot, string $selectedLanguage, array $stateData, string $type, int $botMotherId, $chatId): void
+    {
+        $this->handleLanguageSelectionInternal($bot, $selectedLanguage, $stateData, $type, $botMotherId, $chatId);
+    }
+
+    /**
+     * Internal method to handle language selection
+     * 
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @param int|string $chatId
+     * @return void
+     */
+    private function handleLanguageSelectionInternal(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, $chatId): void
+    {
         $selectedLanguage = 'fa'; // Default
-        if ($text == '1' || strtolower($text) == 'fa' || strtolower($text) == 'فارسی') {
+        $languages = $this->getSupportedLanguages();
+        
+        // Check if text is a language code
+        if (isset($languages[$text])) {
+            $selectedLanguage = $text;
+        } else if ($text == '1' || strtolower($text) == 'fa' || strtolower($text) == 'فارسی') {
             $selectedLanguage = 'fa';
         } else if ($text == '2' || strtolower($text) == 'en' || strtolower($text) == 'انگلیسی') {
             $selectedLanguage = 'en';
         }
         
-        $message = "✅ زبان انتخاب شد: " . ($selectedLanguage == 'fa' ? 'فارسی' : 'انگلیسی') . "\n\n";
+        $languageName = $languages[$selectedLanguage] ?? $selectedLanguage;
+        $message = "✅ زبان انتخاب شد: {$languageName}\n\n";
         $message .= "لطفاً توکن ربات را ارسال کنید:";
         
-        BotHelper::sendMessage($bot, $message);
+        // Send message to the specified chat ID
+        BotHelper::sendMessageByChatId($bot, $chatId, $message);
         
         // Set state to waiting for token
         BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
             'language' => $selectedLanguage,
         ]));
+    }
+
+    /**
+     * Get list of supported languages with their display names
+     * 
+     * @return array
+     */
+    private function getSupportedLanguages(): array
+    {
+        return [
+            'fa' => '🇮🇷 فارسی',
+            'en' => '🇬🇧 English',
+            'ar-IQ' => '🇮🇶 العربية (عراق)',
+            'az' => '🇦🇿 Azərbaycan',
+            'bs' => '🇧🇦 Bosanski',
+            'de-DE' => '🇩🇪 Deutsch',
+            'es' => '🇪🇸 Español',
+            'fr' => '🇫🇷 Français',
+            'he' => '🇮🇱 עברית',
+            'pt-BR' => '🇧🇷 Português (Brasil)',
+            'pt-PT' => '🇵🇹 Português (Portugal)',
+            'ru' => '🇷🇺 Русский',
+            'tr' => '🇹🇷 Türkçe',
+            'ur' => '🇵🇰 اردو',
+            'zh-CN' => '🇨🇳 中文',
+        ];
     }
 
     /**

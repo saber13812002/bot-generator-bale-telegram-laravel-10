@@ -77,7 +77,8 @@ class WebhookEndpointHelper
                 'description' => 'ربات جستجوی کلمات قرآنی',
                 'requires_bot_mother_id' => false,
                 'requires_token' => true,
-                'requires_language' => false,
+                'requires_language' => true,
+                'supports_multiple_languages' => true, // پشتیبانی از 15 زبان
             ],
             [
                 'id' => 'webhook-quran-ayat',
