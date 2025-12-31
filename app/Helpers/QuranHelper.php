@@ -14,6 +14,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
@@ -797,13 +798,27 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
      * @return void
      * @throws GuzzleException
      */
-    public static function sendScanBaleButtons(int $pageNumber, mixed $token, Telegram $bot): void
+    public static function sendScanBaleButtons(int $pageNumber, mixed $token, Telegram $bot, string $type = 'bale'): void
     {
         $nextCommand = QuranHelper::getCommandScan($pageNumber + 1);
         $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
         $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
 
-        $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), $nextCommand, trans('bot.previous'), $backCommand);
+        // Add common buttons (return to menu, last activities)
+        $commonButtons = self::getCommonActionButtons($type);
+        
+        // Create keyboard with next/previous and common buttons
+        $option = [
+            array($bot->buildInlineKeyBoardButton(trans('bot.next'), callback_data: $nextCommand)),
+            array($bot->buildInlineKeyBoardButton(trans('bot.previous'), callback_data: $backCommand))
+        ];
+        
+        // Add common buttons
+        foreach ($commonButtons as $button) {
+            $option[] = array($bot->buildInlineKeyBoardButton($button[0], callback_data: $button[1]));
+        }
+        
+        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
         BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
     }
 
@@ -1120,6 +1135,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 : /start [/start](send:/start)
 : /joz [" . trans('bot.help.list of Quran 30 parts') . "](send:/joz)
 : /fehrest [" . trans('bot.help.list of Surahs of the Quran') . "](send:/fehrest)
+: /lastactivities [" . trans('bot.last activities') . "](send:/lastactivities)
 : /report [" . trans('bot.help.your quran readings analysis report') . "](send:/report)
 : /mp3_true [" . trans('bot.help.send mp3 for selected reciter') . "](send:/mp3_true)
 : /mp3_false [" . trans('bot.help.disable sending mp3 for every ayah') . "](send:/mp3_false)
@@ -1147,6 +1163,7 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 : /start
 : /joz " . trans('bot.help.list of Quran 30 parts') . "
 : /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
+: /lastactivities " . trans('bot.last activities') . "
 : /report " . trans('bot.help.your quran readings analysis report') . "
 : /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
 : /mp3_false " . trans('bot.help.disable sending mp3 for every ayah') . "
@@ -1199,35 +1216,52 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     }
 
     /**
-     * Get last 3 verse activities for a user
+     * Get last 3 verse activities for a user (with caching)
      * 
      * @param string $chatId
+     * @param int $cacheMinutes Cache duration in minutes (default: 5)
      * @return SupportCollection
      */
-    public static function getLastVerseActivities(string $chatId): SupportCollection
+    public static function getLastVerseActivities(string $chatId, int $cacheMinutes = 5): SupportCollection
     {
-        try {
-            // Get all command logs first, then filter in PHP for better compatibility
-            $allCommands = BotLog::whereChatId($chatId)
-                ->whereWebhookEndpointUri('webhook-quran-word')
-                ->where('is_command', true)
-                ->orderBy('created_at', 'desc')
-                ->limit(50) // Get more to filter
-                ->get(['text', 'created_at']);
+        $cacheKey = 'last_verse_activities_' . $chatId;
+        
+        return Cache::remember($cacheKey, now()->addMinutes($cacheMinutes), function () use ($chatId) {
+            try {
+                // Get all command logs first, then filter in PHP for better compatibility
+                $allCommands = BotLog::whereChatId($chatId)
+                    ->whereWebhookEndpointUri('webhook-quran-word')
+                    ->where('is_command', true)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(50) // Get more to filter
+                    ->get(['text', 'created_at']);
 
-            // Filter by regex pattern
-            $lastActivities = $allCommands->filter(function ($log) {
-                return preg_match('/\/sure[0-9]+ayah[0-9]+/', $log->text);
-            })->take(3);
+                // Filter by regex pattern
+                $lastActivities = $allCommands->filter(function ($log) {
+                    return preg_match('/\/sure[0-9]+ayah[0-9]+/', $log->text);
+                })->take(3);
 
-            return $lastActivities;
-        } catch (\Exception $e) {
-            Log::error('Error getting last verse activities', [
-                'chat_id' => $chatId,
-                'error' => $e->getMessage()
-            ]);
-            return collect();
-        }
+                return $lastActivities;
+            } catch (\Exception $e) {
+                Log::error('Error getting last verse activities', [
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage()
+                ]);
+                return collect();
+            }
+        });
+    }
+
+    /**
+     * Clear cache for last verse activities
+     * 
+     * @param string $chatId
+     * @return void
+     */
+    public static function clearLastVerseActivitiesCache(string $chatId): void
+    {
+        $cacheKey = 'last_verse_activities_' . $chatId;
+        Cache::forget($cacheKey);
     }
 
     /**
@@ -1397,6 +1431,72 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
                 'error' => $e->getMessage()
             ]);
             return null;
+        }
+    }
+
+    /**
+     * Get common action buttons (return to menu, last activities, etc.)
+     * 
+     * @param string $type Bot type (bale, telegram, gap)
+     * @param array $additionalButtons Additional buttons to add (format: [['text', 'command'], ...])
+     * @return array Array of buttons ready for keyboard
+     */
+    public static function getCommonActionButtons(string $type = 'bale', array $additionalButtons = []): array
+    {
+        $buttons = [];
+        
+        // Add return to menu button
+        $buttons[] = [trans("bot.return to menu"), "/start"];
+        
+        // Add last activities button
+        $buttons[] = [trans("bot.last activities"), "/lastactivities"];
+        
+        // Add additional buttons if provided
+        foreach ($additionalButtons as $button) {
+            if (is_array($button) && count($button) >= 2) {
+                $buttons[] = [$button[0], $button[1]];
+            }
+        }
+        
+        return $buttons;
+    }
+
+    /**
+     * Send message with common action buttons
+     * 
+     * @param Telegram $bot
+     * @param string $message
+     * @param string $type Bot type
+     * @param string $token Bot token (for bale)
+     * @param array $additionalButtons Additional buttons to add
+     * @return void
+     */
+    public static function sendMessageWithCommonButtons($bot, string $message, string $type, string $token = '', array $additionalButtons = []): void
+    {
+        $buttons = self::getCommonActionButtons($type, $additionalButtons);
+        
+        if ($type == 'telegram') {
+            // For telegram, convert to inline keyboard format
+            $array = [];
+            foreach ($buttons as $button) {
+                $array[] = [$button[0], $button[1]];
+            }
+            BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
+        } else if ($type == 'gap') {
+            // For gap, convert to gap keyboard format
+            $array = [];
+            foreach ($buttons as $button) {
+                $array[] = [$button[0], $button[1]];
+            }
+            BotHelper::sendGap4InlineMessage($bot, $message, $array);
+        } else {
+            // For bale
+            $option = [];
+            foreach ($buttons as $button) {
+                $option[] = array($bot->buildInlineKeyBoardButton($button[0], callback_data: $button[1]));
+            }
+            $inlineKeyboard = $bot->buildInlineKeyBoard($option);
+            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
         }
     }
 }

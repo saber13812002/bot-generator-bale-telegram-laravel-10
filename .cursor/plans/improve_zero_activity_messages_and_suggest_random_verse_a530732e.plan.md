@@ -135,4 +135,3 @@ if (count_today == 0 && count_yesterday == 0):
 ## نکات مهم
 
 1. بررسی دقیق شرط `count_today == 0 && count_yesterday == 0`
-2. متد `getRandomVerseFromTodayActivities` باید فقط از فعالیت‌های امروز استفاده کند

@@ -197,7 +197,7 @@ class QuranWordController extends Controller
                                     $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
                                 }
                                 if ($type == 'bale') {
-                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot, $type);
                                 }
                                 if ($type == 'telegram' || $type == 'bale') {
                                     QuranHelper::sendAudioMp3Page($bot, $pageNumber);
@@ -242,7 +242,7 @@ class QuranWordController extends Controller
                                 } else {
                                     $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
                                     BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot);
+                                    QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot, $type);
                                 }
 
                                 if ($bot->BotType() != "gap") {
@@ -289,10 +289,10 @@ class QuranWordController extends Controller
                             QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
                         }
                         
-                        // Send last activities after fehrest
+                        // Send last activities after fehrest with common buttons
                         $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                         if (!empty($lastActivitiesMessage)) {
-                            BotHelper::sendMessage($bot, $lastActivitiesMessage);
+                            QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
                         }
                     } else if ($command == "joz") {
                         if ($type != 'bale') {
@@ -301,10 +301,10 @@ class QuranWordController extends Controller
                             QuranHelper::generateJozLinksThenSendItBale($bot);
                         }
                         
-                        // Send last activities after joz
+                        // Send last activities after joz with common buttons
                         $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                         if (!empty($lastActivitiesMessage)) {
-                            BotHelper::sendMessage($bot, $lastActivitiesMessage);
+                            QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
                         }
                     } else if ($command == "report") {
                         $chatId = $bot->ChatID();
@@ -319,6 +319,12 @@ class QuranWordController extends Controller
                         } else {
                             if (AdminHelper::isAdmin($bot->ChatID())) {
                                 $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
+                                
+                                // Send last activities after reportall with common buttons
+                                $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
+                                if (!empty($lastActivitiesMessage)) {
+                                    QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
+                                }
                             } else {
                                 BotHelper::sendMessage($bot, "🚫 " . trans("bot.you are not admin"));
                             }
@@ -326,6 +332,13 @@ class QuranWordController extends Controller
                     } else if ($command == "listcommands" || $command == "help") {
                         $message = QuranHelper::getHelpMessage($type);
                         BotHelper::sendMessage($bot, $message);
+                    } else if ($command == "lastactivities" || $command == "last") {
+                        // Send last activities with common buttons
+                        $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
+                        if (empty($lastActivitiesMessage)) {
+                            $lastActivitiesMessage = "📚 " . trans("bot.your last activities") . "\n\n" . trans("bot.no activities found");
+                        }
+                        QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
                     }
 
                     $subCommand = substr($command, 0, strpos($command, "_"));

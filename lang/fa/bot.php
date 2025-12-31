@@ -161,4 +161,6 @@ return [
     'you had no reading today and yesterday' => 'شما امروز و دیروز هیچ مطالعه‌ای نداشتید',
     'suggested verse from other users today' => 'آیه پیشنهادی از فعالیت‌های امروز دیگر کاربران',
     'start from here' => 'از اینجا شروع کنید',
+    'last activities' => 'آخرین فعالیت‌ها',
+    'return to menu' => 'بازگشت به فهرست',
 ];
