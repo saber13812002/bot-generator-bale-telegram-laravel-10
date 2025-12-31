@@ -81,22 +81,41 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $result_ayat = $count_today - $count_yesterday;
         $result_ayat_if_negetive = $count_yesterday - $count_today;
 
-        $postfix_hadith = "";
-        if ($result_ayat == 0 && $count_today == 0) {
-            $postfix_hadith = " ✍✍✍
-" . trans("bot.your today readings is zero") . "
-👇👇👇
-https://www.imamalicenter.se/fa/20hadith_om_Koran
-";
+        // Build the main report message
+        $message = "📊 گزارش فعالیت شما\n\n";
+        
+        // Ranking
+        $message .= "🏆 " . trans("bot.your ranking in last 30 days is") . ": " . $rank . "\n\n";
+        
+        // Today's usage
+        $message .= "📖 " . trans("bot.your todays usage of this bot") . ": " . $count_today . " " . trans("bot.ayah") . "\n";
+        
+        // Yesterday's usage
+        $message .= "📊 " . trans("bot.which compared to the previous day") . ": " . $count_yesterday . " " . trans("bot.ayah") . "\n";
+        
+        // Comparison result
+        if ($result_ayat > 0) {
+            $message .= "📈 " . $result_ayat . " " . trans("bot.you have advantage") . "\n";
+        } elseif ($result_ayat < 0) {
+            $message .= "📉 " . $result_ayat_if_negetive . " " . trans("bot.your readings less that yesterday activity") . "\n";
+        } else {
+            $message .= "➡️ تعداد آیه‌های امروز و دیروز برابر است\n";
         }
-
-        $postfix = $result_ayat > 0 ? $result_ayat . trans("bot.you have advantage") : $result_ayat_if_negetive . trans("bot.your readings less that yesterday activity");
-
-        $message = trans("bot.your ranking in last 30 days is") . $rank . "
-" . trans("bot.your todays usage of this bot") . "
-:" . $count_today . trans("bot.ayah") . "
-" . trans("bot.which compared to the previous day") . $count_yesterday . "
-" . $postfix . $postfix_hadith . HadithHelper::random_hadith();
+        
+        // Special message for zero readings
+        if ($result_ayat == 0 && $count_today == 0) {
+            $message .= "\n⚠️ " . trans("bot.your today readings is zero") . "\n";
+            $message .= "👇👇👇\n";
+            $message .= "https://www.imamalicenter.se/fa/20hadith_om_Koran\n";
+        }
+        
+        // Separator before hadith
+        $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+        
+        // Hadith section
+        $message .= "📜 حدیث روز:\n\n";
+        $message .= HadithHelper::random_hadith();
+        
         return $message;
     }
 
