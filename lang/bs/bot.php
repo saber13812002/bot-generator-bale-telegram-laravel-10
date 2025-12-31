@@ -43,6 +43,7 @@ return [
     'An error occurred when admin want to approve your request'                 => 'Došlo je do greške kada administrator želi odobriti vaš zahtjev.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Odredite minimalnu brzinu vjetra za bot da vam pošalje željeno upozorenje.',
     'please wait'                                                               => 'molim sačekajte...',
+    'processing your request'                                                   => '⏳ Obrada vašeg zahtjeva...',
     'sending to blog api'                                                       => 'slanje zahtjeva na blog api...',
     'sending to blog api but nothing returned'                                  => 'slanje zahtjeva na blog api ali ništa nije vraćeno...',
     'your chat id'                                                              => 'vaš ID za chat:',

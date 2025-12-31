@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'קודם',
     'next'                                                                      => 'הַבָּא',
     'please wait'                                                               => 'המתן בבקשה ...',
+    'processing your request'                                                   => '⏳ מעבד את בקשתך...',
     'your chat id'                                                              => 'מזהה הצ\'אט שלך:',
     'sending to blog api'                                                       => 'שולח בקשה לבלוג API...',
     'sending to blog api but nothing returned'                                  => 'שולח בקשה לבלוג API אבל שום דבר לא חזר...',

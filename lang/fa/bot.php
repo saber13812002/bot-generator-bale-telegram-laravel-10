@@ -44,6 +44,7 @@ return [
     'previous'                                                                    => 'قبلی',
     'next'                                                                        => 'بعدی',
     'please wait'                                                                 => 'لطفا صبر کنید ...',
+    'processing your request'                                                     => '⏳ در حال پردازش درخواست شما...',
     'your chat id'                                                                => 'شناسه چت شما:',
     'sending to blog api'                                                         => 'ارسال درخواست به وب سرویس وبلاگ ...',
     'sending to blog api but nothing returned'                                    => 'ارسال درخواست به وب سرویس وبلاگ انجام شد اما چیزی برنگشت...',

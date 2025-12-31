@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'Önceki',
     'next'                                                                      => 'Sonraki',
     'please wait'                                                               => 'lütfen bekleyin ...',
+    'processing your request'                                                   => '⏳ İsteğiniz işleniyor...',
     'your chat id'                                                              => 'sohbet kimliğiniz:',
     'sending to blog api'                                                       => 'blog api\'ye istek gönderme ...',
     'sending to blog api but nothing returned'                                  => 'blog api\'sine istek gönderiliyor ancak hiçbir şey döndürülmüyor ...',

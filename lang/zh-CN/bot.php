@@ -44,6 +44,7 @@ return [
     'previous'                                                                    => '上一篇',
     'next'                                                                        => '下一页',
     'please wait'                                                                 => '请稍候...',
+    'processing your request'                                                     => '⏳ 正在处理您的请求...',
     'your chat id'                                                                => '您的聊天ID：',
     'sending to blog api'                                                         => '向博客API发送请求...',
     'sending to blog api but nothing returned'                                    => '向blog api发送请求，但没有任何返回...',

@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'Précédent',
     'next'                                                                      => 'Suivant',
     'please wait'                                                               => 'veuillez patienter ...',
+    'processing your request'                                                   => '⏳ Traitement de votre demande...',
     'your chat id'                                                              => 'votre identifiant de chat :',
     'sending to blog api'                                                       => 'envoi d\'une requête à l\'api du blog ...',
     'sending to blog api but nothing returned'                                  => 'envoi d\'une requête à l\'api du blog mais rien n\'est retourné ...',

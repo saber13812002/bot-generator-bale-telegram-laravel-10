@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'سابق',
     'next'                                                                      => 'التالي',
     'please wait'                                                               => 'الرجاء الانتظار قبل إعادة المحاولة.',
+    'processing your request'                                                   => '⏳ جاري معالجة طلبك...',
     'your chat id'                                                              => 'معرف الدردشة الخاص بك:',
     'sending to blog api'                                                       => 'إرسال طلب إلى مدونة api ...',
     'sending to blog api but nothing returned'                                  => 'إرسال طلب إلى مدونة api ولكن لا شيء يعود ...',

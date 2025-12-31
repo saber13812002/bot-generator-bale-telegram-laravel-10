@@ -43,6 +43,7 @@ return [
     'An error occurred when admin want to approve your request'                 => 'Ocorreu um erro quando o administrador queria aprovar o seu pedido.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Determine a velocidade mínima do vento para que o bot envie o alerta pretendido.',
     'please wait'                                                               => 'por favor aguarde ...',
+    'processing your request'                                                   => '⏳ A processar o seu pedido...',
     'sending to blog api'                                                       => 'enviar pedido para a api do blogue ...',
     'sending to blog api but nothing returned'                                  => 'envio de um pedido para a API do blogue, mas não é devolvido nada ...',
     'your chat id'                                                              => 'o seu ID de chat:',

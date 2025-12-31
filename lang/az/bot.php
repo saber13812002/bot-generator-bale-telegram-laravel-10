@@ -43,6 +43,7 @@ return [
     'An error occurred when admin want to approve your request'                 => 'Admin sorğunuzu təsdiqləmək istəyəndə xəta baş verdi.',
     'Please determine the minimum wind speed for bot to send you desired alert' => 'İstədiyiniz xəbərdarlığı göndərmək üçün botun minimum küləyin sürətini təyin edin.',
     'please wait'                                                               => 'zəhmət olmasa, gözləyin ...',
+    'processing your request'                                                   => '⏳ Sorğunuz işlənir...',
     'sending to blog api'                                                       => 'blog api-yə sorğu göndərilir ...',
     'sending to blog api but nothing returned'                                  => 'blog api-yə sorğu göndərilir, lakin heç nə qaytarılmadı ...',
     'your chat id'                                                              => 'söhbət ID-niz:',

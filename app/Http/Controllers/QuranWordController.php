@@ -316,6 +316,9 @@ class QuranWordController extends Controller
 
                     $command = substr($botText, strpos($botText, "/") + Str::length("/"));
                     if ($command == "fehrest") {
+                        // اطلاع به کاربر که در حال پردازش است
+                        // BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                        
                         if ($type == 'telegram') {
                             QuranHelper::generateTelegramFehrestThenSendIt($bot);
                         } else if ($type == 'gap') {
@@ -330,6 +333,9 @@ class QuranWordController extends Controller
                             QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
                         }
                     } else if ($command == "joz") {
+                        // اطلاع به کاربر که در حال پردازش است
+                        // BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                        
                         if ($type != 'bale') {
                             QuranHelper::generateJozLinksThenSendItTelegram($bot);
                         } else {
@@ -342,6 +348,9 @@ class QuranWordController extends Controller
                             QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
                         }
                     } else if ($command == "report") {
+                        // اطلاع به کاربر که در حال پردازش است
+                        BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                        
                         $chatId = $bot->ChatID();
                         $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
                         $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
@@ -353,6 +362,9 @@ class QuranWordController extends Controller
                             BotHelper::sendMessage($bot, "❌ " . trans("bot.this command not work in telegram"));
                         } else {
                             if (AdminHelper::isAdmin($bot->ChatID())) {
+                                // اطلاع به کاربر که در حال پردازش است
+                                BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                                
                                 $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
                                 
                                 // Send last activities after reportall with common buttons

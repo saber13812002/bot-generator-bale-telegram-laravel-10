@@ -44,6 +44,7 @@ return [
     'previous'                                                                  => 'پچھلا',
     'next'                                                                      => 'اگلے',
     'please wait'                                                               => 'برائے مہربانی انتظار کریں ...',
+    'processing your request'                                                   => '⏳ آپ کی درخواست پر کارروائی ہو رہی ہے...',
     'your chat id'                                                              => 'آپ کی چیٹ آئی ڈی:',
     'sending to blog api'                                                       => 'بلاگ اے پی آئی کو درخواست بھیجی جا رہی ہے...',
     'sending to blog api but nothing returned'                                  => 'بلاگ اے پی آئی کو درخواست بھیجی جا رہی ہے لیکن کچھ واپس نہیں آیا ...',
