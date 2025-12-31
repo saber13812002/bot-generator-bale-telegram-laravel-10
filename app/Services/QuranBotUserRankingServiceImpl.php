@@ -93,7 +93,10 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $message .= "📖 " . trans("bot.your todays usage of this bot") . ": " . $count_today . " " . trans("bot.ayah") . "\n";
         
         // Comparison result with complete sentence
-        if ($result_ayat > 0) {
+        if ($count_today == 0 && $count_yesterday == 0) {
+            // Both today and yesterday are zero
+            $message .= "💬 " . trans("bot.you had no reading today and yesterday") . "\n";
+        } elseif ($result_ayat > 0) {
             $message .= "📈 " . trans("bot.which compared to the previous day") . " " . $result_ayat . " " . trans("bot.ayah") . " مطالعه شما بیشتر از فعالیت دیروز است\n";
         } elseif ($result_ayat < 0) {
             $message .= "📉 " . trans("bot.which compared to the previous day") . " " . $result_ayat_if_negetive . " " . trans("bot.ayah") . " مطالعه شما کمتر از فعالیت دیروز است\n";
@@ -101,8 +104,8 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
             $message .= "➡️ " . trans("bot.which compared to the previous day") . " تعداد آیه‌های مطالعه شما برابر با فعالیت دیروز است\n";
         }
         
-        // Special message for zero readings
-        if ($result_ayat == 0 && $count_today == 0) {
+        // Special message for zero readings (only if today is zero but yesterday was not)
+        if ($result_ayat < 0 && $count_today == 0) {
             $message .= "\n⚠️ " . trans("bot.your today readings is zero") . "\n";
             $message .= "👇👇👇\n";
             $message .= "https://www.imamalicenter.se/fa/20hadith_om_Koran\n";
@@ -130,7 +133,42 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         $message .= HadithHelper::random_hadith();
         
         // Last verse and continue section
-        if ($lastActivities->count() > 0) {
+        // Special handling for zero activity (both today and yesterday)
+        if ($count_today == 0 && $count_yesterday == 0) {
+            $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+            
+            if ($lastActivities->count() > 0) {
+                // User has previous activities, suggest continuing from last verse
+                $lastActivity = $lastActivities->first();
+                [$lastSure, $lastAyah] = StringHelper::getSureAyeByRegex($lastActivity->text);
+                
+                if ($lastSure > 0 && $lastAyah > 0) {
+                    $formattedLastActivity = QuranHelper::formatActivity($lastActivity->text);
+                    $nextCommand = QuranHelper::getNextAyahCommand($lastSure, $lastAyah);
+                    
+                    $message .= "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
+                    
+                    if ($nextCommand) {
+                        $message .= trans("bot.start from here") . ": " . $nextCommand;
+                    } else {
+                        $message .= "✅ " . trans("bot.you have completed the quran");
+                    }
+                }
+            } else {
+                // User has no previous activities, suggest random verse from other users
+                $randomVerse = QuranHelper::getRandomVerseFromTodayActivities($chatId);
+                
+                if ($randomVerse) {
+                    $formattedRandomVerse = QuranHelper::formatActivity($randomVerse);
+                    $message .= "💡 " . trans("bot.suggested verse from other users today") . ": " . $randomVerse . "\n";
+                    $message .= trans("bot.start from here") . ": " . $randomVerse;
+                } else {
+                    // No activities from other users, suggest first verse
+                    $message .= trans("bot.start from here") . ": /sure1ayah1";
+                }
+            }
+        } elseif ($lastActivities->count() > 0) {
+            // Normal case: show last verse and continue
             $lastActivity = $lastActivities->first();
             [$lastSure, $lastAyah] = StringHelper::getSureAyeByRegex($lastActivity->text);
             

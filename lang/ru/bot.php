@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'Годовая статистика',
     'total ayah' => 'Всего аятов',
     'unique users' => 'Уникальные пользователи',
+    'you had no reading today and yesterday' => 'Вы не читали сегодня и вчера',
+    'suggested verse from other users today' => 'Предложенный аят из активности других пользователей сегодня',
+    'start from here' => 'Начните отсюда',
 ];

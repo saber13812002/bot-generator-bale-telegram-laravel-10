@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'إحصائيات سنوية',
     'total ayah' => 'إجمالي الآيات',
     'unique users' => 'مستخدمون فريدون',
+    'you had no reading today and yesterday' => 'لم تقرأ اليوم ولا أمس',
+    'suggested verse from other users today' => 'آية مقترحة من أنشطة المستخدمين الآخرين اليوم',
+    'start from here' => 'ابدأ من هنا',
 ];

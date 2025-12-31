@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'Godišnja statistika',
     'total ayah' => 'Ukupno ajeta',
     'unique users' => 'Jedinstveni korisnici',
+    'you had no reading today and yesterday' => 'Niste čitali danas ni jučer',
+    'suggested verse from other users today' => 'Predloženi ajet iz aktivnosti drugih korisnika danas',
+    'start from here' => 'Počnite odavde',
 ];

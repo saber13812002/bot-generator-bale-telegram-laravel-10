@@ -158,4 +158,7 @@ return [
     'yearly statistics' => 'آمار سالانه',
     'total ayah' => 'تعداد کل آیه',
     'unique users' => 'کاربران منحصر به فرد',
+    'you had no reading today and yesterday' => 'شما امروز و دیروز هیچ مطالعه‌ای نداشتید',
+    'suggested verse from other users today' => 'آیه پیشنهادی از فعالیت‌های امروز دیگر کاربران',
+    'start from here' => 'از اینجا شروع کنید',
 ];

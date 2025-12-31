@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'سالانہ اعداد و شمار',
     'total ayah' => 'کل آیات',
     'unique users' => 'منفرد صارفین',
+    'you had no reading today and yesterday' => 'آپ نے آج اور کل نہیں پڑھا',
+    'suggested verse from other users today' => 'آج دوسرے صارفین کی سرگرمیوں سے تجویز کردہ آیت',
+    'start from here' => 'یہاں سے شروع کریں',
 ];

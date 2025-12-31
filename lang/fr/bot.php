@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'Statistiques Annuelles',
     'total ayah' => 'Total Ayah',
     'unique users' => 'Utilisateurs Uniques',
+    'you had no reading today and yesterday' => 'Vous n\'avez pas lu aujourd\'hui ni hier',
+    'suggested verse from other users today' => 'Verset suggéré des activités d\'autres utilisateurs aujourd\'hui',
+    'start from here' => 'Commencez d\'ici',
 ];

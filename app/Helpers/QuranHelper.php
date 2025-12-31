@@ -1358,6 +1358,47 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         
         return $message;
     }
+
+    /**
+     * Get a random verse from today's activities of other users
+     * 
+     * @param string $excludeChatId The chat ID to exclude from results
+     * @return string|null Returns a command like "/sure2ayah3" or null if no activities found
+     */
+    public static function getRandomVerseFromTodayActivities(string $excludeChatId): ?string
+    {
+        try {
+            // Get all command logs from today, excluding the current user
+            $todayActivities = BotLog::where('created_at', '>=', \Carbon\Carbon::now()->subDay())
+                ->whereWebhookEndpointUri('webhook-quran-word')
+                ->where('is_command', true)
+                ->where('chat_id', '!=', $excludeChatId)
+                ->orderBy('created_at', 'desc')
+                ->limit(100) // Get more to filter
+                ->get(['text', 'chat_id']);
+
+            // Filter by regex pattern to get only verse commands
+            $verseActivities = $todayActivities->filter(function ($log) {
+                return preg_match('/\/sure[0-9]+ayah[0-9]+/', $log->text);
+            });
+
+            if ($verseActivities->count() > 0) {
+                // Get unique verses (to avoid duplicates)
+                $uniqueVerses = $verseActivities->pluck('text')->unique();
+                
+                // Return a random verse
+                return $uniqueVerses->random();
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Error getting random verse from today activities', [
+                'exclude_chat_id' => $excludeChatId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
 }
 
 

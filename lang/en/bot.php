@@ -175,4 +175,7 @@ return [
     'yearly statistics' => 'Yearly Statistics',
     'total ayah' => 'Total Ayah',
     'unique users' => 'Unique Users',
+    'you had no reading today and yesterday' => 'You had no reading today and yesterday',
+    'suggested verse from other users today' => 'Suggested verse from other users\' activities today',
+    'start from here' => 'Start from here',
 ];

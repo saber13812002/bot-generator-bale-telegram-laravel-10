@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'סטטיסטיקות שנתיות',
     'total ayah' => 'סה"כ איה',
     'unique users' => 'משתמשים ייחודיים',
+    'you had no reading today and yesterday' => 'לא קראת היום ולא אתמול',
+    'suggested verse from other users today' => 'איה מוצע מפעילויות משתמשים אחרים היום',
+    'start from here' => 'התחל מכאן',
 ];

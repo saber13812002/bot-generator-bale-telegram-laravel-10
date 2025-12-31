@@ -158,4 +158,7 @@ return [
     'yearly statistics' => '每年统计',
     'total ayah' => '总经文数',
     'unique users' => '唯一用户',
+    'you had no reading today and yesterday' => '您今天和昨天都没有阅读',
+    'suggested verse from other users today' => '今天其他用户活动中的推荐经文',
+    'start from here' => '从这里开始',
 ];

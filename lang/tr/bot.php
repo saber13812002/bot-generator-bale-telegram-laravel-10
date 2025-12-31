@@ -155,4 +155,7 @@ return [
     'yearly statistics' => 'Yıllık İstatistikler',
     'total ayah' => 'Toplam Ayet',
     'unique users' => 'Benzersiz Kullanıcılar',
+    'you had no reading today and yesterday' => 'Bugün ve dün okumadınız',
+    'suggested verse from other users today' => 'Bugün diğer kullanıcıların etkinliklerinden önerilen ayet',
+    'start from here' => 'Buradan başlayın',
 ];
