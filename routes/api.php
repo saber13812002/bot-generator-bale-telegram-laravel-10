@@ -51,6 +51,19 @@ Route::get('/approve', [BotUsersController::class, 'approve']);
 Route::post('/webhook-weather', [WeatherController::class, 'index']);
 
 Route::post('/webhook-quran-word', [QuranWordController::class, 'index']);
+Route::get('/webhook-quran-word-test', function (Request $request) {
+    \Illuminate\Support\Facades\Log::info('✅ Test endpoint called', [
+        'method' => $request->method(),
+        'all' => $request->all(),
+        'headers' => $request->headers->all()
+    ]);
+    return response()->json([
+        'success' => true,
+        'message' => 'Test endpoint is working',
+        'timestamp' => now()->toDateTimeString(),
+        'request_data' => $request->all()
+    ]);
+});
 Route::post('/gap', [QuranWordController::class, 'gap']);
 Route::post('/webhook-quran-message-to-all', [QuranWordController::class, 'messageToAll']);
 

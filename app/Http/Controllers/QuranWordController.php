@@ -61,6 +61,15 @@ class QuranWordController extends Controller
     public function index(BotRequest $request)
     {
         try {
+            // Log incoming request for debugging
+            Log::info('📥 Quran Word Bot - Webhook received', [
+                'origin' => $request->input('origin'),
+                'has_token' => $request->has('token'),
+                'has_language' => $request->has('language'),
+                'has_bot_mother_id' => $request->has('bot_mother_id'),
+                'bot_mother_id' => $request->input('bot_mother_id'),
+                'language' => $request->input('language'),
+            ]);
 
             if ($request->has('language')) {
                 App::setLocale($request->input('language'));
@@ -72,6 +81,31 @@ class QuranWordController extends Controller
             $type = $request->input('origin');
             $token = "";
             if ($request->has('origin')) {
+                // Get raw update data for callback query handling
+                $update = $request->json()->all() ?? $request->all();
+                
+                // Handle callback query (inline button clicks) BEFORE creating bot instance
+                if (isset($update['callback_query'])) {
+                    Log::info('🔘 Quran Word Bot - Callback query detected', [
+                        'callback_data' => $update['callback_query']['data'] ?? '',
+                        'type' => $type
+                    ]);
+                    
+                    // Create bot instance for callback handling
+                    if ($type == 'bale') {
+                        $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+                        $bot = new Telegram($token, 'bale');
+                    } elseif ($type == 'telegram') {
+                        $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+                        $bot = new Telegram($token);
+                    } else {
+                        Log::warning('⚠️ Quran Word Bot - Unsupported origin for callback', ['origin' => $type]);
+                        return 200;
+                    }
+                    
+                    $this->handleCallbackQuery($bot, $update['callback_query'], $type, $request);
+                    return 0;
+                }
                 if ($request->input('origin') == 'bale') {
                     $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
                     $bot = new Telegram($token, 'bale');
@@ -83,45 +117,87 @@ class QuranWordController extends Controller
                     $bot = new GapBot($token, $request);
                     $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
                 } else {
+                    Log::warning('⚠️ Quran Word Bot - Invalid origin', ['origin' => $request->input('origin')]);
                     return 200;
                 }
 
+                // Log bot creation
+                $chatId = $bot->ChatID();
+                $botText = $bot->Text();
+                Log::info('📨 Quran Word Bot - Message received', [
+                    'chat_id' => $chatId,
+                    'text' => $botText,
+                    'type' => $type,
+                    'has_bot_mother_id' => $request->has('bot_mother_id'),
+                ]);
+
                 $userSettings = null;
-                if ($bot->ChatID() && $request->input('bot_mother_id') && $type) {
-                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
-                    
-                    // پردازش پارامتر دعوت در دستور /start
-                    $botText = $bot->Text();
-                    if (str_starts_with($botText, '/start')) {
-                        // بررسی پارامتر دعوت: /start 123456 یا /start?start=123456
-                        $referralCode = null;
-                        
-                        // روش 1: /start 123456 (مستقیم)
-                        if (preg_match('/^\/start\s+(\d+)$/i', $botText, $matches)) {
-                            $referralCode = $matches[1];
+                // Try to get bot_mother_id from request, if not available, try to find it from token
+                $botMotherId = $request->input('bot_mother_id');
+                if (!$botMotherId && $token && $type) {
+                    // Try to find bot_mother_id from bots table using token
+                    $tokenField = $type == 'telegram' ? 'telegram_bot_token' : ($type == 'bale' ? 'bale_bot_token' : null);
+                    if ($tokenField) {
+                        $botRecord = \App\Models\Bot::where($tokenField, $token)->first();
+                        if ($botRecord) {
+                            $botMotherId = $botRecord->bot_mother_id;
+                            Log::info('🔍 Quran Word Bot - Found bot_mother_id from database', [
+                                'bot_id' => $botRecord->id,
+                                'bot_mother_id' => $botMotherId,
+                                'token_field' => $tokenField
+                            ]);
+                        } else {
+                            Log::warning('⚠️ Quran Word Bot - Bot record not found in database', [
+                                'token_preview' => substr($token, 0, 10) . '...',
+                                'type' => $type,
+                                'token_field' => $tokenField
+                            ]);
                         }
-                        // روش 2: /start?start=123456 (از لینک)
-                        elseif (str_contains($botText, '?')) {
-                            [$command, $params] = BotHelper::getCommandRefferralWhenStart($botText, '?');
-                            if (isset($params['start'])) {
-                                $referralCode = $params['start'];
+                    }
+                }
+
+                if ($chatId && $type) {
+                    if ($botMotherId) {
+                        $userSettings = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+                        
+                        // پردازش پارامتر دعوت در دستور /start
+                        if (str_starts_with($botText, '/start')) {
+                            // بررسی پارامتر دعوت: /start 123456 یا /start?start=123456
+                            $referralCode = null;
+                            
+                            // روش 1: /start 123456 (مستقیم)
+                            if (preg_match('/^\/start\s+(\d+)$/i', $botText, $matches)) {
+                                $referralCode = $matches[1];
+                            }
+                            // روش 2: /start?start=123456 (از لینک)
+                            elseif (str_contains($botText, '?')) {
+                                [$command, $params] = BotHelper::getCommandRefferralWhenStart($botText, '?');
+                                if (isset($params['start'])) {
+                                    $referralCode = $params['start'];
+                                }
+                            }
+                            
+                            // ذخیره invited_by اگر پارامتر وجود داشت و کاربر قبلاً invited_by نداشت
+                            if ($referralCode && !$userSettings->invited_by) {
+                                // بررسی اینکه referralCode با chat_id خود کاربر متفاوت باشد
+                                if ($referralCode != $chatId) {
+                                    $userSettings->invited_by = $referralCode;
+                                    $userSettings->save();
+                                    
+                                    Log::info('Referral code saved', [
+                                        'chat_id' => $chatId,
+                                        'invited_by' => $referralCode,
+                                        'type' => $type
+                                    ]);
+                                }
                             }
                         }
-                        
-                        // ذخیره invited_by اگر پارامتر وجود داشت و کاربر قبلاً invited_by نداشت
-                        if ($referralCode && !$userSettings->invited_by) {
-                            // بررسی اینکه referralCode با chat_id خود کاربر متفاوت باشد
-                            if ($referralCode != $bot->ChatID()) {
-                                $userSettings->invited_by = $referralCode;
-                                $userSettings->save();
-                                
-                                Log::info('Referral code saved', [
-                                    'chat_id' => $bot->ChatID(),
-                                    'invited_by' => $referralCode,
-                                    'type' => $type
-                                ]);
-                            }
-                        }
+                    } else {
+                        Log::warning('⚠️ Quran Word Bot - bot_mother_id not found', [
+                            'chat_id' => $chatId,
+                            'type' => $type,
+                            'token_preview' => substr($token, 0, 10) . '...'
+                        ]);
                     }
                 }
 
@@ -137,20 +213,42 @@ class QuranWordController extends Controller
 
                 $botText = Str::lower($bot->Text());
                 if ($botText == '/start') {
+                    Log::info('▶️ Quran Word Bot - Processing /start command', [
+                        'chat_id' => $chatId,
+                        'type' => $type,
+                        'language' => App::getLocale()
+                    ]);
 
                     $command_type = "start";
                     $isStartCommandShow = 0;
                     list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
                     $reciterCommands = QuranHelper::getSettingReciter($type);
                     $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
-//                dd($array,$message, $messageCommands);
-                    if ($type == 'telegram') {
-                        BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
-                    } else if ($type == 'gap') {
-                        BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
-                    } else {
-                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
+                    
+                    Log::info('📤 Quran Word Bot - Sending /start response', [
+                        'chat_id' => $chatId,
+                        'type' => $type,
+                        'message_length' => strlen($message . $messageCommands . $reciterCommands),
+                        'has_user_settings' => $userSettings !== null
+                    ]);
+                    
+                    try {
+                        if ($type == 'telegram') {
+                            BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
+                        } else if ($type == 'gap') {
+                            BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
+                        } else {
+                            $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
+                        }
+                        Log::info('✅ Quran Word Bot - /start response sent successfully', ['chat_id' => $chatId]);
+                    } catch (Exception $e) {
+                        Log::error('❌ Quran Word Bot - Error sending /start response', [
+                            'chat_id' => $chatId,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        throw $e;
                     }
                 } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
 
@@ -586,12 +684,151 @@ class QuranWordController extends Controller
 
 
         } catch (Exception $exception) {
-            Log::info($exception->getMessage());
+            Log::error('❌ Quran Word Bot - Exception occurred', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+                'origin' => $request->input('origin') ?? null,
+                'has_token' => $request->has('token'),
+                'language' => $request->input('language') ?? null
+            ]);
+            
+            // Try to send error message to user if bot is available
+            try {
+                if (isset($bot) && isset($chatId) && $chatId) {
+                    BotHelper::sendMessage($bot, trans('bot.bot cant recognized your command') . " /start");
+                }
+            } catch (Exception $e) {
+                Log::error('❌ Quran Word Bot - Failed to send error message to user', [
+                    'error' => $e->getMessage()
+                ]);
+            }
+            
             return 0;
         }
 
         return 0;
     }
+
+    /**
+     * Handle callback query (inline button clicks)
+     */
+    private function handleCallbackQuery($bot, array $callbackQuery, string $type, $request): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        $chatId = $callbackQuery['from']['id'] ?? null;
+        $callbackQueryId = $callbackQuery['id'] ?? null;
+        $messageId = $callbackQuery['message']['message_id'] ?? null;
+
+        Log::info('🔘 Quran Word Bot - Callback query received', [
+            'callback_data' => $callbackData,
+            'chat_id' => $chatId,
+            'type' => $type
+        ]);
+
+        // Answer callback query first to remove loading state
+        $this->answerCallbackQuery($bot, $callbackQueryId, '', $type, $request);
+
+        // Handle copy_invite_link callback
+        if (str_starts_with($callbackData, 'copy_invite_link_')) {
+            $inviteChatId = str_replace('copy_invite_link_', '', $callbackData);
+            
+            // Get token for invitation link generation
+            $token = '';
+            if ($type == 'bale') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+            } elseif ($type == 'telegram') {
+                $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+            }
+            
+            // Generate invitation link using QuranHelper
+            $invitationLink = QuranHelper::getInvitationLink($inviteChatId, $type, $token);
+            
+            if (!$invitationLink) {
+                BotHelper::sendMessage($bot, "❌ " . trans("bot.error generating invitation link"));
+                Log::error('❌ Quran Word Bot - Failed to generate invitation link', [
+                    'chat_id' => $chatId,
+                    'invite_chat_id' => $inviteChatId,
+                    'type' => $type
+                ]);
+                return;
+            }
+            
+            $message = trans('bot.your invitation link') . ":\n\n";
+            $message .= $invitationLink . "\n\n";
+            $message .= trans('bot.send this link to your friends');
+            
+            BotHelper::sendMessage($bot, $message);
+            
+            Log::info('✅ Quran Word Bot - Invitation link sent', [
+                'chat_id' => $chatId,
+                'invite_chat_id' => $inviteChatId
+            ]);
+            return;
+        }
+
+        // Handle other callback data here if needed
+        Log::warning('⚠️ Quran Word Bot - Unknown callback data', [
+            'callback_data' => $callbackData,
+            'chat_id' => $chatId
+        ]);
+    }
+
+    /**
+     * Answer callback query
+     */
+    private function answerCallbackQuery($bot, ?string $callbackQueryId, string $text, string $type, $request): void
+    {
+        if (!$callbackQueryId) {
+            return;
+        }
+
+        $token = '';
+        if ($type == 'bale') {
+            $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
+        } elseif ($type == 'telegram') {
+            $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+        }
+
+        if (!$token) {
+            Log::warning('⚠️ Quran Word Bot - No token available for callback answer', ['type' => $type]);
+            return;
+        }
+        
+        if ($type == 'bale') {
+            $url = "https://tapi.bale.ai/bot{$token}/answerCallbackQuery";
+        } else {
+            $url = "https://api.telegram.org/bot{$token}/answerCallbackQuery";
+        }
+
+        $data = [
+            'callback_query_id' => $callbackQueryId,
+            'text' => $text,
+            'show_alert' => false
+        ];
+
+        try {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            Log::info('✅ Quran Word Bot - Callback query answered', [
+                'callback_query_id' => $callbackQueryId,
+                'http_code' => $httpCode,
+                'response' => $response
+            ]);
+        } catch (Exception $e) {
+            Log::error('❌ Quran Word Bot - Failed to answer callback query', [
+                'error' => $e->getMessage(),
+                'callback_query_id' => $callbackQueryId
+            ]);
+        }
+    }
+
 
 
     /**
