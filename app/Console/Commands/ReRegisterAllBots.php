@@ -94,70 +94,31 @@ class ReRegisterAllBots extends Command
                     continue;
                 }
 
-                // دریافت webhook_endpoint_uri و language از BotLog
-                // ابتدا سعی می‌کنیم از bot_id استفاده کنیم
-                $lastLog = BotLog::where('bot_mother_id', $bot->bot_mother_id)
-                    ->where('type', $type)
-                    ->where('bot_id', $bot->id)
-                    ->whereNotNull('webhook_endpoint_uri')
-                    ->where('webhook_endpoint_uri', '!=', '')
-                    ->orderBy('created_at', 'desc')
-                    ->first();
+                // استفاده از endpoint_id و language_code از جدول bots (اولویت اول)
+                $endpointId = $bot->endpoint_id;
+                $language = $bot->language_code ?? 'fa';
 
-                // اگر با bot_id پیدا نشد، از webhook_endpoint_uri و type و bot_mother_id استفاده می‌کنیم
-                if (!$lastLog || !$lastLog->webhook_endpoint_uri) {
+                // اگر endpoint_id در bots وجود نداشت، از BotLog استفاده می‌کنیم (fallback)
+                if (!$endpointId) {
                     $lastLog = BotLog::where('bot_mother_id', $bot->bot_mother_id)
                         ->where('type', $type)
+                        ->where('bot_id', $bot->id)
                         ->whereNotNull('webhook_endpoint_uri')
                         ->where('webhook_endpoint_uri', '!=', '')
                         ->orderBy('created_at', 'desc')
                         ->first();
-                }
 
-                $endpointId = null;
-                $language = 'fa';
-
-                if ($lastLog && $lastLog->webhook_endpoint_uri) {
-                    $endpointId = $lastLog->webhook_endpoint_uri;
-                    $language = $lastLog->language ?? 'fa';
-                } else {
-                    // اگر لاگ پیدا نشد، سعی می‌کنیم از endpoint های شناخته شده استفاده کنیم
-                    // برای ربات‌های قرآن، endpoint معمولاً 'webhook-quran-word' است
-                    $endpointId = 'webhook-quran-word'; // fallback
-                    
-                    // بررسی اینکه آیا این ربات قرآن است یا نه
-                    // اگر bot_name در config/quran_bots.php وجود دارد، احتمالاً ربات قرآن است
-                    $quranBotsConfig = config('quran_bots.bots', []);
-                    $isQuranBot = false;
-                    foreach ($quranBotsConfig as $quranBot) {
-                        // استخراج username از link (مثلاً t.me/Quran_Hifzbot -> Quran_Hifzbot)
-                        $quranBotUsername = null;
-                        if (isset($quranBot['link'])) {
-                            $linkParts = explode('/', $quranBot['link']);
-                            $quranBotUsername = end($linkParts);
-                        }
-                        
-                        if (($type == 'telegram' && $botName == $quranBotUsername) ||
-                            ($type == 'bale' && $botName == $quranBotUsername)) {
-                            $isQuranBot = true;
-                            $language = $quranBot['language_code'] ?? 'fa';
-                            break;
-                        }
-                    }
-                    
-                    if (!$isQuranBot) {
-                        $skippedCount++;
-                        $this->newLine();
-                        $this->warn("  ⏭️  Bot #{$bot->id}: {$botName} ({$type}) - لاگ پیدا نشد و ربات قرآن نیست");
-                        $bar->advance();
-                        continue;
+                    if ($lastLog && $lastLog->webhook_endpoint_uri) {
+                        $endpointId = $lastLog->webhook_endpoint_uri;
+                        $language = $lastLog->language ?? $language;
                     }
                 }
 
+                // اگر هنوز endpoint_id نداریم، skip می‌کنیم
                 if (!$endpointId) {
                     $skippedCount++;
                     $this->newLine();
-                    $this->warn("  ⏭️  Bot #{$bot->id}: {$botName} ({$type}) - endpoint پیدا نشد");
+                    $this->warn("  ⏭️  Bot #{$bot->id}: {$botName} ({$type}) - endpoint_id پیدا نشد");
                     $bar->advance();
                     continue;
                 }
