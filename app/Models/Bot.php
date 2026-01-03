@@ -19,4 +19,12 @@ class Bot extends Model
     {
         return $this->belongsTo(WebhookEndpoint::class, 'endpoint_id', 'endpoint_id');
     }
+
+    /**
+     * رابطه با Language
+     */
+    public function language(): BelongsTo
+    {
+        return $this->belongsTo(Language::class, 'language_code', 'code');
+    }
 }

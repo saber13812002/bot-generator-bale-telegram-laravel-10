@@ -8,6 +8,7 @@ use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Select;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use App\Models\WebhookEndpoint;
+use App\Models\Language;
 
 class Bot extends Resource
 {
@@ -51,6 +52,12 @@ class Bot extends Resource
             ->pluck('name', 'endpoint_id')
             ->toArray();
 
+        // دریافت لیست زبان ها برای Select
+        $languageOptions = Language::where('is_active', true)
+            ->orderBy('name')
+            ->pluck('display_name', 'code')
+            ->toArray();
+
         return [
             ID::make()->sortable(),
 
@@ -73,10 +80,13 @@ class Bot extends Resource
                 ->nullable()
                 ->help('نوع پیام‌رسان (تلگرام یا بله)'),
 
-            Text::make('Language Code', 'language_code')
+            Select::make('Language', 'language_code')
+                ->options($languageOptions)
+                ->searchable()
+                ->displayUsingLabels()
                 ->sortable()
                 ->nullable()
-                ->help('کد زبان ربات (مثلاً fa, en, ar)')
+                ->help('زبان ربات - برای نمایش ترجمه‌ها از همین زبان استفاده می‌شود')
                 ->rules('max:10'),
 
             // فیلدهای موجود
