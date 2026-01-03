@@ -80,6 +80,11 @@ return [
     'translation changed to' => 'Translation changed to',
     'error saving translation preference' => 'Error saving translation preference',
     'incomplete translations marked with warning' => 'Incomplete translations are marked with ⚠️',
+    'settings menu' => 'Settings menu',
+    'select translation language' => 'Select translation language',
+    'current translation language' => 'Current translation language',
+    'select option from menu' => 'Select the desired option from the menu',
+    'view translations for current language' => 'View translations for current language',
 
     'to send your daily activity report please try it with this command' => 'to send your daily activity report please try it with this command',
 
@@ -144,6 +149,8 @@ return [
         'to help you for introduce all features of this robot' => 'to help you for introduce all features of this robot',
         'to send scanned quran page' => 'to send scanned quran page',
         'help' => 'help',
+        'view available translations' => 'view available translations',
+        'settings menu' => 'settings menu',
     ],
     'translators' => [
         'ansarian' => 'ansarian',
