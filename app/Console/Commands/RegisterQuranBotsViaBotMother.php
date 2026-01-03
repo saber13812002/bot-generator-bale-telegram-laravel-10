@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Helpers\BotHelper;
 use App\Helpers\WebhookEndpointHelper;
 use App\Models\Bot;
+use App\Models\BotLog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -48,6 +49,7 @@ class RegisterQuranBotsViaBotMother extends Command
         $this->newLine();
 
         // پیدا کردن ربات‌های قرآنی که bot_mother_id ندارند
+        // اول از جدول bots
         $bots = Bot::where(function($query) {
             $query->where(function($q) {
                 $q->whereNotNull('telegram_bot_token')
@@ -68,12 +70,79 @@ class RegisterQuranBotsViaBotMother extends Command
         })
         ->get();
 
-        if ($bots->isEmpty()) {
+        // همچنین از لاگ‌ها، ربات‌های قرآنی که bot_id دارند اما bot_mother_id ندارند را پیدا کنیم
+        $quranEndpoints = ['webhook-quran-word', 'webhook-quran-ayat', 'quran-word', 'quran-ayat'];
+        
+        $logsWithBots = BotLog::whereIn('webhook_endpoint_uri', $quranEndpoints)
+            ->whereNotNull('bot_id')
+            ->where('bot_id', '!=', 1) // bot_id = 1 مربوط به Bot Mother است
+            ->whereNotNull('type')
+            ->whereNotNull('language')
+            ->select('bot_id', 'type', 'language', 'webhook_endpoint_uri')
+            ->distinct()
+            ->get();
+
+        // برای هر لاگ، بررسی کنیم که آیا ربات در bots وجود دارد و bot_mother_id دارد یا نه
+        $botIdsFromLogs = $logsWithBots->pluck('bot_id')->unique();
+        
+        foreach ($botIdsFromLogs as $botId) {
+            $bot = Bot::find($botId);
+            if ($bot && (!$bot->bot_mother_id || $bot->bot_mother_id == 0)) {
+                // اگر ربات در لیست نیست، اضافه کن
+                if (!$bots->contains('id', $botId)) {
+                    $bots->push($bot);
+                }
+            }
+        }
+
+        // بررسی ربات‌هایی که در لاگ‌ها هستند اما در bots نیستند
+        $this->info("🔍 بررسی ربات‌هایی که در لاگ‌ها هستند اما در bots نیستند...");
+        $missingBots = [];
+        foreach ($logsWithBots as $log) {
+            $botId = $log->bot_id;
+            $bot = Bot::find($botId);
+            if (!$bot) {
+                // این ربات در bots نیست
+                $missingBots[] = [
+                    'bot_id_from_log' => $botId,
+                    'type' => $log->type,
+                    'language' => $log->language,
+                    'endpoint' => $log->webhook_endpoint_uri,
+                ];
+            }
+        }
+
+        if ($bots->isEmpty() && empty($missingBots)) {
             $this->info('✅ هیچ ربات قرآنی بدون bot_mother_id یافت نشد.');
             return 0;
         }
 
-        $this->info("📋 {$bots->count()} ربات قرآنی بدون bot_mother_id یافت شد.");
+        if (!empty($missingBots)) {
+            $this->warn("⚠️  " . count($missingBots) . " ربات در لاگ‌ها یافت شد که در جدول bots نیستند:");
+            $this->newLine();
+            $this->table(
+                ['Bot ID (از لاگ)', 'Type', 'Language', 'Endpoint'],
+                collect($missingBots)->map(function($item) {
+                    return [
+                        $item['bot_id_from_log'],
+                        $item['type'],
+                        $item['language'],
+                        $item['endpoint'],
+                    ];
+                })
+            );
+            $this->newLine();
+            $this->warn("⚠️  برای این ربات‌ها باید توکن پیدا کنید و از طریق ربات مادر ثبت کنید.");
+            $this->newLine();
+        }
+
+        if ($bots->isEmpty()) {
+            $this->info('✅ هیچ ربات قرآنی بدون bot_mother_id در جدول bots یافت نشد.');
+            $this->info('💡 اما ' . count($missingBots) . ' ربات در لاگ‌ها یافت شد که باید توکن آن‌ها را پیدا کنید.');
+            return 0;
+        }
+
+        $this->info("📋 {$bots->count()} ربات قرآنی بدون bot_mother_id در جدول bots یافت شد.");
         $this->newLine();
 
         // نمایش لیست ربات‌ها
