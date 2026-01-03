@@ -56,7 +56,7 @@ class WebhookEndpointHelper
      * @param int $botMotherId
      * @return string
      */
-    public static function createWebhookUrl(string $endpointId, Bot $botItem, string $type, string $language = 'fa', int $botMotherId = 1): string
+    public static function createWebhookUrl(string $endpointId, Bot $botItem, string $type, string $language = null, int $botMotherId = 1): string
     {
         $endpoints = self::getAvailableEndpoints();
         $endpoint = collect($endpoints)->firstWhere('id', $endpointId);
@@ -81,6 +81,14 @@ class WebhookEndpointHelper
         }
         
         if ($endpoint['requires_language']) {
+            // اگر language داده نشد، از language_code ربات استفاده کن
+            if (!$language && $botItem->language_code) {
+                $language = $botItem->language_code;
+            }
+            // اگر هنوز language نداریم، از پیش‌فرض fa استفاده کن
+            if (!$language) {
+                $language = 'fa';
+            }
             $params['language'] = $language;
         }
         

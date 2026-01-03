@@ -67,13 +67,32 @@ class QuranWordController extends Controller
                 'origin' => $request->input('origin'),
                 'bot_mother_id' => $request->input('bot_mother_id'),
                 'language' => $request->input('language'),
+                'bot_id' => $request->input('bot_id'),
                 'has_token' => $request->has('token'),
                 'timestamp' => now()->toDateTimeString()
             ]);
 
-            if ($request->has('language')) {
-                App::setLocale($request->input('language'));
-                Log::info('🌐 [QuranBot] Locale set', ['locale' => $request->input('language')]);
+            // تعیین زبان: اول از query string، سپس از language_code ربات در دیتابیس، در نهایت پیش‌فرض fa
+            $lang = $request->input('language') ?? $request->query('language');
+            
+            // اگر language در query string نبود، از language_code ربات از دیتابیس استفاده کن
+            if (!$lang) {
+                $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                if ($botId) {
+                    $botModel = \App\Models\Bot::find($botId);
+                    if ($botModel && $botModel->language_code) {
+                        $lang = $botModel->language_code;
+                        Log::info('🌐 [QuranBot] Language from database', [
+                            'bot_id' => $botId,
+                            'language_code' => $lang
+                        ]);
+                    }
+                }
+            }
+            
+            if ($lang) {
+                App::setLocale($lang);
+                Log::info('🌐 [QuranBot] Locale set', ['locale' => $lang]);
             } else {
                 App::setLocale("fa");
                 Log::info('🌐 [QuranBot] Locale set to default', ['locale' => 'fa']);
@@ -1583,9 +1602,22 @@ class QuranWordController extends Controller
     public
     function messageToAll(BotRequest $request)
     {
-
-        if ($request->has('language')) {
-            App::setLocale($request->input('language'));
+        // تعیین زبان: اول از query string، سپس از language_code ربات در دیتابیس، در نهایت پیش‌فرض fa
+        $lang = $request->input('language') ?? $request->query('language');
+        
+        // اگر language در query string نبود، از language_code ربات از دیتابیس استفاده کن
+        if (!$lang) {
+            $botId = $request->input('bot_id') ?? $request->query('bot_id');
+            if ($botId) {
+                $botModel = \App\Models\Bot::find($botId);
+                if ($botModel && $botModel->language_code) {
+                    $lang = $botModel->language_code;
+                }
+            }
+        }
+        
+        if ($lang) {
+            App::setLocale($lang);
         } else {
             App::setLocale("fa");
         }
