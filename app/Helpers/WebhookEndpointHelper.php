@@ -3,156 +3,47 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use App\Models\WebhookEndpoint;
 
 class WebhookEndpointHelper
 {
     /**
      * لیست تمام webhook endpoint های موجود در سیستم
+     * خواندن از جدول webhook_endpoints
      * 
      * @return array
      */
     public static function getAvailableEndpoints(): array
     {
-        $baseUrl = env('APP_URL', 'https://your-domain.com');
-        
-        return [
-            [
-                'id' => 'webhook-personnel-registration',
-                'name' => 'ثبت‌نام پرسنل',
-                'route' => '/api/webhook-personnel-registration',
-                'description' => 'ربات ثبت‌نام پرسنل',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => true,
-            ],
-            [
-                'id' => 'webhook-personnel-admin',
-                'name' => 'ادمین ثبت‌نام پرسنل',
-                'route' => '/api/webhook-personnel-admin',
-                'description' => 'ربات ادمین برای مشاهده لیست ثبت‌نام‌های پرسنل',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-mission-bot',
-                'name' => 'ربات ماموریت',
-                'route' => '/api/webhook-mission-bot',
-                'description' => 'ربات مدیریت ماموریت‌ها',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-mission-media',
-                'name' => 'ربات مدیا ماموریت',
-                'route' => '/api/webhook-mission-media',
-                'description' => 'ربات مدیریت و آپلود مدیاهای آموزشی ماموریت‌ها',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-task-approval',
-                'name' => 'تایید وظایف',
-                'route' => '/api/webhook-task-approval',
-                'description' => 'ربات تایید و رد وظایف',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-weather',
-                'name' => 'آب و هوا',
-                'route' => '/api/webhook-weather',
-                'description' => 'ربات اطلاع از آب و هوا',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-quran-word',
-                'name' => 'کامل قرآن مرور ختم و حفظ شماره 7',
-                'route' => '/api/webhook-quran-word',
-                'description' => 'ربات کامل قرآن مرور ختم و حفظ شماره 7',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => true,
-                'supports_multiple_languages' => true, // پشتیبانی از 18 زبان
-            ],
-            [
-                'id' => 'webhook-quran-ayat',
-                'name' => 'جستجوی آیات قرآن',
-                'route' => '/api/webhook-quran-ayat',
-                'description' => 'ربات جستجوی آیات قرآن',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-hadith',
-                'name' => 'حدیث',
-                'route' => '/api/webhook-hadith',
-                'description' => 'ربات جستجوی احادیث',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-nahj',
-                'name' => 'نهج البلاغه',
-                'route' => '/api/webhook-nahj',
-                'description' => 'ربات جستجوی نهج البلاغه',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-blog',
-                'name' => 'وبلاگ',
-                'route' => '/api/webhook-blog',
-                'description' => 'ربات مدیریت وبلاگ',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-rss',
-                'name' => 'RSS Feed',
-                'route' => '/api/webhook-rss',
-                'description' => 'ربات RSS Feed',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-bot-children',
-                'name' => 'ربات‌های فرزند',
-                'route' => '/api/webhook-bot-children',
-                'description' => 'ربات مدیریت ربات‌های فرزند',
-                'requires_bot_mother_id' => false,
-                'requires_token' => false,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-presenter-bot',
-                'name' => 'ربات پرزنتر',
-                'route' => '/api/webhook-presenter-bot',
-                'description' => 'ربات ارائه دهنده - ارسال متن‌های آماده به ترتیب',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-psychology-test',
-                'name' => 'تست روانشناسی',
-                'route' => '/api/webhook-psychology-test',
-                'description' => 'ربات تست روانشناسی - سوالات 5 گزینه‌ای با دسته‌بندی و محاسبه امتیازات',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-        ];
+        try {
+            // خواندن از جدول
+            $endpoints = WebhookEndpoint::where('is_active', true)
+                ->orderBy('name')
+                ->get();
+            
+            if ($endpoints->isEmpty()) {
+                // اگر جدول خالی است، آرایه خالی برگردان
+                return [];
+            }
+            
+            // تبدیل به فرمت مورد نیاز
+            return $endpoints->map(function ($endpoint) {
+                return [
+                    'id' => $endpoint->endpoint_id,
+                    'name' => $endpoint->name,
+                    'route' => $endpoint->route,
+                    'description' => $endpoint->description,
+                    'requires_bot_mother_id' => $endpoint->requires_bot_mother_id,
+                    'requires_token' => $endpoint->requires_token,
+                    'requires_language' => $endpoint->requires_language,
+                    'supports_multiple_languages' => $endpoint->supports_multiple_languages,
+                ];
+            })->toArray();
+        } catch (\Exception $e) {
+            // در صورت خطا (مثلاً جدول وجود ندارد)، آرایه خالی برگردان
+            \Log::warning('Error reading webhook endpoints from database: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
