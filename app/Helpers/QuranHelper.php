@@ -25,6 +25,21 @@ use Telegram;
 
 class QuranHelper
 {
+    /**
+     * Normalize language code for database queries
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     * 
+     * @param string $languageCode
+     * @return string
+     */
+    private static function normalizeLanguageCodeForDatabase(string $languageCode): string
+    {
+        // اگر کد زبان شامل خط تیره است، قسمت اول را برمی‌گردانیم
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+        return $languageCode;
+    }
 
     /**
      * @param $messenger
@@ -426,7 +441,11 @@ class QuranHelper
             }
         }
         
+        // normalize کردن کد زبان برای جستجو (مثلاً ar-IQ -> ar)
+        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+        
         // اگر translator مشخص نشده یا پیدا نشد، اولین ترجمه موجود برای آن زبان را برمی‌گردانیم
+        // ابتدا با کد اصلی جستجو می‌کنیم
         $quranTranslate = QuranTranslation::query()
             ->where('language', $language)
             ->where('sura', $sura)
@@ -436,6 +455,35 @@ class QuranHelper
         
         if ($quranTranslate) {
             return $quranTranslate;
+        }
+        
+        // اگر با کد اصلی پیدا نشد و normalized متفاوت است، با normalized جستجو می‌کنیم
+        if ($normalizedLanguage != $language) {
+            $quranTranslate = QuranTranslation::query()
+                ->where('language', $normalizedLanguage)
+                ->where('sura', $sura)
+                ->where('aya', $aya)
+                ->orderBy('id')
+                ->first();
+            
+            if ($quranTranslate) {
+                return $quranTranslate;
+            }
+        }
+        
+        // اگر هنوز پیدا نشد، با دو حرف اول زبان جستجو می‌کنیم (fallback)
+        $languagePrefix = substr($language, 0, 2);
+        if (strlen($languagePrefix) == 2 && $languagePrefix != $normalizedLanguage) {
+            $quranTranslate = QuranTranslation::query()
+                ->where('language', 'like', $languagePrefix . '%')
+                ->where('sura', $sura)
+                ->where('aya', $aya)
+                ->orderBy('id')
+                ->first();
+            
+            if ($quranTranslate) {
+                return $quranTranslate;
+            }
         }
         
         // Fallback به translation_id برای سازگاری با داده‌های قدیمی
