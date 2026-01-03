@@ -109,6 +109,8 @@ return [
         'choose :translator as translation'                    => 'choisir :translator comme traduction',
         'list of this robot commands'                          => 'liste des commandes de ce robot',
         'your quran readings analysis report'                  => 'votre rapport d\'analyse des lectures du coran',
+        'view available translations'                          => 'Voir les traductions disponibles',
+        'settings menu'                                         => 'Menu des paramètres',
         'dont show :language transliteration'                  => 'ne montre pas la translittération :language',
         'disable sending mp3 for every ayah'                   => 'désactiver l\'envoi de mp3 pour chaque ayah',
         'send mp3 for selected reciter'                        => 'envoyer un mp3 pour le récitant sélectionné',

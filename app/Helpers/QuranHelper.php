@@ -427,8 +427,12 @@ class QuranHelper
      */
     public static function getQuranTranslation(string $language, ?string $translator, int $sura, int $aya, ?BotUsers $userSettings = null): ?QuranTranslation
     {
+        // normalize کردن کد زبان برای جستجو (مثلاً ar-IQ -> ar)
+        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+        
         // اگر translator مشخص شده باشد، از آن استفاده می‌کنیم
         if ($translator) {
+            // ابتدا با کد اصلی جستجو می‌کنیم
             $quranTranslate = QuranTranslation::query()
                 ->where('language', $language)
                 ->where('translator_name', $translator)
@@ -439,10 +443,21 @@ class QuranHelper
             if ($quranTranslate) {
                 return $quranTranslate;
             }
+            
+            // اگر با کد اصلی پیدا نشد و normalized متفاوت است، با normalized جستجو می‌کنیم
+            if ($normalizedLanguage != $language) {
+                $quranTranslate = QuranTranslation::query()
+                    ->where('language', $normalizedLanguage)
+                    ->where('translator_name', $translator)
+                    ->where('sura', $sura)
+                    ->where('aya', $aya)
+                    ->first();
+                
+                if ($quranTranslate) {
+                    return $quranTranslate;
+                }
+            }
         }
-        
-        // normalize کردن کد زبان برای جستجو (مثلاً ar-IQ -> ar)
-        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
         
         // اگر translator مشخص نشده یا پیدا نشد، اولین ترجمه موجود برای آن زبان را برمی‌گردانیم
         // ابتدا با کد اصلی جستجو می‌کنیم
@@ -472,8 +487,10 @@ class QuranHelper
         }
         
         // اگر هنوز پیدا نشد، با دو حرف اول زبان جستجو می‌کنیم (fallback)
-        $languagePrefix = substr($language, 0, 2);
-        if (strlen($languagePrefix) == 2 && $languagePrefix != $normalizedLanguage) {
+        // این برای حالتی است که مثلاً ar-IQ ترجمه نداشته باشد، ar را جستجو می‌کند
+        $languagePrefix = substr($normalizedLanguage, 0, 2);
+        if (strlen($languagePrefix) == 2) {
+            // جستجو با دو حرف اول (مثلاً ar برای ar-IQ)
             $quranTranslate = QuranTranslation::query()
                 ->where('language', 'like', $languagePrefix . '%')
                 ->where('sura', $sura)
