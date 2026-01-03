@@ -1242,6 +1242,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 : /transtr_false [" . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "](send:/transtr_false)
 : /trans_2 :  [" . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "](send:/trans_2)
 : /trans_3 :  [" . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "](send:/trans_3)
+: /translation [" . trans('bot.help.view available translations') . "](send:/translation)
+: /settings [" . trans('bot.help.settings menu') . "](send:/settings)
 
 [" . trans("bot.for search please type your phrase after double slash. like this") . "](send://الرحمن)
 //الرحمن
@@ -1270,6 +1272,8 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 : /transtr_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
 : /trans_2 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "
 : /trans_3 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "
+: /translation " . trans('bot.help.view available translations') . "
+: /settings " . trans('bot.help.settings menu') . "
 
 " . trans("bot.for search please type your phrase after double slash. like this") . "
 //الرحمن

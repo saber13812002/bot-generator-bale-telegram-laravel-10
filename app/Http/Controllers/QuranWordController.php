@@ -171,6 +171,294 @@ class QuranWordController extends Controller
                         ]);
                     }
                     
+                    // پردازش انتخاب زبان ترجمه از settings
+                    if ($callbackData == 'settings_select_language') {
+                        Log::info('🌐 [CallbackQuery] Processing settings_select_language', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت لیست زبان‌های موجود که ترجمه دارند
+                        $availableLanguages = \App\Models\QuranTranslation::query()
+                            ->select('language')
+                            ->distinct()
+                            ->orderBy('language')
+                            ->pluck('language')
+                            ->toArray();
+                        
+                        if (empty($availableLanguages)) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations available"));
+                            return 0;
+                        }
+                        
+                        // نام زبان‌ها
+                        $languageNames = [
+                            'fa' => '🇮🇷 فارسی',
+                            'en' => '🇬🇧 English',
+                            'ar-IQ' => '🇮🇶 العربية',
+                            'az' => '🇦🇿 Azərbaycan',
+                            'bs' => '🇧🇦 Bosanski',
+                            'de-DE' => '🇩🇪 Deutsch',
+                            'es' => '🇪🇸 Español',
+                            'fr' => '🇫🇷 Français',
+                            'he' => '🇮🇱 עברית',
+                            'it' => '🇮🇹 Italiano',
+                            'id' => '🇮🇩 Bahasa Indonesia',
+                            'sw' => '🇰🇪 Kiswahili',
+                            'pt-BR' => '🇧🇷 Português (Brasil)',
+                            'pt-PT' => '🇵🇹 Português (Portugal)',
+                            'ru' => '🇷🇺 Русский',
+                            'tr' => '🇹🇷 Türkçe',
+                            'ur' => '🇵🇰 اردو',
+                            'zh-CN' => '🇨🇳 中文',
+                        ];
+                        
+                        $message = "🌐 " . trans("bot.select translation language") . ":\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        
+                        foreach ($availableLanguages as $lang) {
+                            $langName = $languageNames[$lang] ?? $lang;
+                            $callbackDataLang = "settings_language_" . $lang;
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $langName,
+                                    'callback_data' => $callbackDataLang
+                                ];
+                            } else {
+                                $buttonRows[] = [$langName, $callbackDataLang];
+                            }
+                        }
+                        
+                        // تقسیم دکمه‌ها به ردیف‌های 2 تایی برای Telegram
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            // برای Bale
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Language selection menu sent', [
+                            'chat_id' => $callbackChatId,
+                            'languages_count' => count($availableLanguages),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش انتخاب زبان خاص
+                    if (str_starts_with($callbackData, 'settings_language_')) {
+                        $selectedLanguage = str_replace('settings_language_', '', $callbackData);
+                        
+                        Log::info('🌐 [CallbackQuery] Processing language selection', [
+                            'selected_language' => $selectedLanguage,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // نمایش لیست ترجمه‌های موجود برای این زبان
+                        $translations = \App\Models\QuranTranslation::query()
+                            ->where('language', $selectedLanguage)
+                            ->select('translator_name', 'translate_full_name')
+                            ->distinct()
+                            ->orderBy('translator_name')
+                            ->get();
+                        
+                        if ($translations->isEmpty()) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations found for language") . ": " . $selectedLanguage);
+                            return 0;
+                        }
+                        
+                        // دریافت ترجمه پیش‌فرض فعلی کاربر
+                        $currentTranslator = $userSettings ? $userSettings->setting('quran_translation_translator') : null;
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : null;
+                        
+                        $message = "📖 " . trans("bot.available translations for language") . " (" . $selectedLanguage . "):\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        $service = new \App\Services\QuranTranslationImportService();
+                        
+                        foreach ($translations as $index => $translation) {
+                            $translatorName = $translation->translator_name;
+                            $isCurrent = ($currentLanguage == $selectedLanguage && $currentTranslator == $translatorName);
+                            $prefix = $isCurrent ? "✅ " : "";
+                            
+                            $message .= ($index + 1) . ". " . $prefix . $translatorName;
+                            if ($isCurrent) {
+                                $message .= " (" . trans("bot.current default") . ")";
+                            }
+                            $message .= "\n";
+                            
+                            $callbackDataTrans = "translation_select_" . $selectedLanguage . "_" . $translatorName;
+                            $buttonText = $prefix . $translatorName;
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $buttonText,
+                                    'callback_data' => $callbackDataTrans
+                                ];
+                            } else {
+                                $buttonRows[] = [$buttonText, $callbackDataTrans];
+                            }
+                        }
+                        
+                        $message .= "\n" . trans("bot.select translation by clicking button");
+                        
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Translations list sent for language', [
+                            'chat_id' => $callbackChatId,
+                            'language' => $selectedLanguage,
+                            'translations_count' => $translations->count(),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش مشاهده ترجمه‌های زبان فعلی
+                    if (str_starts_with($callbackData, 'settings_view_translations_')) {
+                        $language = str_replace('settings_view_translations_', '', $callbackData);
+                        
+                        Log::info('📖 [CallbackQuery] Processing view translations for language', [
+                            'language' => $language,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت ترجمه‌های موجود برای این زبان
+                        $translations = \App\Models\QuranTranslation::query()
+                            ->where('language', $language)
+                            ->select('translator_name', 'translate_full_name')
+                            ->distinct()
+                            ->orderBy('translator_name')
+                            ->get();
+                        
+                        if ($translations->isEmpty()) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations found for language") . ": " . $language);
+                            return 0;
+                        }
+                        
+                        // دریافت ترجمه پیش‌فرض فعلی کاربر
+                        $currentTranslator = $userSettings ? $userSettings->setting('quran_translation_translator') : null;
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : null;
+                        
+                        // اگر setting وجود نداشت، از translation_id استفاده می‌کنیم
+                        if (!$currentTranslator && $userSettings) {
+                            $translationId = $userSettings->setting('translation_id');
+                            if ($translationId > 0) {
+                                $mapping = QuranHelper::mapTranslationIdToLanguageAndTranslator($translationId);
+                                $currentLanguage = $mapping['language'];
+                                $currentTranslator = $mapping['translator'];
+                            }
+                        }
+                        
+                        $message = "📖 " . trans("bot.available translations for language") . " (" . $language . "):\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        $service = new \App\Services\QuranTranslationImportService();
+                        $hasIncomplete = false;
+                        
+                        foreach ($translations as $index => $translation) {
+                            $translatorName = $translation->translator_name;
+                            $fullName = $translation->translate_full_name ?? $language . '.' . $translatorName;
+                            
+                            // بررسی کامل بودن ترجمه
+                            $completeness = $service->checkTranslationCompleteness($language, $translatorName);
+                            $isComplete = $completeness['is_complete'];
+                            
+                            if (!$isComplete) {
+                                $hasIncomplete = true;
+                            }
+                            
+                            $isCurrent = ($currentLanguage == $language && $currentTranslator == $translatorName);
+                            $prefix = $isCurrent ? "✅ " : "";
+                            
+                            // علامت‌گذاری ترجمه‌های ناقص
+                            $incompleteMark = "";
+                            if (!$isComplete) {
+                                $incompleteMark = " ⚠️ (" . $completeness['percentage'] . "%)";
+                            }
+                            
+                            $message .= ($index + 1) . ". " . $prefix . $translatorName;
+                            if ($isCurrent) {
+                                $message .= " (" . trans("bot.current default") . ")";
+                            }
+                            if (!$isComplete) {
+                                $message .= $incompleteMark;
+                            }
+                            $message .= "\n";
+                            
+                            // ایجاد دکمه برای انتخاب
+                            $callbackDataTrans = "translation_select_" . $language . "_" . $translatorName;
+                            $buttonText = ($isCurrent ? "✅ " : "") . $translatorName;
+                            if (!$isComplete) {
+                                $buttonText .= " ⚠️";
+                            }
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $buttonText,
+                                    'callback_data' => $callbackDataTrans
+                                ];
+                            } else {
+                                $buttonRows[] = [$buttonText, $callbackDataTrans];
+                            }
+                        }
+                        
+                        if ($hasIncomplete) {
+                            $message .= "\n⚠️ " . trans("bot.incomplete translations marked with warning");
+                        }
+                        
+                        $message .= "\n" . trans("bot.select translation by clicking button");
+                        
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Translations list sent for current language', [
+                            'chat_id' => $callbackChatId,
+                            'language' => $language,
+                            'translations_count' => $translations->count(),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
                     // پردازش انتخاب ترجمه
                     if (str_starts_with($callbackData, 'translation_select_')) {
                         Log::info('📖 [CallbackQuery] Processing translation_select', [
@@ -1072,6 +1360,64 @@ class QuranWordController extends Controller
                         ]);
                         BotHelper::sendMessage($bot, $message);
                         Log::info('✅ [Command] Help message sent', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else if ($command == "settings") {
+                        Log::info('📝 [Command] Processing /settings command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت زبان فعلی کاربر
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : App::getLocale();
+                        if (!$currentLanguage) {
+                            $currentLanguage = App::getLocale();
+                        }
+                        
+                        $message = "⚙️ " . trans("bot.settings menu") . "\n\n";
+                        $message .= "📖 " . trans("bot.current translation language") . ": " . $currentLanguage . "\n\n";
+                        $message .= trans("bot.select option from menu");
+                        
+                        // ساخت دکمه‌های منوی تنظیمات
+                        $buttons = [];
+                        $buttonRows = [];
+                        
+                        // دکمه انتخاب زبان ترجمه
+                        $selectLanguageText = "🌐 " . trans("bot.select translation language");
+                        $selectLanguageCallback = "settings_select_language";
+                        
+                        // دکمه مشاهده ترجمه‌های زبان فعلی
+                        $viewTranslationsText = "📖 " . trans("bot.view translations for current language");
+                        $viewTranslationsCallback = "settings_view_translations_" . $currentLanguage;
+                        
+                        if ($type == 'telegram') {
+                            $buttons[] = [
+                                ['text' => $selectLanguageText, 'callback_data' => $selectLanguageCallback],
+                                ['text' => $viewTranslationsText, 'callback_data' => $viewTranslationsCallback]
+                            ];
+                        } else {
+                            // برای Bale
+                            $buttonRows[] = [$selectLanguageText, $selectLanguageCallback];
+                            $buttonRows[] = [$viewTranslationsText, $viewTranslationsCallback];
+                        }
+                        
+                        if ($type == 'telegram') {
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $buttons);
+                        } else {
+                            // برای Bale
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [Command] Settings menu sent', [
                             'chat_id' => $bot->ChatID(),
                             'type' => $type
                         ]);
