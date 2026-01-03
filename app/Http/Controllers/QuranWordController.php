@@ -27,6 +27,22 @@ class QuranWordController extends Controller
 {
 
     private QuranBotUserRankingService $quranBotUserRankingService;
+    
+    /**
+     * Normalize language code for database queries
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     * 
+     * @param string $languageCode
+     * @return string
+     */
+    private static function normalizeLanguageCodeForDatabase(string $languageCode): string
+    {
+        // اگر کد زبان شامل خط تیره است، قسمت اول را برمی‌گردانیم
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+        return $languageCode;
+    }
 
     public function __construct(QuranBotUserRankingService $quranBotUserRankingService)
     {
@@ -267,10 +283,18 @@ class QuranWordController extends Controller
                             'type' => $type
                         ]);
                         
-                        // نمایش لیست ترجمه‌های موجود برای این زبان
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($selectedLanguage);
+                        
+                        // نمایش لیست ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
                         $translations = \App\Models\QuranTranslation::query()
-                            ->where('language', $selectedLanguage)
-                            ->select('translator_name', 'translate_full_name')
+                            ->where(function($query) use ($selectedLanguage, $normalizedLanguage) {
+                                $query->where('language', $selectedLanguage);
+                                if ($normalizedLanguage != $selectedLanguage) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
                             ->distinct()
                             ->orderBy('translator_name')
                             ->get();
@@ -349,10 +373,18 @@ class QuranWordController extends Controller
                             'type' => $type
                         ]);
                         
-                        // دریافت ترجمه‌های موجود برای این زبان
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+                        
+                        // دریافت ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
                         $translations = \App\Models\QuranTranslation::query()
-                            ->where('language', $language)
-                            ->select('translator_name', 'translate_full_name')
+                            ->where(function($query) use ($language, $normalizedLanguage) {
+                                $query->where('language', $language);
+                                if ($normalizedLanguage != $language) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
                             ->distinct()
                             ->orderBy('translator_name')
                             ->get();
@@ -1545,10 +1577,19 @@ class QuranWordController extends Controller
                             $language = 'fa';
                         }
                         
-                        // دریافت ترجمه‌های موجود برای این زبان
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        // مثلاً ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+                        
+                        // دریافت ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
                         $translations = \App\Models\QuranTranslation::query()
-                            ->where('language', $language)
-                            ->select('translator_name', 'translate_full_name')
+                            ->where(function($query) use ($language, $normalizedLanguage) {
+                                $query->where('language', $language);
+                                if ($normalizedLanguage != $language) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
                             ->distinct()
                             ->orderBy('translator_name')
                             ->get();
