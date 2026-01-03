@@ -278,6 +278,7 @@ list of Bot Types that you can clone it, is in next block of this document
 - [زبان‌های اضافی ربات قرآن](./docs/features/ADDITIONAL_LANGUAGES_QURAN_BOT.md) - زبان‌های جدید و تغییرات endpoint
 - [چک لیست تست](./docs/features/TEST_CHECKLIST.md) - چک لیست کامل برای تست فیچرهای جدید
 - [ایمپورت ترجمه‌های قرآن](./docs/features/QURAN_TRANSLATION_IMPORT.md) - راهنمای کامل ایمپورت ترجمه‌های قرآن از فایل‌های SQL dump (شامل دستورات و مثال‌ها)
+- [ردیابی bot_id و bot_mother_id در لاگ‌ها](./docs/features/BOT_LOGS_BOT_ID_TRACKING.md) - ردیابی کامل bot_id و bot_mother_id در تمام لاگ‌های سیستم و امکان به‌روزرسانی لاگ‌های قدیمی
 
 هر فیچر دارای مستندات جداگانه است که شامل توضیحات، نحوه استفاده، ساختار فایل‌ها و ... می‌شود.
 

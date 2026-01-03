@@ -26,6 +26,11 @@
   - ثبت‌نام پرسنل جدید از طریق ربات‌های پیام‌رسان
   - اعتبارسنجی اطلاعات و ذخیره در دیتابیس
 
+- [🔍 ردیابی bot_id در لاگ‌ها (Bot Logs Tracking)](features/BOT_LOGS_BOT_ID_TRACKING.md)
+  - ردیابی کامل bot_id و bot_mother_id در تمام لاگ‌های سیستم
+  - امکان به‌روزرسانی لاگ‌های قدیمی
+  - Command برای به‌روزرسانی دسته‌ای لاگ‌ها
+
 - [📖 قرآن (Quran Bot)](features/quran-bot.md) - *در حال آماده‌سازی*
 - [🌤️ هواشناسی (Weather Bot)](features/weather-bot.md) - *در حال آماده‌سازی*
 - [📰 RSS Bot](features/rss-bot.md) - *در حال آماده‌سازی*
