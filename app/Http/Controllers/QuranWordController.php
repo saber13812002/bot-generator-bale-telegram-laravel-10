@@ -61,6 +61,10 @@ class QuranWordController extends Controller
     public function index(BotRequest $request)
     {
         try {
+            // #region agent log
+            file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'A','location'=>'QuranWordController.php:66','message'=>'Request language values','data'=>['input_language'=>$request->input('language'),'query_language'=>$request->query('language'),'all_query'=>$request->query(),'has_language'=>$request->has('language')],'timestamp'=>time()])."\n", FILE_APPEND);
+            // #endregion
+            
             // لاگ برای دیباگ
             $startTime = microtime(true);
             Log::info('🔔 [QuranBot] Webhook received', [
@@ -71,11 +75,26 @@ class QuranWordController extends Controller
                 'timestamp' => now()->toDateTimeString()
             ]);
 
-            if ($request->has('language')) {
-                App::setLocale($request->input('language'));
-                Log::info('🌐 [QuranBot] Locale set', ['locale' => $request->input('language')]);
+            // #region agent log
+            $languageFromInput = $request->input('language');
+            $languageFromQuery = $request->query('language');
+            $languageToSet = $languageFromInput ?? $languageFromQuery ?? null;
+            file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'A','location'=>'QuranWordController.php:76','message'=>'Language before setLocale','data'=>['input_language'=>$languageFromInput,'query_language'=>$languageFromQuery,'language_to_set'=>$languageToSet],'timestamp'=>time()])."\n", FILE_APPEND);
+            // #endregion
+
+            // خواندن language از query string یا input (Laravel input هم query string را می‌خواند)
+            $lang = $request->input('language') ?? $request->query('language');
+            if ($lang) {
+                App::setLocale($lang);
+                // #region agent log
+                file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'C','location'=>'QuranWordController.php:83','message'=>'Locale set','data'=>['set_language'=>$lang,'current_locale'=>App::getLocale()],'timestamp'=>time()])."\n", FILE_APPEND);
+                // #endregion
+                Log::info('🌐 [QuranBot] Locale set', ['locale' => $lang]);
             } else {
                 App::setLocale("fa");
+                // #region agent log
+                file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'A','location'=>'QuranWordController.php:88','message'=>'Locale set to default fa','data'=>['current_locale'=>App::getLocale()],'timestamp'=>time()])."\n", FILE_APPEND);
+                // #endregion
                 Log::info('🌐 [QuranBot] Locale set to default', ['locale' => 'fa']);
             }
 
@@ -339,9 +358,16 @@ class QuranWordController extends Controller
 
                     $command_type = "start";
                     $isStartCommandShow = 0;
+                    // #region agent log
+                    file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'C','location'=>'QuranWordController.php:343','message'=>'Before trans() calls','data'=>['current_locale'=>App::getLocale()],'timestamp'=>time()])."\n", FILE_APPEND);
+                    // #endregion
                     list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
                     $reciterCommands = QuranHelper::getSettingReciter($type);
-                    $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
+                    $transWordByWord = trans('bot.word by word');
+                    // #region agent log
+                    file_put_contents('.cursor/debug.log', json_encode(['sessionId'=>'debug-session','runId'=>'run1','hypothesisId'=>'D','location'=>'QuranWordController.php:348','message'=>'After trans() call','data'=>['current_locale'=>App::getLocale(),'trans_result'=>$transWordByWord],'timestamp'=>time()])."\n", FILE_APPEND);
+                    // #endregion
+                    $array = [[$transWordByWord, "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
                     
                     Log::info('📤 [Command] Sending /start message with inline buttons', [
                         'chat_id' => $bot->ChatID(),
