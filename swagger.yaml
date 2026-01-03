@@ -1,0 +1,779 @@
+openapi: 3.0.0
+info:
+  title: Mission Management API
+  description: |
+    API برای مدیریت ماموریت‌ها، پرامپت‌ها و محتوا
+    
+    این API امکان ایجاد ماموریت، اضافه کردن محتوای آموزشی، اختصاص به پرسنل و ارسال نتیجه را فراهم می‌کند.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: https://your-domain.com/api/api/v1
+    description: Production server
+  - url: http://localhost:8000/api/api/v1
+    description: Local development server
+
+tags:
+  - name: Metadata
+    description: دریافت اطلاعات اولیه و metadata
+  - name: Authentication
+    description: احراز هویت و تست توکن
+  - name: Missions
+    description: مدیریت ماموریت‌ها
+
+security:
+  - BearerAuth: []
+  - ApiTokenAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: ارسال توکن در header به صورت Bearer Token
+    ApiTokenAuth:
+      type: apiKey
+      in: header
+      name: X-API-Token
+      description: ارسال توکن در header به صورت X-API-Token
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        errors:
+          type: object
+
+    ValidationError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Mission:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tenant_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "ماموریت تست"
+        description:
+          type: string
+          nullable: true
+          example: "توضیحات ماموریت"
+        points:
+          type: integer
+          example: 10
+        duration:
+          type: integer
+          nullable: true
+          example: 30
+        max_personnel:
+          type: integer
+          example: 5
+        current_personnel_count:
+          type: integer
+          example: 0
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+        prompt_id:
+          type: integer
+          nullable: true
+        content_id:
+          type: integer
+          nullable: true
+        ai_id:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        prompt:
+          $ref: '#/components/schemas/Prompt'
+        content:
+          $ref: '#/components/schemas/Content'
+        ai:
+          $ref: '#/components/schemas/AiLlm'
+
+    Prompt:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        content:
+          type: string
+          example: "این پرامپت برای کپی کردن است"
+        tenant_id:
+          type: integer
+        mission_id:
+          type: integer
+          nullable: true
+
+    Content:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "ویدیو آموزشی"
+        content_type:
+          type: string
+          enum: [text, video, image, audio, pdf]
+          example: "video"
+        content_url:
+          type: string
+          nullable: true
+          example: "https://example.com/video.mp4"
+        description:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+          example: 1
+
+    AiLlm:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "کلادی"
+        slug:
+          type: string
+          example: "claude"
+        description:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+          example: "https://claude.ai"
+        is_active:
+          type: boolean
+          example: true
+        sort_order:
+          type: integer
+          example: 1
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        tenant_name:
+          type: string
+          example: "Tenant 1"
+
+    CreateMissionRequest:
+      type: object
+      required:
+        - title
+        - prompt_content
+      properties:
+        title:
+          type: string
+          example: "ماموریت تست"
+          description: "عنوان ماموریت"
+        description:
+          type: string
+          nullable: true
+          example: "توضیحات ماموریت"
+        prompt_content:
+          type: string
+          example: "این پرامپت برای کپی کردن است"
+          description: "محتوای پرامپت (خالص، بدون توضیحات اضافی)"
+        content_title:
+          type: string
+          nullable: true
+          example: "ویدیو آموزشی"
+        content_url:
+          type: string
+          nullable: true
+          example: "https://example.com/content"
+        content_type:
+          type: string
+          enum: [text, video, image, audio, pdf]
+          nullable: true
+          example: "video"
+        content_description:
+          type: string
+          nullable: true
+        points:
+          type: integer
+          default: 0
+          example: 10
+        duration:
+          type: integer
+          nullable: true
+          example: 30
+          description: "مدت زمان به دقیقه"
+        max_personnel:
+          type: integer
+          default: 1
+          example: 5
+        ai_id:
+          type: integer
+          nullable: true
+          example: 1
+          description: "شناسه AI پیشنهادی"
+        tenant_id:
+          type: integer
+          nullable: true
+          description: "برای Super Admin اجباری است"
+
+    AddContentRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: "ویدیو آموزشی"
+        content_url:
+          type: string
+          nullable: true
+          example: "https://example.com/video.mp4"
+        content_type:
+          type: string
+          enum: [text, video, image, audio, pdf]
+          nullable: true
+          default: "text"
+        description:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+          default: 1
+          example: 1
+
+    SubmitResultRequest:
+      type: object
+      required:
+        - result_link
+        - personnel_id
+      properties:
+        result_link:
+          type: string
+          format: uri
+          example: "https://example.com/my-result"
+          description: "لینک نتیجه کار"
+        personnel_id:
+          type: integer
+          example: 1
+          description: "شناسه پرسنل"
+        selected_ai_id:
+          type: integer
+          nullable: true
+          example: 2
+          description: "شناسه AI انتخابی"
+
+    AssignMissionRequest:
+      type: object
+      required:
+        - personnel_id
+      properties:
+        personnel_id:
+          type: integer
+          example: 1
+
+    MetadataResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            tenants:
+              type: array
+              items:
+                $ref: '#/components/schemas/Tenant'
+            ai_llms:
+              type: array
+              items:
+                $ref: '#/components/schemas/AiLlm'
+            content_types:
+              type: array
+              items:
+                type: object
+                properties:
+                  value:
+                    type: string
+                  label:
+                    type: string
+            mission_statuses:
+              type: array
+            assignment_statuses:
+              type: array
+            api_info:
+              type: object
+              properties:
+                base_url:
+                  type: string
+                version:
+                  type: string
+                authentication:
+                  type: string
+
+    TokenTestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Token is valid"
+        data:
+          type: object
+          properties:
+            token_id:
+              type: integer
+            type:
+              type: string
+              enum: [tenant, super_admin]
+            tenant_id:
+              type: integer
+              nullable: true
+            tenant_name:
+              type: string
+              nullable: true
+            name:
+              type: string
+              nullable: true
+            is_active:
+              type: boolean
+            last_used_at:
+              type: string
+              format: date-time
+              nullable: true
+
+paths:
+  /metadata:
+    get:
+      tags:
+        - Metadata
+      summary: دریافت اطلاعات اولیه (Metadata)
+      description: |
+        این endpoint تمام اطلاعات لازم برای تنظیم و استفاده از API را برمی‌گرداند:
+        - لیست Tenants
+        - لیست AI/LLM ها
+        - انواع محتوا
+        - وضعیت‌های ماموریت
+        - اطلاعات API
+      security: []
+      responses:
+        '200':
+          description: موفق
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+              example:
+                success: true
+                data:
+                  tenants:
+                    - id: 1
+                      tenant_name: "Tenant 1"
+                  ai_llms:
+                    - id: 1
+                      name: "کلادی"
+                      slug: "claude"
+                      url: "https://claude.ai"
+                  content_types:
+                    - value: "text"
+                      label: "Text"
+                    - value: "video"
+                      label: "Video"
+                  api_info:
+                    base_url: "https://your-domain.com/api/api/v1"
+                    version: "1.0.0"
+                    authentication: "Bearer Token or X-API-Token header"
+
+  /test-token:
+    get:
+      tags:
+        - Authentication
+      summary: تست توکن API
+      description: بررسی صحت و اعتبار توکن API و دریافت اطلاعات آن
+      responses:
+        '200':
+          description: توکن معتبر است
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenTestResponse'
+        '401':
+          description: توکن نامعتبر یا وجود ندارد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "API token is required"
+
+  /missions:
+    post:
+      tags:
+        - Missions
+      summary: ایجاد ماموریت جدید
+      description: |
+        ایجاد یک ماموریت جدید با پرامپت و محتوای آموزشی.
+        
+        **نکات مهم:**
+        - `title` و `prompt_content` اجباری هستند
+        - `tenant_id` برای Super Admin اجباری است
+        - `prompt_content` به صورت خالص ارسال می‌شود (بدون توضیحات اضافی)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMissionRequest'
+            example:
+              title: "ماموریت تست"
+              description: "توضیحات ماموریت"
+              prompt_content: "این پرامپت برای کپی کردن است"
+              content_title: "ویدیو آموزشی"
+              content_url: "https://example.com/video.mp4"
+              content_type: "video"
+              points: 10
+              duration: 30
+              max_personnel: 5
+              ai_id: 1
+              tenant_id: 1
+      responses:
+        '201':
+          description: ماموریت با موفقیت ایجاد شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '422':
+          description: خطای Validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '500':
+          description: خطای سرور
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags:
+        - Missions
+      summary: لیست ماموریت‌ها
+      description: دریافت لیست ماموریت‌های Tenant با pagination
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+            minimum: 1
+            maximum: 100
+          description: تعداد نتایج در هر صفحه
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: شماره صفحه
+      responses:
+        '200':
+          description: موفق
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Mission'
+                      total:
+                        type: integer
+                      per_page:
+                        type: integer
+
+  /missions/{id}:
+    get:
+      tags:
+        - Missions
+      summary: مشاهده یک ماموریت
+      description: دریافت جزئیات کامل یک ماموریت شامل پرامپت، محتوا و AI
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: شناسه ماموریت
+      responses:
+        '200':
+          description: موفق
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: دسترسی غیرمجاز
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: ماموریت یافت نشد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /missions/{id}/content:
+    post:
+      tags:
+        - Missions
+      summary: اضافه کردن محتوای آموزشی
+      description: اضافه کردن محتوای آموزشی جدید به یک ماموریت موجود
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: شناسه ماموریت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddContentRequest'
+            example:
+              title: "ویدیو آموزشی"
+              content_url: "https://example.com/video.mp4"
+              content_type: "video"
+              description: "توضیحات ویدیو"
+              sort_order: 1
+      responses:
+        '201':
+          description: محتوا با موفقیت اضافه شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: دسترسی غیرمجاز
+        '404':
+          description: ماموریت یافت نشد
+        '422':
+          description: خطای Validation
+
+  /missions/{id}/assign:
+    post:
+      tags:
+        - Missions
+      summary: اختصاص ماموریت به پرسنل
+      description: اختصاص یک ماموریت به یک پرسنل خاص
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: شناسه ماموریت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignMissionRequest'
+            example:
+              personnel_id: 1
+      responses:
+        '200':
+          description: ماموریت با موفقیت اختصاص یافت
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: خطا در اختصاص (ماموریت پر است یا پرسنل ماموریت فعال دارد)
+        '403':
+          description: دسترسی غیرمجاز
+        '404':
+          description: ماموریت یا پرسنل یافت نشد
+
+  /missions/{id}/submit:
+    post:
+      tags:
+        - Missions
+      summary: ارسال لینک نتیجه
+      description: |
+        ارسال لینک نتیجه کار برای یک ماموریت.
+        
+        بعد از ارسال، ماموریت در وضعیت `pending_approval` قرار می‌گیرد.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: شناسه ماموریت
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitResultRequest'
+            example:
+              result_link: "https://example.com/my-result"
+              personnel_id: 1
+              selected_ai_id: 2
+      responses:
+        '200':
+          description: لینک با موفقیت ثبت شد
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: دسترسی غیرمجاز
+        '404':
+          description: ماموریت یا پرسنل یافت نشد
+        '422':
+          description: خطای Validation
+
+  /missions/{id}/status:
+    get:
+      tags:
+        - Missions
+      summary: بررسی وضعیت تایید
+      description: |
+        دریافت وضعیت تایید/رد ماموریت و اطلاعات assignments.
+        
+        این endpoint اطلاعات کامل درباره وضعیت تایید، زمان تایید/رد و AI انتخابی را برمی‌گرداند.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: شناسه ماموریت
+      responses:
+        '200':
+          description: موفق
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      mission:
+                        $ref: '#/components/schemas/Mission'
+                      assignments:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            personnel:
+                              type: object
+                              properties:
+                                id:
+                                  type: integer
+                                name:
+                                  type: string
+                            status:
+                              type: string
+                              enum: [reserved, in_progress, pending_approval, approved, rejected, cancelled]
+                            result_link:
+                              type: string
+                              nullable: true
+                            selected_ai:
+                              type: object
+                              nullable: true
+                              properties:
+                                id:
+                                  type: integer
+                                name:
+                                  type: string
+                            approved_at:
+                              type: string
+                              format: date-time
+                              nullable: true
+                            rejected_at:
+                              type: string
+                              format: date-time
+                              nullable: true
+                            rejection_reason:
+                              type: string
+                              nullable: true
+        '403':
+          description: دسترسی غیرمجاز
+        '404':
+          description: ماموریت یافت نشد
+

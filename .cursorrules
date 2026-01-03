@@ -1,0 +1,577 @@
+# قوانین پروژه - Bot Generator Bale Telegram Laravel 10
+
+## ساختار پروژه
+
+این پروژه یک پلتفرم Laravel 10 برای ساخت و مدیریت ربات‌های پیام‌رسان (بله، تلگرام، گپ، ایتا) است.
+
+### ساختار پوشه‌ها:
+
+```
+app/
+├── Builders/          # کلاس‌های Builder
+├── Console/Commands/  # دستورات Artisan
+├── Helpers/          # Helper Classes (LogHelper, BotHelper, etc.)
+├── Http/
+│   ├── Controllers/  # Controllers
+│   ├── Middleware/   # Middleware
+│   └── Requests/     # Form Requests (Validation)
+├── Interfaces/
+│   ├── Repositories/ # Repository Interfaces
+│   └── Services/     # Service Interfaces
+├── Jobs/             # Queue Jobs
+├── Models/           # Eloquent Models
+├── Repositories/     # Repository Implementations
+└── Services/         # Service Implementations
+```
+
+## اصول SOLID
+
+### 1. Single Responsibility Principle (SRP)
+- هر کلاس باید فقط یک دلیل برای تغییر داشته باشد
+- Controllers فقط باید request handling کنند
+- Services فقط باید business logic داشته باشند
+- Repositories فقط باید data access داشته باشند
+- Models فقط باید data representation داشته باشند
+
+### 2. Open/Closed Principle (OCP)
+- برای افزودن functionality جدید، از Interface ها استفاده کنیم
+- کلاس‌ها باید برای extension باز و برای modification بسته باشند
+- همیشه از Repository Pattern و Service Pattern استفاده کنیم
+
+### 3. Liskov Substitution Principle (LSP)
+- Implementation های Interface باید قابل جایگزینی باشند
+- RepositoryImpl ها باید کاملاً با Interface هایشان سازگار باشند
+
+### 4. Interface Segregation Principle (ISP)
+- Interface های بزرگ را به Interface های کوچکتر تقسیم کنیم
+- کلاس‌ها نباید به متدهایی که استفاده نمی‌کنند وابسته باشند
+
+### 5. Dependency Inversion Principle (DIP)
+- همیشه از Dependency Injection استفاده کنیم
+- کلاس‌های سطح بالا نباید به کلاس‌های سطح پایین وابسته باشند
+- همه باید به Abstraction (Interface) وابسته باشند
+
+```php
+// ✅ درست - استفاده از Interface
+public function __construct(RepositoryInterface $repository)
+{
+    $this->repository = $repository;
+}
+
+// ❌ اشتباه - وابستگی مستقیم به Implementation
+public function __construct(RepositoryImpl $repository)
+{
+    $this->repository = $repository;
+}
+```
+
+## الگوهای طراحی مورد استفاده
+
+### Repository Pattern
+- همیشه از Repository Interface استفاده کنیم
+- Implementation را در AppServiceProvider bind کنیم
+
+### Service Pattern
+- Business Logic در Services
+- Services از Repositories استفاده می‌کنند
+- Controllers از Services استفاده می‌کنند
+
+### Dependency Injection
+- Constructor Injection برای وابستگی‌های اصلی
+- Method Injection برای وابستگی‌های اختیاری
+
+## قوانین کدنویسی
+
+### Controllers
+- Controllers باید thin باشند
+- Business Logic در Services
+- Validation در Form Requests
+- Exception Handling در Controllers
+
+```php
+// ✅ درست
+public function index(BotRequest $request, SomeService $service)
+{
+    try {
+        $result = $service->process($request->validated());
+        return response()->json($result);
+    } catch (Exception $e) {
+        Log::error('Error in index: ' . $e->getMessage());
+        return response()->json(['error' => 'خطا رخ داد'], 500);
+    }
+}
+```
+
+### Services
+- باید از Repository استفاده کنند
+- باید لاگ داشته باشند
+- باید Exception Handling داشته باشند
+
+```php
+// ✅ درست
+public function processData(array $data): array
+{
+    Log::info('Processing data', ['data' => $data]);
+    
+    try {
+        $result = $this->repository->save($data);
+        Log::info('Data processed successfully', ['id' => $result->id]);
+        return $result;
+    } catch (Exception $e) {
+        Log::error('Error processing data', ['error' => $e->getMessage()]);
+        throw $e;
+    }
+}
+```
+
+### Repositories
+- فقط data access logic
+- Query Builder یا Eloquent
+- هیچ business logic نداشته باشند
+
+### Logging
+- همه توابع مهم باید لاگ داشته باشند
+- از LogHelper برای Bot Logs استفاده کنیم
+- از Log facade برای Application Logs استفاده کنیم
+
+```php
+// ✅ درست - Logging در توابع
+public function create(array $data)
+{
+    Log::info('Creating resource', ['data' => $data]);
+    
+    try {
+        $resource = Model::create($data);
+        Log::info('Resource created', ['id' => $resource->id]);
+        return $resource;
+    } catch (Exception $e) {
+        Log::error('Error creating resource', ['error' => $e->getMessage()]);
+        throw $e;
+    }
+}
+```
+
+### Naming Conventions
+- Classes: PascalCase (UserController, BotService)
+- Methods: camelCase (getUserData, processRequest)
+- Variables: camelCase ($userId, $botToken)
+- Constants: UPPER_SNAKE_CASE (MAX_RETRY_COUNT)
+- Interfaces: بدون پسوند Interface (Repository, Service)
+- Implementations: با پسوند Impl (RepositoryImpl, ServiceImpl)
+
+### Type Hints
+- همیشه Type Hints استفاده کنیم
+- Return Types تعریف کنیم
+- PHP 8.1+ features استفاده کنیم
+
+```php
+// ✅ درست
+public function getUser(int $id): ?User
+{
+    return User::find($id);
+}
+
+// ❌ اشتباه
+public function getUser($id)
+{
+    return User::find($id);
+}
+```
+
+## مستندسازی
+
+### README Files و مستندسازی فیچرها
+
+**⚠️ مهم: هر فیچر، قابلیت، یا تغییر مهمی که به پروژه اضافه می‌شود، باید مستندسازی شود!**
+
+#### اولویت‌بندی مستندسازی:
+
+1. **اولویت اول: README فایل مجزا برای فیچر**
+   - هر فیچر جدید باید یک README فایل مجزا داشته باشد
+   - README فیچر باید در `docs/features/` قرار گیرد
+   - نام فایل باید به صورت `FEATURE_NAME.md` باشد (مثلاً: `REFERRAL_SYSTEM.md`, `MULTI_LANGUAGE_BOT_REGISTRATION.md`)
+   - از `docs/features/README-TEMPLATE.md` به عنوان الگو استفاده کنید
+   - README فیچر باید شامل موارد زیر باشد:
+     - توضیح فیچر
+     - نحوه استفاده
+     - فایل‌های مرتبط
+     - مثال‌های کد
+     - تست‌ها
+
+2. **اولویت دوم: اضافه کردن به README اصلی**
+   - اگر فیچر کوچک است یا بخشی از یک فیچر بزرگتر است، در README اصلی پروژه (`README.md`) در بخش مناسب اضافه شود
+   - باید در بخش مربوطه (مثلاً "Features", "Usage", "Configuration") قرار گیرد
+   - باید به صورت واضح و مختصر توضیح داده شود
+
+3. **اولویت سوم: فایل مجزا با لینک از README اصلی**
+   - اگر فیچر پیچیده است و نیاز به مستندسازی تفصیلی دارد، در یک فایل مجزا در `docs/` قرار گیرد
+   - باید از README اصلی (`README.md`) به این فایل لینک داده شود
+   - نام فایل باید واضح و توصیفی باشد
+
+#### قوانین:
+
+- ✅ **الزامی**: هر فیچر جدید باید مستندسازی شود
+- ✅ **الزامی**: README فیچرها باید در `docs/features/` قرار گیرند
+- ✅ **الزامی**: README اصلی باید به README فیچرها لینک دهد
+- ✅ **الزامی**: اگر فیچر در README اصلی اضافه می‌شود، باید در بخش مناسب قرار گیرد
+- ✅ **الزامی**: اگر فیچر در فایل مجزا مستندسازی می‌شود، باید از README اصلی لینک داده شود
+- ❌ **ممنوع**: اضافه کردن فیچر بدون مستندسازی
+- ❌ **ممنوع**: مستندسازی در فایل‌های کد (کامنت‌ها کافی نیستند)
+
+#### مثال‌ها:
+
+```markdown
+# در README.md اصلی
+
+## Features
+
+- [سیستم دعوت کاربران](./docs/features/REFERRAL_SYSTEM.md)
+- [ثبت ربات با 15 زبان](./docs/features/MULTI_LANGUAGE_BOT_REGISTRATION.md)
+- [گزارش فعالیت روزانه](./docs/features/DAILY_ACTIVITY_REPORT.md)
+```
+
+```markdown
+# در docs/features/REFERRAL_SYSTEM.md
+
+# سیستم دعوت کاربران
+
+## توضیحات
+این فیچر امکان دعوت کاربران و ردیابی دعوت‌شدگان را فراهم می‌کند.
+
+## نحوه استفاده
+...
+
+## فایل‌های مرتبط
+- `app/Http/Controllers/QuranWordController.php`
+- `app/Services/QuranBotUserRankingServiceImpl.php`
+...
+```
+
+### Code Comments
+- برای توابع پیچیده کامنت بنویسیم
+- PHPDoc برای همه public methods
+- توضیح "چرا" نه "چی" در کامنت‌ها
+
+```php
+/**
+ * ثبت‌نام پرسنل جدید در سیستم
+ * 
+ * @param array $data اطلاعات پرسنل (first_name, last_name, national_code, phone_number)
+ * @return Personnel
+ * @throws Exception در صورت وجود کد ملی تکراری
+ */
+public function registerPersonnel(array $data): Personnel
+{
+    // ...
+}
+```
+
+## تست‌ها
+
+- Unit Tests برای Services و Repositories
+- Feature Tests برای Controllers
+- قبل از commit تست‌ها باید pass باشند
+
+## قبل از شروع هر کاری
+
+1. **اسکن پروژه**: ساختار و کدهای موجود را بررسی کن
+2. **بررسی کدهای مرتبط**: ببین چه کلاس‌هایی از قبل وجود دارند
+3. **بررسی الگوهای استفاده شده**: طبق الگوهای موجود کد بزن
+4. **بررسی وابستگی‌ها**: از Interface ها و Services موجود استفاده کن
+
+## Refactoring
+
+- قبل از refactoring با کاربر هماهنگ کن
+- بعد از refactoring لیست چیزهایی که باید تست شوند را به کاربر بده
+- مطمئن شو که کدهای دیگر کار می‌کنند
+
+## Git Workflow
+
+- هر فیچر در یک branch جدا
+- Commit messages واضح و به فارسی
+- قبل از merge تست‌ها pass باشند
+
+## Laravel Best Practices
+
+- از Eloquent Relationships استفاده کنیم
+- از Query Scopes استفاده کنیم
+- از Accessors و Mutators استفاده کنیم
+- از Events و Listeners استفاده کنیم
+- از Jobs برای کارهای زمان‌بر استفاده کنیم
+- از Queues برای پردازش async استفاده کنیم
+
+## ترجمه و بین‌المللی‌سازی (Internationalization)
+
+### الزامات استفاده از ترجمه Laravel
+
+**⚠️ مهم: هرگز متن‌ها را به صورت hard-coded در کد ننویسید! همیشه از سیستم ترجمه Laravel استفاده کنید.**
+
+1. **استفاده از `trans()` یا `__()`:**
+   - همه متن‌های قابل نمایش به کاربر باید از سیستم ترجمه استفاده کنند
+   - از `trans("bot.key")` یا `__("bot.key")` استفاده کنیم
+   - کلیدهای ترجمه باید در فایل‌های `lang/{locale}/bot.php` تعریف شوند
+
+2. **قوانین:**
+   - ❌ **ممنوع**: نوشتن متن فارسی/انگلیسی/... به صورت مستقیم در کد
+   - ✅ **الزامی**: استفاده از `trans("bot.key")` برای همه متن‌ها
+   - ✅ **الزامی**: اضافه کردن کلید ترجمه به همه زبان‌های موجود در پروژه
+
+3. **فرمت کلیدهای ترجمه:**
+   - کلیدها باید به صورت snake_case باشند
+   - کلیدها باید در فایل `lang/{locale}/bot.php` قرار گیرند
+   - برای هر کلید جدید، باید به همه زبان‌های موجود اضافه شود
+
+```php
+// ❌ اشتباه - متن hard-coded
+$message = "📖 آخرین آیه‌ای که می‌خوندی: " . $formattedLastActivity . "\n";
+$message .= "ادامه بده: " . $nextCommand;
+
+// ✅ درست - استفاده از ترجمه
+$message = "📖 " . trans("bot.the last verse you were reading") . ": " . $formattedLastActivity . "\n";
+$message .= trans("bot.continue") . ": " . $nextCommand;
+```
+
+4. **زبان‌های موجود در پروژه:**
+   - فارسی (fa)
+   - انگلیسی (en)
+   - عربی عراقی (ar-IQ)
+   - آذربایجانی (az)
+   - بوسنیایی (bs)
+   - آلمانی (de-DE)
+   - اسپانیایی (es)
+   - فرانسوی (fr)
+   - عبری (he)
+   - پرتغالی برزیل (pt-BR)
+   - پرتغالی پرتغال (pt-PT)
+   - روسی (ru)
+   - ترکی (tr)
+   - اردو (ur)
+   - چینی (zh-CN)
+
+5. **هنگام اضافه کردن کلید جدید:**
+   - ابتدا کلید را به `lang/fa/bot.php` اضافه کنید (زبان اصلی)
+   - سپس همان کلید را به همه زبان‌های دیگر اضافه کنید
+   - از ترجمه‌های دقیق و مناسب استفاده کنید
+
+6. **استثناها (مواردی که نیازی به ترجمه ندارند):**
+   - نام فایل‌ها و مسیرها
+   - نام متغیرها و توابع
+   - کامنت‌های کد
+   - لاگ‌های داخلی (برای debugging)
+   - نام جداول و ستون‌های دیتابیس
+
+## امنیت
+
+- همیشه از Form Requests برای Validation استفاده کنیم
+- SQL Injection: از Query Builder یا Eloquent استفاده کنیم
+- XSS: از Blade escaping استفاده کنیم
+- CSRF: Laravel به صورت خودکار handle می‌کند
+- Authentication: از Laravel Sanctum استفاده کنیم
+
+## تست و بررسی Webhook ربات‌ها
+
+### الزامات تست Webhook
+
+**⚠️ مهم: با هر کدی که ربات جدید قراره تست بشه یا ساخته میشه، حتماً باید webhook را بررسی کنیم!**
+
+1. **بعد از ساخت ربات جدید:**
+   - حتماً باید با curl یا Http::get چک کنیم که webhook درست ست شده باشد
+   - از متد `BotHelper::checkWebhookInfo()` استفاده کنیم
+   - نتیجه را در لاگ ذخیره کنیم
+
+2. **بعد از تغییر webhook URL:**
+   - حتماً باید دوباره چک کنیم که webhook به‌روز شده باشد
+   - از `BotHelper::verifyBotSetup()` استفاده کنیم
+
+3. **قبل از deploy به production:**
+   - حتماً باید webhook را در محیط production چک کنیم
+   - از curl command استفاده کنیم:
+   
+   ```bash
+   # برای Telegram
+   curl https://api.telegram.org/bot{TOKEN}/getWebhookInfo
+   
+   # برای Bale
+   curl https://tapi.bale.ai/bot{TOKEN}/getWebhookInfo
+   ```
+
+4. **در کد:**
+   ```php
+   // ✅ درست - بررسی webhook بعد از ساخت ربات
+   $bot = BotHelper::defineBotInDbThenSetWebHook($token, $messenger, $botItem, $type, $language, $botMotherId);
+   $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+   if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'])) {
+       Log::error('Webhook not set properly', ['token' => substr($token, 0, 10) . '...']);
+       // ارسال پیام به ادمین
+   }
+   
+   // ✅ درست - بررسی webhook در تست
+   public function testBotWebhook()
+   {
+       $token = env('TEST_BOT_TOKEN');
+       $type = 'telegram';
+       $result = BotHelper::verifyBotSetup($token, $type);
+       $this->assertTrue($result['webhook']['ok']);
+       $this->assertNotEmpty($result['webhook']['result']['url']);
+   }
+   ```
+
+5. **تشخیص نوع چت و وضعیت استارت:**
+   - از متد `BotHelper::detectChatInfo()` برای تشخیص گروه/خصوصی استفاده کنیم
+   - این متد اطلاعات مفیدی درباره چت برمی‌گرداند:
+     - `is_group`: آیا چت در گروه است؟
+     - `chat_type`: نوع چت (private, group, supergroup, channel)
+     - `is_started`: آیا پیام /start است؟
+   
+   ```php
+   // ✅ درست - تشخیص نوع چت
+   $chatInfo = BotHelper::detectChatInfo($bot);
+   if ($chatInfo['is_group']) {
+       // منطق مخصوص گروه
+   } else {
+       // منطق مخصوص چت خصوصی
+   }
+   ```
+
+### مثال کامل تست Webhook
+
+```php
+// در Controller یا Service
+public function createBot($token, $type)
+{
+    // ساخت ربات
+    $bot = BotHelper::defineBotInDbThenSetWebHook($token, $messenger, $botItem, $type, $language, $botMotherId);
+    
+    // بررسی webhook (الزامی!)
+    $webhookInfo = BotHelper::checkWebhookInfo($token, $type);
+    
+    if (!$webhookInfo['ok']) {
+        Log::error('Webhook check failed', ['token' => substr($token, 0, 10) . '...']);
+        throw new Exception('Webhook not set properly');
+    }
+    
+    if (empty($webhookInfo['result']['url'])) {
+        Log::error('Webhook URL is empty', ['token' => substr($token, 0, 10) . '...']);
+        throw new Exception('Webhook URL is empty');
+    }
+    
+    Log::info('Webhook verified successfully', [
+        'url' => $webhookInfo['result']['url'],
+        'pending_updates' => $webhookInfo['result']['pending_update_count'] ?? 0
+    ]);
+    
+    return $bot;
+}
+```
+# قوانین پروژه Bot Platform
+
+## زبان و سبک کدنویسی
+- از PHP 8.1+ و Laravel 10 استفاده می‌شود
+- از PSR-12 برای استاندارد کدنویسی پیروی کنید
+- نام متغیرها و توابع به انگلیسی و کامنت‌ها به فارسی
+- از Type Hints و Return Types استفاده کنید
+
+## ساختار پروژه
+- Controllers در `app/Http/Controllers`
+- Models در `app/Models`
+- Services در `app/Services` (برای منطق کسب‌وکار)
+- Helpers در `app/Helpers` (برای توابع کمکی)
+- Repositories در `app/Repositories` (برای دسترسی به دیتابیس)
+- Commands در `app/Console/Commands`
+
+## اصول معماری
+- از Repository Pattern برای دسترسی به دیتابیس استفاده کنید
+- از Service Layer برای منطق کسب‌وکار استفاده کنید
+- از Dependency Injection استفاده کنید
+- از Interface برای Services و Repositories استفاده کنید
+
+## ربات‌ها و پیام‌رسان‌ها
+- تمام ربات‌ها باید از `BotController` ارث‌بری کنند
+- از `BotHelper` برای ارسال پیام استفاده کنید
+- از `LogHelper` برای ثبت لاگ استفاده کنید
+- پشتیبانی از چندین پیام‌رسان: Telegram, Bale, Gap, Eitaa, Soroush
+
+## مدیریت خطا
+- از Exception Handling مناسب استفاده کنید
+- خطاها را در Log ثبت کنید
+- برای خطاهای مهم به Super Admin پیام ارسال کنید
+
+## دیتابیس
+- از Migrations برای تغییرات دیتابیس استفاده کنید
+- از Seeders برای داده‌های اولیه استفاده کنید
+- از Eloquent ORM استفاده کنید
+- از Query Builder برای کوئری‌های پیچیده استفاده کنید
+
+## ترجمه و چندزبانه
+- از Laravel Translation System استفاده کنید
+- فایل‌های ترجمه در `lang/` قرار دارند
+- از `TranslationService` برای ترجمه خودکار استفاده کنید
+
+## Queue و Jobs
+- کارهای سنگین را در Queue قرار دهید
+- از Jobs برای پردازش‌های زمان‌بر استفاده کنید
+- از `queue:work` برای پردازش صف استفاده کنید
+
+## تست
+- قبل از commit، کد را تست کنید
+- از PHPUnit برای تست استفاده کنید
+- تست‌های Feature و Unit را بنویسید
+
+## امنیت
+- از Laravel Sanctum برای احراز هویت API استفاده کنید
+- از Request Validation استفاده کنید
+- از CSRF Protection استفاده کنید
+- توکن‌ها را در `.env` نگه دارید و در Git commit نکنید
+
+## Performance
+- از Caching برای داده‌های پرتکرار استفاده کنید
+- از Eager Loading برای جلوگیری از N+1 Query استفاده کنید
+- از Index برای فیلدهای پرجستجو استفاده کنید
+
+## کامنت‌گذاری
+- برای توابع پیچیده کامنت فارسی بنویسید
+- از PHPDoc برای توابع و کلاس‌ها استفاده کنید
+- کامنت‌های TODO را با `// TODO:` شروع کنید
+
+## Git و Version Control
+- از Commit Messages واضح و فارسی استفاده کنید
+- قبل از Push، کد را Review کنید
+- از Branch برای فیچرهای جدید استفاده کنید
+
+## API Routes
+- API Routes در `routes/api.php` تعریف می‌شوند
+- از Middleware مناسب استفاده کنید
+- از Resource Controllers استفاده کنید
+
+## Nova Admin Panel
+- از Laravel Nova برای پنل مدیریت استفاده می‌شود
+- Resources در `app/Nova` قرار دارند
+- Policies در `app/Policies` قرار دارند
+
+## Cron Jobs و Scheduling
+- از Laravel Scheduler برای کارهای زمان‌بندی شده استفاده کنید
+- Cron Jobs در `app/Console/Kernel.php` تعریف می‌شوند
+- از Commands برای کارهای تکراری استفاده کنید
+
+## RSS و محتوا
+- از `RssService` برای پردازش RSS استفاده کنید
+- از `RssPostItemTranslationService` برای ترجمه استفاده کنید
+- از Queue برای پردازش RSS استفاده کنید
+
+## قرآن و محتواهای مذهبی
+- از `QuranHelper` برای کار با قرآن استفاده کنید
+- از Full-Text Search برای جستجو استفاده کنید
+- از `HadithHelper` برای کار با حدیث استفاده کنید
+
+## Weather و API های خارجی
+- از `WeatherService` برای کار با API های هواشناسی استفاده کنید
+- از Guzzle برای درخواست‌های HTTP استفاده کنید
+- خطاهای API را مدیریت کنید
+
+## نکات مهم
+- همیشه قبل از تغییر کد، بکاپ بگیرید
+- از Environment Variables برای تنظیمات استفاده کنید
+- از Config Files برای تنظیمات استفاده کنید
+- از Logging برای Debug استفاده کنید
+- از Artisan Commands برای کارهای مدیریتی استفاده کنید
+
