@@ -926,6 +926,11 @@ class BotMotherController extends Controller
                 }
             }
             
+            // تنظیم endpoint_id، language_code و type برای ارتباط با جدول webhook_endpoints
+            $botItem->endpoint_id = $endpointId;
+            $botItem->language_code = $language;
+            $botItem->type = $botType;
+            
             // Validation: بررسی اینکه ربات اطلاعات کافی دارد
             $validationErrors = [];
             
