@@ -98,7 +98,10 @@ class BotHelper
                     
                     // بررسی webhook بعد از ست کردن (الزامی!)
                     Log::info('🔍 BotHelper - Verifying webhook after setting', [
+                        'bot_id' => $botItem->id,
+                        'bot_mother_id' => $botMotherId,
                         'type' => $type,
+                        'language' => $language,
                         'token_preview' => substr($token, 0, 10) . '...',
                         'webhook_url_set' => $webHookUrl
                     ]);
@@ -106,7 +109,10 @@ class BotHelper
                     $webhookInfo = self::checkWebhookInfo($token, $type);
                     if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'] ?? null)) {
                         Log::error('❌ BotHelper - Webhook verification FAILED after setting', [
+                            'bot_id' => $botItem->id,
+                            'bot_mother_id' => $botMotherId,
                             'type' => $type,
+                            'language' => $language,
                             'token_preview' => substr($token, 0, 10) . '...',
                             'webhook_url_expected' => $webHookUrl,
                             'webhook_info' => $webhookInfo
@@ -116,7 +122,10 @@ class BotHelper
                         $urlMatches = $actualUrl === $webHookUrl;
                         
                         Log::info('✅ BotHelper - Webhook verified successfully', [
+                            'bot_id' => $botItem->id,
+                            'bot_mother_id' => $botMotherId,
                             'type' => $type,
+                            'language' => $language,
                             'url_expected' => $webHookUrl,
                             'url_actual' => $actualUrl,
                             'url_matches' => $urlMatches,

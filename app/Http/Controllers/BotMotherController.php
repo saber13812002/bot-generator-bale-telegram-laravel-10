@@ -1045,6 +1045,16 @@ class BotMotherController extends Controller
             }
             $botItem->save();
             
+            // Log webhook registration
+            Log::info('Bot webhook registered via Bot Mother', [
+                'bot_id' => $botItem->id,
+                'bot_mother_id' => $botMotherId,
+                'type' => $botType,
+                'language' => $language,
+                'endpoint_id' => $endpointId,
+                'webhook_url' => $webhookUrl,
+            ]);
+            
             // Verify webhook
             $webhookInfo = BotHelper::checkWebhookInfo($text, $botType);
             

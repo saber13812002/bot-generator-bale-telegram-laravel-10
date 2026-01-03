@@ -23,8 +23,12 @@ class LogHelper
     {
         $log = new BotLog();
         $log->webhook_endpoint_uri = request()->segment(2);
-        $log->bot_mother_id = $request->input('bot_mother_id') ?? 0;
-        $log->language = $request->input('language');
+        
+        // استفاده از bot_mother_id از request (اولویت اول)
+        $botMotherId = $request->input('bot_mother_id') ?? $request->query('bot_mother_id') ?? 0;
+        $log->bot_mother_id = $botMotherId;
+        
+        $log->language = $request->input('language') ?? $request->query('language');
         $log->command_type = $request->request->get('command_type');
         $log->locale = App::getLocale();
         $log->type = $type;
@@ -32,8 +36,11 @@ class LogHelper
         $log->is_command = str_starts_with($bot->Text(), "/");
         $log->channel_group_type = $bot->ChatID() < 0 ? $bot->ChatID() : 0;
         
-        // پیدا کردن bot_id از token و type
-        $botId = self::findBotIdFromToken($request, $type);
+        // پیدا کردن bot_id: اول از request (اولویت اول)، سپس از token
+        $botId = $request->input('bot_id') ?? $request->query('bot_id');
+        if (!$botId) {
+            $botId = self::findBotIdFromToken($request, $type);
+        }
         $log->bot_id = $botId;
         
         $log->chat_id = $bot->ChatID();

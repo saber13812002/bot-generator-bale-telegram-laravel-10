@@ -163,6 +163,7 @@ class ReRegisterAllBots extends Command
                         
                         Log::info('Bot re-registered successfully', [
                             'bot_id' => $bot->id,
+                            'bot_mother_id' => $botMotherId,
                             'type' => $type,
                             'endpoint' => $endpointId,
                             'language' => $language,

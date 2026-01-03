@@ -131,8 +131,10 @@ class TestQuranBotWebhook extends Command
                     
                     Log::info('Quran bot webhook test successful', [
                         'bot_id' => $bot->id,
+                        'bot_mother_id' => $bot->bot_mother_id,
                         'type' => $type,
                         'language' => $bot->language_code,
+                        'endpoint_id' => $bot->endpoint_id,
                         'webhook_url' => $actualUrl,
                     ]);
 
