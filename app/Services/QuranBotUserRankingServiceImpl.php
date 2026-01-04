@@ -41,11 +41,11 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
 
         foreach ($logs as $log) {
 
-            $count_month = BotLog::whereChatId($log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
+            $count_month = BotLog::where('chat_id', $log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
                 ->whereWebhookEndpointUri('webhook-quran-word')
                 ->count();
 
-            $count_last_month = BotLog::whereChatId($log['chat_id'])
+            $count_last_month = BotLog::where('chat_id', $log['chat_id'])
                 ->whereWebhookEndpointUri('webhook-quran-word')
                 ->where('created_at', '<', Carbon::now()->subDay(30))
                 ->where('created_at', '>=', Carbon::now()->subDay(60))
@@ -71,12 +71,12 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
      */
     public function userStatisticPerDayReport($chatId, $rank): string
     {
-        $count_today = BotLog::whereChatId($chatId)
+        $count_today = BotLog::where('chat_id', $chatId)
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '>=', Carbon::now()->subDay())
             ->count();
 
-        $count_yesterday = BotLog::whereChatId($chatId)
+        $count_yesterday = BotLog::where('chat_id', $chatId)
             ->whereWebhookEndpointUri('webhook-quran-word')
             ->where('created_at', '<', Carbon::now()->subDay())
             ->where('created_at', '>=', Carbon::now()->subDay(2))
@@ -220,24 +220,78 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         // TODO: implement by cache
         $unsortedRankings = $this->calculateRanking($logs);
         $sortedRankings = $unsortedRankings
-            ->sortBy("result_month", null, true)
-            ->forPage(1, 200);
+            ->sortBy("result_month", null, true);
 
-        $rank = 1;
-        foreach ($sortedRankings as $sortedRanking) {
-            $rank++;
-            $chatId = $sortedRanking['chatId'];
+        // اگر requesterChatId داده شده باشد، بررسی می‌کنیم که آیا در ranking هست یا نه
+        $requesterFound = false;
+        $requesterRank = null;
+        $requesterType = null;
+        
+        if ($requesterChatId) {
+            $rank = 1;
+            foreach ($sortedRankings as $sortedRanking) {
+                $rank++;
+                if ($sortedRanking['chatId'] == $requesterChatId) {
+                    $requesterFound = true;
+                    $requesterRank = $rank;
+                    $requesterType = $sortedRanking['type'];
+                    break;
+                }
+            }
+            
+            // اگر کاربر در ranking نبود، ranking را برایش محاسبه می‌کنیم
+            if (!$requesterFound) {
+                // پیدا کردن type کاربر از لاگ‌ها
+                $userLog = BotLog::where('chat_id', $requesterChatId)
+                    ->whereWebhookEndpointUri('webhook-quran-word')
+                    ->select('type')
+                    ->first();
+                
+                if ($userLog) {
+                    $requesterType = $userLog->type;
+                    // محاسبه ranking برای کاربر
+                    $userCountMonth = BotLog::where('chat_id', $requesterChatId)
+                        ->where('created_at', '>=', Carbon::now()->subDay(30))
+                        ->whereWebhookEndpointUri('webhook-quran-word')
+                        ->count();
+                    
+                    // شمارش تعداد کاربرانی که بیشتر از این کاربر آیات خوانده‌اند
+                    $usersWithMoreReadings = $sortedRankings->filter(function($ranking) use ($userCountMonth) {
+                        return $ranking['result_month'] > $userCountMonth;
+                    })->count();
+                    
+                    $requesterRank = $usersWithMoreReadings + 1;
+                }
+            }
+        }
 
-            if (!$requesterChatId || $chatId == $requesterChatId) {
+        // ارسال گزارش به کاربر درخواست‌کننده (اگر داده شده باشد)
+        if ($requesterChatId && $requesterRank !== null && $requesterType) {
+            $bot = $requesterType == 'bale' ? $botBale : $botTelegram;
+            $message = $this->userStatisticPerDayReport($requesterChatId, $requesterRank);
+            
+            // ارسال به خود کاربر
+            BotHelper::sendMessageByChatId($bot, $requesterChatId, $message);
+            
+            // ارسال به ادمین
+            $adminChatId = $requesterType == 'bale' ? env("CHAT_ID_ACCOUNT_1_SABER") : env("CHAT_ID_ACCOUNT_2_SABER");
+            BotHelper::sendMessageByChatId($bot, $adminChatId, $message . "
+:" . $requesterChatId);
+        }
 
+        // ارسال گزارش به سایر کاربران (اگر requesterChatId داده نشده باشد - برای reportall)
+        if (!$requesterChatId) {
+            $sortedRankings = $sortedRankings->forPage(1, 200);
+            $rank = 1;
+            foreach ($sortedRankings as $sortedRanking) {
+                $rank++;
+                $chatId = $sortedRanking['chatId'];
                 $type = $sortedRanking['type'];
-
                 $bot = $type == 'bale' ? $botBale : $botTelegram;
-
                 $message = $this->userStatisticPerDayReport($chatId, $rank);
-
+                
                 BotHelper::sendMessageByChatId($bot, $chatId, $message);
-
+                
                 $adminChatId = $type == 'bale' ? env("CHAT_ID_ACCOUNT_1_SABER") : env("CHAT_ID_ACCOUNT_2_SABER");
                 BotHelper::sendMessageByChatId($bot, $adminChatId, $message . "
 :" . $chatId);
