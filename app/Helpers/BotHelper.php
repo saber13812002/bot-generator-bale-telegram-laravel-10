@@ -677,13 +677,32 @@ class BotHelper
     {
         $option = [];
         foreach ($buttons as $button) {
-            $option[] = [
-                $messenger->buildInlineKeyBoardButton(
-                    $button['text'],
-                    callback_data: $button['callback_data'] ?? '',
-                    url: $button['url'] ?? ''
-                )
-            ];
+            // بررسی اینکه آیا button یک آرایه از دکمه‌هاست (chunked) یا یک دکمه واحد
+            if (isset($button[0]) && is_array($button[0])) {
+                // ساختار chunked: هر عنصر یک آرایه از دکمه‌هاست
+                $row = [];
+                foreach ($button as $btn) {
+                    if (isset($btn['text'])) {
+                        $row[] = $messenger->buildInlineKeyBoardButton(
+                            $btn['text'],
+                            callback_data: $btn['callback_data'] ?? '',
+                            url: $btn['url'] ?? ''
+                        );
+                    }
+                }
+                if (!empty($row)) {
+                    $option[] = $row;
+                }
+            } elseif (isset($button['text'])) {
+                // ساختار ساده: هر عنصر یک دکمه است
+                $option[] = [
+                    $messenger->buildInlineKeyBoardButton(
+                        $button['text'],
+                        callback_data: $button['callback_data'] ?? '',
+                        url: $button['url'] ?? ''
+                    )
+                ];
+            }
         }
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
