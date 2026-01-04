@@ -1963,14 +1963,36 @@ class QuranWordController extends Controller
             $endTime = microtime(true);
             $processingTime = round(($endTime - $startTime) * 1000, 2);
             
+            // بررسی اینکه آیا bot و type موجود هستند یا نه
+            $chatId = null;
+            $botText = null;
+            
+            try {
+                if (isset($bot) && is_object($bot)) {
+                    $chatId = method_exists($bot, 'ChatID') ? $bot->ChatID() : null;
+                    $botText = method_exists($bot, 'Text') ? $bot->Text() : null;
+                }
+            } catch (Exception $e) {
+                // اگر خطا در دسترسی به bot رخ داد، از request استفاده می‌کنیم
+                $update = $request->json()->all() ?? $request->all();
+                if (isset($update['message']['chat']['id'])) {
+                    $chatId = $update['message']['chat']['id'];
+                } elseif (isset($update['callback_query']['message']['chat']['id'])) {
+                    $chatId = $update['callback_query']['message']['chat']['id'];
+                }
+                if (isset($update['message']['text'])) {
+                    $botText = $update['message']['text'];
+                }
+            }
+            
             Log::error('❌ [QuranBot] Exception occurred', [
                 'error' => $exception->getMessage(),
                 'file' => $exception->getFile(),
                 'line' => $exception->getLine(),
                 'trace' => $exception->getTraceAsString(),
-                'chat_id' => $bot->ChatID() ?? null,
+                'chat_id' => $chatId,
                 'type' => $type ?? null,
-                'bot_text' => $bot->Text() ?? null,
+                'bot_text' => $botText,
                 'processing_time_ms' => $processingTime,
                 'timestamp' => now()->toDateTimeString()
             ]);
