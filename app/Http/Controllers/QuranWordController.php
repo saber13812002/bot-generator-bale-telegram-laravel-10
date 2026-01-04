@@ -142,10 +142,29 @@ class QuranWordController extends Controller
                 
                 // بررسی callback query (برای دکمه‌های inline)
                 $update = $request->json()->all() ?? $request->all();
+                
+                // استخراج chat_id از request به صورت امن
+                $chatId = null;
+                try {
+                    if (isset($update['message']['chat']['id'])) {
+                        $chatId = $update['message']['chat']['id'];
+                    } elseif (isset($update['callback_query']['message']['chat']['id'])) {
+                        $chatId = $update['callback_query']['message']['chat']['id'];
+                    } elseif (method_exists($bot, 'ChatID')) {
+                        $chatId = $bot->ChatID();
+                    }
+                } catch (Exception $e) {
+                    // اگر خطا رخ داد، chat_id را null می‌گذاریم
+                    Log::warning('⚠️ [QuranBot] Could not extract chat_id', [
+                        'error' => $e->getMessage(),
+                        'type' => $type
+                    ]);
+                }
+                
                 Log::info('🔘 [CallbackQuery] Checking for callback_query', [
                     'has_callback_query' => isset($update['callback_query']),
                     'type' => $type,
-                    'chat_id' => $bot->ChatID() ?? null
+                    'chat_id' => $chatId
                 ]);
                 
                 if (isset($update['callback_query'])) {
