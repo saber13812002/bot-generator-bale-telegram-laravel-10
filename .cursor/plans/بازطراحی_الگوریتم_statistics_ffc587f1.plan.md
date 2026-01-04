@@ -4,19 +4,19 @@ overview: بازطراحی کامل الگوریتم statistics با استفا�
 todos:
   - id: refactor_calculate_statistics
     content: بازنویسی متد calculateStatistics() در BotMotherController برای استفاده از bot_id
-    status: pending
+    status: completed
   - id: add_normalize_language
     content: اضافه کردن متد normalizeLanguageCode() به BotMotherController
-    status: pending
+    status: completed
   - id: update_bot_filtering
     content: به‌روزرسانی منطق فیلتر کردن ربات‌های فعال بر اساس bot_id
-    status: pending
+    status: completed
   - id: update_quran_statistics
     content: به‌روزرسانی متدهای آمار در QuranBotUserRankingService برای استفاده از bot_id
-    status: pending
+    status: completed
   - id: test_statistics
     content: تست آمار با bot_id و normalization
-    status: pending
+    status: completed
 ---
 
 # بازطراحی الگوریتم Statistics

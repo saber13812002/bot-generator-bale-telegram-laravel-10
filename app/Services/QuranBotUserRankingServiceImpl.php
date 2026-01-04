@@ -245,46 +245,58 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
         }
     }
 
-    public function allUsersReportDailyWeeklyMonthly($type = null)
+    public function allUsersReportDailyWeeklyMonthly($type = null, $botId = null)
     {
 //        return 0;
         //
-        $count_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        // ساخت query base: اگر bot_id موجود باشد، از آن استفاده می‌کنیم، در غیر این صورت از webhook_endpoint_uri
+        $baseQuery = BotLog::query();
+        
+        if ($botId) {
+            // آمار برای ربات خاص
+            $baseQuery->where('bot_id', $botId)
+                ->whereNotNull('bot_id');
+        } else {
+            // آمار کلی برای همه ربات‌های قرآنی
+            $baseQuery->whereWebhookEndpointUri('webhook-quran-word');
+        }
+        
+        $count_daily = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay())
             ->count();
 
-        $count_unique_daily = BotLog::where('created_at', '>=', Carbon::now()->subDay())
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_unique_daily = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay())
             ->distinct('chat_id')
             ->count();
 
 
-        $count_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_weekly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(7))
             ->count();
 
-        $count_unique_weekly = BotLog::where('created_at', '>=', Carbon::now()->subDay(7))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_unique_weekly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(7))
             ->distinct('chat_id')
             ->count();
 
 
-        $count_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_monthly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(30))
             ->count();
 
-        $count_unique_monthly = BotLog::where('created_at', '>=', Carbon::now()->subDay(30))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_unique_monthly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(30))
             ->distinct('chat_id')
             ->count();
 
 
-        $count_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_yearly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(366))
             ->count();
 
-        $count_unique_yearly = BotLog::where('created_at', '>=', Carbon::now()->subDay(366))
-            ->whereWebhookEndpointUri('webhook-quran-word')
+        $count_unique_yearly = (clone $baseQuery)
+            ->where('created_at', '>=', Carbon::now()->subDay(366))
             ->distinct('chat_id')
             ->count();
 
@@ -327,9 +339,18 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
 //        BotHelper::sendMessageToSuperAdmin($message, 'telegram');
 //        BotHelper::sendMessageToSuperAdmin($message, 'bale');
 
-        $logs = BotLog::whereLanguage('fa')
-            ->whereWebhookEndpointUri('webhook-quran-word')
-            ->select('chat_id', 'type')
+        // ساخت query برای ارسال پیام: اگر bot_id موجود باشد، فقط به کاربران آن ربات ارسال می‌کنیم
+        $logsQuery = BotLog::query();
+        
+        if ($botId) {
+            $logsQuery->where('bot_id', $botId)
+                ->whereNotNull('bot_id');
+        } else {
+            $logsQuery->whereLanguage('fa')
+                ->whereWebhookEndpointUri('webhook-quran-word');
+        }
+        
+        $logs = $logsQuery->select('chat_id', 'type')
             ->distinct('chat_id')
             ->get();
 
@@ -354,28 +375,38 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
     /**
      * محاسبه آمار روزانه (روز گذشته)
      * 
+     * @param int|null $botId آیدی ربات (اختیاری)
      * @return array
      */
-    public function getDailyStatistics(): array
+    public function getDailyStatistics($botId = null): array
     {
         $cacheKey = 'daily_quran_stats_' . Carbon::yesterday()->format('Y-m-d');
+        if ($botId) {
+            $cacheKey .= '_bot_' . $botId;
+        }
         
-        return Cache::remember($cacheKey, Carbon::now()->addHours(24), function () {
+        return Cache::remember($cacheKey, Carbon::now()->addHours(24), function () use ($botId) {
             $yesterday = Carbon::yesterday()->startOfDay();
             $today = Carbon::today()->startOfDay();
             
-            $totalAyahs = BotLog::where('created_at', '>=', $yesterday)
+            // ساخت query base: اگر bot_id موجود باشد، از آن استفاده می‌کنیم
+            $baseQuery = BotLog::where('created_at', '>=', $yesterday)
                 ->where('created_at', '<', $today)
-                ->whereWebhookEndpointUri('webhook-quran-word')
                 ->where('is_command', true)
-                ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
-                ->count();
+                ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+');
             
-            $uniqueUsers = BotLog::where('created_at', '>=', $yesterday)
-                ->where('created_at', '<', $today)
-                ->whereWebhookEndpointUri('webhook-quran-word')
-                ->where('is_command', true)
-                ->where('text', 'regexp', '/sure[0-9]+ayah[0-9]+')
+            if ($botId) {
+                // آمار برای ربات خاص
+                $baseQuery->where('bot_id', $botId)
+                    ->whereNotNull('bot_id');
+            } else {
+                // آمار کلی برای همه ربات‌های قرآنی
+                $baseQuery->whereWebhookEndpointUri('webhook-quran-word');
+            }
+            
+            $totalAyahs = (clone $baseQuery)->count();
+            
+            $uniqueUsers = (clone $baseQuery)
                 ->distinct('chat_id')
                 ->count('chat_id');
             

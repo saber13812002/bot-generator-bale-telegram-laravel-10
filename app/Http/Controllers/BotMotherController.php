@@ -839,6 +839,27 @@ class BotMotherController extends Controller
     }
 
     /**
+     * Normalize language code for statistics
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     * 
+     * @param string $languageCode
+     * @return string
+     */
+    private function normalizeLanguageCode(string $languageCode): string
+    {
+        if (!$languageCode) {
+            return 'fa'; // default
+        }
+        
+        // تبدیل ar-IQ -> ar, de-DE -> de, etc.
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+        
+        return $languageCode;
+    }
+
+    /**
      * Handle token input and create bot
      * 
      * @param Telegram $bot
@@ -1738,34 +1759,51 @@ class BotMotherController extends Controller
                 ->get();
         
         // فیلتر کردن ربات‌هایی که لاگ ندارند یا اطلاعات ندارند (یعنی deactivate هستند یا استفاده نمی‌شوند)
-        $activeBots = $bots->filter(function($botItem) use ($botMotherId) {
-                // بررسی وجود لاگ
-                $hasLogs = BotLog::where('bot_mother_id', $botMotherId)
-                    ->where(function($query) use ($botItem) {
-                        if ($botItem->telegram_bot_token) {
-                            $query->where('type', 'telegram');
-                        } elseif ($botItem->bale_bot_token) {
-                            $query->where('type', 'bale');
-                        }
-                    })
+        $activeBots = $bots->filter(function($botItem) {
+                // بررسی وجود لاگ بر اساس bot_id (روش جدید)
+                $hasLogs = BotLog::where('bot_id', $botItem->id)
+                    ->whereNotNull('bot_id')
                     ->exists();
+                
+                // اگر bot_id در لاگ‌ها موجود نباشد، از روش قدیمی استفاده می‌کنیم (سازگاری با لاگ‌های قدیمی)
+                if (!$hasLogs) {
+                    // Fallback: بررسی بر اساس type و bot_mother_id
+                    $hasLogs = BotLog::where('bot_mother_id', $botItem->bot_mother_id)
+                        ->where(function($query) use ($botItem) {
+                            if ($botItem->telegram_bot_token) {
+                                $query->where('type', 'telegram');
+                            } elseif ($botItem->bale_bot_token) {
+                                $query->where('type', 'bale');
+                            }
+                        })
+                        ->exists();
+                }
                 
                 if (!$hasLogs) {
                     return false;
                 }
                 
-                // بررسی وجود endpoint
-                $endpointUri = BotLog::where('bot_mother_id', $botMotherId)
-                    ->where(function($query) use ($botItem) {
-                        if ($botItem->telegram_bot_token) {
-                            $query->where('type', 'telegram');
-                        } elseif ($botItem->bale_bot_token) {
-                            $query->where('type', 'bale');
-                        }
-                    })
+                // بررسی وجود endpoint (اولویت با bot_id)
+                $endpointUri = BotLog::where('bot_id', $botItem->id)
+                    ->whereNotNull('bot_id')
                     ->whereNotNull('webhook_endpoint_uri')
                     ->where('webhook_endpoint_uri', '!=', '')
                     ->value('webhook_endpoint_uri');
+                
+                // Fallback: اگر endpoint با bot_id پیدا نشد، از روش قدیمی استفاده می‌کنیم
+                if (!$endpointUri) {
+                    $endpointUri = BotLog::where('bot_mother_id', $botItem->bot_mother_id)
+                        ->where(function($query) use ($botItem) {
+                            if ($botItem->telegram_bot_token) {
+                                $query->where('type', 'telegram');
+                            } elseif ($botItem->bale_bot_token) {
+                                $query->where('type', 'bale');
+                            }
+                        })
+                        ->whereNotNull('webhook_endpoint_uri')
+                        ->where('webhook_endpoint_uri', '!=', '')
+                        ->value('webhook_endpoint_uri');
+                }
                 
                 // اگر endpoint ندارند، نمایش نده
                 if (!$endpointUri) {
@@ -1786,35 +1824,36 @@ class BotMotherController extends Controller
                     $botType = $botItem->telegram_bot_token ? 'Telegram' : ($botItem->bale_bot_token ? 'Bale' : 'N/A');
                     $createdAt = $botItem->created_at ? $botItem->created_at->format('Y-m-d H:i') : 'N/A';
                     
-                    // تشخیص endpoint از bot_logs
-                    $endpointUri = BotLog::where('bot_mother_id', $botMotherId)
-                        ->where(function($query) use ($botItem) {
-                            if ($botItem->telegram_bot_token) {
-                                $query->where('type', 'telegram');
-                            } elseif ($botItem->bale_bot_token) {
-                                $query->where('type', 'bale');
-                            }
-                        })
+                    // استفاده از language_code از جدول bots (اولویت اول)
+                    $languageCode = $botItem->language_code;
+                    $normalizedLanguage = $this->normalizeLanguageCode($languageCode ?? 'fa');
+                    
+                    // تشخیص endpoint از bot_logs (اولویت با bot_id)
+                    $endpointUri = BotLog::where('bot_id', $botItem->id)
+                        ->whereNotNull('bot_id')
                         ->whereNotNull('webhook_endpoint_uri')
                         ->where('webhook_endpoint_uri', '!=', '')
                         ->value('webhook_endpoint_uri');
                     
+                    // Fallback: اگر endpoint با bot_id پیدا نشد، از روش قدیمی استفاده می‌کنیم
+                    if (!$endpointUri) {
+                        $endpointUri = BotLog::where('bot_mother_id', $botMotherId)
+                            ->where(function($query) use ($botItem) {
+                                if ($botItem->telegram_bot_token) {
+                                    $query->where('type', 'telegram');
+                                } elseif ($botItem->bale_bot_token) {
+                                    $query->where('type', 'bale');
+                                }
+                            })
+                            ->whereNotNull('webhook_endpoint_uri')
+                            ->where('webhook_endpoint_uri', '!=', '')
+                            ->value('webhook_endpoint_uri');
+                    }
+                    
                     $endpointName = $endpointUri ? (WebhookEndpointHelper::getEndpointById($endpointUri)['name'] ?? $endpointUri) : 'نامشخص';
                     
-                    // تشخیص زبان از bot_logs
-                    $language = BotLog::where('bot_mother_id', $botMotherId)
-                        ->where(function($query) use ($botItem) {
-                            if ($botItem->telegram_bot_token) {
-                                $query->where('type', 'telegram');
-                            } elseif ($botItem->bale_bot_token) {
-                                $query->where('type', 'bale');
-                            }
-                        })
-                        ->whereNotNull('language')
-                        ->where('language', '!=', '')
-                        ->value('language');
-                    
-                    $languageDisplay = $language ? $this->getLanguageDisplayName($language) : 'نامشخص';
+                    // استفاده از language_code از جدول bots برای نمایش
+                    $languageDisplay = $languageCode ? $this->getLanguageDisplayName($languageCode) : 'نامشخص';
                     
                     $message .= "{$botNumber}. ربات #{$botItem->id}\n";
                     $message .= "   📝 نام: @{$botName}\n";
@@ -1823,22 +1862,34 @@ class BotMotherController extends Controller
                     $message .= "   🔗 Endpoint: {$endpointName}\n";
                     $message .= "   📅 تاریخ ساخت: {$createdAt}\n";
                     
-                    // آمار کلی برای همه ربات‌ها
-                    $baseQuery = BotLog::where('bot_mother_id', $botMotherId)
-                        ->where(function($query) use ($botItem) {
-                            if ($botItem->telegram_bot_token) {
-                                $query->where('type', 'telegram');
-                            } elseif ($botItem->bale_bot_token) {
-                                $query->where('type', 'bale');
-                            }
-                        });
+                    // آمار کلی بر اساس bot_id (روش جدید)
+                    $baseQuery = BotLog::where('bot_id', $botItem->id)
+                        ->whereNotNull('bot_id');
                     
-                    if ($endpointUri) {
-                        $baseQuery->where('webhook_endpoint_uri', $endpointUri);
-                    }
-                    
-                    if ($language) {
-                        $baseQuery->where('language', $language);
+                    // Fallback: اگر bot_id در لاگ‌ها موجود نباشد، از روش قدیمی استفاده می‌کنیم (سازگاری با لاگ‌های قدیمی)
+                    $hasLogsWithBotId = (clone $baseQuery)->exists();
+                    if (!$hasLogsWithBotId) {
+                        $baseQuery = BotLog::where('bot_mother_id', $botMotherId)
+                            ->where(function($query) use ($botItem) {
+                                if ($botItem->telegram_bot_token) {
+                                    $query->where('type', 'telegram');
+                                } elseif ($botItem->bale_bot_token) {
+                                    $query->where('type', 'bale');
+                                }
+                            });
+                        
+                        if ($endpointUri) {
+                            $baseQuery->where('webhook_endpoint_uri', $endpointUri);
+                        }
+                        
+                        // استفاده از normalized language برای فیلتر کردن (اگر language در BotLog موجود باشد)
+                        if ($normalizedLanguage) {
+                            $baseQuery->where(function($query) use ($normalizedLanguage, $languageCode) {
+                                $query->where('language', $normalizedLanguage)
+                                    ->orWhere('language', $languageCode)
+                                    ->orWhere('language', 'like', $normalizedLanguage . '%');
+                            });
+                        }
                     }
                     
                     // تعداد کاربرانی که استارت کردند (کل)
