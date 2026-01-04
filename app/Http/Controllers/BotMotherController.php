@@ -1679,7 +1679,34 @@ class BotMotherController extends Controller
             $message .= $statisticsData['message'];
             $message .= $cacheInfo;
             
-            BotHelper::sendMessage($bot, $message);
+            // Log قبل از ارسال
+            Log::info('Statistics message prepared', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+                'is_cached' => $isCached,
+                'bots_count' => $statisticsData['bots_count'] ?? 0,
+                'message_length' => strlen($message),
+            ]);
+            
+            // استفاده از sendLongMessage برای پیام‌های طولانی
+            try {
+                BotHelper::sendLongMessage($message, $bot);
+                Log::info('Statistics message sent successfully', [
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                ]);
+            } catch (Exception $sendException) {
+                Log::error('Error sending statistics message', [
+                    'error' => $sendException->getMessage(),
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                    'message_length' => strlen($message),
+                ]);
+                // ارسال پیام خطا به کاربر
+                $errorMsg = "❌ خطا در ارسال آمار. لطفاً دوباره تلاش کنید.";
+                BotHelper::sendMessage($bot, $errorMsg);
+            }
             
             // Log
             Log::info('Statistics requested', [

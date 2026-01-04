@@ -1329,16 +1329,30 @@ class QuranWordController extends Controller
                             'chat_id' => $chatId,
                             'type' => $type
                         ]);
-                        $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
-                        $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
-                    https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type;
                         
-                        Log::info('📤 [Command] Sending report message', [
-                            'chat_id' => $chatId,
-                            'type' => $type
-                        ]);
-                        BotHelper::sendMessage($bot, $message);
-                        BotHelper::sendMessageToSuperAdmin($message, $type);
+                        try {
+                            $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
+                            $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
+                    https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type;
+                            
+                            Log::info('📤 [Command] Sending report message', [
+                                'chat_id' => $chatId,
+                                'type' => $type
+                            ]);
+                            BotHelper::sendMessage($bot, $message);
+                            BotHelper::sendMessageToSuperAdmin($message, $type);
+                        } catch (Exception $reportException) {
+                            Log::error('❌ [Command] Error in /report command', [
+                                'error' => $reportException->getMessage(),
+                                'file' => $reportException->getFile(),
+                                'line' => $reportException->getLine(),
+                                'chat_id' => $chatId,
+                                'type' => $type,
+                                'trace' => $reportException->getTraceAsString(),
+                            ]);
+                            $errorMsg = "❌ خطا در تولید گزارش. لطفاً دوباره تلاش کنید.";
+                            BotHelper::sendMessage($bot, $errorMsg);
+                        }
                         
                         Log::info('✅ [Command] /report command processed successfully', [
                             'chat_id' => $chatId,

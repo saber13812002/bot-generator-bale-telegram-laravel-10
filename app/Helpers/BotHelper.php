@@ -1240,7 +1240,15 @@ class BotHelper
         if (strlen($message) > $maxCharacterPerMessage) {
             self::sendMessageWhenLong($message, $maxCharacterPerMessage, $bot);
         } else {
-            self::sendMessage($bot, $message);
+            try {
+                self::sendMessage($bot, $message);
+            } catch (Exception $e) {
+                Log::error('Error sending message', [
+                    'error' => $e->getMessage(),
+                    'message_length' => strlen($message),
+                ]);
+                throw $e; // دوباره throw می‌کنیم تا در controller catch شود
+            }
         }
     }
 
@@ -1259,23 +1267,37 @@ class BotHelper
 
         $currentLength = 0;
         $index = 0;
-        $pages[] = null;
+        $pages = [];
 
         foreach ($words as $word) {
             // +1 because the word will receive back the space in the end that it loses in explode()
             $wordLength = strlen($word) + 1;
 
             if (($currentLength + $wordLength) <= $maxLineLength) {
+                if (!isset($pages[$index])) {
+                    $pages[$index] = '';
+                }
                 $pages[$index] .= $word . ' ';
                 $currentLength += $wordLength;
             } else {
                 $index += 1;
                 $currentLength = $wordLength;
-                $pages[$index] = $word;
+                $pages[$index] = $word . ' ';
             }
         }
 //                            dd($pages);
-        foreach ($pages as $page)
-            BotHelper::sendMessage($bot, $page);
+        foreach ($pages as $page) {
+            if ($page && trim($page) !== '') {
+                try {
+                    BotHelper::sendMessage($bot, trim($page));
+                } catch (Exception $e) {
+                    Log::error('Error sending long message part', [
+                        'error' => $e->getMessage(),
+                        'page_length' => strlen($page),
+                    ]);
+                    // ادامه ارسال بقیه قسمت‌ها حتی اگر یکی خطا بدهد
+                }
+            }
+        }
     }
 }
