@@ -66,7 +66,10 @@ class WebhookEndpointHelper
         }
 
         $baseUrl = env('APP_URL', 'https://your-domain.com');
-        $url = $baseUrl . $endpoint['route'];
+        // اطمینان از وجود slash در انتهای baseUrl و ابتدای route
+        $baseUrl = rtrim($baseUrl, '/');
+        $route = ltrim($endpoint['route'], '/');
+        $url = $baseUrl . '/' . $route;
         
         $params = [];
         
