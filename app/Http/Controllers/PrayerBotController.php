@@ -128,6 +128,19 @@ class PrayerBotController extends Controller
             $this->handleEmailSettings($bot, $callbackData, $chatId, $type);
             return;
         }
+
+        // پردازش Help callbacks
+        if (str_starts_with($callbackData, 'help_')) {
+            $this->handleHelpCallback($bot, $callbackQuery, $type);
+            return;
+        }
+
+        // پردازش Estimate callbacks
+        if (str_starts_with($callbackData, 'estimate_')) {
+            $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+            $this->handleEstimateCallback($bot, $callbackQuery, $botUser, $type, $botMotherId);
+            return;
+        }
     }
 
     /**
@@ -148,7 +161,14 @@ class PrayerBotController extends Controller
 
         // دستور /help
         if ($text === '/help' || $text === 'راهنما') {
-            $this->handleHelp($bot);
+            $this->showHelpMain($bot, $chatId);
+            return;
+        }
+
+        // دستورات help خاص
+        if (str_starts_with($text, '/help_')) {
+            $helpType = str_replace('/help_', '', $text);
+            $this->showHelp($bot, $chatId, $helpType);
             return;
         }
 
@@ -159,8 +179,17 @@ class PrayerBotController extends Controller
         }
 
         // دستور /estimate
-        if (str_starts_with($text, '/estimate') || str_starts_with($text, 'تخمین')) {
-            $this->handleEstimate($bot, $text, $chatId);
+        if ($text === '/estimate' || $text === 'تخمین') {
+            $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+            $this->handleEstimateStart($bot, $chatId, $botUser, $type, $botMotherId);
+            return;
+        }
+
+        // چک کردن state برای دریافت عدد تخمین
+        $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+        $state = $this->prayerBotService->getState($botUser->id);
+        if ($state && $state->state === 'estimate_waiting_value') {
+            $this->handleEstimateValue($bot, $chatId, $text, $state, $botUser, $type);
             return;
         }
 
@@ -218,23 +247,167 @@ class PrayerBotController extends Controller
     }
 
     /**
-     * پردازش دستور /help
+     * نمایش Help اصلی
      */
-    protected function handleHelp(Telegram $bot): void
+    protected function showHelpMain(Telegram $bot, int $chatId, ?int $messageId = null): void
     {
-        $message = "📖 " . trans('bot.prayer_bot_help') . "\n\n";
-        $message .= "1️⃣ " . trans('bot.how_to_record') . ":\n";
-        $message .= "   " . trans('bot.just_send_number') . "\n\n";
-        $message .= "2️⃣ " . trans('bot.how_to_remove') . ":\n";
-        $message .= "   " . trans('bot.use_remove_command') . "\n\n";
-        $message .= "3️⃣ " . trans('bot.how_to_estimate') . ":\n";
-        $message .= "   /estimate 1000\n\n";
-        $message .= "4️⃣ " . trans('bot.how_to_email') . ":\n";
-        $message .= "   /email\n\n";
-        $message .= "✨ " . trans('bot.smart_detection') . "\n";
-        $message .= trans('bot.smart_detection_description');
+        $message = trans('bot.help_main_title') . "\n\n";
+        $message .= trans('bot.help_main_welcome') . "\n\n";
+        $message .= trans('bot.help_main_features') . "\n\n";
+        $message .= trans('bot.help_main_select') . "\n\n";
+        $message .= trans('bot.help_main_quick_start');
+        
+        $keyboard = [
+            [
+                ['text' => trans('bot.help_btn_commands'), 'callback_data' => 'help_commands'],
+                ['text' => trans('bot.help_btn_usage'), 'callback_data' => 'help_usage'],
+            ],
+            [
+                ['text' => trans('bot.help_btn_estimate'), 'callback_data' => 'help_estimate'],
+                ['text' => trans('bot.help_btn_report'), 'callback_data' => 'help_report'],
+            ],
+            [
+                ['text' => trans('bot.help_btn_faq'), 'callback_data' => 'help_faq'],
+            ]
+        ];
+        
+        if ($messageId) {
+            $bot->editMessageText([
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        } else {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        }
+    }
 
-        BotHelper::sendMessage($bot, $message);
+    /**
+     * نمایش Help خاص
+     */
+    protected function showHelp(Telegram $bot, int $chatId, string $type, ?int $messageId = null): void
+    {
+        $message = match($type) {
+            'commands' => $this->getHelpCommands(),
+            'usage' => $this->getHelpUsage(),
+            'estimate' => $this->getHelpEstimate(),
+            'report' => $this->getHelpReport(),
+            'faq' => $this->getHelpFaq(),
+            'main' => null, // برای بازگشت به منوی اصلی
+            default => trans('bot.help_main_title')
+        };
+        
+        // اگر main بود، نمایش Help اصلی
+        if ($type === 'main') {
+            $this->showHelpMain($bot, $chatId, $messageId);
+            return;
+        }
+        
+        $keyboard = [
+            [
+                ['text' => trans('bot.help_btn_back_to_help'), 'callback_data' => 'help_main'],
+            ]
+        ];
+        
+        if ($messageId) {
+            $bot->editMessageText([
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        } else {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        }
+    }
+
+    /**
+     * Handle Help Callback
+     */
+    protected function handleHelpCallback(Telegram $bot, array $callbackQuery, string $type): void
+    {
+        $chatId = $callbackQuery['message']['chat']['id'];
+        $messageId = $callbackQuery['message']['message_id'];
+        $callbackData = $callbackQuery['data'];
+        
+        // Answer callback query
+        $bot->answerCallbackQuery([
+            'callback_query_id' => $callbackQuery['id']
+        ]);
+        
+        // استخراج نوع help
+        $helpType = str_replace('help_', '', $callbackData);
+        
+        // نمایش help
+        $this->showHelp($bot, $chatId, $helpType, $messageId);
+    }
+
+    /**
+     * متن Help دستورات
+     */
+    protected function getHelpCommands(): string
+    {
+        return trans('bot.help_commands_title') . "\n\n" .
+               trans('bot.help_commands_main') . "\n\n" .
+               trans('bot.help_commands_record') . "\n\n" .
+               trans('bot.help_commands_estimate') . "\n\n" .
+               trans('bot.help_commands_report') . "\n\n" .
+               trans('bot.help_commands_help') . "\n\n" .
+               trans('bot.help_commands_tip');
+    }
+
+    /**
+     * متن Help نحوه استفاده
+     */
+    protected function getHelpUsage(): string
+    {
+        return trans('bot.help_usage_title') . "\n\n" .
+               trans('bot.help_usage_content');
+    }
+
+    /**
+     * متن Help تخمین
+     */
+    protected function getHelpEstimate(): string
+    {
+        return trans('bot.help_estimate_title') . "\n\n" .
+               trans('bot.help_estimate_what') . "\n\n" .
+               trans('bot.help_estimate_how') . "\n\n" .
+               trans('bot.help_estimate_calc') . "\n\n" .
+               trans('bot.help_estimate_progress') . "\n\n" .
+               trans('bot.help_estimate_tip');
+    }
+
+    /**
+     * متن Help گزارش
+     */
+    protected function getHelpReport(): string
+    {
+        return trans('bot.help_report_title') . "\n\n" .
+               trans('bot.help_report_what') . "\n\n" .
+               trans('bot.help_report_how') . "\n\n" .
+               trans('bot.help_report_settings') . "\n\n" .
+               trans('bot.help_report_time') . "\n\n" .
+               trans('bot.help_report_security') . "\n\n" .
+               trans('bot.help_report_tip');
+    }
+
+    /**
+     * متن Help سوالات متداول
+     */
+    protected function getHelpFaq(): string
+    {
+        return trans('bot.help_faq_title') . "\n\n" .
+               trans('bot.help_faq_content');
     }
 
     /**
@@ -259,43 +432,170 @@ class PrayerBotController extends Controller
     }
 
     /**
-     * پردازش دستور /estimate
+     * شروع فرآیند تخمین
      */
-    protected function handleEstimate(Telegram $bot, string $text, int $chatId): void
+    protected function handleEstimateStart(Telegram $bot, int $chatId, $botUser, string $type, int $botMotherId): void
     {
-        Log::info('🎯 [PrayerBot] Processing /estimate command', [
-            'chat_id' => $chatId,
-            'text' => $text
-        ]);
-
-        // استخراج عدد از دستور
-        if (preg_match('/(\d+)/', $text, $matches)) {
-            $totalPrayers = (int) $matches[1];
-
-            try {
-                $estimate = $this->prayerBotService->setEstimate($chatId, $totalPrayers);
-
-                $message = "✅ " . trans('bot.estimate_set') . "\n\n";
-                $message .= "🎯 " . trans('bot.total_prayers') . ": {$totalPrayers}\n";
-                $message .= "🔢 " . trans('bot.total_rakats') . ": {$estimate->total_missed_rakats}\n\n";
-                $message .= "💪 " . trans('bot.start_recording_now');
-
-                BotHelper::sendMessage($bot, $message);
-            } catch (Exception $e) {
-                Log::error('❌ [PrayerBot] Error setting estimate', [
-                    'error' => $e->getMessage(),
-                    'chat_id' => $chatId
-                ]);
-
-                $message = "❌ " . trans('bot.error_setting_estimate');
-                BotHelper::sendMessage($bot, $message);
-            }
+        Log::info('📊 [PrayerBot] Estimate start', ['chat_id' => $chatId]);
+        
+        // دریافت تخمین فعلی
+        $currentEstimate = $this->prayerBotService->getProgress($chatId, $type);
+        
+        $message = trans('bot.help_estimate_title') . "\n\n";
+        $message .= trans('bot.help_main_select') . "\n\n";
+        
+        if ($currentEstimate && isset($currentEstimate['estimate'])) {
+            $equivalent = $this->formatEquivalent($currentEstimate['estimate']);
+            $message .= trans('bot.help_estimate_current', [
+                'rakats' => number_format($currentEstimate['estimate']),
+                'equivalent' => $equivalent
+            ]) . "\n\n";
         } else {
-            $message = "📝 " . trans('bot.estimate_usage') . "\n\n";
-            $message .= trans('bot.example') . ": /estimate 1000\n";
-            $message .= trans('bot.or') . ": تخمین 500";
+            $message .= trans('bot.estimate_no_current') . "\n\n";
+        }
+        
+        $keyboard = [
+            [
+                ['text' => '📅 ' . trans('bot.unit_day'), 'callback_data' => 'estimate_day'],
+                ['text' => '📆 ' . trans('bot.unit_week'), 'callback_data' => 'estimate_week'],
+            ],
+            [
+                ['text' => '🗓️ ' . trans('bot.unit_month'), 'callback_data' => 'estimate_month'],
+                ['text' => '📊 ' . trans('bot.unit_year'), 'callback_data' => 'estimate_year'],
+            ],
+            [
+                ['text' => '🔢 ' . trans('bot.unit_rakat'), 'callback_data' => 'estimate_rakat'],
+            ],
+            [
+                ['text' => '❌ ' . trans('bot.cancel'), 'callback_data' => 'estimate_cancel'],
+            ]
+        ];
+        
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message,
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
 
-            BotHelper::sendMessage($bot, $message);
+    /**
+     * Handle Estimate Callback
+     */
+    protected function handleEstimateCallback(Telegram $bot, array $callbackQuery, $botUser, string $type, int $botMotherId): void
+    {
+        $chatId = $callbackQuery['message']['chat']['id'];
+        $messageId = $callbackQuery['message']['message_id'];
+        $callbackData = $callbackQuery['data'];
+        
+        // Answer callback query
+        $bot->answerCallbackQuery([
+            'callback_query_id' => $callbackQuery['id']
+        ]);
+        
+        // حذف کیبورد
+        $bot->editMessageReplyMarkup([
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'reply_markup' => json_encode(['inline_keyboard' => []])
+        ]);
+        
+        if ($callbackData === 'estimate_cancel') {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.estimate_cancelled')
+            ]);
+            return;
+        }
+        
+        // استخراج واحد
+        $unit = str_replace('estimate_', '', $callbackData);
+        
+        // ست کردن state
+        $this->prayerBotService->setState(
+            $botUser->id,
+            $botMotherId,
+            'estimate_waiting_value',
+            ['unit' => $unit],
+            10 // 10 دقیقه
+        );
+        
+        $unitName = trans('bot.unit_' . $unit);
+        $message = trans('bot.estimate_unit_selected', ['unit' => $unitName]);
+        
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+    }
+
+    /**
+     * Handle Estimate Value
+     */
+    protected function handleEstimateValue(Telegram $bot, int $chatId, string $text, $state, $botUser, string $type): void
+    {
+        // چک کردن عدد بودن
+        if (!is_numeric($text) || $text <= 0) {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.estimate_invalid_number')
+            ]);
+            return;
+        }
+        
+        $value = (int) $text;
+        $unit = $state->getData('unit');
+        
+        // تبدیل به رکعت
+        $rakats = $this->prayerBotService->convertToRakats($value, $unit);
+        
+        // ذخیره تخمین
+        try {
+            $this->prayerBotService->setEstimate($chatId, $rakats, "$value $unit");
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Error setting estimate', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+            
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => "❌ " . trans('bot.error_setting_estimate')
+            ]);
+            return;
+        }
+        
+        // پاک کردن state
+        $this->prayerBotService->clearState($botUser->id);
+        
+        // ارسال پیام تایید
+        $unitName = trans('bot.unit_' . $unit);
+        $message = trans('bot.estimate_saved', [
+            'value' => $value,
+            'unit' => $unitName,
+            'rakats' => number_format($rakats)
+        ]);
+        
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+    }
+
+    /**
+     * فرمت معادل برای نمایش
+     */
+    protected function formatEquivalent(int $rakats): string
+    {
+        $equivalents = $this->prayerBotService->calculateEquivalents($rakats);
+        
+        if ($equivalents['years'] >= 1) {
+            return round($equivalents['years'], 1) . ' ' . trans('bot.unit_year');
+        } elseif ($equivalents['months'] >= 1) {
+            return round($equivalents['months'], 1) . ' ' . trans('bot.unit_month');
+        } elseif ($equivalents['weeks'] >= 1) {
+            return round($equivalents['weeks'], 1) . ' ' . trans('bot.unit_week');
+        } else {
+            return round($equivalents['days'], 1) . ' ' . trans('bot.unit_day');
         }
     }
 

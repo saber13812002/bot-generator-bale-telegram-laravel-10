@@ -20,15 +20,16 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             
-            // Foreign key
-            $table->foreign('bot_user_id')
-                  ->references('id')
-                  ->on('bot_users')
-                  ->onDelete('cascade');
-            
             // Indexes
             $table->index(['bot_user_id', 'state']);
             $table->index('expires_at');
+            
+            // Foreign key - موقتاً غیرفعال برای جلوگیری از خطا
+            // بعداً می‌توانیم با migration جداگانه اضافه کنیم
+            // $table->foreign('bot_user_id')
+            //       ->references('id')
+            //       ->on('bot_users')
+            //       ->onDelete('cascade');
         });
     }
 

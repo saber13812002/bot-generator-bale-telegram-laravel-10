@@ -53,6 +53,20 @@ return [
     'estimate_usage' => 'Usage',
     'example' => 'Example',
     'or' => 'or',
+    'estimate_cancelled' => '❌ Operation cancelled.',
+    'estimate_unit_selected' => '📊 Estimate based on :unit\n\nHow many :unit of Qadha prayers do you have?\nPlease send a number:\n\nExample: 6',
+    'estimate_invalid_number' => '❌ Please send a valid number (greater than zero).',
+    'estimate_saved' => '✅ Your estimate has been saved!\n\n📊 New estimate:\n• :value :unit\n• Approximately :rakats rakats\n\n💡 This estimate is saved as your goal and will be shown in weekly reports.\n\nTo view stats: /stats',
+    
+    // Units
+    'unit_day' => 'Day',
+    'unit_week' => 'Week',
+    'unit_month' => 'Month',
+    'unit_year' => 'Year',
+    'unit_rakat' => 'Rakat',
+    
+    // General
+    'cancel' => 'Cancel',
     
     // Bot messages
     'welcome_prayer_bot' => 'Welcome to Prayer Qadha Bot',

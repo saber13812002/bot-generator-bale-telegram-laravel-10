@@ -8,6 +8,7 @@ use App\Interfaces\Repositories\PrayerEstimateRepository;
 use App\Models\PrayerRecord;
 use App\Models\PrayerEstimate;
 use App\Models\BotUsers;
+use App\Models\BotUserState;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use Exception;
@@ -339,5 +340,92 @@ class PrayerBotServiceImpl implements PrayerBotService
         }
 
         return 'auto';
+    }
+
+    /**
+     * ست کردن state برای کاربر
+     */
+    public function setState(
+        int $botUserId,
+        int $botMotherId,
+        string $state,
+        ?array $data = null,
+        int $expiresInMinutes = 10
+    ) {
+        // پاک کردن state قبلی
+        BotUserState::where('bot_user_id', $botUserId)->delete();
+        
+        // ایجاد state جدید
+        return BotUserState::create([
+            'bot_user_id' => $botUserId,
+            'bot_mother_id' => $botMotherId,
+            'state' => $state,
+            'data' => $data,
+            'expires_at' => now()->addMinutes($expiresInMinutes),
+        ]);
+    }
+
+    /**
+     * دریافت state کاربر
+     */
+    public function getState(int $botUserId, ?string $state = null)
+    {
+        $query = BotUserState::where('bot_user_id', $botUserId)->active();
+        
+        if ($state) {
+            $query->where('state', $state);
+        }
+        
+        return $query->latest()->first();
+    }
+
+    /**
+     * پاک کردن state کاربر
+     */
+    public function clearState(int $botUserId, ?string $state = null): bool
+    {
+        $query = BotUserState::where('bot_user_id', $botUserId);
+        
+        if ($state) {
+            $query->where('state', $state);
+        }
+        
+        return $query->delete() > 0;
+    }
+
+    /**
+     * پاک کردن state های منقضی شده
+     */
+    public function clearExpiredStates(): int
+    {
+        return BotUserState::expired()->delete();
+    }
+
+    /**
+     * تبدیل مقدار به رکعت بر اساس واحد
+     */
+    public function convertToRakats(int $value, string $unit): int
+    {
+        return match($unit) {
+            'day' => $value * 17,        // 5 نماز × 17 رکعت در روز
+            'week' => $value * 7 * 17,   // 7 روز × 17 رکعت
+            'month' => $value * 30 * 17, // 30 روز × 17 رکعت
+            'year' => $value * 365 * 17, // 365 روز × 17 رکعت
+            'rakat' => $value,           // مستقیم رکعت
+            default => 0
+        };
+    }
+
+    /**
+     * محاسبه معادل‌های مختلف برای تعداد رکعت
+     */
+    public function calculateEquivalents(int $rakats): array
+    {
+        return [
+            'days' => round($rakats / 17, 1),
+            'weeks' => round($rakats / (7 * 17), 1),
+            'months' => round($rakats / (30 * 17), 1),
+            'years' => round($rakats / (365 * 17), 2),
+        ];
     }
 }

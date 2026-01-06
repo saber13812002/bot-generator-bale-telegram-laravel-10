@@ -284,6 +284,20 @@ return [
     'estimate_usage' => 'نحوه استفاده',
     'example' => 'مثال',
     'or' => 'یا',
+    'estimate_cancelled' => '❌ عملیات لغو شد.',
+    'estimate_unit_selected' => '📊 تخمین بر اساس :unit\n\nچند :unit نماز قضا دارید؟\nلطفاً یک عدد ارسال کنید:\n\nمثال: 6',
+    'estimate_invalid_number' => '❌ لطفاً یک عدد معتبر (بزرگتر از صفر) ارسال کنید.',
+    'estimate_saved' => '✅ تخمین شما ثبت شد!\n\n📊 تخمین جدید:\n• :value :unit\n• حدود :rakats رکعت\n\n💡 این تخمین به عنوان هدف شما ذخیره شد و در گزارش‌های هفتگی نمایش داده می‌شود.\n\nبرای مشاهده آمار: /stats',
+    
+    // واحدها
+    'unit_day' => 'روز',
+    'unit_week' => 'هفته',
+    'unit_month' => 'ماه',
+    'unit_year' => 'سال',
+    'unit_rakat' => 'رکعت',
+    
+    // عمومی
+    'cancel' => 'انصراف',
     
     // پیام‌های ربات
     'welcome_prayer_bot' => 'به ربات نماز قضا خوش آمدید',
