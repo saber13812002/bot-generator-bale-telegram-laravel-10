@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Telegram;
+use App\Helpers\PrayerHelper;
 
 class BotHelper
 {
@@ -1299,5 +1300,100 @@ class BotHelper
                 }
             }
         }
+    }
+
+    /**
+     * ساخت keyboard برای انتخاب نماز
+     * 
+     * @param string $type نوع پلتفرم (telegram, bale)
+     * @return array
+     */
+    public static function makePrayerSelectionKeyboard(string $type): array
+    {
+        $buttons = [
+            [
+                ['text' => '🌅 ' . trans('bot.fajr') . ' (2)', 'callback_data' => 'prayer_fajr'],
+                ['text' => '☀️ ' . trans('bot.dhuhr') . ' (4)', 'callback_data' => 'prayer_dhuhr'],
+            ],
+            [
+                ['text' => '🌤️ ' . trans('bot.asr') . ' (4)', 'callback_data' => 'prayer_asr'],
+                ['text' => '🌇 ' . trans('bot.maghrib') . ' (3)', 'callback_data' => 'prayer_maghrib'],
+            ],
+            [
+                ['text' => '🌙 ' . trans('bot.isha') . ' (4)', 'callback_data' => 'prayer_isha'],
+            ],
+        ];
+
+        return [
+            'inline_keyboard' => $buttons
+        ];
+    }
+
+    /**
+     * ساخت keyboard برای تنظیمات ایمیل
+     * 
+     * @return array
+     */
+    public static function makeEmailSettingsKeyboard(): array
+    {
+        $buttons = [
+            [
+                ['text' => '📧 ' . trans('bot.set_email'), 'callback_data' => 'email_set'],
+            ],
+            [
+                ['text' => '📅 ' . trans('bot.daily'), 'callback_data' => 'email_freq_daily'],
+                ['text' => '📆 ' . trans('bot.weekly'), 'callback_data' => 'email_freq_weekly'],
+            ],
+            [
+                ['text' => '📋 ' . trans('bot.monthly'), 'callback_data' => 'email_freq_monthly'],
+                ['text' => '🔕 ' . trans('bot.never'), 'callback_data' => 'email_freq_never'],
+            ],
+        ];
+
+        return [
+            'inline_keyboard' => $buttons
+        ];
+    }
+
+    /**
+     * تشخیص عدد در متن
+     * 
+     * @param string $text
+     * @return int|null
+     */
+    public static function detectNumberInText(string $text): ?int
+    {
+        return PrayerHelper::detectNumberInText($text);
+    }
+
+    /**
+     * تشخیص نوع نماز از متن
+     * 
+     * @param string $text
+     * @return string|null
+     */
+    public static function detectPrayerTypeFromText(string $text): ?string
+    {
+        $type = PrayerHelper::detectPrayerTypeFromText($text);
+        return $type !== 'optional' ? $type : null;
+    }
+
+    /**
+     * ارسال پیام با reply به پیام خاص
+     * 
+     * @param Telegram $bot
+     * @param string $message
+     * @param int $replyToMessageId
+     * @return mixed
+     */
+    public static function sendMessageWithReply(Telegram $bot, string $message, int $replyToMessageId): mixed
+    {
+        $content = [
+            'chat_id' => $bot->ChatID(),
+            'text' => $message,
+            'reply_to_message_id' => $replyToMessageId,
+        ];
+
+        return $bot->sendMessage($content);
     }
 }

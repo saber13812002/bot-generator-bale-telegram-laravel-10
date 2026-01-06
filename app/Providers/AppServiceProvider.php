@@ -6,12 +6,15 @@ use App\Interfaces\Repositories\ContentRepository;
 use App\Interfaces\Repositories\HadithApiRepository;
 use App\Interfaces\Repositories\MissionRepository;
 use App\Interfaces\Repositories\NahjRepository;
+use App\Interfaces\Repositories\PrayerEstimateRepository;
+use App\Interfaces\Repositories\PrayerRecordRepository;
 use App\Interfaces\Repositories\WeatherOpenWeatherApiRepository;
 use App\Interfaces\Repositories\WeatherTomorrowApiRepository;
 use App\Interfaces\Services\ContentService;
 use App\Interfaces\Services\HadithApiService;
 use App\Interfaces\Services\MissionService;
 use App\Interfaces\Services\NahjService;
+use App\Interfaces\Services\PrayerBotService;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
@@ -19,12 +22,15 @@ use App\Repositories\ContentRepositoryImpl;
 use App\Repositories\HadithApiRepositoryImpl;
 use App\Repositories\MissionRepositoryImpl;
 use App\Repositories\NahjRepositoryImpl;
+use App\Repositories\PrayerEstimateRepositoryImpl;
+use App\Repositories\PrayerRecordRepositoryImpl;
 use App\Repositories\WeatherOpenWeatherApiRepositoryImpl;
 use App\Repositories\WeatherTomorrowApiRepositoryImpl;
 use App\Services\ContentServiceImpl;
 use App\Services\HadithApiServiceImpl;
 use App\Services\MissionServiceImpl;
 use App\Services\NahjServiceImpl;
+use App\Services\PrayerBotServiceImpl;
 use App\Services\QuranBotUserRankingServiceImpl;
 use App\Services\WeatherOpenWeatherMapApiServiceImpl;
 use App\Services\WeatherTomorrowApiServiceImpl;
@@ -48,6 +54,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MissionRepository::class, MissionRepositoryImpl::class);
         $this->app->bind(ContentRepository::class, ContentRepositoryImpl::class);
 
+        $this->app->bind(PrayerRecordRepository::class, PrayerRecordRepositoryImpl::class);
+        $this->app->bind(PrayerEstimateRepository::class, PrayerEstimateRepositoryImpl::class);
+
         // Services
         $this->app->bind(WeatherTomorrowApiService::class, WeatherTomorrowApiServiceImpl::class);
         $this->app->bind(WeatherOpenWeatherMapApiService::class, WeatherOpenWeatherMapApiServiceImpl::class);
@@ -59,6 +68,8 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(MissionService::class, MissionServiceImpl::class);
         $this->app->bind(ContentService::class, ContentServiceImpl::class);
+
+        $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
     }
 
     /**

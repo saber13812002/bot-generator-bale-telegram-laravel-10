@@ -4,6 +4,7 @@ namespace App\Console;
 
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
+use App\Console\Commands\SendPrayerWeeklyReports;
 use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
 use App\Console\Commands\UsersRankingCommand;
@@ -24,6 +25,13 @@ class Kernel extends ConsoleKernel
         $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
         $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
+        
+        // ارسال گزارش‌های هفتگی نماز قضا (هر ساعت، محدود به 2 نفر)
+        $schedule->command(SendPrayerWeeklyReports::class, ['--limit=2'])
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+        
         if (env('TestScheduleDailyIntoSlack'))
             $schedule->command(TestScheduleDailyIntoSlack::class)->dailyAt("07:00"); //10:30 iran
     }

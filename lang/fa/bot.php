@@ -236,4 +236,98 @@ return [
             'he' => 'عبری',
         ],
     ],
+    
+    // ترجمه‌های ربات نماز قضا
+    'prayer_recorded' => 'رکعت ثبت شد',
+    'prayer_removed' => 'رکعت حذف شد',
+    'prayer_not_found' => 'رکعت یافت نشد',
+    'prayer_type' => 'نوع نماز',
+    'record_id' => 'شناسه',
+    'to_remove' => 'برای حذف',
+    'check_record_id' => 'شناسه را بررسی کنید',
+    'error_recording_prayer' => 'خطا در ثبت رکعت',
+    'error_removing_prayer' => 'خطا در حذف رکعت',
+    'error_getting_stats' => 'خطا در دریافت آمار',
+    'error_setting_estimate' => 'خطا در ثبت تخمین',
+    
+    // نماز‌ها
+    'fajr' => 'صبح',
+    'dhuhr' => 'ظهر',
+    'asr' => 'عصر',
+    'maghrib' => 'مغرب',
+    'isha' => 'عشا',
+    
+    // آمار
+    'weekly_stats' => 'آمار هفتگی',
+    'total_rakats' => 'مجموع رکعات',
+    'total_records' => 'تعداد ثبت',
+    'last_week' => 'هفته گذشته',
+    'rakats' => 'رکعت',
+    'records' => 'ثبت',
+    'by_prayer_type' => 'به تفکیک نماز',
+    
+    // پیشرفت
+    'progress' => 'پیشرفت',
+    'goal' => 'هدف',
+    'completed' => 'انجام شده',
+    'remaining' => 'باقی‌مانده',
+    'percentage' => 'درصد',
+    'almost_done' => 'تقریباً تمام شد! عالی پیش می‌روید!',
+    'great_progress' => 'پیشرفت عالی! ادامه دهید!',
+    'keep_going' => 'همین‌طور ادامه دهید!',
+    'good_start' => 'شروع خوبی بوده! ادامه دهید!',
+    
+    // تخمین
+    'estimate_set' => 'تخمین ثبت شد',
+    'total_prayers' => 'تعداد نماز',
+    'start_recording_now' => 'حالا شروع به ثبت کنید!',
+    'estimate_usage' => 'نحوه استفاده',
+    'example' => 'مثال',
+    'or' => 'یا',
+    
+    // پیام‌های ربات
+    'welcome_prayer_bot' => 'به ربات نماز قضا خوش آمدید',
+    'prayer_bot_description' => 'با این ربات می‌توانید نمازهای قضای خود را ثبت کنید',
+    'send_number_instructions' => 'فقط عدد بفرستید',
+    'available_commands' => 'دستورات موجود',
+    'view_stats' => 'مشاهده آمار',
+    'set_estimate' => 'ثبت تخمین',
+    'email_settings' => 'تنظیمات ایمیل',
+    'help' => 'راهنما',
+    
+    // راهنما
+    'prayer_bot_help' => 'راهنمای ربات نماز قضا',
+    'how_to_record' => 'نحوه ثبت',
+    'just_send_number' => 'فقط عدد 2، 3 یا 4 بفرستید',
+    'how_to_remove' => 'نحوه حذف',
+    'use_remove_command' => 'از دستور /remove_<id> استفاده کنید',
+    'how_to_estimate' => 'نحوه ثبت تخمین',
+    'how_to_email' => 'نحوه تنظیم ایمیل',
+    'smart_detection' => 'تشخیص هوشمند',
+    'smart_detection_description' => 'ربات به صورت هوشمند نوع نماز را تشخیص می‌دهد',
+    
+    // پیام‌های تشویقی
+    'encouragement_1' => '🌟 ماشاءالله! ادامه دهید!',
+    'encouragement_2' => '💪 عالی است! به همین منوال پیش بروید!',
+    'encouragement_3' => '✨ خداوند قبول فرماید!',
+    'encouragement_4' => '🎯 به هدفتان نزدیک می‌شوید!',
+    'encouragement_5' => '🙏 خداوند یاور و مددکار شما باشد!',
+    'encouragement_6' => '💚 هر قدمی ارزشمند است!',
+    'encouragement_7' => '🌙 خداوند توفیق روزافزون عطا فرماید!',
+    
+    // ایمیل
+    'email_settings_title' => 'تنظیمات ایمیل',
+    'email_settings_description' => 'ایمیل خود را ثبت کنید تا گزارش هفتگی دریافت کنید',
+    'send_your_email' => 'ایمیل خود را بفرستید',
+    'email_settings_coming_soon' => 'به زودی...',
+    'daily' => 'روزانه',
+    'weekly' => 'هفتگی',
+    'monthly' => 'ماهانه',
+    'never' => 'هرگز',
+    'set_email' => 'ثبت ایمیل',
+    
+    // پیام‌های خطا
+    'prayer_bot_unknown_command' => 'دستور نامشخص',
+    'send_number_to_record' => 'برای ثبت، عدد بفرستید',
+    'or_use_commands' => 'یا از دستورات استفاده کنید',
 ];

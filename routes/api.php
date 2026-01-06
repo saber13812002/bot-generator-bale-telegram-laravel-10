@@ -20,6 +20,7 @@ use App\Http\Controllers\MissionBotController;
 use App\Http\Controllers\MissionMediaBotController;
 use App\Http\Controllers\PersonnelAdminBotController;
 use App\Http\Controllers\PersonnelRegistrationController;
+use App\Http\Controllers\PrayerBotController;
 use App\Http\Controllers\SongSaraPostController;
 use App\Http\Controllers\TaskApprovalController;
 use App\Http\Controllers\TestController;
@@ -112,6 +113,10 @@ Route::post('/webhook-presenter-bot', [\App\Http\Controllers\PresenterBotControl
 
 // psychology test bot
 Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBotController::class, 'index']);
+
+// prayer bot (ربات نماز قضا)
+Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
+Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);
 
 // mission API routes
 Route::prefix('missions')->group(function () {
