@@ -53,12 +53,12 @@ class PrayerBotController extends Controller
                 return 200;
             }
 
-            // لاگ درخواست
-            try {
-                LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info('ℹ️ [PrayerBot] Could not log request: ' . $e->getMessage());
-            }
+            // لاگ درخواست (ساده‌تر از LogHelper)
+            Log::info('📥 [PrayerBot] Request details', [
+                'type' => $type,
+                'bot_id' => $request->input('bot_id'),
+                'bot_mother_id' => $request->input('bot_mother_id')
+            ]);
 
             // استخراج اطلاعات پیام
             $chatId = $bot->ChatID();
