@@ -477,18 +477,45 @@ class PrayerBotController extends Controller
     {
         $token = null;
 
+        // اولویت 1: توکن از query string
         if ($request->has('token')) {
             $token = $request->input('token');
-        } else {
-            // استفاده از توکن پیش‌فرض
+            Log::info('🔑 [PrayerBot] Using token from query string');
+        }
+        // اولویت 2: توکن از bot_id
+        elseif ($request->has('bot_id')) {
+            $botId = $request->input('bot_id');
+            $bot = \App\Models\Bot::find($botId);
+            
+            if ($bot) {
+                $token = $type === 'bale' ? $bot->bale_bot_token : $bot->telegram_bot_token;
+                Log::info('🔑 [PrayerBot] Using token from database', [
+                    'bot_id' => $botId,
+                    'has_token' => !empty($token)
+                ]);
+            } else {
+                Log::warning('⚠️ [PrayerBot] Bot not found', ['bot_id' => $botId]);
+            }
+        }
+        // اولویت 3: توکن پیش‌فرض از env
+        else {
             $token = match($type) {
                 'bale' => env('PRAYER_BOT_TOKEN_BALE'),
                 'telegram' => env('PRAYER_BOT_TOKEN_TELEGRAM'),
                 default => null
             };
+            
+            if ($token) {
+                Log::info('🔑 [PrayerBot] Using token from environment');
+            }
         }
 
         if (!$token) {
+            Log::error('❌ [PrayerBot] No token found', [
+                'type' => $type,
+                'has_bot_id' => $request->has('bot_id'),
+                'has_token_param' => $request->has('token')
+            ]);
             return null;
         }
 
