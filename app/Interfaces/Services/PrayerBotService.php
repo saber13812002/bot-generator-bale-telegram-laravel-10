@@ -91,4 +91,64 @@ interface PrayerBotService
      * @return array
      */
     public function getWeeklyReport(int $chatId, string $origin): array;
+
+    /**
+     * ست کردن state برای کاربر
+     * 
+     * @param int $botUserId
+     * @param int $botMotherId
+     * @param string $state
+     * @param array|null $data
+     * @param int $expiresInMinutes
+     * @return \App\Models\BotUserState
+     */
+    public function setState(
+        int $botUserId,
+        int $botMotherId,
+        string $state,
+        ?array $data = null,
+        int $expiresInMinutes = 10
+    );
+
+    /**
+     * دریافت state کاربر
+     * 
+     * @param int $botUserId
+     * @param string|null $state
+     * @return \App\Models\BotUserState|null
+     */
+    public function getState(int $botUserId, ?string $state = null);
+
+    /**
+     * پاک کردن state کاربر
+     * 
+     * @param int $botUserId
+     * @param string|null $state
+     * @return bool
+     */
+    public function clearState(int $botUserId, ?string $state = null): bool;
+
+    /**
+     * پاک کردن state های منقضی شده
+     * 
+     * @return int تعداد state های پاک شده
+     */
+    public function clearExpiredStates(): int;
+
+    /**
+     * تبدیل مقدار به رکعت بر اساس واحد
+     * 
+     * @param int $value
+     * @param string $unit (day, week, month, year, rakat)
+     * @return int
+     */
+    public function convertToRakats(int $value, string $unit): int;
+
+    /**
+     * محاسبه معادل‌های مختلف برای تعداد رکعت
+     * 
+     * @param int $rakats
+     * @return array
+     */
+    public function calculateEquivalents(int $rakats): array;
 }
