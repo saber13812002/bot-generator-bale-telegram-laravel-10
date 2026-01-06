@@ -22,10 +22,10 @@ class PrayerBotWebhookEndpointSeeder extends Seeder
             DB::table('webhook_endpoints')->insert([
                 'endpoint_id' => 'prayer-bot',
                 'name' => 'Prayer Qadha Bot',
-                'route' => 'webhook-prayer-bot',
+                'route' => 'api/webhook-prayer-bot',
                 'description' => 'Prayer Qadha Bot - Tracks and reports prayer Qadha records (Rakats)',
                 'requires_bot_mother_id' => true,
-                'requires_token' => false,
+                'requires_token' => true,
                 'requires_language' => false,
                 'supports_multiple_languages' => true,
                 'is_active' => 1,
