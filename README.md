@@ -52,7 +52,19 @@ list of Bot Types that you can clone it, is in next block of this document
 
 # 📚 مستندات توسعه
 
-برای اطلاعات بیشتر در مورد نحوه توسعه ربات‌ها، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.
+## ⚠️ مهم: قبل از ساخت ربات جدید
+
+**حتماً** این سند را مطالعه کنید: [**راهنمای کامل ساخت ربات جدید**](./docs/BOT_CREATION_GUIDE.md)
+
+این سند شامل:
+- ✅ تمام اصول و قوانین ساخت ربات
+- ✅ خطاهای رایج و راه حل آن‌ها
+- ✅ چک‌لیست کامل قبل از deploy
+- ✅ الگوهای استاندارد Controller, Service, Repository
+- ✅ نحوه صحیح کار با Webhook و Token
+- ✅ راهنمای مستندسازی
+
+برای اطلاعات بیشتر در مورد نحوه توسعه، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.
 
 # 🚀 فیچرهای مهم پروژه
 
