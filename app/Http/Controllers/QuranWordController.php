@@ -584,9 +584,91 @@ class QuranWordController extends Controller
                         return 0;
                     }
                     
+                    // پردازش callback query برای انتخاب زبان در /start
+                    if ($callbackData == 'start_use_bot_language') {
+                        Log::info('🌐 [CallbackQuery] User chose to use bot language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $pendingLanguage = $userSettings->setting('pending_language_selection');
+                        $pendingTranslator = $userSettings->setting('pending_translator_selection');
+                        
+                        if ($pendingLanguage && $pendingTranslator) {
+                            // ذخیره تنظیمات زبان
+                            $mp3Enable = $userSettings->setting('mp3_enable');
+                            $mp3Reciter = $userSettings->setting('mp3_reciter');
+                            $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                            $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                            $translationId = $userSettings->setting('translation_id');
+                            
+                            $arr = [
+                                'mp3_reciter' => $mp3Reciter,
+                                'mp3_enable' => $mp3Enable,
+                                'quran_transliteration_tr' => $quranTransliterationTr,
+                                'quran_transliteration_en' => $quranTransliterationEn,
+                                'translation_id' => $translationId,
+                                'quran_translation_language' => $pendingLanguage,
+                                'quran_translation_translator' => $pendingTranslator,
+                            ];
+                            
+                            // حذف pending flags
+                            unset($arr['pending_language_selection']);
+                            unset($arr['pending_translator_selection']);
+                            
+                            $userSettings->settings($arr);
+                            
+                            // حذف pending flags از settings
+                            $currentSettings = $userSettings->settings ?? [];
+                            unset($currentSettings['pending_language_selection']);
+                            unset($currentSettings['pending_translator_selection']);
+                            $userSettings->settings = $currentSettings;
+                            $userSettings->save();
+                            
+                            $message = "✅ " . trans("bot.translation set to") . ": " . $pendingTranslator . " (" . $pendingLanguage . ")";
+                            BotHelper::sendMessage($bot, $message);
+                            
+                            Log::info('✅ [CallbackQuery] Bot language applied to user', [
+                                'chat_id' => $callbackChatId,
+                                'language' => $pendingLanguage,
+                                'translator' => $pendingTranslator,
+                                'type' => $type
+                            ]);
+                        }
+                        
+                        return 0;
+                    }
+                    
+                    if ($callbackData == 'start_keep_current_language') {
+                        Log::info('🌐 [CallbackQuery] User chose to keep current language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        
+                        // حذف pending flags
+                        $currentSettings = $userSettings->settings ?? [];
+                        unset($currentSettings['pending_language_selection']);
+                        unset($currentSettings['pending_translator_selection']);
+                        $userSettings->settings = $currentSettings;
+                        $userSettings->save();
+                        
+                        $message = "✅ " . trans("bot.current language settings kept");
+                        BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [CallbackQuery] User kept current language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        return 0;
+                    }
+                    
                     // برای دکمه‌های دیگر (مثل next/previous)، callback_data را به عنوان کامند پردازش می‌کنیم
                     // با تنظیم update برای شبیه‌سازی پیام
-                    if ($callbackData && !str_starts_with($callbackData, 'translation_select_') && !str_starts_with($callbackData, 'copy_invite_link_')) {
+                    if ($callbackData && !str_starts_with($callbackData, 'translation_select_') && !str_starts_with($callbackData, 'copy_invite_link_') && $callbackData != 'start_use_bot_language' && $callbackData != 'start_keep_current_language') {
                         Log::info('🔄 [CallbackQuery] Converting callback_data to command', [
                             'callback_data' => $callbackData,
                             'chat_id' => $callbackChatId,
@@ -639,6 +721,9 @@ class QuranWordController extends Controller
                 ]);
                 
                 if ($bot->ChatID() && $botMotherId && $type) {
+                    // بررسی اینکه آیا کاربر جدید است یا قدیمی (قبل از firstOrNew)
+                    $existingUser = BotUsers::where('chat_id', $bot->ChatID())->first();
+                    $isNewUser = !$existingUser;
                     $userSettings = BotUsers::firstOrNew($bot->ChatID(), $botMotherId, $type);
                     
                     // پردازش پارامتر دعوت در دستور /start
@@ -671,6 +756,73 @@ class QuranWordController extends Controller
                                     'invited_by' => $referralCode,
                                     'type' => $type
                                 ]);
+                            }
+                        }
+                        
+                        // مدیریت زبان کاربر: بررسی و تنظیم زبان بر اساس زبان ربات
+                        $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                        if ($botId) {
+                            $botModel = \App\Models\Bot::find($botId);
+                            if ($botModel && $botModel->language_code) {
+                                $botLanguageCode = $botModel->language_code;
+                                $normalizedBotLanguage = self::normalizeLanguageCodeForDatabase($botLanguageCode);
+                                
+                                // بررسی تنظیمات زبان کاربر
+                                $userTranslationLanguage = $userSettings->setting('quran_translation_language');
+                                $userTranslationTranslator = $userSettings->setting('quran_translation_translator');
+                                
+                                // اگر کاربر قدیمی است و زبانش فارسی است، به زبان اصلی ربات تغییر می‌دهیم
+                                if (!$isNewUser && ($userTranslationLanguage == 'fa' || !$userTranslationLanguage)) {
+                                    // پیدا کردن اولین ترجمه موجود برای زبان ربات
+                                    $translation = \App\Models\QuranTranslation::query()
+                                        ->where(function($query) use ($botLanguageCode, $normalizedBotLanguage) {
+                                            $query->where('language', $botLanguageCode)
+                                                ->orWhere('language', $normalizedBotLanguage)
+                                                ->orWhere('language', 'like', $normalizedBotLanguage . '%');
+                                        })
+                                        ->first();
+                                    
+                                    if ($translation) {
+                                        $userSettings->settings([
+                                            'quran_translation_language' => $translation->language,
+                                            'quran_translation_translator' => $translation->translator_name,
+                                        ]);
+                                        
+                                        Log::info('🌐 [Start] Updated old user language to bot language', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'old_language' => $userTranslationLanguage,
+                                            'new_language' => $translation->language,
+                                            'bot_language' => $botLanguageCode,
+                                            'type' => $type
+                                        ]);
+                                    }
+                                }
+                                // اگر کاربر جدید است یا تنظیمات زبان ندارد، از او می‌پرسیم
+                                elseif ($isNewUser || !$userTranslationLanguage) {
+                                    // پیدا کردن اولین ترجمه موجود برای زبان ربات
+                                    $translation = \App\Models\QuranTranslation::query()
+                                        ->where(function($query) use ($botLanguageCode, $normalizedBotLanguage) {
+                                            $query->where('language', $botLanguageCode)
+                                                ->orWhere('language', $normalizedBotLanguage)
+                                                ->orWhere('language', 'like', $normalizedBotLanguage . '%');
+                                        })
+                                        ->first();
+                                    
+                                    if ($translation) {
+                                        // ذخیره flag برای بعداً استفاده کنیم (در callback query)
+                                        $userSettings->settings([
+                                            'pending_language_selection' => $translation->language,
+                                            'pending_translator_selection' => $translation->translator_name,
+                                        ]);
+                                        
+                                        Log::info('🌐 [Start] New user - will ask for language selection', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'bot_language' => $botLanguageCode,
+                                            'suggested_language' => $translation->language,
+                                            'type' => $type
+                                        ]);
+                                    }
+                                }
                             }
                         }
                     }
@@ -727,6 +879,54 @@ class QuranWordController extends Controller
                             'chat_id' => $bot->ChatID(),
                             'type' => $type
                         ]);
+                    }
+                    
+                    // اگر کاربر جدید است یا pending_language_selection دارد، از او می‌پرسیم
+                    if ($userSettings) {
+                        $pendingLanguage = $userSettings->setting('pending_language_selection');
+                        $pendingTranslator = $userSettings->setting('pending_translator_selection');
+                        
+                        if ($pendingLanguage && $pendingTranslator) {
+                            $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                            if ($botId) {
+                                $botModel = \App\Models\Bot::find($botId);
+                                if ($botModel && $botModel->language_code) {
+                                    $botLanguageCode = $botModel->language_code;
+                                    
+                                    // پیدا کردن نام زبان برای نمایش
+                                    $languageModel = \App\Models\Language::where('code', $botLanguageCode)->first();
+                                    $languageDisplayName = $languageModel ? ($languageModel->display_name ?? $languageModel->native_name ?? $botLanguageCode) : $botLanguageCode;
+                                    
+                                    $languageQuestionMessage = "\n\n🌐 " . trans("bot.would you like to use translation in") . " " . $languageDisplayName . "?";
+                                    
+                                    $languageButtons = [];
+                                    if ($type == 'telegram') {
+                                        $languageButtons[] = [
+                                            ['text' => "✅ " . trans("bot.yes use") . " " . $languageDisplayName, 'callback_data' => 'start_use_bot_language'],
+                                            ['text' => "❌ " . trans("bot.no keep current"), 'callback_data' => 'start_keep_current_language']
+                                        ];
+                                    } else {
+                                        // برای Bale
+                                        $languageButtons[] = ["✅ " . trans("bot.yes use") . " " . $languageDisplayName, 'start_use_bot_language'];
+                                        $languageButtons[] = ["❌ " . trans("bot.no keep current"), 'start_keep_current_language'];
+                                    }
+                                    
+                                    if ($type == 'telegram') {
+                                        BotHelper::sendTelegramInlineMessageWithButtons($bot, $languageQuestionMessage, $languageButtons);
+                                    } else {
+                                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($languageButtons, []);
+                                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $languageQuestionMessage, $inlineKeyboard);
+                                    }
+                                    
+                                    Log::info('🌐 [Start] Language selection question sent', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'bot_language' => $botLanguageCode,
+                                        'pending_language' => $pendingLanguage,
+                                        'type' => $type
+                                    ]);
+                                }
+                            }
+                        }
                     }
                     
                     Log::info('✅ [Command] /start command processed successfully', [
