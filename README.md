@@ -117,6 +117,7 @@ list of Bot Types that you can clone it, is in next block of this document
 - ثبت تخمین نمازهای قضا و ردیابی پیشرفت
 - گزارش‌دهی خودکار هفتگی از طریق ایمیل
 - پشتیبانی کامل از تلگرام و بله
+- **[📖 راهنمای کامل و تنظیمات](./docs/features/PRAYER_BOT_README.md)** - شامل تنظیمات Gmail، Laravel، دستورات و نحوه کار
 - [مستندات کامل](./docs/features/PRAYER_QADHA_BOT.md)
 
 ## 🧠 ربات تست روانشناسی (Psychology Test Bot)
