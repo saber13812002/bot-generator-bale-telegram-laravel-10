@@ -26,6 +26,12 @@ use Telegram;
 class QuranHelper
 {
     /**
+     * Supported languages list for special handling in PlaceQuran
+     * We will use 'ar,en' variant for these languages, otherwise fallback to 'ar'
+     */
+    private const PLACEQURAN_SUPPORTED_LANGUAGES = ['ar', 'en', 'ms', 'id', 'tr', 'ur', 'hi'];
+
+    /**
      * Normalize language code for database queries
      * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
      * 
@@ -398,6 +404,20 @@ class QuranHelper
 //            $message .= "
 //" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
 //        }
+
+        // Append toggle command for PlaceQuran image feature
+        try {
+            $placequranEnable = self::getBooleanSettingsByTags($userSettings, 'placequran_enable');
+            if ($placequranEnable == "true") {
+                $message .= "
+" . ($type == 'bale' ? " /imagequran_false [/imagequran_false](send:/imagequran_false)" : " /imagequran_false");
+            } else {
+                $message .= "
+" . ($type == 'bale' ? " /imagequran_true [/imagequran_true](send:/imagequran_true)" : " /imagequran_true");
+            }
+        } catch (\Throwable $e) {
+            // ignore optional toggle rendering
+        }
 
         $message .= "
 " . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
@@ -947,6 +967,41 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
             return "/scan604hr1";
         }
         return $pageNumber < 604 ? "/scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
+    }
+
+    /**
+     * Build PlaceQuran image URL based on language preferences
+     */
+    public static function buildPlaceQuranImageUrl(int $sura, int $aya, ?string $languageCode): string
+    {
+        $normalized = $languageCode ? self::normalizeLanguageCodeForDatabase($languageCode) : 'fa';
+        $langs = in_array($normalized, self::PLACEQURAN_SUPPORTED_LANGUAGES, true) ? 'ar,en' : 'ar';
+        return "https://placequran.com/s/" . $sura . "/" . $aya . "/" . $langs;
+    }
+
+    /**
+     * Send PlaceQuran image to user based on settings and platform
+     */
+    public static function sendPlaceQuranImage($messenger, int $sura, int $aya, ?string $languageCode = null): void
+    {
+        try {
+            $chat_id = $messenger->ChatID();
+            $photoUrl = self::buildPlaceQuranImageUrl($sura, $aya, $languageCode);
+            $title = "#placequran_" . $sura . "_" . $aya;
+            $caption = "";
+
+            if ($messenger->BotType() != 'gap') {
+                BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+            } else {
+                BotHelper::sendPhotoGap($chat_id, $photoUrl, $messenger, $caption);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send PlaceQuran image', [
+                'error' => $e->getMessage(),
+                'sura' => $sura,
+                'aya' => $aya
+            ]);
+        }
     }
 
 

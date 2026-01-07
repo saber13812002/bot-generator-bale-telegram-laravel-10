@@ -1304,7 +1304,27 @@ class QuranWordController extends Controller
                                         'type' => $type
                                     ]);
                                 }
-                                
+
+                                // Send PlaceQuran image if user enabled
+                                try {
+                                    $placequranEnable = $userSettings ? ($userSettings->setting('placequran_enable') == "true") : false;
+                                    if ($placequranEnable) {
+                                        Log::info('🖼️ [Command] Sending PlaceQuran image', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type,
+                                            'locale' => App::getLocale()
+                                        ]);
+                                        QuranHelper::sendPlaceQuranImage($bot, $sure, $aya, App::getLocale());
+                                    }
+                                } catch (\Throwable $e) {
+                                    Log::warning('⚠️ [Command] Failed to send PlaceQuran image', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'error' => $e->getMessage()
+                                    ]);
+                                }
+
                                 Log::info('✅ [Command] Sure command processed successfully', [
                                     'chat_id' => $bot->ChatID(),
                                     'sure' => $sure,
@@ -2015,6 +2035,41 @@ class QuranWordController extends Controller
                                     'mp3_enable' => $mp3Enable,
                                     'type' => $type
                                 ]);
+                            } else if ($subCommand == "imagequran") {
+                                Log::info('🖼️ [Command] Processing /imagequran command', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'value' => $value,
+                                    'type' => $type
+                                ]);
+
+                                $mp3Enable = $userSettings->setting('mp3_enable');
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $translationId = $userSettings->setting('translation_id');
+                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $mp3Enable,
+                                    'quran_transliteration_tr' => $quranTransliterationTr,
+                                    'quran_transliteration_en' => $quranTransliterationEn,
+                                    'translation_id' => $translationId,
+                                    'placequran_enable' => $value
+                                ];
+
+                                $user = $userSettings->settings($arr);
+                                $placequranEnable = $user->setting('placequran_enable') == "true" ? "true" : "false";
+
+                                $message = $placequranEnable == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                                $toggleCommand = "/imagequran_" . ($placequranEnable == "true" ? "false" : "true");
+
+                                Log::info('📤 [Command] Sending imagequran status message', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'placequran_enable' => $placequranEnable,
+                                    'type' => $type
+                                ]);
+
+                                BotHelper::sendMessage($bot, $message . " " . $toggleCommand);
                             } else if ($subCommand == "transtr") {
                                 $mp3Enable = $userSettings->setting('mp3_enable');
                                 $mp3Reciter = $userSettings->setting('mp3_reciter');
