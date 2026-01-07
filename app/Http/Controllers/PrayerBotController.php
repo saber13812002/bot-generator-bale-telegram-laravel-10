@@ -125,7 +125,7 @@ class PrayerBotController extends Controller
 
         // پردازش تنظیمات ایمیل
         if (str_starts_with($callbackData, 'email_')) {
-            $this->handleEmailSettings($bot, $callbackData, $chatId, $type);
+            $this->handleEmailSettings($bot, $callbackData, $callbackQuery, $chatId, $type, $botMotherId);
             return;
         }
 
@@ -185,6 +185,12 @@ class PrayerBotController extends Controller
             return;
         }
 
+        // دستور /estimate_status
+        if ($text === '/estimate_status' || $text === 'وضعیت تخمین') {
+            $this->handleEstimateStatus($bot, $chatId, $type);
+            return;
+        }
+
         // چک کردن state برای دریافت عدد تخمین
         $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
         $state = $this->prayerBotService->getState($botUser->id);
@@ -200,9 +206,31 @@ class PrayerBotController extends Controller
             return;
         }
 
-        // دستور /email
-        if ($text === '/email' || $text === 'ایمیل') {
-            $this->handleEmailCommand($bot, $chatId);
+        // دستور /email و /set_email
+        if ($text === '/email' || $text === '/set_email' || $text === 'ایمیل') {
+            $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+            $this->handleEmailCommand($bot, $chatId, $botUser, $type, $botMotherId);
+            return;
+        }
+
+        // دستور /email_settings
+        if ($text === '/email_settings' || $text === 'تنظیمات ایمیل') {
+            $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+            $this->handleEmailSettingsCommand($bot, $chatId, $botUser, $type);
+            return;
+        }
+
+        // چک کردن state برای دریافت ایمیل
+        $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+        $state = $this->prayerBotService->getState($botUser->id);
+        if ($state && $state->state === 'email_waiting_address') {
+            $this->handleEmailAddress($bot, $chatId, $text, $state, $botUser, $type, $botMotherId);
+            return;
+        }
+
+        // چک کردن state برای دریافت کد تایید
+        if ($state && $state->state === 'email_waiting_code') {
+            $this->handleEmailVerificationCode($bot, $chatId, $text, $state, $botUser, $type);
             return;
         }
 
@@ -600,6 +628,59 @@ class PrayerBotController extends Controller
     }
 
     /**
+     * پردازش دستور /estimate_status
+     */
+    protected function handleEstimateStatus(Telegram $bot, int $chatId, string $type): void
+    {
+        Log::info('📊 [PrayerBot] Processing /estimate_status command', ['chat_id' => $chatId]);
+
+        try {
+            $progress = $this->prayerBotService->getProgress($chatId, $type);
+
+            if (!$progress || !isset($progress['estimate']) || $progress['estimate'] <= 0) {
+                $message = "📊 " . trans('bot.estimate_status_title') . "\n\n";
+                $message .= trans('bot.estimate_status_no_estimate');
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            $estimate = $progress['estimate'];
+            $recorded = $progress['total_missed_rakats'] - $progress['remaining_rakats'];
+            $remaining = $progress['remaining_rakats'];
+            $percentage = $progress['progress_percentage'] ?? 0;
+
+            $equivalent = $this->formatEquivalent($estimate);
+
+            $message = "📊 " . trans('bot.estimate_status_title') . "\n\n";
+            $message .= "🎯 " . trans('bot.estimate_status_total') . ": " . number_format($estimate) . " " . trans('bot.rakats') . "\n";
+            $message .= "📅 " . trans('bot.estimate_status_equivalent') . ": " . $equivalent . "\n\n";
+            $message .= "✅ " . trans('bot.estimate_status_recorded') . ": " . number_format($recorded) . " " . trans('bot.rakats') . "\n";
+            $message .= "📉 " . trans('bot.estimate_status_remaining') . ": " . number_format($remaining) . " " . trans('bot.rakats') . "\n";
+            $message .= "📊 " . trans('bot.estimate_status_progress') . ": " . round($percentage, 1) . "%\n\n";
+
+            if ($percentage >= 75) {
+                $message .= "🎉 " . trans('bot.almost_done');
+            } elseif ($percentage >= 50) {
+                $message .= "💪 " . trans('bot.great_progress');
+            } elseif ($percentage >= 25) {
+                $message .= "✨ " . trans('bot.keep_going');
+            } else {
+                $message .= "🌟 " . trans('bot.good_start');
+            }
+
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Error getting estimate status', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+
+            $message = "❌ " . trans('bot.error_getting_stats');
+            BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    /**
      * ثبت رکعات نماز
      */
     protected function handleRecordPrayer(Telegram $bot, int $rakats, string $text, int $chatId, string $type, int $botMotherId): void
@@ -710,31 +791,304 @@ class PrayerBotController extends Controller
     }
 
     /**
-     * پردازش دستور /email
+     * پردازش دستور /email و /set_email
      */
-    protected function handleEmailCommand(Telegram $bot, int $chatId): void
+    protected function handleEmailCommand(Telegram $bot, int $chatId, $botUser, string $type, int $botMotherId): void
     {
+        Log::info('📧 [PrayerBot] Processing /email or /set_email command', ['chat_id' => $chatId]);
+
+        // ست کردن state برای دریافت ایمیل
+        $this->prayerBotService->setState(
+            $botUser->id,
+            $botMotherId,
+            'email_waiting_address',
+            null,
+            10 // 10 دقیقه
+        );
+
         $message = "📧 " . trans('bot.email_settings_title') . "\n\n";
         $message .= trans('bot.email_settings_description') . "\n\n";
-        $message .= trans('bot.send_your_email');
+        $message .= trans('bot.send_your_email') . "\n\n";
+        $message .= trans('bot.email_format_example');
 
-        $keyboard = BotHelper::makeEmailSettingsKeyboard();
-        BotHelper::messageWithKeyboard($bot->token, $chatId, $message, $keyboard);
+        BotHelper::sendMessage($bot, $message);
     }
 
     /**
-     * پردازش تنظیمات ایمیل
+     * پردازش تنظیمات ایمیل (callback)
      */
-    protected function handleEmailSettings(Telegram $bot, string $callbackData, int $chatId, string $type): void
+    protected function handleEmailSettings(Telegram $bot, string $callbackData, array $callbackQuery, int $chatId, string $type, int $botMotherId): void
     {
         Log::info('📧 [PrayerBot] Email settings callback', [
             'chat_id' => $chatId,
             'callback_data' => $callbackData
         ]);
 
-        // پیاده‌سازی کامل در مرحله بعد
-        $message = "⚙️ " . trans('bot.email_settings_coming_soon');
-        BotHelper::sendMessage($bot, $message);
+        // Answer callback query
+        $bot->answerCallbackQuery([
+            'callback_query_id' => $callbackQuery['id']
+        ]);
+
+        $botUser = BotUsers::firstOrNew($chatId, $botMotherId, $type);
+        
+        // پردازش تغییر فرکانس
+        if (str_starts_with($callbackData, 'email_frequency_')) {
+            $frequency = str_replace('email_frequency_', '', $callbackData);
+            $this->updateEmailFrequency($bot, $chatId, $botUser, $frequency);
+            return;
+        }
+
+        // پردازش لغو اشتراک
+        if ($callbackData === 'email_unsubscribe') {
+            $this->handleUnsubscribeFromBot($bot, $chatId, $botUser);
+            return;
+        }
+
+        // پردازش تغییر ایمیل
+        if ($callbackData === 'email_change') {
+            $this->prayerBotService->setState(
+                $botUser->id,
+                $botMotherId,
+                'email_waiting_address',
+                null,
+                10
+            );
+            
+            $message = trans('bot.send_your_email') . "\n\n";
+            $message .= trans('bot.email_format_example');
+            
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $message
+            ]);
+            return;
+        }
+    }
+
+    /**
+     * پردازش دستور /email_settings
+     */
+    protected function handleEmailSettingsCommand(Telegram $bot, int $chatId, $botUser, string $type): void
+    {
+        Log::info('⚙️ [PrayerBot] Processing /email_settings command', ['chat_id' => $chatId]);
+
+        $message = "⚙️ " . trans('bot.email_settings_title') . "\n\n";
+
+        // نمایش تنظیمات فعلی
+        if ($botUser->email) {
+            $message .= "📧 " . trans('bot.email_settings_current_email') . ": {$botUser->email}\n";
+            
+            if ($botUser->email_verified_at) {
+                $message .= "✅ " . trans('bot.email_settings_verified') . "\n";
+            } else {
+                $message .= "⚠️ " . trans('bot.email_settings_not_verified') . "\n";
+            }
+        } else {
+            $message .= "❌ " . trans('bot.email_settings_no_email') . "\n";
+        }
+
+        $message .= "\n📅 " . trans('bot.email_settings_frequency') . ": " . trans('bot.' . ($botUser->email_report_frequency ?? 'weekly')) . "\n\n";
+        $message .= trans('bot.email_settings_instructions');
+
+        $keyboard = [
+            [
+                ['text' => '📅 ' . trans('bot.daily'), 'callback_data' => 'email_frequency_daily'],
+                ['text' => '📆 ' . trans('bot.weekly'), 'callback_data' => 'email_frequency_weekly'],
+            ],
+            [
+                ['text' => '🗓️ ' . trans('bot.monthly'), 'callback_data' => 'email_frequency_monthly'],
+                ['text' => '🚫 ' . trans('bot.never'), 'callback_data' => 'email_frequency_never'],
+            ],
+        ];
+
+        if ($botUser->email && $botUser->email_verified_at) {
+            $keyboard[] = [
+                ['text' => '🔕 ' . trans('bot.email_settings_unsubscribe'), 'callback_data' => 'email_unsubscribe'],
+            ];
+        }
+
+        $keyboard[] = [
+            ['text' => '✏️ ' . trans('bot.email_settings_change_email'), 'callback_data' => 'email_change'],
+        ];
+
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message,
+            'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+        ]);
+    }
+
+    /**
+     * پردازش دریافت آدرس ایمیل
+     */
+    protected function handleEmailAddress(Telegram $bot, int $chatId, string $text, $state, $botUser, string $type, int $botMotherId): void
+    {
+        // Validation ایمیل
+        if (!filter_var($text, FILTER_VALIDATE_EMAIL)) {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.email_invalid_format')
+            ]);
+            return;
+        }
+
+        // تولید کد 6 رقمی
+        $code = str_pad((string) rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+
+        // ذخیره ایمیل و کد در دیتابیس
+        $botUser->email = $text;
+        $botUser->email_verification_code = $code;
+        $botUser->email_verification_code_expires_at = now()->addMinutes(10);
+        $botUser->email_verified_at = null; // هنوز تایید نشده
+        $botUser->save();
+
+        // ارسال کد به ایمیل
+        try {
+            \Mail::to($text)->send(new \App\Mail\EmailVerificationMail($code));
+            
+            Log::info('📧 [PrayerBot] Verification code sent', [
+                'chat_id' => $chatId,
+                'email' => $text
+            ]);
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Error sending verification email', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId,
+                'email' => $text
+            ]);
+
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.email_send_error')
+            ]);
+            return;
+        }
+
+        // تغییر state به منتظر کد
+        $this->prayerBotService->setState(
+            $botUser->id,
+            $botMotherId,
+            'email_waiting_code',
+            ['email' => $text],
+            10 // 10 دقیقه
+        );
+
+        $message = "✅ " . trans('bot.email_code_sent') . "\n\n";
+        $message .= trans('bot.email_enter_code') . "\n\n";
+        $message .= "⏱️ " . trans('bot.email_code_expires') . ": 10 " . trans('bot.minutes');
+
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+    }
+
+    /**
+     * پردازش دریافت کد تایید
+     */
+    protected function handleEmailVerificationCode(Telegram $bot, int $chatId, string $text, $state, $botUser, string $type): void
+    {
+        // چک کردن عدد بودن
+        if (!is_numeric($text) || strlen($text) !== 6) {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.email_code_invalid_format')
+            ]);
+            return;
+        }
+
+        // چک کردن کد
+        if ($botUser->email_verification_code !== $text) {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.email_code_incorrect')
+            ]);
+            return;
+        }
+
+        // چک کردن انقضا
+        if ($botUser->email_verification_code_expires_at && $botUser->email_verification_code_expires_at->isPast()) {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => trans('bot.email_code_expired')
+            ]);
+            
+            // پاک کردن state
+            $this->prayerBotService->clearState($botUser->id);
+            return;
+        }
+
+        // تایید ایمیل
+        $botUser->email_verified_at = now();
+        $botUser->email_verification_code = null;
+        $botUser->email_verification_code_expires_at = null;
+        
+        // تولید توکن لغو اشتراک
+        if (!$botUser->email_unsubscribe_token) {
+            $botUser->email_unsubscribe_token = bin2hex(random_bytes(32));
+        }
+        
+        $botUser->save();
+
+        // پاک کردن state
+        $this->prayerBotService->clearState($botUser->id);
+
+        $message = "✅ " . trans('bot.email_verified_success') . "\n\n";
+        $message .= "📧 " . trans('bot.email_verified_message') . "\n";
+        $message .= "📅 " . trans('bot.email_report_frequency') . ": " . trans('bot.' . ($botUser->email_report_frequency ?? 'weekly'));
+
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+
+        Log::info('✅ [PrayerBot] Email verified', [
+            'chat_id' => $chatId,
+            'email' => $botUser->email
+        ]);
+    }
+
+    /**
+     * به‌روزرسانی فرکانس گزارش ایمیل
+     */
+    protected function updateEmailFrequency(Telegram $bot, int $chatId, $botUser, string $frequency): void
+    {
+        $botUser->email_report_frequency = $frequency;
+        $botUser->save();
+
+        $message = "✅ " . trans('bot.email_frequency_updated') . "\n\n";
+        $message .= "📅 " . trans('bot.email_settings_frequency') . ": " . trans('bot.' . $frequency);
+
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+
+        Log::info('📅 [PrayerBot] Email frequency updated', [
+            'chat_id' => $chatId,
+            'frequency' => $frequency
+        ]);
+    }
+
+    /**
+     * لغو اشتراک از طریق ربات
+     */
+    protected function handleUnsubscribeFromBot(Telegram $bot, int $chatId, $botUser): void
+    {
+        $botUser->email_report_frequency = 'never';
+        $botUser->save();
+
+        $message = "🔕 " . trans('bot.email_unsubscribed') . "\n\n";
+        $message .= trans('bot.email_unsubscribed_message');
+
+        $bot->sendMessage([
+            'chat_id' => $chatId,
+            'text' => $message
+        ]);
+
+        Log::info('🔕 [PrayerBot] User unsubscribed from bot', [
+            'chat_id' => $chatId
+        ]);
     }
 
     /**

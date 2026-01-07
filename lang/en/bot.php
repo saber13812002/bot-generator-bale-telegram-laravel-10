@@ -165,4 +165,49 @@ return [
     // Help FAQ
     'help_faq_title' => '❓ Frequently Asked Questions (FAQ)',
     'help_faq_content' => "🔹 How do I record a prayer?\nJust send 2, 3 or 4.\n2 = Fajr, 3 = Maghrib, 4 = Dhuhr/Asr/Isha\n\n🔹 What if I recorded by mistake?\nUse /remove_[ID] command.\nID is shown in the bot's confirmation message.\n\n🔹 How does the bot detect prayer type?\nBased on number of rakats and time of day:\n• 2 rakats → Fajr\n• 3 rakats → Maghrib\n• 4 rakats → Dhuhr (before noon) or Asr/Isha (after noon)\n\n🔹 Do I have to set an estimate?\nNo, it's optional. But recommended for better tracking.\n\n🔹 My estimate is not accurate, what should I do?\nYou can set a new estimate anytime with /estimate\n\n🔹 How many times can I record prayers per day?\nUnlimited! Record as many as you pray.\n\n🔹 Can I see my previous prayers?\nYes, use /stats command to see recent prayers.\n\n🔹 When are email reports sent?\nEvery Sunday morning at 9 AM\n\n🔹 I didn't receive the email?\n• Check your Spam folder\n• Verify email with /email_settings\n• Register new email with /set_email\n\n🔹 Is my information secure?\nYes, all your information is confidential and secure.\n\n🔹 Is the bot free?\nYes, completely free with no limitations!\n\n🔹 Does the bot work on Bale too?\nYes, it works on both Telegram and Bale.\n\n💡 Have another question?\nContact support: @support",
+    
+    // ==================== Estimate Status ====================
+    'estimate_status_title' => 'Estimate Status',
+    'estimate_status_no_estimate' => 'You haven\'t set an estimate yet.\n\nUse /estimate command to set your estimate.',
+    'estimate_status_total' => 'Total Estimate',
+    'estimate_status_equivalent' => 'Equivalent',
+    'estimate_status_recorded' => 'Recorded',
+    'estimate_status_remaining' => 'Remaining',
+    'estimate_status_progress' => 'Progress',
+    
+    // ==================== Email ====================
+    'email_format_example' => 'Example: example@gmail.com',
+    'email_invalid_format' => '❌ Invalid email format.\n\nPlease send a valid email address.\nExample: example@gmail.com',
+    'email_code_sent' => 'Verification code has been sent to your email',
+    'email_enter_code' => 'Please enter the 6-digit code sent to you:',
+    'email_code_expires' => 'This code expires in',
+    'minutes' => 'minutes',
+    'email_code_invalid_format' => '❌ Code must be 6 digits.\n\nPlease send the 6-digit code.',
+    'email_code_incorrect' => '❌ Verification code is incorrect.\n\nPlease try again.',
+    'email_code_expired' => '❌ Verification code has expired.\n\nPlease use /set_email command and try again.',
+    'email_verified_success' => 'Your email has been verified successfully!',
+    'email_verified_message' => 'From now on, weekly reports will be sent to this email.',
+    'email_report_frequency' => 'Report Frequency',
+    'email_send_error' => '❌ Error sending email.\n\nPlease try again or contact support.',
+    
+    // Email Settings
+    'email_settings_current_email' => 'Current Email',
+    'email_settings_verified' => 'Verified',
+    'email_settings_not_verified' => 'Not Verified',
+    'email_settings_no_email' => 'No Email Registered',
+    'email_settings_frequency' => 'Report Frequency',
+    'email_settings_instructions' => 'To change report frequency, select one of the options below:',
+    'email_settings_unsubscribe' => 'Unsubscribe',
+    'email_settings_change_email' => 'Change Email',
+    'email_frequency_updated' => 'Report frequency has been updated',
+    'email_unsubscribed' => 'Your subscription has been cancelled',
+    'email_unsubscribed_message' => 'You will no longer receive email reports.\n\nTo reactivate, use /set_email command.',
+    
+    // Email Verification (for view)
+    'email_verification_subject' => 'Email Verification Code - Prayer Qadha Bot',
+    'email_verification_title' => 'Email Verification Code',
+    'email_verification_greeting' => 'Hello,',
+    'email_verification_message' => 'Your email verification code for Prayer Qadha Bot:',
+    'email_verification_warning' => '⚠️ This code is valid for 10 minutes.\n⚠️ If you did not request this, please ignore this email.',
+    'email_verification_footer' => 'This email was sent automatically. Please do not reply.',
 ];
