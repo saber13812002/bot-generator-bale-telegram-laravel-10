@@ -16,7 +16,7 @@ class TestMailtrapAPI extends Command
     {
         $email = $this->argument('email');
         $code = $this->option('code');
-        $token = $this->option('token') ?: env('MAILTRAP_API_TOKEN');
+        $token = trim($this->option('token') ?: env('MAILTRAP_API_TOKEN'));
         $useSandbox = $this->option('sandbox');
         $inboxId = env('MAILTRAP_INBOX_ID', '1439975');
 
@@ -47,7 +47,17 @@ class TestMailtrapAPI extends Command
             return 1;
         }
 
-        // بررسی فاصله در Token
+        // بررسی و حذف فاصله‌های اضافی از Token
+        $originalToken = $token;
+        $token = trim($token);
+        
+        if ($originalToken !== $token) {
+            $this->warn("\n⚠️  فاصله‌های اضافی از Token حذف شد");
+            $this->line("   طول قبل: " . strlen($originalToken) . " کاراکتر");
+            $this->line("   طول بعد: " . strlen($token) . " کاراکتر");
+        }
+        
+        // بررسی فاصله در وسط Token
         if (str_contains($token, ' ')) {
             $this->error("\n❌ خطا: API Token دارای فاصله است!");
             $this->warn("⚠️  API Token نباید فاصله داشته باشد");
@@ -72,8 +82,8 @@ class TestMailtrapAPI extends Command
 
         // تنظیمات Mailtrap API
         if ($useSandbox) {
-            // Sandbox API (برای تست)
-            $apiUrl = "https://send.api.mailtrap.io/api/send/{$inboxId}";
+            // Sandbox API (برای تست) - استفاده از Testing API
+            $apiUrl = "https://sandbox.api.mailtrap.io/api/send/{$inboxId}";
             $authHeader = 'Api-Token';
             $authValue = $token;
         } else {
@@ -167,10 +177,37 @@ class TestMailtrapAPI extends Command
                 
                 $this->newLine();
                 $this->info("💡 راهنمای رفع مشکل:");
-                $this->info("1. بررسی API Token در .env");
-                $this->info("2. بررسی Inbox ID");
+                
+                if ($response->status() === 401) {
+                    $this->error("   ⚠️  خطای احراز هویت (401):");
+                    $this->warn("   - Token ممکن است اشتباه باشد");
+                    $this->warn("   - Token ممکن است منقضی شده باشد");
+                    $this->warn("   - برای Transactional API، دامنه باید تایید شده باشد");
+                    $this->warn("   - Token را از Mailtrap Dashboard بررسی کنید");
+                    $this->warn("   - Token فعلی: " . substr($token, 0, 10) . "...");
+                } elseif ($response->status() === 404) {
+                    $this->error("   ⚠️  خطای 404:");
+                    if ($useSandbox) {
+                        $this->warn("   - Inbox ID ممکن است اشتباه باشد: {$inboxId}");
+                        $this->warn("   - Inbox ID را از Mailtrap Dashboard بررسی کنید");
+                        $this->warn("   - URL استفاده شده: {$apiUrl}");
+                    } else {
+                        $this->warn("   - URL ممکن است اشتباه باشد");
+                        $this->warn("   - URL استفاده شده: {$apiUrl}");
+                    }
+                }
+                
+                $this->newLine();
+                $this->info("مراحل بررسی:");
+                $this->info("1. بررسی API Token در .env (بدون فاصله)");
+                if ($useSandbox) {
+                    $this->info("2. بررسی Inbox ID در Mailtrap Dashboard");
+                }
                 $this->info("3. بررسی اینکه Token معتبر است");
-                $this->info("4. بررسی لاگ‌ها: storage/logs/laravel.log");
+                if (!$useSandbox) {
+                    $this->info("4. برای Transactional: دامنه باید تایید شده باشد");
+                }
+                $this->info("5. بررسی لاگ‌ها: storage/logs/laravel.log");
                 
                 return 1;
             }
