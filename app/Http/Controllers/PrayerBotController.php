@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Helpers\BotHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\PrayerHelper;
+use App\Interfaces\Services\EmailService;
 use App\Interfaces\Services\PrayerBotService;
 use App\Models\BotUsers;
-use App\Services\MailtrapEmailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -17,10 +17,12 @@ use Exception;
 class PrayerBotController extends Controller
 {
     protected PrayerBotService $prayerBotService;
+    protected EmailService $emailService;
 
-    public function __construct(PrayerBotService $prayerBotService)
+    public function __construct(PrayerBotService $prayerBotService, EmailService $emailService)
     {
         $this->prayerBotService = $prayerBotService;
+        $this->emailService = $emailService;
     }
 
     /**
@@ -946,8 +948,7 @@ class PrayerBotController extends Controller
 
         // ارسال کد به ایمیل با Mailtrap API
         try {
-            $mailtrapService = new MailtrapEmailService();
-            $mailtrapService->sendVerificationEmail($text, $code);
+            $this->emailService->sendVerificationEmail($text, $code);
             
             Log::info('📧 [PrayerBot] Verification code sent via Mailtrap', [
                 'chat_id' => $chatId,
@@ -971,12 +972,18 @@ class PrayerBotController extends Controller
             ]);
 
             // پیام خطا برای کاربر
-            $errorMessage = trans('bot.email_send_error');
-
-            $bot->sendMessage([
-                'chat_id' => $chatId,
-                'text' => $errorMessage
-            ]);
+            try {
+                $errorMessage = trans('bot.email_send_error');
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => $errorMessage
+                ]);
+            } catch (Exception $e2) {
+                Log::error('❌ [PrayerBot] Failed to send error message to user', [
+                    'chat_id' => $chatId,
+                    'error' => $e2->getMessage()
+                ]);
+            }
             return;
         }
 
@@ -1004,64 +1011,146 @@ class PrayerBotController extends Controller
      */
     protected function handleEmailVerificationCode(Telegram $bot, int $chatId, string $text, $state, $botUser, string $type): void
     {
-        // چک کردن عدد بودن
-        if (!is_numeric($text) || strlen($text) !== 6) {
-            $bot->sendMessage([
-                'chat_id' => $chatId,
-                'text' => trans('bot.email_code_invalid_format')
-            ]);
-            return;
-        }
+        try {
+            // چک کردن عدد بودن
+            if (!is_numeric($text) || strlen($text) !== 6) {
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => trans('bot.email_code_invalid_format')
+                ]);
+                return;
+            }
 
-        // چک کردن کد
-        if ($botUser->email_verification_code !== $text) {
-            $bot->sendMessage([
-                'chat_id' => $chatId,
-                'text' => trans('bot.email_code_incorrect')
-            ]);
-            return;
-        }
+            // چک کردن کد
+            if ($botUser->email_verification_code !== $text) {
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => trans('bot.email_code_incorrect')
+                ]);
+                return;
+            }
 
-        // چک کردن انقضا
-        if ($botUser->email_verification_code_expires_at && $botUser->email_verification_code_expires_at->isPast()) {
-            $bot->sendMessage([
-                'chat_id' => $chatId,
-                'text' => trans('bot.email_code_expired')
-            ]);
-            
+            // چک کردن انقضا
+            if ($botUser->email_verification_code_expires_at && $botUser->email_verification_code_expires_at->isPast()) {
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => trans('bot.email_code_expired')
+                ]);
+                
+                // پاک کردن state
+                try {
+                    $this->prayerBotService->clearState($botUser->id);
+                } catch (Exception $e) {
+                    Log::error('❌ [PrayerBot] Error clearing state after code expiry', [
+                        'chat_id' => $chatId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+                return;
+            }
+
+            // تایید ایمیل
+            try {
+                $botUser->email_verified_at = now();
+                $botUser->email_verification_code = null;
+                $botUser->email_verification_code_expires_at = null;
+                
+                // تولید توکن لغو اشتراک
+                if (!$botUser->email_unsubscribe_token) {
+                    $botUser->email_unsubscribe_token = bin2hex(random_bytes(32));
+                }
+                
+                $botUser->save();
+
+                Log::info('✅ [PrayerBot] Email verified in database', [
+                    'chat_id' => $chatId,
+                    'email' => $botUser->email
+                ]);
+            } catch (Exception $e) {
+                Log::error('❌ [PrayerBot] Error saving email verification', [
+                    'chat_id' => $chatId,
+                    'email' => $botUser->email,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "❌ " . trans('bot.email_verification_error') . "\n\n" . trans('bot.please_try_again')
+                ]);
+                return;
+            }
+
             // پاک کردن state
-            $this->prayerBotService->clearState($botUser->id);
-            return;
+            try {
+                $this->prayerBotService->clearState($botUser->id);
+            } catch (Exception $e) {
+                Log::warning('⚠️ [PrayerBot] Error clearing state after verification', [
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage()
+                ]);
+                // ادامه می‌دهیم چون ایمیل تایید شده است
+            }
+
+            // ارسال پیام موفقیت
+            try {
+                $message = "✅ " . trans('bot.email_verified_success') . "\n\n";
+                $message .= "📧 " . trans('bot.email_verified_message') . "\n";
+                $message .= "📅 " . trans('bot.email_report_frequency') . ": " . trans('bot.' . ($botUser->email_report_frequency ?? 'weekly'));
+
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => $message
+                ]);
+
+                Log::info('✅ [PrayerBot] Email verification success message sent', [
+                    'chat_id' => $chatId,
+                    'email' => $botUser->email
+                ]);
+            } catch (Exception $e) {
+                Log::error('❌ [PrayerBot] Error sending success message', [
+                    'chat_id' => $chatId,
+                    'email' => $botUser->email,
+                    'error' => $e->getMessage()
+                ]);
+                // سعی می‌کنیم دوباره ارسال کنیم
+                try {
+                    $bot->sendMessage([
+                        'chat_id' => $chatId,
+                        'text' => "✅ " . trans('bot.email_verified_success')
+                    ]);
+                } catch (Exception $e2) {
+                    Log::error('❌ [PrayerBot] Failed to send success message after retry', [
+                        'chat_id' => $chatId,
+                        'error' => $e2->getMessage()
+                    ]);
+                }
+            }
+
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Unexpected error in handleEmailVerificationCode', [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // ارسال پیام خطا به کاربر
+            try {
+                $bot->sendMessage([
+                    'chat_id' => $chatId,
+                    'text' => "❌ " . trans('bot.email_verification_error') . "\n\n" . trans('bot.please_try_again')
+                ]);
+            } catch (Exception $e2) {
+                Log::error('❌ [PrayerBot] Failed to send error message to user', [
+                    'chat_id' => $chatId,
+                    'error' => $e2->getMessage()
+                ]);
+            }
         }
-
-        // تایید ایمیل
-        $botUser->email_verified_at = now();
-        $botUser->email_verification_code = null;
-        $botUser->email_verification_code_expires_at = null;
-        
-        // تولید توکن لغو اشتراک
-        if (!$botUser->email_unsubscribe_token) {
-            $botUser->email_unsubscribe_token = bin2hex(random_bytes(32));
-        }
-        
-        $botUser->save();
-
-        // پاک کردن state
-        $this->prayerBotService->clearState($botUser->id);
-
-        $message = "✅ " . trans('bot.email_verified_success') . "\n\n";
-        $message .= "📧 " . trans('bot.email_verified_message') . "\n";
-        $message .= "📅 " . trans('bot.email_report_frequency') . ": " . trans('bot.' . ($botUser->email_report_frequency ?? 'weekly'));
-
-        $bot->sendMessage([
-            'chat_id' => $chatId,
-            'text' => $message
-        ]);
-
-        Log::info('✅ [PrayerBot] Email verified', [
-            'chat_id' => $chatId,
-            'email' => $botUser->email
-        ]);
     }
 
     /**

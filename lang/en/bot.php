@@ -202,6 +202,8 @@ return [
     'email_frequency_updated' => 'Report frequency has been updated',
     'email_unsubscribed' => 'Your subscription has been cancelled',
     'email_unsubscribed_message' => 'You will no longer receive email reports.\n\nTo reactivate, use /set_email command.',
+    'email_verification_error' => 'Error verifying email',
+    'please_try_again' => 'Please try again or contact support.',
     
     // Email Verification (for view)
     'email_verification_subject' => 'Email Verification Code - Prayer Qadha Bot',

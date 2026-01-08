@@ -420,6 +420,8 @@ return [
     'email_verified_message' => 'از این پس گزارش‌های هفتگی به این ایمیل ارسال می‌شود.',
     'email_report_frequency' => 'فرکانس گزارش',
     'email_send_error' => '❌ خطا در ارسال ایمیل.\n\nلطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.',
+    'email_verification_error' => 'خطا در تایید ایمیل',
+    'please_try_again' => 'لطفاً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.',
     
     // تنظیمات ایمیل
     'email_settings_current_email' => 'ایمیل فعلی',

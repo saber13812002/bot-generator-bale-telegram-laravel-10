@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Interfaces\Services\EmailService;
 use App\Mail\PrayerWeeklyReportMail;
 use App\Models\EmailReportQueue;
-use App\Services\MailtrapEmailService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,6 +22,7 @@ class SendPrayerReportEmailJob implements ShouldQueue
     protected array $reportData;
     protected string $email;
     protected string $unsubscribeToken;
+    protected EmailService $emailService;
 
     /**
      * تعداد دفعات تلاش مجدد
@@ -51,8 +52,10 @@ class SendPrayerReportEmailJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(EmailService $emailService): void
     {
+        $this->emailService = $emailService;
+
         Log::info('📧 [SendPrayerReportEmailJob] Starting to send email', [
             'queue_id' => $this->queueId,
             'email' => $this->email
@@ -61,28 +64,14 @@ class SendPrayerReportEmailJob implements ShouldQueue
         try {
             // تولید محتوای ایمیل
             $mailable = new PrayerWeeklyReportMail($this->reportData, $this->unsubscribeToken);
-            $envelope = $mailable->envelope();
-            $subject = $envelope->subject;
-            
-            // تولید HTML از view
-            $view = "emails.prayer-weekly-report-v{$mailable->templateVersion}";
-            $htmlBody = view($view, [
-                'reportData' => $this->reportData,
-                'unsubscribeToken' => $this->unsubscribeToken,
-                'unsubscribeUrl' => url("/email/unsubscribe/{$this->unsubscribeToken}")
-            ])->render();
-            
-            // تولید متن ساده
-            $textBody = $this->generateTextReport($this->reportData);
+            $templateVersion = $mailable->templateVersion;
 
-            // ارسال ایمیل با Mailtrap API
-            $mailtrapService = new MailtrapEmailService();
-            $mailtrapService->sendEmail(
+            // ارسال ایمیل با EmailService
+            $this->emailService->sendWeeklyReportEmail(
                 $this->email,
-                $subject,
-                $htmlBody,
-                $textBody,
-                'Weekly Prayer Report'
+                $this->reportData,
+                $this->unsubscribeToken,
+                $templateVersion
             );
 
             // به‌روزرسانی وضعیت صف
