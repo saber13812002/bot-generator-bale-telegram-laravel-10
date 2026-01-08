@@ -55,12 +55,45 @@ class TestEmailPHPMailer extends Command
         
         $mailUsername = env('MAIL_USERNAME');
         $mailPassword = env('MAIL_PASSWORD');
+        
+        // بررسی و اصلاح MAIL_FROM_ADDRESS
         $mailFromAddress = env('MAIL_FROM_ADDRESS', env('MAIL_USERNAME'));
+        
+        // اگر MAIL_FROM_ADDRESS یک آدرس ایمیل معتبر نیست، از MAIL_USERNAME استفاده کن
+        // یا اگر آن هم معتبر نیست، یک آدرس پیش‌فرض استفاده کن
+        if (!filter_var($mailFromAddress, FILTER_VALIDATE_EMAIL)) {
+            // اگر MAIL_USERNAME یک آدرس ایمیل معتبر است، از آن استفاده کن
+            if (filter_var($mailUsername, FILTER_VALIDATE_EMAIL)) {
+                $mailFromAddress = $mailUsername;
+            } else {
+                // برای Mailtrap یا سرویس‌های مشابه، از یک آدرس پیش‌فرض استفاده کن
+                $mailFromAddress = 'noreply@' . parse_url($mailHost, PHP_URL_HOST) ?: 'noreply@localhost';
+            }
+        }
+        
         $mailFromName = env('MAIL_FROM_NAME', env('APP_NAME', 'Bots'));
 
         // بررسی تنظیمات ضروری
         if (!$mailUsername || !$mailPassword) {
             $this->error("❌ تنظیمات MAIL_USERNAME یا MAIL_PASSWORD در .env تنظیم نشده است!");
+            return 1;
+        }
+        
+        // بررسی فاصله در App Password
+        if (str_contains($mailPassword, ' ')) {
+            $this->error("\n❌ خطا: App Password دارای فاصله است!");
+            $this->warn("⚠️  App Password نباید فاصله داشته باشد");
+            $this->warn("💡 طول فعلی: " . strlen($mailPassword) . " کاراکتر");
+            $this->warn("💡 تعداد فاصله: " . substr_count($mailPassword, ' ') . " فاصله");
+            $this->newLine();
+            $this->info("🔧 راه‌حل:");
+            $this->info("1. App Password را از Google Account کپی کنید");
+            $this->info("2. همه فاصله‌ها را حذف کنید");
+            $this->info("3. MAIL_PASSWORD را در .env به‌روزرسانی کنید");
+            $this->newLine();
+            $this->warn("مثال:");
+            $this->warn("   ❌ اشتباه: abcd efgh ijkl mnop");
+            $this->warn("   ✅ درست:   abcdefghijklmnop");
             return 1;
         }
 
@@ -94,6 +127,11 @@ class TestEmailPHPMailer extends Command
             // };
 
             // تنظیمات فرستنده و گیرنده
+            // بررسی نهایی آدرس ایمیل
+            if (!filter_var($mailFromAddress, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception("آدرس ایمیل فرستنده معتبر نیست: {$mailFromAddress}. لطفاً MAIL_FROM_ADDRESS را در .env تنظیم کنید.");
+            }
+            
             $mail->setFrom($mailFromAddress, $mailFromName);
             $mail->addAddress($email);
 
@@ -196,9 +234,59 @@ class TestEmailPHPMailer extends Command
         $this->line("   Host: " . ($mailHost ?: '❌ تنظیم نشده'));
         $this->line("   Port: " . ($mailPort ?: '❌ تنظیم نشده'));
         $this->line("   Username: " . ($mailUsername ?: '❌ تنظیم نشده'));
-        $this->line("   Password: " . ($mailPassword ? '✅ تنظیم شده' : '❌ تنظیم نشده'));
+        
+        // بررسی Password
+        if ($mailPassword) {
+            $hasSpaces = str_contains($mailPassword, ' ');
+            $passwordLength = strlen($mailPassword);
+            
+            if ($hasSpaces) {
+                $this->error("   Password: ❌ دارای فاصله است!");
+                $this->warn("      ⚠️  App Password نباید فاصله داشته باشد");
+                $this->warn("      💡 طول فعلی: {$passwordLength} کاراکتر");
+                $this->warn("      💡 پیشنهاد: فاصله‌ها را حذف کنید");
+            } else {
+                $this->line("   Password: ✅ تنظیم شده (طول: {$passwordLength} کاراکتر)");
+                
+                // بررسی طول App Password (معمولاً 16 کاراکتر است)
+                if ($passwordLength < 16) {
+                    $this->warn("      ⚠️  طول Password کمتر از حد انتظار است (معمولاً 16 کاراکتر)");
+                } elseif ($passwordLength > 16) {
+                    $this->warn("      ⚠️  طول Password بیشتر از حد انتظار است (معمولاً 16 کاراکتر)");
+                }
+            }
+        } else {
+            $this->line("   Password: ❌ تنظیم نشده");
+        }
+        
         $this->line("   Encryption: " . ($mailEncryption ?: '❌ تنظیم نشده'));
-        $this->line("   From Address: " . ($mailFromAddress ?: '❌ تنظیم نشده'));
+        
+        // بررسی اعتبار آدرس ایمیل
+        $originalFromAddress = env('MAIL_FROM_ADDRESS', env('MAIL_USERNAME'));
+        $isValidEmail = filter_var($mailFromAddress, FILTER_VALIDATE_EMAIL);
+        
+        // اگر آدرس اصلی معتبر نیست، یک آدرس پیش‌فرض محاسبه کن
+        if (!filter_var($originalFromAddress, FILTER_VALIDATE_EMAIL)) {
+            if (filter_var($mailUsername, FILTER_VALIDATE_EMAIL)) {
+                $suggestedAddress = $mailUsername;
+            } else {
+                $suggestedAddress = 'noreply@' . (parse_url($mailHost, PHP_URL_HOST) ?: 'localhost');
+            }
+        } else {
+            $suggestedAddress = $originalFromAddress;
+        }
+        
+        if ($isValidEmail) {
+            $this->line("   From Address: {$mailFromAddress}");
+            if ($originalFromAddress !== $mailFromAddress && $originalFromAddress) {
+                $this->warn("      ⚠️  اصلاح شده از: {$originalFromAddress}");
+            }
+        } else {
+            $this->error("   From Address: ❌ نامعتبر ({$mailFromAddress})");
+            $this->warn("      💡 پیشنهاد: {$suggestedAddress}");
+            $this->warn("      💡 باید یک آدرس ایمیل معتبر باشد (مثلاً: noreply@example.com)");
+        }
+        
         $this->line("   From Name: " . ($mailFromName ?: '❌ تنظیم نشده'));
 
         // بررسی تنظیمات ضروری
