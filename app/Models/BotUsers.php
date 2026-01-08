@@ -11,7 +11,10 @@ class BotUsers extends Model
 
 
     protected $casts = [
-        'settings' => 'array'
+        'settings' => 'array',
+        'email_verified_at' => 'datetime',
+        'email_verification_code_expires_at' => 'datetime',
+        'last_email_report_sent_at' => 'datetime',
     ];
 
     protected $guarded = [];
