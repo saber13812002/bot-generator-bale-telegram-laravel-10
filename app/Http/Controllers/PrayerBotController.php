@@ -9,6 +9,7 @@ use App\Interfaces\Services\PrayerBotService;
 use App\Models\BotUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Telegram;
 use Exception;
 
@@ -944,22 +945,37 @@ class PrayerBotController extends Controller
 
         // ارسال کد به ایمیل
         try {
-            \Mail::to($text)->send(new \App\Mail\EmailVerificationMail($code));
+            Mail::to($text)->send(new \App\Mail\EmailVerificationMail($code));
             
             Log::info('📧 [PrayerBot] Verification code sent', [
                 'chat_id' => $chatId,
-                'email' => $text
+                'email' => $text,
+                'code' => $code
             ]);
         } catch (Exception $e) {
             Log::error('❌ [PrayerBot] Error sending verification email', [
                 'error' => $e->getMessage(),
+                'error_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
                 'chat_id' => $chatId,
-                'email' => $text
+                'email' => $text,
+                'mail_config' => [
+                    'mailer' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
+                    'port' => config('mail.mailers.smtp.port'),
+                    'username' => config('mail.mailers.smtp.username') ? 'set' : 'not set',
+                    'from_address' => config('mail.from.address'),
+                ]
             ]);
+
+            // پیام خطا برای کاربر
+            $errorMessage = trans('bot.email_send_error');
 
             $bot->sendMessage([
                 'chat_id' => $chatId,
-                'text' => trans('bot.email_send_error')
+                'text' => $errorMessage
             ]);
             return;
         }
