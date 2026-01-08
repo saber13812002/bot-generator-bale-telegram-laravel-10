@@ -21,14 +21,25 @@
 
 ```env
 # Mail Configuration
-MAIL_MAILER=smtp
+# برای Gmail با SSL (پورت 465)
+MAIL_DRIVER=smtp
 MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
+MAIL_PORT=465
 MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=abcdefghijklmnop
-MAIL_ENCRYPTION=tls
+MAIL_PASSWORD=your-app-password-here
+MAIL_ENCRYPTION=ssl
 MAIL_FROM_ADDRESS=your-email@gmail.com
 MAIL_FROM_NAME="${APP_NAME}"
+
+# یا برای Gmail با TLS (پورت 587)
+# MAIL_MAILER=smtp
+# MAIL_HOST=smtp.gmail.com
+# MAIL_PORT=587
+# MAIL_USERNAME=your-email@gmail.com
+# MAIL_PASSWORD=your-app-password-here
+# MAIL_ENCRYPTION=tls
+# MAIL_FROM_ADDRESS=your-email@gmail.com
+# MAIL_FROM_NAME="${APP_NAME}"
 ```
 
 **نکات مهم:**
@@ -73,14 +84,23 @@ php artisan test:email-verification your-email@gmail.com --code=123456
 - مطمئن شوید `MAIL_PORT=587` است
 - اتصال به اینترنت را بررسی کنید
 
-### خطا: "Authentication failed"
+### خطا: "Authentication failed" یا "Username and Password not accepted"
 
-**علت:** `MAIL_USERNAME` یا `MAIL_PASSWORD` اشتباه است.
+**علت:** `MAIL_USERNAME` یا `MAIL_PASSWORD` اشتباه است یا App Password منقضی شده.
 
 **راه‌حل:**
-- مطمئن شوید از App Password استفاده می‌کنید (نه رمز عبور اصلی)
-- مطمئن شوید فاصله‌ها در App Password حذف شده‌اند
-- App Password جدید ایجاد کنید
+1. مطمئن شوید از App Password استفاده می‌کنید (نه رمز عبور اصلی Gmail)
+2. مطمئن شوید فاصله‌ها در App Password حذف شده‌اند
+3. **App Password جدید ایجاد کنید:**
+   - به [Google Account Security](https://myaccount.google.com/security) بروید
+   - 2-Step Verification را فعال کنید (اگر فعال نیست)
+   - به صفحه Security برگردید
+   - "App passwords" را پیدا کنید
+   - یک App Password جدید ایجاد کنید
+   - کد 16 رقمی را کپی کنید (بدون فاصله)
+4. `MAIL_PASSWORD` را در `.env` به‌روزرسانی کنید
+5. `php artisan config:clear` را اجرا کنید
+6. دوباره تست کنید
 
 ### خطا: "Username is not set"
 
