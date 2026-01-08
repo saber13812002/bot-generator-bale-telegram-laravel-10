@@ -15,7 +15,7 @@ class TestEmailPHPMailer extends Command
      *
      * @var string
      */
-    protected $signature = 'test:email-phpmailer {email} {--code=123456}';
+    protected $signature = 'test:email-phpmailer {email} {--code=123456} {--tls : استفاده از TLS به جای SSL}';
 
     /**
      * The console command description.
@@ -40,11 +40,21 @@ class TestEmailPHPMailer extends Command
         $this->checkMailConfig();
 
         // خواندن تنظیمات از .env
-        $mailHost = env('MAIL_HOST', 'smtp.gmail.com');
-        $mailPort = env('MAIL_PORT', 465);
+        $useTls = $this->option('tls');
+        
+        if ($useTls) {
+            $this->info("⚠️  استفاده از TLS (پورت 587) به جای SSL (پورت 465)");
+            $mailHost = env('MAIL_HOST', 'smtp.gmail.com');
+            $mailPort = 587;
+            $mailEncryption = 'tls';
+        } else {
+            $mailHost = env('MAIL_HOST', 'smtp.gmail.com');
+            $mailPort = env('MAIL_PORT', 465);
+            $mailEncryption = env('MAIL_ENCRYPTION', 'ssl');
+        }
+        
         $mailUsername = env('MAIL_USERNAME');
         $mailPassword = env('MAIL_PASSWORD');
-        $mailEncryption = env('MAIL_ENCRYPTION', 'ssl');
         $mailFromAddress = env('MAIL_FROM_ADDRESS', env('MAIL_USERNAME'));
         $mailFromName = env('MAIL_FROM_NAME', env('APP_NAME', 'Bots'));
 
