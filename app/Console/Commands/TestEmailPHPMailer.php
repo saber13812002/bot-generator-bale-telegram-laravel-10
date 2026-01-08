@@ -76,6 +76,12 @@ class TestEmailPHPMailer extends Command
             
             $mail->Port = (int) $mailPort;
             $mail->CharSet = 'UTF-8';
+            
+            // فعال‌سازی Debug (اختیاری - برای عیب‌یابی)
+            // $mail->SMTPDebug = 2;
+            // $mail->Debugoutput = function($str, $level) {
+            //     $this->line("   [PHPMailer Debug] $str");
+            // };
 
             // تنظیمات فرستنده و گیرنده
             $mail->setFrom($mailFromAddress, $mailFromName);
@@ -106,19 +112,45 @@ class TestEmailPHPMailer extends Command
             $this->error("\n📋 جزئیات خطا:");
             $this->error("File: " . $e->getFile());
             $this->error("Line: " . $e->getLine());
+            $this->error("Message: " . $e->getMessage());
+            
+            // بررسی نوع خطا
+            $errorInfo = $mail->ErrorInfo;
+            $this->info("\n🔍 تحلیل خطا:");
+            
+            if (str_contains($errorInfo, 'Could not authenticate') || str_contains($errorInfo, 'authentication')) {
+                $this->warn("   ⚠️  مشکل احراز هویت:");
+                $this->warn("   - App Password ممکن است اشتباه باشد");
+                $this->warn("   - App Password ممکن است منقضی شده باشد");
+                $this->warn("   - 2-Step Verification باید فعال باشد");
+                $this->warn("   - Username باید آدرس ایمیل کامل باشد");
+            } elseif (str_contains($errorInfo, 'Connection') || str_contains($errorInfo, 'timeout')) {
+                $this->warn("   ⚠️  مشکل اتصال:");
+                $this->warn("   - Host یا Port ممکن است اشتباه باشد");
+                $this->warn("   - اتصال به اینترنت را بررسی کنید");
+                $this->warn("   - Firewall ممکن است مانع شود");
+            }
             
             Log::error('❌ [TestEmailPHPMailer] Error sending email', [
                 'email' => $email,
                 'error' => $mail->ErrorInfo,
                 'phpmailer_error' => $e->getMessage(),
+                'config' => [
+                    'host' => $mailHost,
+                    'port' => $mailPort,
+                    'username' => $mailUsername,
+                    'encryption' => $mailEncryption,
+                    'from_address' => $mailFromAddress,
+                ],
                 'trace' => $e->getTraceAsString()
             ]);
             
             $this->info("\n💡 راهنمای رفع مشکل:");
-            $this->info("1. بررسی تنظیمات MAIL_* در فایل .env");
-            $this->info("2. برای Gmail: استفاده از App Password");
-            $this->info("3. بررسی اتصال به اینترنت");
-            $this->info("4. بررسی لاگ‌ها: storage/logs/laravel.log");
+            $this->info("1. App Password جدید ایجاد کنید: https://myaccount.google.com/apppasswords");
+            $this->info("2. مطمئن شوید فاصله‌ها در App Password حذف شده‌اند");
+            $this->info("3. MAIL_PASSWORD را در .env به‌روزرسانی کنید");
+            $this->info("4. اگر پورت 465 کار نمی‌کند، پورت 587 با TLS امتحان کنید");
+            $this->info("5. بررسی لاگ‌ها: storage/logs/laravel.log");
             
             return 1;
         } catch (Exception $e) {
