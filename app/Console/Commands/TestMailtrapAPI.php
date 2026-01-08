@@ -9,32 +9,41 @@ use Exception;
 
 class TestMailtrapAPI extends Command
 {
-    protected $signature = 'test:mailtrap-api {email} {--code=123456} {--token=} {--inbox-id=}';
-    protected $description = 'تست ارسال ایمیل با Mailtrap API';
+    protected $signature = 'test:mailtrap-api {email} {--code=123456} {--token=} {--sandbox : استفاده از Sandbox به جای Transactional}';
+    protected $description = 'تست ارسال ایمیل با Mailtrap API (Transactional یا Sandbox)';
 
     public function handle(): int
     {
         $email = $this->argument('email');
         $code = $this->option('code');
         $token = $this->option('token') ?: env('MAILTRAP_API_TOKEN');
-        $inboxId = $this->option('inbox-id') ?: env('MAILTRAP_INBOX_ID', '1439975');
+        $useSandbox = $this->option('sandbox');
+        $inboxId = env('MAILTRAP_INBOX_ID', '1439975');
 
         $this->info("📧 تست ارسال ایمیل با Mailtrap API به: {$email}");
         $this->info("🔑 کد تایید: {$code}");
+        $this->info("📦 حالت: " . ($useSandbox ? 'Sandbox' : 'Transactional'));
 
         // بررسی تنظیمات
         $this->info("\n🔍 بررسی تنظیمات Mailtrap:");
         $this->line("   API Token: " . ($token ? '✅ تنظیم شده' : '❌ تنظیم نشده'));
-        $this->line("   Inbox ID: {$inboxId}");
+        if ($useSandbox) {
+            $this->line("   Inbox ID: {$inboxId}");
+        }
 
         if (!$token) {
             $this->error("\n❌ API Token تنظیم نشده است!");
             $this->warn("\n💡 تنظیمات مورد نیاز در .env:");
             $this->warn("   MAILTRAP_API_TOKEN=your-api-token-here");
-            $this->warn("   MAILTRAP_INBOX_ID=1439975  # اختیاری");
+            if ($useSandbox) {
+                $this->warn("   MAILTRAP_INBOX_ID=1439975  # فقط برای Sandbox");
+            }
             $this->newLine();
             $this->info("یا از طریق option استفاده کنید:");
-            $this->info("   php artisan test:mailtrap-api {$email} --token=your-token --inbox-id=1439975");
+            $this->info("   php artisan test:mailtrap-api {$email} --token=your-token");
+            if ($useSandbox) {
+                $this->info("   php artisan test:mailtrap-api {$email} --token=your-token --sandbox");
+            }
             return 1;
         }
 
@@ -62,14 +71,24 @@ class TestMailtrapAPI extends Command
         $textBody = "کد تایید ایمیل شما: {$code}";
 
         // تنظیمات Mailtrap API
-        $apiUrl = "https://send.api.mailtrap.io/api/send/{$inboxId}";
+        if ($useSandbox) {
+            // Sandbox API (برای تست)
+            $apiUrl = "https://send.api.mailtrap.io/api/send/{$inboxId}";
+            $authHeader = 'Api-Token';
+            $authValue = $token;
+        } else {
+            // Transactional API (برای Production)
+            $apiUrl = "https://send.api.mailtrap.io/api/send";
+            $authHeader = 'Authorization';
+            $authValue = "Bearer {$token}";
+        }
         
-        $fromAddress = env('MAIL_FROM_ADDRESS', 'noreply@mailtrap.io');
+        $fromAddress = env('MAIL_FROM_ADDRESS', 'hello@pardisania.ir');
         $fromName = env('MAIL_FROM_NAME', env('APP_NAME', 'Bots'));
 
         // اگر آدرس ایمیل معتبر نیست، یک آدرس پیش‌فرض استفاده کن
         if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
-            $fromAddress = 'noreply@mailtrap.io';
+            $fromAddress = 'hello@pardisania.ir';
         }
 
         $this->info("\n📤 در حال ارسال ایمیل از طریق Mailtrap API...");
@@ -78,10 +97,13 @@ class TestMailtrapAPI extends Command
         $this->line("   Subject: " . trans('bot.email_verification_subject'));
 
         try {
-            $response = Http::withHeaders([
-                'Api-Token' => $token,
+            // تنظیم headers
+            $headers = [
+                $authHeader => $authValue,
                 'Content-Type' => 'application/json',
-            ])->post($apiUrl, [
+            ];
+            
+            $payload = [
                 'from' => [
                     'email' => $fromAddress,
                     'name' => $fromName,
@@ -95,7 +117,9 @@ class TestMailtrapAPI extends Command
                 'text' => $textBody,
                 'html' => $htmlBody,
                 'category' => 'Email Verification',
-            ]);
+            ];
+            
+            $response = Http::withHeaders($headers)->post($apiUrl, $payload);
 
             if ($response->successful()) {
                 $responseData = $response->json();
@@ -110,9 +134,15 @@ class TestMailtrapAPI extends Command
                 ]);
                 
                 $this->newLine();
-                $this->info("💡 نکته:");
-                $this->info("   ایمیل در Mailtrap Sandbox ذخیره شده است");
-                $this->info("   برای مشاهده: https://mailtrap.io/inboxes/{$inboxId}/messages");
+                if ($useSandbox) {
+                    $this->info("💡 نکته:");
+                    $this->info("   ایمیل در Mailtrap Sandbox ذخیره شده است");
+                    $this->info("   برای مشاهده: https://mailtrap.io/inboxes/{$inboxId}/messages");
+                } else {
+                    $this->info("💡 نکته:");
+                    $this->info("   ایمیل از طریق Mailtrap Transactional API ارسال شد");
+                    $this->info("   ایمیل واقعی به گیرنده ارسال شده است");
+                }
                 
                 return 0;
             } else {
