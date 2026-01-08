@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\PrayerWeeklyReportMail;
 use App\Models\EmailReportQueue;
+use App\Services\MailtrapEmailService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -58,9 +59,30 @@ class SendPrayerReportEmailJob implements ShouldQueue
         ]);
 
         try {
-            // ارسال ایمیل
-            Mail::to($this->email)->send(
-                new PrayerWeeklyReportMail($this->reportData, $this->unsubscribeToken)
+            // تولید محتوای ایمیل
+            $mailable = new PrayerWeeklyReportMail($this->reportData, $this->unsubscribeToken);
+            $envelope = $mailable->envelope();
+            $subject = $envelope->subject;
+            
+            // تولید HTML از view
+            $view = "emails.prayer-weekly-report-v{$mailable->templateVersion}";
+            $htmlBody = view($view, [
+                'reportData' => $this->reportData,
+                'unsubscribeToken' => $this->unsubscribeToken,
+                'unsubscribeUrl' => url("/email/unsubscribe/{$this->unsubscribeToken}")
+            ])->render();
+            
+            // تولید متن ساده
+            $textBody = $this->generateTextReport($this->reportData);
+
+            // ارسال ایمیل با Mailtrap API
+            $mailtrapService = new MailtrapEmailService();
+            $mailtrapService->sendEmail(
+                $this->email,
+                $subject,
+                $htmlBody,
+                $textBody,
+                'Weekly Prayer Report'
             );
 
             // به‌روزرسانی وضعیت صف
@@ -69,7 +91,7 @@ class SendPrayerReportEmailJob implements ShouldQueue
                 $queue->markAsSent();
             }
 
-            Log::info('✅ [SendPrayerReportEmailJob] Email sent successfully', [
+            Log::info('✅ [SendPrayerReportEmailJob] Email sent successfully via Mailtrap', [
                 'queue_id' => $this->queueId,
                 'email' => $this->email
             ]);
@@ -77,7 +99,8 @@ class SendPrayerReportEmailJob implements ShouldQueue
             Log::error('❌ [SendPrayerReportEmailJob] Error sending email', [
                 'queue_id' => $this->queueId,
                 'email' => $this->email,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             // به‌روزرسانی وضعیت خطا
@@ -106,5 +129,28 @@ class SendPrayerReportEmailJob implements ShouldQueue
         if ($queue) {
             $queue->markAsFailed('Failed after ' . $this->tries . ' attempts: ' . $exception->getMessage());
         }
+    }
+
+    /**
+     * تولید گزارش متنی ساده
+     */
+    protected function generateTextReport(array $reportData): string
+    {
+        $text = "📊 گزارش هفتگی نماز قضا\n\n";
+        $text .= "📅 دوره: {$reportData['period_start']} تا {$reportData['period_end']}\n\n";
+        $text .= "📈 آمار کلی:\n";
+        $text .= "   ✅ نمازهای ثبت شده: {$reportData['total_prayers']}\n";
+        $text .= "   📊 پیشرفت: {$reportData['progress_percentage']}%\n\n";
+        
+        if (!empty($reportData['prayers_by_type'])) {
+            $text .= "📋 تفکیک بر اساس نوع:\n";
+            foreach ($reportData['prayers_by_type'] as $type => $count) {
+                $text .= "   • {$type}: {$count}\n";
+            }
+        }
+        
+        $text .= "\n🔗 برای لغو اشتراک: " . url("/email/unsubscribe/{$this->unsubscribeToken}");
+        
+        return $text;
     }
 }

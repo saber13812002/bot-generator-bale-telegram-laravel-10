@@ -7,6 +7,7 @@ use App\Helpers\LogHelper;
 use App\Helpers\PrayerHelper;
 use App\Interfaces\Services\PrayerBotService;
 use App\Models\BotUsers;
+use App\Services\MailtrapEmailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -943,11 +944,12 @@ class PrayerBotController extends Controller
         $botUser->email_verified_at = null; // هنوز تایید نشده
         $botUser->save();
 
-        // ارسال کد به ایمیل
+        // ارسال کد به ایمیل با Mailtrap API
         try {
-            Mail::to($text)->send(new \App\Mail\EmailVerificationMail($code));
+            $mailtrapService = new MailtrapEmailService();
+            $mailtrapService->sendVerificationEmail($text, $code);
             
-            Log::info('📧 [PrayerBot] Verification code sent', [
+            Log::info('📧 [PrayerBot] Verification code sent via Mailtrap', [
                 'chat_id' => $chatId,
                 'email' => $text,
                 'code' => $code
@@ -961,12 +963,10 @@ class PrayerBotController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'chat_id' => $chatId,
                 'email' => $text,
-                'mail_config' => [
-                    'mailer' => config('mail.default'),
-                    'host' => config('mail.mailers.smtp.host'),
-                    'port' => config('mail.mailers.smtp.port'),
-                    'username' => config('mail.mailers.smtp.username') ? 'set' : 'not set',
-                    'from_address' => config('mail.from.address'),
+                'mailtrap_config' => [
+                    'use_sandbox' => env('MAILTRAP_USE_SANDBOX', true),
+                    'has_token' => !empty(env('MAILTRAP_API_TOKEN')),
+                    'has_inbox_id' => !empty(env('MAILTRAP_INBOX_ID')),
                 ]
             ]);
 
