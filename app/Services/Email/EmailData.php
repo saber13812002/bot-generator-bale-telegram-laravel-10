@@ -134,14 +134,69 @@ class EmailData
         
         $text .= "   📊 پیشرفت: {$reportData['progress_percentage']}%\n\n";
         
+        // نمودار 7 روز گذشته (متن)
+        if (!empty($reportData['daily_stats'])) {
+            $text .= "📊 فعالیت 7 روز گذشته:\n";
+            foreach ($reportData['daily_stats'] as $day) {
+                $bar = str_repeat('█', min($day['rakats'], 20)); // حداکثر 20 کاراکتر
+                $text .= "   {$day['day_name']}: {$bar} {$day['rakats']} رکعت\n";
+            }
+            $text .= "\n";
+        }
+        
+        // مقایسه با هفته گذشته
+        if (!empty($reportData['weekly_comparison'])) {
+            $change = $reportData['weekly_comparison']['change_vs_last_week'] ?? 0;
+            $text .= "📈 مقایسه:\n";
+            $text .= "   این هفته: {$reportData['weekly_comparison']['current']['rakats']} رکعت\n";
+            $text .= "   هفته گذشته: {$reportData['weekly_comparison']['last_week']['rakats']} رکعت\n";
+            if ($change > 0) {
+                $text .= "   ⬆️ {$change} رکعت بیشتر از هفته گذشته!\n";
+            } elseif ($change < 0) {
+                $text .= "   ⬇️ " . abs($change) . " رکعت کمتر از هفته گذشته\n";
+            }
+            $text .= "\n";
+        }
+        
+        // اطلاعات پیک
+        if (!empty($reportData['peak_activity']) && !empty($reportData['completion_time'])) {
+            $text .= "🔥 بهترین عملکرد:\n";
+            $text .= "   در {$reportData['peak_activity']['month_label']}: {$reportData['peak_activity']['rakats']} رکعت\n";
+            if ($reportData['completion_time']['months'] > 0) {
+                $text .= "   ⏱️ با همان سرعت: " . number_format($reportData['completion_time']['months'], 1) . " ماه دیگر تمام می‌شود!\n";
+            }
+            $text .= "\n";
+        }
+        
+        // Top 10
+        if (!empty($reportData['top_10_users'])) {
+            $topRakats = $reportData['top_10_users'][0]['rakats'] ?? 0;
+            $userRakats = $reportData['total_rakats'] ?? 0;
+            $text .= "🏆 رتبه‌بندی:\n";
+            $text .= "   برترین: {$topRakats} رکعت\n";
+            $text .= "   شما: {$userRakats} رکعت\n";
+            if ($topRakats > $userRakats) {
+                $text .= "   💪 " . ($topRakats - $userRakats) . " رکعت دیگر تا رتبه اول!\n";
+            } else {
+                $text .= "   🌟 شما در بین برترین‌ها هستید!\n";
+            }
+            $text .= "\n";
+        }
+        
         if (!empty($reportData['prayers_by_type'])) {
             $text .= "📋 تفکیک بر اساس نوع:\n";
             foreach ($reportData['prayers_by_type'] as $type => $count) {
                 $text .= "   • {$type}: {$count}\n";
             }
+            $text .= "\n";
         }
         
-        $text .= "\n🔗 برای لغو اشتراک: " . url("/email/unsubscribe/{$unsubscribeToken}");
+        // پیام انگیزشی
+        if (!empty($reportData['motivational_message'])) {
+            $text .= "\n" . $reportData['motivational_message'] . "\n\n";
+        }
+        
+        $text .= "🔗 برای لغو اشتراک: " . url("/email/unsubscribe/{$unsubscribeToken}");
         
         return $text;
     }

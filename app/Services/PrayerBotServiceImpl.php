@@ -249,6 +249,25 @@ class PrayerBotServiceImpl implements PrayerBotService
         $statsByType = $this->prayerRecordRepository->getStatsByPrayerType($chatId, $origin, $from, $to);
         $progress = $this->getProgress($chatId, $origin);
 
+        // دریافت اطلاعات تکمیلی
+        $enhancementService = app(\App\Services\EmailReportEnhancementService::class);
+        $dailyStats = $enhancementService->getDailyStatsLast7Days($chatId, $origin);
+        $weeklyComparison = $enhancementService->getWeeklyComparison($chatId, $origin);
+        $peakActivity = $enhancementService->findPeakActivity($chatId, $origin);
+        $completionTime = $enhancementService->calculateCompletionTimeWithPeakSpeed($chatId, $origin, $peakActivity, $progress);
+        $top10Users = $enhancementService->getTop10Users($chatId, $origin);
+        $motivationalMessage = $enhancementService->generateMotivationalMessage(
+            [
+                'total_prayers' => $records->count(),
+                'total_rakats' => $records->sum('rakats'),
+                'progress_percentage' => $progress['progress_percentage'] ?? 0,
+            ],
+            $weeklyComparison,
+            $peakActivity,
+            $completionTime,
+            $top10Users
+        );
+
         return [
             'records' => $records,
             'stats_by_type' => $statsByType,
@@ -257,6 +276,13 @@ class PrayerBotServiceImpl implements PrayerBotService
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
             ],
+            // اطلاعات تکمیلی
+            'daily_stats' => $dailyStats,
+            'weekly_comparison' => $weeklyComparison,
+            'peak_activity' => $peakActivity,
+            'completion_time' => $completionTime,
+            'top_10_users' => $top10Users,
+            'motivational_message' => $motivationalMessage,
         ];
     }
 
