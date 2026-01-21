@@ -199,6 +199,8 @@ return [
     'email_settings_instructions' => 'To change report frequency, select one of the options below:',
     'email_settings_unsubscribe' => 'Unsubscribe',
     'email_settings_change_email' => 'Change Email',
+    'email_already_set' => 'Your email is already set:',
+    'email_change_instructions' => 'If you want to change it, use the buttons below:',
     'email_frequency_updated' => 'Report frequency has been updated',
     'email_unsubscribed' => 'Your subscription has been cancelled',
     'email_unsubscribed_message' => 'You will no longer receive email reports.\n\nTo reactivate, use /set_email command.',
