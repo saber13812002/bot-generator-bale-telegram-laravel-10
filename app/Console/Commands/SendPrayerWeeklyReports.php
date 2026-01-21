@@ -178,6 +178,7 @@ class SendPrayerWeeklyReports extends Command
 
     /**
      * تبدیل reportData به ساختار موردنیاز برای Email
+     * ساختار اصلی را حفظ می‌کند و کلیدهای جدید را اضافه می‌کند
      */
     protected function transformReportData(array $rawReportData): array
     {
@@ -186,7 +187,16 @@ class SendPrayerWeeklyReports extends Command
         $progress = $rawReportData['progress'] ?? [];
         $period = $rawReportData['period'] ?? [];
 
-        // تبدیل stats_by_type به فرمت موردنیاز
+        // محاسبه total_rakats از stats_by_type یا records
+        $totalRakats = 0;
+        foreach ($statsByType as $type => $stats) {
+            $totalRakats += $stats['total_rakats'] ?? 0;
+        }
+        if ($totalRakats == 0) {
+            $totalRakats = $records->sum('rakats');
+        }
+
+        // تبدیل stats_by_type به فرمت موردنیاز برای generateTextReport
         $prayersByType = [];
         foreach ($statsByType as $type => $stats) {
             $typeLabels = [
@@ -200,14 +210,32 @@ class SendPrayerWeeklyReports extends Command
             $prayersByType[$label] = $stats['count'] ?? 0;
         }
 
-        return [
+        // اضافه کردن total_rakats به stats_by_type برای view ها
+        $statsByTypeWithTotal = $statsByType;
+        $statsByTypeWithTotal['total_rakats'] = $totalRakats;
+
+        // تنظیم progress برای view ها
+        $progressForView = $progress ? [
+            'percentage' => $progress['progress_percentage'] ?? $progress['percentage'] ?? 0,
+            'remaining' => $progress['remaining_rakats'] ?? $progress['remaining'] ?? 0,
+        ] : null;
+
+        // ساختار اصلی را حفظ می‌کنیم (برای view ها) و کلیدهای جدید را اضافه می‌کنیم (برای generateTextReport)
+        return array_merge($rawReportData, [
+            // کلیدهای جدید برای generateTextReport
             'period_start' => $period['from'] ?? now()->subWeek()->toDateString(),
             'period_end' => $period['to'] ?? now()->toDateString(),
             'total_prayers' => $records->count(),
-            'total_rakats' => $records->sum('rakats'),
-            'progress_percentage' => $progress['progress_percentage'] ?? 0,
+            'total_rakats' => $totalRakats,
+            'progress_percentage' => $progressForView['percentage'] ?? 0,
             'prayers_by_type' => $prayersByType,
-        ];
+            
+            // به‌روزرسانی stats_by_type با total_rakats
+            'stats_by_type' => $statsByTypeWithTotal,
+            
+            // به‌روزرسانی progress با کلیدهای درست
+            'progress' => $progressForView,
+        ]);
     }
 
     /**
