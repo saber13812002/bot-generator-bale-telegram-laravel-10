@@ -127,6 +127,11 @@ class EmailData
         $text .= "📅 دوره: {$reportData['period_start']} تا {$reportData['period_end']}\n\n";
         $text .= "📈 آمار کلی:\n";
         $text .= "   ✅ نمازهای ثبت شده: {$reportData['total_prayers']}\n";
+        
+        if (isset($reportData['total_rakats'])) {
+            $text .= "   📊 تعداد رکعات: {$reportData['total_rakats']}\n";
+        }
+        
         $text .= "   📊 پیشرفت: {$reportData['progress_percentage']}%\n\n";
         
         if (!empty($reportData['prayers_by_type'])) {

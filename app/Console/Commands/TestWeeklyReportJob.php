@@ -83,9 +83,14 @@ class TestWeeklyReportJob extends Command
         try {
             // دریافت گزارش هفتگی
             $this->info('📊 دریافت گزارش هفتگی...');
-            $reportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
+            $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
+            
+            // تبدیل به ساختار موردنیاز
+            $reportData = $this->transformReportData($rawReportData);
+            
             $this->info('✅ گزارش دریافت شد');
             $this->info("   تعداد نمازها: {$reportData['total_prayers']}");
+            $this->info("   تعداد رکعات: {$reportData['total_rakats']}");
             $this->info("   پیشرفت: {$reportData['progress_percentage']}%");
             $this->newLine();
 
@@ -148,5 +153,39 @@ class TestWeeklyReportJob extends Command
             ]);
             return 1;
         }
+    }
+
+    /**
+     * تبدیل reportData به ساختار موردنیاز برای Email
+     */
+    protected function transformReportData(array $rawReportData): array
+    {
+        $records = $rawReportData['records'] ?? collect();
+        $statsByType = $rawReportData['stats_by_type'] ?? [];
+        $progress = $rawReportData['progress'] ?? [];
+        $period = $rawReportData['period'] ?? [];
+
+        // تبدیل stats_by_type به فرمت موردنیاز
+        $prayersByType = [];
+        foreach ($statsByType as $type => $stats) {
+            $typeLabels = [
+                'fajr' => 'صبح',
+                'dhuhr' => 'ظهر',
+                'asr' => 'عصر',
+                'maghrib' => 'مغرب',
+                'isha' => 'عشا',
+            ];
+            $label = $typeLabels[$type] ?? $type;
+            $prayersByType[$label] = $stats['count'] ?? 0;
+        }
+
+        return [
+            'period_start' => $period['from'] ?? now()->subWeek()->toDateString(),
+            'period_end' => $period['to'] ?? now()->toDateString(),
+            'total_prayers' => $records->count(),
+            'total_rakats' => $records->sum('rakats'),
+            'progress_percentage' => $progress['progress_percentage'] ?? 0,
+            'prayers_by_type' => $prayersByType,
+        ];
     }
 }

@@ -177,6 +177,40 @@ class SendPrayerWeeklyReports extends Command
     }
 
     /**
+     * تبدیل reportData به ساختار موردنیاز برای Email
+     */
+    protected function transformReportData(array $rawReportData): array
+    {
+        $records = $rawReportData['records'] ?? collect();
+        $statsByType = $rawReportData['stats_by_type'] ?? [];
+        $progress = $rawReportData['progress'] ?? [];
+        $period = $rawReportData['period'] ?? [];
+
+        // تبدیل stats_by_type به فرمت موردنیاز
+        $prayersByType = [];
+        foreach ($statsByType as $type => $stats) {
+            $typeLabels = [
+                'fajr' => 'صبح',
+                'dhuhr' => 'ظهر',
+                'asr' => 'عصر',
+                'maghrib' => 'مغرب',
+                'isha' => 'عشا',
+            ];
+            $label = $typeLabels[$type] ?? $type;
+            $prayersByType[$label] = $stats['count'] ?? 0;
+        }
+
+        return [
+            'period_start' => $period['from'] ?? now()->subWeek()->toDateString(),
+            'period_end' => $period['to'] ?? now()->toDateString(),
+            'total_prayers' => $records->count(),
+            'total_rakats' => $records->sum('rakats'),
+            'progress_percentage' => $progress['progress_percentage'] ?? 0,
+            'prayers_by_type' => $prayersByType,
+        ];
+    }
+
+    /**
      * دریافت کاربران واجد شرایط
      */
     protected function getEligibleUsers(int $limit, bool $force)
@@ -208,7 +242,10 @@ class SendPrayerWeeklyReports extends Command
         ]);
 
         // دریافت گزارش هفتگی
-        $reportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
+        $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
+        
+        // تبدیل به ساختار موردنیاز برای Email
+        $reportData = $this->transformReportData($rawReportData);
 
         // ایجاد توکن unsubscribe اگر وجود ندارد
         if (!$user->email_unsubscribe_token) {
