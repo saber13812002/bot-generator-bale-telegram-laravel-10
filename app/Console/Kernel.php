@@ -26,8 +26,31 @@ class Kernel extends ConsoleKernel
         $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
         
-        // ارسال گزارش‌های هفتگی نماز قضا (هر ساعت، محدود به 2 نفر)
-        $schedule->command(SendPrayerWeeklyReports::class, ['--limit=2'])
+        // ارسال گزارش‌های هفتگی نماز قضا با اینتروال‌های مختلف
+        
+        // هر 10 دقیقه (باکس کوچک - 5 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=5',
+            '--interval=10'
+        ])
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // هر 30 دقیقه (باکس متوسط - 10 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=10',
+            '--interval=30'
+        ])
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // هر ساعت (باکس بزرگ - 10 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=10',
+            '--interval=60'
+        ])
             ->hourly()
             ->withoutOverlapping()
             ->onOneServer();

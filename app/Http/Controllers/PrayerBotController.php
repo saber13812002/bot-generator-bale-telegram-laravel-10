@@ -801,6 +801,27 @@ class PrayerBotController extends Controller
     {
         Log::info('📧 [PrayerBot] Processing /email or /set_email command', ['chat_id' => $chatId]);
 
+        // اگر ایمیل ست و verify شده است
+        if ($botUser->email && $botUser->email_verified_at) {
+            $message = "✅ " . trans('bot.email_already_set') . "\n";
+            $message .= "📧 {$botUser->email}\n\n";
+            $message .= trans('bot.email_change_instructions');
+
+            $keyboard = [
+                [
+                    ['text' => '✏️ ' . trans('bot.email_settings_change_email'), 'callback_data' => 'email_change'],
+                    ['text' => '🔕 ' . trans('bot.email_settings_unsubscribe'), 'callback_data' => 'email_unsubscribe']
+                ]
+            ];
+
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+            return;
+        }
+
         // ست کردن state برای دریافت ایمیل
         $this->prayerBotService->setState(
             $botUser->id,

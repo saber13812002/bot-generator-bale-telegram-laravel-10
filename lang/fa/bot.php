@@ -332,6 +332,8 @@ return [
     // ایمیل
     'email_settings_title' => 'تنظیمات ایمیل',
     'email_settings_description' => 'ایمیل خود را ثبت کنید تا گزارش هفتگی دریافت کنید',
+    'email_already_set' => 'ایمیل شما تنظیم شده است:',
+    'email_change_instructions' => 'اگر می‌خواهید تغییر دهید، از دکمه‌های زیر استفاده کنید:',
     'send_your_email' => 'ایمیل خود را بفرستید',
     'email_settings_coming_soon' => 'به زودی...',
     'daily' => 'روزانه',
