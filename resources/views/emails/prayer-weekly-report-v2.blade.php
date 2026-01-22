@@ -71,6 +71,15 @@
 </head>
 <body>
     <div class="container">
+        {{-- باکس لینک گزارش --}}
+        @if(!empty($reportUrl))
+        <div style="margin: 20px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center; color: white;">
+            <h3 style="margin: 0 0 10px 0;">📊 گزارش کامل شما آماده است!</h3>
+            <p style="margin: 0 0 15px 0; line-height: 1.6;">برای مشاهده نمودارهای تعاملی و آمار دقیق، روی دکمه زیر کلیک کنید.</p>
+            <a href="{{ $reportUrl }}" style="display: inline-block; padding: 12px 30px; background-color: white; color: #667eea; text-decoration: none; border-radius: 25px; font-weight: bold;">🌐 مشاهده گزارش کامل</a>
+        </div>
+        @endif
+
         <div class="header">
             <h1>📈 پیشرفت هفتگی شما</h1>
         </div>

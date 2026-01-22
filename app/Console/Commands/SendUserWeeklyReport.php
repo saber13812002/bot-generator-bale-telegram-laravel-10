@@ -99,7 +99,15 @@ class SendUserWeeklyReport extends Command
 
             // ایجاد توکن unsubscribe
             if (!$user->email_unsubscribe_token) {
-                $user->email_unsubscribe_token = Str::random(64);
+                $user->email_unsubscribe_token = bin2hex(random_bytes(32));
+            }
+            
+            // ایجاد توکن دسترسی به صفحه گزارش وب
+            if (!$user->web_report_token) {
+                $user->web_report_token = bin2hex(random_bytes(32));
+            }
+            
+            if (!$user->email_unsubscribe_token || !$user->web_report_token) {
                 $user->save();
             }
 
@@ -112,7 +120,8 @@ class SendUserWeeklyReport extends Command
                 $htmlBody = view($view, [
                     'reportData' => $reportData,
                     'unsubscribeToken' => $user->email_unsubscribe_token,
-                    'unsubscribeUrl' => url("/email/unsubscribe/{$user->email_unsubscribe_token}")
+                    'unsubscribeUrl' => url("/email/unsubscribe/{$user->email_unsubscribe_token}"),
+                    'reportUrl' => $reportData['report_url'] ?? null,
                 ])->render();
                 
                 $this->info("✅ محتوای HTML تولید شد (تمپلیت: v{$templateVersion})");
