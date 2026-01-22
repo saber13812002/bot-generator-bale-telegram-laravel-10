@@ -20,6 +20,12 @@ class WebhookEndpoint extends Model
         'requires_language',
         'supports_multiple_languages',
         'is_active',
+        'sample_telegram_link',
+        'sample_bale_link',
+        'blog_virgool_link',
+        'blog_medium_link',
+        'icon_emoji',
+        'icon_svg',
     ];
 
     protected $casts = [

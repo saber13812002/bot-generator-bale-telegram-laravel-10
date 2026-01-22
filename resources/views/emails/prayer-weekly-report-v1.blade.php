@@ -109,6 +109,19 @@
 </head>
 <body>
     <div class="container">
+        {{-- باکس 1: در ابتدای ایمیل --}}
+        @if(!empty($reportUrl))
+        <div style="margin: 20px 0; padding: 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center; color: white;">
+            <h2 style="margin: 0 0 15px 0; font-size: 22px;">📊 گزارش کامل شما آماده است!</h2>
+            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+                برای مشاهده نمودارهای تعاملی، مقایسه با هفته‌های گذشته، آمار Top 10 و جزئیات بیشتر، روی دکمه زیر کلیک کنید.
+            </p>
+            <a href="{{ $reportUrl }}" style="display: inline-block; padding: 12px 30px; background-color: white; color: #667eea; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; transition: transform 0.2s;">
+                🌐 مشاهده گزارش کامل
+            </a>
+        </div>
+        @endif
+
         <div class="header">
             <h1>🕌 گزارش هفتگی نماز قضا</h1>
             <p>{{ $reportData['period']['from'] }} تا {{ $reportData['period']['to'] }}</p>
@@ -135,6 +148,19 @@
             </div>
             @endif
         </div>
+
+        {{-- باکس 2: بعد از آمار کلی --}}
+        @if(!empty($reportUrl))
+        <div style="margin: 25px 0; padding: 20px; background-color: #e7f3ff; border-radius: 8px; border-right: 4px solid #2196F3; text-align: center;">
+            <h3 style="margin: 0 0 10px 0; color: #1976D2;">📈 می‌خواهید نمودار پیشرفت خود را ببینید؟</h3>
+            <p style="margin: 0 0 15px 0; color: #424242; line-height: 1.6;">
+                گزارش کامل با نمودارهای تعاملی و مقایسه‌های دقیق در صفحه وب شما آماده است.
+            </p>
+            <a href="{{ $reportUrl }}" style="display: inline-block; padding: 10px 25px; background-color: #2196F3; color: white; text-decoration: none; border-radius: 20px; font-weight: bold;">
+                📊 مشاهده نمودارها
+            </a>
+        </div>
+        @endif
 
         {{-- نمودار 7 روز گذشته --}}
         @if(!empty($reportData['daily_stats']) && count($reportData['daily_stats']) > 0)
@@ -202,6 +228,19 @@
         <p style="text-align: center; color: #28a745; font-size: 16px;">
             💪 عالی پیش می‌روید! ادامه دهید.
         </p>
+        @endif
+
+        {{-- باکس 3: بعد از پیام انگیزشی --}}
+        @if(!empty($reportUrl))
+        <div style="margin: 25px 0; padding: 20px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px; text-align: center; color: white;">
+            <h3 style="margin: 0 0 10px 0; font-size: 20px;">🌟 برای مشاهده جزئیات بیشتر</h3>
+            <p style="margin: 0 0 15px 0; line-height: 1.6;">
+                مقایسه با هفته‌های گذشته، اطلاعات پیک فعالیت، آمار Top 10 و زمان تخمینی تکمیل کار را در صفحه گزارش وب مشاهده کنید.
+            </p>
+            <a href="{{ $reportUrl }}" style="display: inline-block; padding: 10px 25px; background-color: white; color: #f5576c; text-decoration: none; border-radius: 20px; font-weight: bold;">
+                🔗 مشاهده صفحه گزارش
+            </a>
+        </div>
         @endif
 
         <div class="footer">

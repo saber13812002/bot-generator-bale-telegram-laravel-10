@@ -1081,6 +1081,11 @@ class PrayerBotController extends Controller
                     $botUser->email_unsubscribe_token = bin2hex(random_bytes(32));
                 }
                 
+                // تولید توکن دسترسی به صفحه گزارش وب
+                if (!$botUser->web_report_token) {
+                    $botUser->web_report_token = bin2hex(random_bytes(32));
+                }
+                
                 $botUser->save();
 
                 Log::info('✅ [PrayerBot] Email verified in database', [

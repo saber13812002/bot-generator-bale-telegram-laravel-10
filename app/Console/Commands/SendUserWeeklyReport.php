@@ -74,6 +74,11 @@ class SendUserWeeklyReport extends Command
             $this->info('📊 دریافت گزارش هفتگی...');
             $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
             
+            // اضافه کردن URL گزارش وب
+            if ($user->web_report_token) {
+                $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+            }
+            
             // تبدیل به ساختار موردنیاز
             $reportData = $this->transformReportData($rawReportData);
             
@@ -224,6 +229,17 @@ class SendUserWeeklyReport extends Command
             
             // به‌روزرسانی progress با کلیدهای درست
             'progress' => $progressForView,
+            
+            // اطلاعات تکمیلی (اگر وجود دارد)
+            'daily_stats' => $rawReportData['daily_stats'] ?? [],
+            'weekly_comparison' => $rawReportData['weekly_comparison'] ?? null,
+            'peak_activity' => $rawReportData['peak_activity'] ?? null,
+            'completion_time' => $rawReportData['completion_time'] ?? null,
+            'top_10_users' => $rawReportData['top_10_users'] ?? [],
+            'motivational_message' => $rawReportData['motivational_message'] ?? '',
+            
+            // URL گزارش وب (اگر در rawReportData وجود دارد)
+            'report_url' => $rawReportData['report_url'] ?? null,
         ]);
     }
 }

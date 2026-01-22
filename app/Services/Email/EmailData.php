@@ -67,11 +67,15 @@ class EmailData
     ): self {
         $view = "emails.prayer-weekly-report-v{$templateVersion}";
         
+        // ساخت URL گزارش وب از reportData
+        $reportUrl = $reportData['report_url'] ?? null;
+        
         try {
             $htmlBody = view($view, [
                 'reportData' => $reportData,
                 'unsubscribeToken' => $unsubscribeToken,
-                'unsubscribeUrl' => url("/email/unsubscribe/{$unsubscribeToken}")
+                'unsubscribeUrl' => url("/email/unsubscribe/{$unsubscribeToken}"),
+                'reportUrl' => $reportUrl,
             ])->render();
         } catch (\Exception $e) {
             $htmlBody = "<html><body><h1>گزارش هفتگی</h1><p>گزارش هفتگی شما آماده است.</p></body></html>";
@@ -194,6 +198,17 @@ class EmailData
         // پیام انگیزشی
         if (!empty($reportData['motivational_message'])) {
             $text .= "\n" . $reportData['motivational_message'] . "\n\n";
+        }
+        
+        // لینک به صفحه گزارش وب
+        if (!empty($reportData['report_url'])) {
+            $text .= "\n🌐 برای مشاهده گزارش کامل با نمودارهای تعاملی:\n";
+            $text .= "   " . $reportData['report_url'] . "\n\n";
+            $text .= "📊 در صفحه وب می‌توانید:\n";
+            $text .= "   • نمودار 7 روز گذشته را ببینید\n";
+            $text .= "   • مقایسه با هفته‌های گذشته را مشاهده کنید\n";
+            $text .= "   • آمار Top 10 کاربران را ببینید\n";
+            $text .= "   • جزئیات بیشتری از پیشرفت خود دریافت کنید\n\n";
         }
         
         $text .= "🔗 برای لغو اشتراک: " . url("/email/unsubscribe/{$unsubscribeToken}");

@@ -17,9 +17,7 @@ use Illuminate\Http\Request;
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [\App\Http\Controllers\WelcomeController::class, 'index']);
 
 Route::get('/approve', function () {
     return view('approve');
@@ -46,3 +44,7 @@ Route::get('/fetch-courses', [CourseController::class, 'fetchCourses']);
 
 Route::get('/contributions', [ContributionController::class, 'design']);
 //Route::get('/calendar', [ContributionController::class, 'calendar']);
+
+// Prayer Report Web Pages
+Route::get('/namaz-ghaza/{token}', [\App\Http\Controllers\PrayerReportWebController::class, 'show']);
+Route::get('/test-js', [\App\Http\Controllers\PrayerReportWebController::class, 'test']);

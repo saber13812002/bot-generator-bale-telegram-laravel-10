@@ -243,6 +243,9 @@ class SendPrayerWeeklyReports extends Command
             'completion_time' => $rawReportData['completion_time'] ?? null,
             'top_10_users' => $rawReportData['top_10_users'] ?? [],
             'motivational_message' => $rawReportData['motivational_message'] ?? '',
+            
+            // URL گزارش وب (اگر در rawReportData وجود دارد)
+            'report_url' => $rawReportData['report_url'] ?? null,
         ]);
     }
 
@@ -285,7 +288,15 @@ class SendPrayerWeeklyReports extends Command
 
         // ایجاد توکن unsubscribe اگر وجود ندارد
         if (!$user->email_unsubscribe_token) {
-            $user->email_unsubscribe_token = Str::random(64);
+            $user->email_unsubscribe_token = bin2hex(random_bytes(32));
+        }
+        
+        // ایجاد توکن دسترسی به صفحه گزارش وب اگر وجود ندارد
+        if (!$user->web_report_token) {
+            $user->web_report_token = bin2hex(random_bytes(32));
+        }
+        
+        if (!$user->email_unsubscribe_token || !$user->web_report_token) {
             $user->save();
         }
 
