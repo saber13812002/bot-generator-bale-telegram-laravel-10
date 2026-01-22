@@ -282,9 +282,6 @@ class SendPrayerWeeklyReports extends Command
 
         // دریافت گزارش هفتگی
         $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
-        
-        // تبدیل به ساختار موردنیاز برای Email
-        $reportData = $this->transformReportData($rawReportData);
 
         // ایجاد توکن unsubscribe اگر وجود ندارد
         if (!$user->email_unsubscribe_token) {
@@ -299,6 +296,14 @@ class SendPrayerWeeklyReports extends Command
         if (!$user->email_unsubscribe_token || !$user->web_report_token) {
             $user->save();
         }
+        
+        // اضافه کردن URL گزارش وب به rawReportData
+        if ($user->web_report_token) {
+            $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+        }
+        
+        // تبدیل به ساختار موردنیاز برای Email
+        $reportData = $this->transformReportData($rawReportData);
 
         // ایجاد رکورد صف
         $queue = EmailReportQueue::create([

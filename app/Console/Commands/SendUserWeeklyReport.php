@@ -77,10 +77,20 @@ class SendUserWeeklyReport extends Command
             // اضافه کردن URL گزارش وب
             if ($user->web_report_token) {
                 $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+                $this->info("🔗 URL گزارش وب: {$rawReportData['report_url']}");
+            } else {
+                $this->warn("⚠️ web_report_token برای کاربر وجود ندارد!");
             }
             
             // تبدیل به ساختار موردنیاز
             $reportData = $this->transformReportData($rawReportData);
+            
+            // بررسی وجود report_url در reportData
+            if (empty($reportData['report_url'])) {
+                $this->warn("⚠️ report_url در reportData وجود ندارد!");
+            } else {
+                $this->info("✅ report_url در reportData موجود است: {$reportData['report_url']}");
+            }
             
             $this->info('✅ گزارش دریافت شد');
             $this->info("   تعداد نمازها: {$reportData['total_prayers']}");

@@ -70,6 +70,18 @@ class EmailData
         // ساخت URL گزارش وب از reportData
         $reportUrl = $reportData['report_url'] ?? null;
         
+        // لاگ برای دیباگ
+        if (empty($reportUrl)) {
+            \Log::warning('⚠️ [EmailData::weeklyReport] report_url در reportData وجود ندارد', [
+                'report_data_keys' => array_keys($reportData),
+                'has_report_url' => isset($reportData['report_url']),
+            ]);
+        } else {
+            \Log::info('✅ [EmailData::weeklyReport] report_url موجود است', [
+                'report_url' => $reportUrl,
+            ]);
+        }
+        
         try {
             $htmlBody = view($view, [
                 'reportData' => $reportData,
