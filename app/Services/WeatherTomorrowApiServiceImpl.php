@@ -43,10 +43,33 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
     {
         try {
             $weather_data = $this->weatherTomorrowApiRepository->call();
+            
+            // لاگ برای بررسی ساختار پاسخ API
+            Log::info('🌤 [Weather] API Response Structure', [
+                'has_data' => isset($weather_data['data']),
+                'has_timelines' => isset($weather_data['data']['timelines']),
+                'timelines_count' => isset($weather_data['data']['timelines']) ? count($weather_data['data']['timelines']) : 0,
+                'has_intervals' => isset($weather_data['data']['timelines'][0]['intervals']),
+                'intervals_count' => isset($weather_data['data']['timelines'][0]['intervals']) ? count($weather_data['data']['timelines'][0]['intervals']) : 0,
+                'response_keys' => array_keys($weather_data ?? []),
+            ]);
+            
+            // بررسی وجود داده
+            if (!isset($weather_data['data']['timelines'][0]['intervals'])) {
+                Log::error('🌤 [Weather] Missing intervals in API response', [
+                    'weather_data_structure' => json_encode($weather_data, JSON_PRETTY_PRINT)
+                ]);
+                return "خطا در دریافت داده‌های هواشناسی. لطفاً دوباره تلاش کنید.";
+            }
+            
         } catch (Exception $e) {
-            Log::error($e->getMessage());
-//            throw $e;
-            return StringHelper::findString($e->getMessage(), "Too Many Calls") ? substr($e->getMessage(), -180) : " خطای ناشناخته ". substr($e->getMessage(), -180) ."
+            Log::error('🌤 [Weather] API Error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return StringHelper::findString($e->getMessage(), "Too Many Calls") 
+                ? substr($e->getMessage(), -180) 
+                : " خطای ناشناخته ". substr($e->getMessage(), -180) ."
 ";
         }
         return self::generateMessageByTomorrowData($botText, $weather_data['data']['timelines'][0]['intervals']);
@@ -61,12 +84,27 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
     {
         $windSpeedLimit = 20;
         if (intval($botText)) {
-            $windSpeedLimit = min($botText, $windSpeedLimit);
+            $windSpeedLimit = min(intval($botText), $windSpeedLimit);
         }
 
         $hoursBitCount = 1;
         $raiseLimitCount = 0;
         $message = "";
+        
+        // لاگ برای بررسی داده‌های دریافتی
+        Log::info('🌤 [Weather] Processing weather data', [
+            'wind_speed_limit' => $windSpeedLimit,
+            'data_count' => is_array($weatherData) ? count($weatherData) : 0,
+            'bot_text' => $botText
+        ]);
+
+        if (!is_array($weatherData) || empty($weatherData)) {
+            Log::warning('🌤 [Weather] Empty or invalid weather data', [
+                'weather_data_type' => gettype($weatherData),
+                'weather_data' => $weatherData
+            ]);
+            return "هیچ داده هواشناسی دریافت نشد.";
+        }
 
         foreach ($weatherData as $weatherDataItem) {
             $originalStartDateTime = $weatherDataItem["startTime"];

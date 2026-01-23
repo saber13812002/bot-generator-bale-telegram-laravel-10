@@ -45,14 +45,16 @@ class WeatherController extends Controller
                 $commands = StringHelper::getWeatherBotCommandsAsPostfixForMessages();
                 if ($bot->Text() == "/current") {
                     $message = $this->weatherOpenWeatherMapApiService->getMessage();
+                } else if ($bot->Text() == "/forecasting") {
+                    // پیام راهنما برای تعیین حداقل سرعت باد
+                    $message = trans("bot.Please determine the minimum wind speed for bot to send you desired alert");
+                } else if (is_numeric($bot->Text()) && intval($bot->Text()) > 1 && intval($bot->Text()) < 20) {
+                    // اگر عدد بین 1 تا 20 بود، از آن به عنوان حداقل سرعت باد استفاده کن
+                    $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
+                } else {
+                    // برای هر متن دیگر (یا اگر forecasting بدون عدد بود)، از مقدار پیش‌فرض 20 استفاده کن
+                    $message = $this->weatherTomorrowApiService->getMessage("20");
                 }
-//                else if ($bot->Text() == "/forecasting") {
-//                    $message = trans("bot.Please determine the minimum wind speed for bot to send you desired alert");
-//                } else if ($bot->Text() > 1 && $bot->Text() < 20) {
-//                    $message = $this->weatherTomorrowApiService->getMessage($bot->Text());
-//                } else {
-//                    $message = $this->weatherTomorrowApiService->getMessage(20);
-//                }
 
                 BotHelper::sendMessageToUserAndAdmins($bot, $message . $commands, $type);
                 return 0;
