@@ -14,7 +14,8 @@ class SendUserWeeklyReport extends Command
     protected $signature = 'email:send-user-report 
                             {--email= : Email address of the user}
                             {--user-id= : User ID}
-                            {--preview : Only preview, do not send}';
+                            {--preview : Only preview, do not send}
+                            {--lang= : Language code for testing (e.g., en, fa, ar)}';
 
     protected $description = 'ارسال گزارش هفتگی واقعی به کاربر و نمایش محتوای نهایی';
 
@@ -136,6 +137,22 @@ class SendUserWeeklyReport extends Command
                 $user->save();
             }
 
+            // تعیین زبان: اول از کامند لاین، سپس از ربات کاربر، در نهایت پیش‌فرض fa
+            $lang = $this->option('lang');
+            if (!$lang && $user->bot_id) {
+                $bot = \App\Models\Bot::find($user->bot_id);
+                if ($bot && $bot->language_code) {
+                    $lang = $bot->language_code;
+                }
+            }
+            if (!$lang) {
+                $lang = 'fa';
+            }
+            
+            // تنظیم زبان برای ترجمه
+            app()->setLocale($lang);
+            $this->info("🌐 زبان انتخاب شده: {$lang}");
+            
             // تولید محتوای HTML
             $this->info('📝 تولید محتوای ایمیل...');
             $templateVersion = rand(1, 5);
@@ -147,6 +164,8 @@ class SendUserWeeklyReport extends Command
                     'unsubscribeToken' => $user->email_unsubscribe_token,
                     'unsubscribeUrl' => url("/email/unsubscribe/{$user->email_unsubscribe_token}"),
                     'reportUrl' => $reportData['report_url'] ?? null,
+                    'hasEstimate' => $reportData['has_estimate'] ?? false,
+                    'lang' => $lang,
                 ])->render();
                 
                 $this->info("✅ محتوای HTML تولید شد (تمپلیت: v{$templateVersion})");
@@ -185,7 +204,8 @@ class SendUserWeeklyReport extends Command
                 $user->email,
                 $reportData,
                 $user->email_unsubscribe_token,
-                $templateVersion
+                $templateVersion,
+                $lang
             );
 
             $this->info("\n✅ ایمیل با موفقیت ارسال شد!");

@@ -65,13 +65,17 @@ class SendPrayerReportEmailJob implements ShouldQueue
             // تولید محتوای ایمیل
             $mailable = new PrayerWeeklyReportMail($this->reportData, $this->unsubscribeToken);
             $templateVersion = $mailable->templateVersion;
+            
+            // دریافت زبان از reportData
+            $lang = $this->reportData['lang'] ?? null;
 
             // ارسال ایمیل با EmailService
             $this->emailService->sendWeeklyReportEmail(
                 $this->email,
                 $this->reportData,
                 $this->unsubscribeToken,
-                $templateVersion
+                $templateVersion,
+                $lang
             );
 
             // به‌روزرسانی وضعیت صف

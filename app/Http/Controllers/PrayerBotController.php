@@ -135,6 +135,11 @@ class PrayerBotController extends Controller
 
         // پردازش Help callbacks
         if (str_starts_with($callbackData, 'help_')) {
+            // اگر دکمه دریافت لینک گزارش باشد
+            if ($callbackData === 'help_get_report_link') {
+                $this->handleGetReportLink($bot, $callbackQuery, $chatId, $type);
+                return;
+            }
             $this->handleHelpCallback($bot, $callbackQuery, $type);
             return;
         }
@@ -324,6 +329,12 @@ class PrayerBotController extends Controller
      */
     protected function showHelp(Telegram $bot, int $chatId, string $type, ?int $messageId = null): void
     {
+        // اگر report بود، از متد خاص استفاده می‌کنیم
+        if ($type === 'report') {
+            $this->showHelpReport($bot, $chatId, $messageId);
+            return;
+        }
+        
         $message = match($type) {
             'commands' => $this->getHelpCommands(),
             'usage' => $this->getHelpUsage(),
@@ -424,13 +435,61 @@ class PrayerBotController extends Controller
      */
     protected function getHelpReport(): string
     {
-        return trans('bot.help_report_title') . "\n\n" .
+        $message = trans('bot.help_report_title') . "\n\n" .
                trans('bot.help_report_what') . "\n\n" .
                trans('bot.help_report_how') . "\n\n" .
                trans('bot.help_report_settings') . "\n\n" .
                trans('bot.help_report_time') . "\n\n" .
                trans('bot.help_report_security') . "\n\n" .
                trans('bot.help_report_tip');
+        
+        return $message;
+    }
+    
+    /**
+     * نمایش Help گزارش با دکمه دریافت لینک
+     */
+    protected function showHelpReport(Telegram $bot, int $chatId, ?int $messageId = null): void
+    {
+        $botUser = BotUsers::where('chat_id', $chatId)->first();
+        $hasEstimate = $botUser && \App\Models\PrayerEstimate::where('chat_id', $chatId)->exists();
+        
+        $message = $this->getHelpReport();
+        
+        // اگر کاربر تخمین زده باشد، دکمه دریافت لینک را اضافه می‌کنیم
+        $keyboard = [
+            [
+                ['text' => trans('bot.help_btn_back_to_help'), 'callback_data' => 'help_main'],
+            ]
+        ];
+        
+        if ($hasEstimate && $botUser && $botUser->web_report_token) {
+            $reportUrl = url("/namaz-ghaza/{$botUser->web_report_token}");
+            $message .= "\n\n" . trans('bot.help_report_link_available') . "\n";
+            $message .= $reportUrl;
+            
+            // دکمه دریافت لینک
+            array_unshift($keyboard, [
+                ['text' => trans('bot.help_btn_get_report_link'), 'callback_data' => 'help_get_report_link'],
+            ]);
+        } elseif (!$hasEstimate) {
+            $message .= "\n\n" . trans('bot.help_report_need_estimate');
+        }
+        
+        if ($messageId) {
+            $bot->editMessageText([
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        } else {
+            $bot->sendMessage([
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard])
+            ]);
+        }
     }
 
     /**

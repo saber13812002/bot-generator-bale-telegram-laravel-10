@@ -35,9 +35,9 @@ abstract class AbstractEmailService implements EmailService
     /**
      * ارسال ایمیل گزارش هفتگی
      */
-    public function sendWeeklyReportEmail(string $to, array $reportData, string $unsubscribeToken, int $templateVersion = 1): bool
+    public function sendWeeklyReportEmail(string $to, array $reportData, string $unsubscribeToken, int $templateVersion = 1, ?string $lang = null): bool
     {
-        $emailData = EmailData::weeklyReport($to, $reportData, $unsubscribeToken, $templateVersion);
+        $emailData = EmailData::weeklyReport($to, $reportData, $unsubscribeToken, $templateVersion, $lang);
         return $this->sendEmail($emailData);
     }
 

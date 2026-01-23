@@ -131,7 +131,26 @@
 <div class="container">
     <div class="header">
         <h1>🕌 گزارش هفتگی نماز قضا</h1>
-        <p>{{ $reportData['period']['from'] ?? now()->subWeek()->toDateString() }} تا {{ $reportData['period']['to'] ?? now()->toDateString() }}</p>
+        <div style="margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 8px;">
+            <p style="margin: 5px 0; font-size: 16px;">
+                <strong>میلادی:</strong> 
+                {{ $reportData['dates']['gregorian']['start'] ?? $reportData['period']['from'] ?? now()->subWeek()->toDateString() }} 
+                تا 
+                {{ $reportData['dates']['gregorian']['end'] ?? $reportData['period']['to'] ?? now()->toDateString() }}
+            </p>
+            <p style="margin: 5px 0; font-size: 16px;">
+                <strong>شمسی:</strong> 
+                {{ $reportData['dates']['shamsi']['start'] ?? '' }} 
+                تا 
+                {{ $reportData['dates']['shamsi']['end'] ?? '' }}
+            </p>
+            <p style="margin: 5px 0; font-size: 16px;">
+                <strong>قمری:</strong> 
+                {{ $reportData['dates']['hijri']['start'] ?? '' }} 
+                تا 
+                {{ $reportData['dates']['hijri']['end'] ?? '' }}
+            </p>
+        </div>
     </div>
 
     <div class="stats">

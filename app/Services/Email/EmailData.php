@@ -63,8 +63,14 @@ class EmailData
         string $to,
         array $reportData,
         string $unsubscribeToken,
-        int $templateVersion = 1
+        int $templateVersion = 1,
+        ?string $lang = null
     ): self {
+        // تنظیم زبان
+        if ($lang) {
+            app()->setLocale($lang);
+        }
+        
         $view = "emails.prayer-weekly-report-v{$templateVersion}";
         
         // ساخت URL گزارش وب از reportData
@@ -89,6 +95,7 @@ class EmailData
                 'unsubscribeUrl' => url("/email/unsubscribe/{$unsubscribeToken}"),
                 'reportUrl' => $reportUrl,
                 'hasEstimate' => $reportData['has_estimate'] ?? false,
+                'lang' => $lang ?? app()->getLocale(),
             ])->render();
         } catch (\Exception $e) {
             $htmlBody = "<html><body><h1>گزارش هفتگی</h1><p>گزارش هفتگی شما آماده است.</p></body></html>";

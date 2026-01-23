@@ -310,6 +310,21 @@ class SendPrayerWeeklyReports extends Command
         
         // تبدیل به ساختار موردنیاز برای Email
         $reportData = $this->transformReportData($rawReportData);
+        
+        // تعیین زبان از ربات کاربر
+        $lang = null;
+        if ($user->bot_id) {
+            $bot = \App\Models\Bot::find($user->bot_id);
+            if ($bot && $bot->language_code) {
+                $lang = $bot->language_code;
+            }
+        }
+        if (!$lang) {
+            $lang = 'fa'; // پیش‌فرض
+        }
+        
+        // اضافه کردن زبان به reportData
+        $reportData['lang'] = $lang;
 
         // ایجاد رکورد صف
         $queue = EmailReportQueue::create([

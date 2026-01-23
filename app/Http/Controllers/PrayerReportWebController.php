@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\DateHelper;
 use App\Interfaces\Services\PrayerBotService;
 use App\Models\BotUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
+use Carbon\Carbon;
 
 class PrayerReportWebController extends Controller
 {
@@ -37,6 +39,25 @@ class PrayerReportWebController extends Controller
             
             // تبدیل به ساختار موردنیاز
             $reportData = $this->transformReportData($rawReportData);
+            
+            // اضافه کردن تاریخ‌های شمسی و قمری
+            $periodStart = Carbon::parse($reportData['period_start'] ?? now()->subWeek());
+            $periodEnd = Carbon::parse($reportData['period_end'] ?? now());
+            
+            $reportData['dates'] = [
+                'gregorian' => [
+                    'start' => $periodStart->format('Y-m-d'),
+                    'end' => $periodEnd->format('Y-m-d'),
+                ],
+                'shamsi' => [
+                    'start' => DateHelper::toShamsi($periodStart, 'Y/m/d'),
+                    'end' => DateHelper::toShamsi($periodEnd, 'Y/m/d'),
+                ],
+                'hijri' => [
+                    'start' => DateHelper::toHijri($periodStart, 'Y/m/d'),
+                    'end' => DateHelper::toHijri($periodEnd, 'Y/m/d'),
+                ],
+            ];
 
             Log::info('✅ [PrayerReportWeb] Report data prepared', [
                 'user_id' => $user->id,
