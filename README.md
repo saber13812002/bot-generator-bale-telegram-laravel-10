@@ -82,6 +82,7 @@ list of Bot Types that you can clone it, is in next block of this document
 - سیستم حفظ قرآن و ختم قرآن
 - نمایش صفحات اسکن شده قرآن
 - مدیریت جزو و سوره‌ها
+- **سیستم مدیریت فایل‌های آپلود شده:** جلوگیری از آپلود مجدد فایل‌های یکسان و بهینه‌سازی سرعت
 
 ## 🌤️ ربات هواشناسی (Weather Bot)
 - دریافت اطلاعات هواشناسی از API های مختلف (OpenWeatherMap, Tomorrow.io)
@@ -117,8 +118,12 @@ list of Bot Types that you can clone it, is in next block of this document
 - ثبت تخمین نمازهای قضا و ردیابی پیشرفت
 - گزارش‌دهی خودکار هفتگی از طریق ایمیل
 - پشتیبانی کامل از تلگرام و بله
+- **صفحه گزارش وب** با نمایش تاریخ شمسی و قمری
+- **پشتیبانی چندزبانه** برای ایمیل‌های گزارش
+- **دکمه راهنما** برای دریافت لینک گزارش از طریق ربات
 - **[📖 راهنمای کامل و تنظیمات](./docs/features/PRAYER_BOT_README.md)** - شامل تنظیمات Gmail، Laravel، دستورات و نحوه کار
 - [مستندات کامل](./docs/features/PRAYER_QADHA_BOT.md)
+- [بهبودهای صفحه گزارش وب و ایمیل](./docs/features/PRAYER_BOT_WEB_REPORT_ENHANCEMENT.md) - تاریخ شمسی/قمری، چندزبانه، دکمه راهنما
 
 ## 🧠 ربات تست روانشناسی (Psychology Test Bot)
 - ایجاد و برگزاری تست‌های روانشناسی
@@ -301,6 +306,7 @@ list of Bot Types that you can clone it, is in next block of this document
 - [چک لیست تست](./docs/features/TEST_CHECKLIST.md) - چک لیست کامل برای تست فیچرهای جدید
 - [ایمپورت ترجمه‌های قرآن](./docs/features/QURAN_TRANSLATION_IMPORT.md) - راهنمای کامل ایمپورت ترجمه‌های قرآن از فایل‌های SQL dump (شامل دستورات و مثال‌ها)
 - [ردیابی bot_id و bot_mother_id در لاگ‌ها](./docs/features/BOT_LOGS_BOT_ID_TRACKING.md) - ردیابی کامل bot_id و bot_mother_id در تمام لاگ‌های سیستم و امکان به‌روزرسانی لاگ‌های قدیمی
+- [سیستم مدیریت فایل‌های آپلود شده](./docs/features/BOT_FILE_UPLOAD_MANAGEMENT.md) - مدیریت فایل‌های آپلود شده برای جلوگیری از آپلود مجدد و بهینه‌سازی سرعت
 
 هر فیچر دارای مستندات جداگانه است که شامل توضیحات، نحوه استفاده، ساختار فایل‌ها و ... می‌شود.
 
@@ -310,6 +316,12 @@ list of Bot Types that you can clone it, is in next block of this document
   - ثبت‌نام پرسنل جدید از طریق ربات‌های پیام‌رسان
   - اعتبارسنجی اطلاعات و ذخیره در دیتابیس
   - ارسال لینک ربات‌های اختصاصی
+
+- [🕌 بهبودهای صفحه گزارش وب ربات نماز قضا](./docs/features/PRAYER_BOT_WEB_REPORT_ENHANCEMENT.md)
+  - نمایش تاریخ شمسی و قمری در صفحه گزارش
+  - پشتیبانی چندزبانه برای ایمیل‌های گزارش
+  - امکان تست زبان از طریق کامند لاین
+  - دکمه راهنما برای دریافت لینک گزارش از طریق ربات
 
 - [📖 قرآن (Quran Bot)](docs/features/quran-bot.md) - *در حال آماده‌سازی*
   - مطالعه قرآن به صورت آیه به آیه
