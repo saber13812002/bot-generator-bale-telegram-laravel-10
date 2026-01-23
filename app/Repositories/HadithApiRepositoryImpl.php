@@ -28,7 +28,7 @@ class HadithApiRepositoryImpl implements HadithApiRepository
     {
         $baseUrl = env("APP_ENV") != "local" 
             ? "https://hadith.academyofislam.com" 
-            : "http://localhost:3000";
+            : "https://hadith.academyofislam.com";
         
         // استفاده از query parameters که Laravel خودش encoding را انجام می‌دهد
         $response = Http::get($baseUrl . '/v1/narrations', [
