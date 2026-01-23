@@ -88,6 +88,7 @@ class EmailData
                 'unsubscribeToken' => $unsubscribeToken,
                 'unsubscribeUrl' => url("/email/unsubscribe/{$unsubscribeToken}"),
                 'reportUrl' => $reportUrl,
+                'hasEstimate' => $reportData['has_estimate'] ?? false,
             ])->render();
         } catch (\Exception $e) {
             $htmlBody = "<html><body><h1>گزارش هفتگی</h1><p>گزارش هفتگی شما آماده است.</p></body></html>";

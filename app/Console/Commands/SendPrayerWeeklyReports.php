@@ -246,6 +246,9 @@ class SendPrayerWeeklyReports extends Command
             
             // URL گزارش وب (اگر در rawReportData وجود دارد)
             'report_url' => $rawReportData['report_url'] ?? null,
+            
+            // فلگ وجود تخمین
+            'has_estimate' => $rawReportData['has_estimate'] ?? false,
         ]);
     }
 
@@ -283,23 +286,26 @@ class SendPrayerWeeklyReports extends Command
         // دریافت گزارش هفتگی
         $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
 
+        // بررسی وجود تخمین کاربر
+        $hasEstimate = \App\Models\PrayerEstimate::where('chat_id', $user->chat_id)->exists();
+        $rawReportData['has_estimate'] = $hasEstimate;
+
         // ایجاد توکن unsubscribe اگر وجود ندارد
         if (!$user->email_unsubscribe_token) {
             $user->email_unsubscribe_token = bin2hex(random_bytes(32));
         }
         
-        // ایجاد توکن دسترسی به صفحه گزارش وب اگر وجود ندارد
-        if (!$user->web_report_token) {
-            $user->web_report_token = bin2hex(random_bytes(32));
-        }
-        
-        if (!$user->email_unsubscribe_token || !$user->web_report_token) {
-            $user->save();
-        }
-        
-        // اضافه کردن URL گزارش وب به rawReportData
-        if ($user->web_report_token) {
+        // اگر کاربر تخمین زده باشد، توکن دسترسی به صفحه گزارش وب را ایجاد می‌کنیم
+        if ($hasEstimate) {
+            if (!$user->web_report_token) {
+                $user->web_report_token = bin2hex(random_bytes(32));
+            }
+            // اضافه کردن URL گزارش وب به rawReportData
             $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+        }
+        
+        if (!$user->email_unsubscribe_token || ($hasEstimate && !$user->web_report_token)) {
+            $user->save();
         }
         
         // تبدیل به ساختار موردنیاز برای Email

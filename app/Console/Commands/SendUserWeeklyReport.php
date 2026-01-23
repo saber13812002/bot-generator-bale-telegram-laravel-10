@@ -74,12 +74,27 @@ class SendUserWeeklyReport extends Command
             $this->info('📊 دریافت گزارش هفتگی...');
             $rawReportData = $this->prayerBotService->getWeeklyReport($user->chat_id, $user->origin);
             
-            // اضافه کردن URL گزارش وب
-            if ($user->web_report_token) {
-                $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
-                $this->info("🔗 URL گزارش وب: {$rawReportData['report_url']}");
+            // بررسی وجود تخمین کاربر
+            $hasEstimate = \App\Models\PrayerEstimate::where('chat_id', $user->chat_id)->exists();
+            $rawReportData['has_estimate'] = $hasEstimate;
+            
+            if ($hasEstimate) {
+                $this->info("✅ کاربر تخمین زده است");
+                // اضافه کردن URL گزارش وب فقط اگر تخمین زده باشد
+                if ($user->web_report_token) {
+                    $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+                    $this->info("🔗 URL گزارش وب: {$rawReportData['report_url']}");
+                } else {
+                    // ایجاد توکن اگر وجود ندارد
+                    if (!$user->web_report_token) {
+                        $user->web_report_token = bin2hex(random_bytes(32));
+                        $user->save();
+                    }
+                    $rawReportData['report_url'] = url("/namaz-ghaza/{$user->web_report_token}");
+                    $this->info("🔗 URL گزارش وب (تازه ایجاد شده): {$rawReportData['report_url']}");
+                }
             } else {
-                $this->warn("⚠️ web_report_token برای کاربر وجود ندارد!");
+                $this->warn("⚠️ کاربر هنوز تخمین نزده است - گزارش وب ساخته نمی‌شود");
             }
             
             // تبدیل به ساختار موردنیاز
@@ -259,6 +274,9 @@ class SendUserWeeklyReport extends Command
             
             // URL گزارش وب (اگر در rawReportData وجود دارد)
             'report_url' => $rawReportData['report_url'] ?? null,
+            
+            // فلگ وجود تخمین
+            'has_estimate' => $rawReportData['has_estimate'] ?? false,
         ]);
     }
 }
