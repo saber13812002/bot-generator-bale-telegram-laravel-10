@@ -1166,6 +1166,10 @@ class BotHelper
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
+        // چک کردن آیا photoUrl یک file_id است (شروع با "AgAC" یا "BAAC" یا "CAA" برای تلگرام/بله)
+        // یا اینکه یک URL است
+        $isFileId = preg_match('/^(AgAC|BAAC|CAA|BQAC|AwAC)/', $photoUrl) || 
+                    (strlen($photoUrl) < 100 && !filter_var($photoUrl, FILTER_VALIDATE_URL));
 
         $content = [
             'chat_id' => $chat_id,
@@ -1188,6 +1192,10 @@ class BotHelper
      */
     public static function sendAudio(mixed $chat_id, string $audioUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
+        // چک کردن آیا audioUrl یک file_id است (شروع با "CQAC" یا "BAAC" برای تلگرام/بله)
+        // یا اینکه یک URL است
+        $isFileId = preg_match('/^(CQAC|BAAC|AwAC|BQAC)/', $audioUrl) || 
+                    (strlen($audioUrl) < 100 && !filter_var($audioUrl, FILTER_VALIDATE_URL));
 
         $content = [
             'chat_id' => $chat_id,

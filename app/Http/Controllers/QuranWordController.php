@@ -2414,22 +2414,54 @@ class QuranWordController extends Controller
 
 //                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
 
-        $quranScanPage = new QuranScanPage();
-        $quranScanPage->hr = $hr;
-        $quranScanPage->page = $page;
-        $quranScanPage->type = $type;
-
         $index = 2;
         if ($type == 'bale')
             $index = 0;
 
-        $quranScanPage->file_id = $result['photo'][$index]['file_id'];
-        $quranScanPage->file_unique_id = $result['photo'][$index]['file_id'];
-        $quranScanPage->width = $result['photo'][$index]['width'];
-        $quranScanPage->height = $result['photo'][$index]['height'];
-        $quranScanPage->file_size = $result['photo'][$index]['file_size'];
+        $fileId = $result['photo'][$index]['file_id'];
+        $fileUniqueId = $result['photo'][$index]['file_unique_id'] ?? $result['photo'][$index]['file_id'];
+        $width = $result['photo'][$index]['width'];
+        $height = $result['photo'][$index]['height'];
+        $fileSize = $result['photo'][$index]['file_size'];
+
+        // ذخیره در جدول جدید (bot_uploaded_files)
+        $request = request();
+        $botId = $request->input('bot_id') ?? $request->query('bot_id') ?? 1;
+        
+        if ($botId && $type != 'gap') {
+            $fileUniqueKey = \App\Helpers\FileUploadHelper::generateFileUniqueKey('scan_page', [
+                'hr' => $hr,
+                'page' => $page
+            ], $type);
+
+            \App\Helpers\FileUploadHelper::saveUploadedFile(
+                $botId,
+                $type,
+                $fileUniqueKey,
+                'scan_page',
+                $result,
+                [
+                    'hr' => $hr,
+                    'page' => $page,
+                    'bot_type' => $type
+                ],
+                $fileId,
+                $fileUniqueId
+            );
+        }
+
+        // ذخیره در جدول قدیمی (برای backward compatibility)
+        $quranScanPage = new QuranScanPage();
+        $quranScanPage->hr = $hr;
+        $quranScanPage->page = $page;
+        $quranScanPage->type = $type;
+        $quranScanPage->file_id = $fileId;
+        $quranScanPage->file_unique_id = $fileUniqueId;
+        $quranScanPage->width = $width;
+        $quranScanPage->height = $height;
+        $quranScanPage->file_size = $fileSize;
         $quranScanPage->bot_chat_id = $result['from']['id'];
-        $quranScanPage->bot_id = 1;
+        $quranScanPage->bot_id = $botId ?? 1;
         $quranScanPage->save();
         return $quranScanPage;
     }

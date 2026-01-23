@@ -22,6 +22,7 @@ use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
+use App\Helpers\FileUploadHelper;
 
 class QuranHelper
 {
@@ -73,25 +74,54 @@ class QuranHelper
             $audio = self::getAudioUrl($mp3Reciter, $aye);
 
             $caption = self::getSettingReciter($messenger->BotType());
+            $title = self::getAyeDescription($aye);
 
+            $botType = $messenger->BotType();
+
+            // استفاده از FileUploadHelper برای چک کردن file_id
+            if ($botType != "gap") {
+                $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_recitation', [
+                    'reciter' => $mp3Reciter,
+                    'sura' => $suraId,
+                    'aya' => $ayaId
+                ], $botType);
+
+                $fileInfo = FileUploadHelper::getOrUploadFile(
+                    $messenger,
+                    $fileUniqueKey,
+                    $audio,
+                    'audio_recitation',
+                    [
+                        'reciter' => $mp3Reciter,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'title' => $title,
+                        'caption' => $caption
+                    ]
+                );
+
+                // اگر file_id موجود است، از آن استفاده می‌کنیم
+                if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                    $content = [
+                        'chat_id' => $chat_id,
+                        'audio' => $fileInfo['file_id'],
+                        'title' => $title,
+                        'caption' => $caption
+                    ];
+                    $messenger->sendAudio($content);
+                    return;
+                }
+            }
+
+            // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
-//                'parse_mode' => "html",
-                // TODO:
-//            'duration' => NULL,
-//            'performer' => NULL,
-                'title' => self::getAyeDescription($aye),
+                'title' => $title,
                 'caption' => $caption,
-//            'disable_notification' => FALSE,
-//            'reply_to_message_id' => NULL,
-//            'reply_markup' => NULL,
-//            'parse_mode' => NULL
             ];
 
-//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
-
-            if ($messenger->BotType() != "gap")
+            if ($botType != "gap")
                 $messenger->sendAudio($content);
             else {
                 // if not exist download then upload then deleted then save to db
@@ -131,18 +161,53 @@ class QuranHelper
             // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
 
             $caption = self::getSettingReciter($messenger->BotType());
+            $title = self::getAyeDescription($aye);
+            $botType = $messenger->BotType();
 
+            // استفاده از FileUploadHelper برای چک کردن file_id
+            if ($botType != "gap") {
+                $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_translation', [
+                    'locale' => $postfix,
+                    'sura' => $suraId,
+                    'aya' => $ayaId
+                ], $botType);
+
+                $fileInfo = FileUploadHelper::getOrUploadFile(
+                    $messenger,
+                    $fileUniqueKey,
+                    $audio,
+                    'audio_translation',
+                    [
+                        'locale' => $postfix,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'title' => $title,
+                        'caption' => $caption
+                    ]
+                );
+
+                // اگر file_id موجود است، از آن استفاده می‌کنیم
+                if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                    $content = [
+                        'chat_id' => $chat_id,
+                        'audio' => $fileInfo['file_id'],
+                        'title' => $title,
+                        'caption' => $caption
+                    ];
+                    $messenger->sendAudio($content);
+                    return;
+                }
+            }
+
+            // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
-                'title' => self::getAyeDescription($aye),
+                'title' => $title,
                 'caption' => $caption
-//                'parse_mode' => "html"
             ];
 
-//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
-
-            if ($messenger->BotType() != "gap")
+            if ($botType != "gap")
                 $messenger->sendAudio($content);
             else {
                 $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
@@ -262,6 +327,47 @@ class QuranHelper
 
     public static function sendScanPageByUrl($messenger, string $photoUrl, int $pageNumber, int $hr)
     {
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        $botType = $messenger->BotType();
+        if ($botType != 'gap') {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('scan_page', [
+                'hr' => $hr,
+                'page' => $pageNumber
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $photoUrl,
+                'scan_page',
+                [
+                    'hr' => $hr,
+                    'page' => $pageNumber,
+                    'bot_type' => $botType
+                ]
+            );
+
+            // اگر file_id موجود است، از آن استفاده می‌کنیم
+            if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                $chat_id = $messenger->ChatID();
+                $title = "#" . trans("bot.page") . "_" . $pageNumber;
+                $caption = $title;
+                if ($messenger->BotType() != 'bale') {
+                    $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
+                }
+
+                $content = [
+                    'chat_id' => $chat_id,
+                    'photo' => $fileInfo['file_id'],
+                    'caption' => $caption,
+                    'parse_mode' => "HTML"
+                ];
+
+                return $messenger->sendPhoto($content);
+            }
+        }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
         return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
     }
 
@@ -300,7 +406,40 @@ class QuranHelper
         $audio = $base_url . $pageNumber . ".mp3";
 
         $caption = $pageNumber . "-" . ".mp3";
+        $botType = $messenger->BotType();
 
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        if ($botType != "gap") {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_page', [
+                'page' => $pageNumber
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $audio,
+                'audio_page',
+                [
+                    'page' => $pageNumber,
+                    'title' => $caption,
+                    'caption' => $caption
+                ]
+            );
+
+            // اگر file_id موجود است، از آن استفاده می‌کنیم
+            if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                $content = [
+                    'chat_id' => $chat_id,
+                    'audio' => $fileInfo['file_id'],
+                    'title' => $caption,
+                    'caption' => $caption,
+                    'parse_mode' => "html"
+                ];
+                return $messenger->sendAudio($content);
+            }
+        }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
         $content = [
             'chat_id' => $chat_id,
             'audio' => $audio,
@@ -309,7 +448,7 @@ class QuranHelper
             'parse_mode' => "html"
         ];
 
-        if ($messenger->BotType() != "gap")
+        if ($botType != "gap")
             return $messenger->sendAudio($content);
 
     }
