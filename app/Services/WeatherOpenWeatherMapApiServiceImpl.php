@@ -52,6 +52,10 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
         $humidity = $weather_data["main"]["humidity"];
         $pressure = $weather_data["main"]["pressure"];
 
+        $windSpeed = $weather_data['wind']['speed'] ?? 0;
+        $windDeg = $weather_data['wind']['deg'] ?? 0;
+        $windGust = $weather_data['wind']['gust'] ?? 'N/A';
+
         return 'وضعیت هوا 🌬 در قم :
  :' . $weather_description . '
  دید و برد چشم:' . $visibility . '
@@ -61,8 +65,8 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
  رطوبت:' . $humidity . '
  فشار هوا:' . $pressure . '
  وضعیت باد 🌬 :.' . '
- 💨 سرعت  :' . $weather_data['wind']['speed'] . '
-🧭 زاویه  : ' . $weather_data['wind']['deg'] . '
- 🌪 وزش شدید  :' . $weather_data['wind']['gust'];
+ 💨 سرعت  :' . $windSpeed . '
+🧭 زاویه  : ' . $windDeg . '
+ 🌪 وزش شدید  :' . $windGust;
     }
 }

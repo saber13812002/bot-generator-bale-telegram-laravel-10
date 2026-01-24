@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\EmailAdminHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\ProHelper;
 use App\Helpers\StringHelper;
@@ -515,24 +516,25 @@ class WeatherController extends Controller
         }
 
         // ارسال پیام به ادمین
-        $adminContact = env('PRO_ADMIN_CONTACT', '@sabertaba');
+        $adminContact = env('ADMIN_CONTACT_USERNAME', '@sabertaba');
         $adminMessage = "💳 درخواست خرید Pro\n\n";
-        $adminMessage .= "User ID: {$userIdentifier}\n";
-        $adminMessage .= "Chat ID: " . $bot->ChatID() . "\n";
-        $adminMessage .= "Bot ID: {$botId}\n";
-        $adminMessage .= "Request ID: " . $result['request_id'] . "\n\n";
+        $adminMessage .= "👤 User ID: {$userIdentifier}\n";
+        $adminMessage .= "💬 Chat ID: " . $bot->ChatID() . "\n";
+        $adminMessage .= "🤖 Bot ID: {$botId}\n";
+        $adminMessage .= "🆔 Request ID: " . $result['request_id'] . "\n\n";
         $adminMessage .= "لطفاً با کاربر تماس بگیرید و پس از واریز وجه، با دستور زیر تایید کنید:\n";
         $adminMessage .= "/pro_confirm " . $result['request_id'];
 
-        // ارسال به ادمین (باید از BotHelper استفاده شود)
+        // ارسال به همه ادمین‌ها
         try {
-            // این باید از طریق bot admin انجام شود
-            Log::info('💳 [Pro] Purchase request sent to admin', [
+            \App\Helpers\EmailAdminHelper::sendToAllAdmins($adminMessage, $type);
+            Log::info('💳 [Pro] Purchase request sent to admins', [
                 'request_id' => $result['request_id'],
-                'admin' => $adminContact
+                'admin_contact' => $adminContact,
+                'type' => $type
             ]);
         } catch (Exception $e) {
-            Log::error('💳 [Pro] Error sending to admin', ['error' => $e->getMessage()]);
+            Log::error('💳 [Pro] Error sending to admins', ['error' => $e->getMessage()]);
         }
 
         $message = trans('bot.pro_purchase_requested') . "\n\n";
