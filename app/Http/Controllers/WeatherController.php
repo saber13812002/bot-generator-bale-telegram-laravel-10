@@ -283,7 +283,8 @@ class WeatherController extends Controller
         ]);
 
         $message = trans('bot.location_saved') . "\n";
-        $message .= trans('bot.location_address') . ": " . $address;
+        $message .= trans('bot.location_address') . ": " . $address . "\n\n";
+        $message .= StringHelper::getWeatherBotCommandsAsPostfixForMessages();
         BotHelper::sendMessage($bot, $message);
     }
 
