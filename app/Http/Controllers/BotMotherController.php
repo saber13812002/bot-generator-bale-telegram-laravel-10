@@ -177,6 +177,10 @@ class BotMotherController extends Controller
             else if ($text == '/logs' || $text == '/لاگ' || $text == 'لاگ' || strtolower($text) == 'logs') {
                 $this->handleLogs($bot, $type);
             }
+            // Handle pro_confirm command
+            else if (str_starts_with($text, '/pro_confirm')) {
+                $this->handleProConfirm($bot, $text, $type);
+            }
             // Handle Quran bots introduction command
             else if ($text == '/quran_bots' || $text == '/ربات_قرآن' || $text == 'ربات قرآن' || strtolower($text) == 'quran_bots' || strtolower($text) == 'quran bots') {
                 $this->handleQuranBotsIntroduction($bot, $type, $botMotherId);
@@ -2536,6 +2540,76 @@ class BotMotherController extends Controller
                 'chat_id' => $bot->ChatID(),
                 'type' => $type,
             ]);
+        }
+    }
+
+    /**
+     * Handle /pro_confirm command
+     */
+    private function handleProConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        
+        // استخراج request_id از دستور
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+        
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /pro_confirm [REQUEST_ID]");
+            return;
+        }
+        
+        try {
+            $proService = app(\App\Services\ProServiceImpl::class);
+            $adminId = 1; // می‌توانیم از AdminHelper استفاده کنیم
+            
+            $result = $proService->confirmPurchase((int)$requestId, $adminId);
+            
+            if ($result) {
+                $request = \App\Models\ProPurchaseRequest::find($requestId);
+                $botUser = $request->botUser ?? null;
+                
+                $message = "✅ درخواست Pro با موفقیت تایید شد!\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($botUser) {
+                    $message .= "👤 User: {$request->user_identifier}\n";
+                    $message .= "💬 Chat ID: {$botUser->chat_id}\n";
+                }
+                
+                BotHelper::sendMessage($bot, $message);
+                
+                // ارسال پیام به کاربر
+                if ($botUser && $request->bot) {
+                    $botToken = $type === 'bale' 
+                        ? $request->bot->bale_bot_token 
+                        : $request->bot->telegram_bot_token;
+                    
+                    if ($botToken) {
+                        $userBot = new Telegram($botToken, $type === 'bale' ? 'bale' : null);
+                        BotHelper::sendMessageByChatId(
+                            $userBot, 
+                            $botUser->chat_id, 
+                            "✅ درخواست Pro شما تایید شد!\n\nحالا می‌توانید از امکانات Pro استفاده کنید."
+                        );
+                    }
+                }
+                
+                Log::info('✅ [BotMother] Pro purchase confirmed', [
+                    'request_id' => $requestId,
+                    'admin_chat_id' => $chatId,
+                    'type' => $type
+                ]);
+            } else {
+                BotHelper::sendMessage($bot, "❌ خطا در تایید درخواست.\n\nممکن است درخواست قبلاً پردازش شده باشد.");
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] Error confirming pro purchase', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+            
+            BotHelper::sendMessage($bot, "❌ خطا در پردازش درخواست:\n\n" . $e->getMessage());
         }
     }
 

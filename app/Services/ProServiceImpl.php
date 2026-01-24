@@ -106,6 +106,8 @@ class ProServiceImpl implements ProService
 
         // به‌روزرسانی request
         $request->status = 'confirmed';
+        $request->approved_by = $adminId;
+        $request->approved_at = now();
         $request->save();
 
         Log::info('✅ [Pro] Purchase confirmed', [

@@ -48,3 +48,9 @@ Route::get('/contributions', [ContributionController::class, 'design']);
 // Prayer Report Web Pages
 Route::get('/namaz-ghaza/{token}', [\App\Http\Controllers\PrayerReportWebController::class, 'show']);
 Route::get('/test-js', [\App\Http\Controllers\PrayerReportWebController::class, 'test']);
+
+// Pro Purchase Approval Routes
+Route::get('/admin/pro-purchase/{id}/approve', [\App\Http\Controllers\Admin\ProPurchaseController::class, 'approve'])
+    ->name('admin.pro-purchase.approve');
+Route::get('/admin/pro-purchase/{id}/reject', [\App\Http\Controllers\Admin\ProPurchaseController::class, 'reject'])
+    ->name('admin.pro-purchase.reject');

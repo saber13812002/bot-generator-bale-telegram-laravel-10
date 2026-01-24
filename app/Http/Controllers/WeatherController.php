@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Helpers\BotMotherStateHelper;
 use App\Helpers\EmailAdminHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\ProHelper;
@@ -432,7 +433,9 @@ class WeatherController extends Controller
             $message .= "❌ " . trans('bot.email_settings_no_email') . "\n";
         }
 
-        $message .= "\n📅 " . trans('bot.email_settings_frequency') . ": " . trans('bot.' . ($botUser->email_report_frequency ?? 'weekly')) . "\n\n";
+        // استفاده از فرکانس ایمیل هواشناسی (مستقل از نماز قضا)
+        $weatherEmailFrequency = $botUser->setting('weather_email_frequency', $botUser->email_report_frequency ?? 'weekly');
+        $message .= "\n📅 " . trans('bot.email_settings_frequency') . ": " . trans('bot.' . $weatherEmailFrequency) . "\n\n";
         $message .= trans('bot.email_settings_instructions');
 
         $keyboard = [
@@ -516,27 +519,23 @@ class WeatherController extends Controller
             return;
         }
 
-        // ارسال پیام به ادمین
-        $adminContact = env('ADMIN_CONTACT_USERNAME', '@sabertaba');
-        $adminMessage = "💳 درخواست خرید Pro\n\n";
-        $adminMessage .= "👤 User ID: {$userIdentifier}\n";
-        $adminMessage .= "💬 Chat ID: " . $bot->ChatID() . "\n";
-        $adminMessage .= "🤖 Bot ID: {$botId}\n";
-        $adminMessage .= "🆔 Request ID: " . $result['request_id'] . "\n\n";
-        $adminMessage .= "لطفاً با کاربر تماس بگیرید و پس از واریز وجه، با دستور زیر تایید کنید:\n";
-        $adminMessage .= "/pro_confirm " . $result['request_id'];
-
-        // ارسال به همه ادمین‌ها
+        // ارسال اعلان به ادمین‌ها (ربات + ایمیل)
         try {
-            \App\Helpers\EmailAdminHelper::sendToAllAdmins($adminMessage, $type);
-            Log::info('💳 [Pro] Purchase request sent to admins', [
-                'request_id' => $result['request_id'],
-                'admin_contact' => $adminContact,
-                'type' => $type
-            ]);
+            $request = \App\Models\ProPurchaseRequest::find($result['request_id']);
+            if ($request) {
+                $notificationService = app(\App\Services\ProPurchaseNotificationService::class);
+                $notificationService->notifyAdmins($request);
+                
+                Log::info('💳 [Pro] Purchase request notification sent', [
+                    'request_id' => $result['request_id'],
+                    'type' => $type
+                ]);
+            }
         } catch (Exception $e) {
-            Log::error('💳 [Pro] Error sending to admins', ['error' => $e->getMessage()]);
+            Log::error('💳 [Pro] Error sending notifications', ['error' => $e->getMessage()]);
         }
+        
+        $adminContact = env('ADMIN_CONTACT_USERNAME', '@sabertaba');
 
         $message = trans('bot.pro_purchase_requested') . "\n\n";
         $message .= trans('bot.pro_contact_admin', ['admin' => $adminContact]) . "\n\n";
@@ -550,6 +549,27 @@ class WeatherController extends Controller
      */
     private function handleTextMessage(Telegram $bot, string $text, BotUsers $botUser, ?int $botId, string $type): void
     {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        
+        // بررسی state برای alert threshold
+        if ($currentState === 'weather_waiting_alert_threshold') {
+            $this->handleAlertThresholdInput($bot, $text, $botUser, $botId, $type);
+            return;
+        }
+        
+        // بررسی state برای email address
+        if ($currentState === 'weather_waiting_email_address') {
+            $this->handleEmailAddressInput($bot, $text, $botUser, $type);
+            return;
+        }
+        
+        // بررسی state برای email verification code
+        if ($currentState === 'weather_waiting_email_code') {
+            $this->handleEmailVerificationCodeInput($bot, $text, $botUser, $type);
+            return;
+        }
+        
         // اگر عدد است، برای forecasting استفاده می‌شود
         if (is_numeric($text) && intval($text) > 1 && intval($text) < 20) {
             $this->handleForecastingCommand($bot, $botUser, $botId, $type, intval($text));
@@ -618,8 +638,12 @@ class WeatherController extends Controller
 
         BotHelper::sendMessage($bot, $message);
         
-        // باید state را set کنیم تا threshold را دریافت کنیم
-        // برای سادگی، از کاربر می‌خواهیم threshold را به صورت "type:value" ارسال کند
+        // Set state برای دریافت threshold
+        $chatId = $bot->ChatID();
+        BotMotherStateHelper::setState($chatId, 'weather_waiting_alert_threshold', [
+            'alert_type' => $alertType,
+            'bot_id' => $botId,
+        ]);
     }
 
     /**
@@ -650,8 +674,189 @@ class WeatherController extends Controller
      */
     private function handleEmailCallback(Telegram $bot, BotUsers $botUser, string $data, string $type): void
     {
-        // استفاده از کد مشابه ربات نماز قضا
-        // این باید state management داشته باشد
+        $chatId = $bot->ChatID();
+        
+        // پردازش فرکانس ایمیل
+        if (str_starts_with($data, 'email_frequency_')) {
+            $frequency = str_replace('email_frequency_', '', $data);
+            $this->updateWeatherEmailFrequency($bot, $chatId, $botUser, $frequency);
+            return;
+        }
+        
+        // پردازش لغو اشتراک
+        if ($data === 'email_unsubscribe') {
+            $botUser->settings(['weather_email_frequency' => 'never']);
+            $botUser->save();
+            BotHelper::sendMessage($bot, trans('bot.email_unsubscribed'));
+            return;
+        }
+        
+        // پردازش تغییر ایمیل
+        if ($data === 'email_change') {
+            BotMotherStateHelper::setState($chatId, 'weather_waiting_email_address', []);
+            BotHelper::sendMessage($bot, trans('bot.email_settings_change_email') . "\n\n" . trans('bot.email_format_example'));
+            return;
+        }
+    }
+    
+    /**
+     * به‌روزرسانی فرکانس ایمیل هواشناسی
+     */
+    private function updateWeatherEmailFrequency(Telegram $bot, int $chatId, BotUsers $botUser, string $frequency): void
+    {
+        $botUser->settings(['weather_email_frequency' => $frequency]);
+        $botUser->save();
+        
+        $message = "✅ " . trans('bot.email_frequency_updated') . "\n\n";
+        $message .= "📅 " . trans('bot.email_settings_frequency') . ": " . trans('bot.' . $frequency);
+        
+        BotHelper::sendMessage($bot, $message);
+        
+        Log::info('📅 [Weather] Email frequency updated', [
+            'chat_id' => $chatId,
+            'frequency' => $frequency
+        ]);
+    }
+    
+    /**
+     * پردازش threshold input برای alert
+     */
+    private function handleAlertThresholdInput(Telegram $bot, string $text, BotUsers $botUser, ?int $botId, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $stateData = BotMotherStateHelper::getData($chatId);
+        $alertType = $stateData['alert_type'] ?? null;
+        $botId = $stateData['bot_id'] ?? $botId;
+        
+        if (!$alertType) {
+            BotHelper::sendMessage($bot, trans('bot.alert_not_found'));
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+        
+        // بررسی اینکه text یک عدد معتبر است
+        if (!is_numeric($text) || floatval($text) <= 0) {
+            BotHelper::sendMessage($bot, trans('bot.alert_example_threshold') . "\n\n" . trans('bot.please_try_again'));
+            return;
+        }
+        
+        $threshold = floatval($text);
+        
+        // enum در database: ['temperature', 'precipitation', 'wind', 'snow']
+        // comparison_type: ['increase', 'decrease', 'absolute']
+        
+        try {
+            // ایجاد alert با استفاده از WeatherAlertService
+            $alertData = [
+                'alert_type' => $alertType, // temperature, precipitation, wind, snow
+                'threshold_value' => $threshold,
+                'comparison_type' => 'increase', // increase, decrease, absolute
+                'time_hour' => null, // optional
+                'is_active' => true,
+            ];
+            
+            $result = $this->weatherAlertService->createAlert(
+                $botUser->id,
+                $botId,
+                $alertData
+            );
+            
+            if ($result['success']) {
+                BotHelper::sendMessage($bot, trans('bot.alert_created'));
+                
+                // نمایش لیست alerts
+                $this->handleAlertListCommand($bot, $botUser, $botId, $type);
+                
+                // Clear state
+                BotMotherStateHelper::clearState($chatId);
+            } else {
+                BotHelper::sendMessage($bot, $result['message'] ?? trans('bot.alert_limit_reached', ['max' => 3]));
+                BotMotherStateHelper::clearState($chatId);
+            }
+            
+        } catch (Exception $e) {
+            Log::error('❌ [Weather] Error creating alert', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId,
+                'alert_type' => $alertType,
+                'threshold' => $threshold
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.alert_limit_reached', ['max' => 3]));
+            BotMotherStateHelper::clearState($chatId);
+        }
+    }
+    
+    /**
+     * پردازش email address input
+     */
+    private function handleEmailAddressInput(Telegram $bot, string $text, BotUsers $botUser, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        
+        // بررسی فرمت ایمیل
+        if (!filter_var($text, FILTER_VALIDATE_EMAIL)) {
+            BotHelper::sendMessage($bot, trans('bot.email_invalid_format'));
+            return;
+        }
+        
+        // استفاده از EmailService برای ارسال کد تایید
+        try {
+            $emailService = $this->getEmailService();
+            $result = $emailService->sendVerificationCode($botUser, $text);
+            
+            if ($result['success']) {
+                $botUser->email = $text;
+                $botUser->email_verified_at = null;
+                $botUser->save();
+                
+                BotMotherStateHelper::setState($chatId, 'weather_waiting_email_code', []);
+                BotHelper::sendMessage($bot, trans('bot.email_code_sent') . "\n\n" . trans('bot.email_enter_code'));
+            } else {
+                BotHelper::sendMessage($bot, trans('bot.email_send_error'));
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [Weather] Error sending email verification code', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.email_send_error'));
+        }
+    }
+    
+    /**
+     * پردازش email verification code input
+     */
+    private function handleEmailVerificationCodeInput(Telegram $bot, string $text, BotUsers $botUser, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        
+        // بررسی فرمت کد (6 رقم)
+        if (!preg_match('/^\d{6}$/', $text)) {
+            BotHelper::sendMessage($bot, trans('bot.email_code_invalid_format'));
+            return;
+        }
+        
+        // استفاده از EmailService برای تایید کد
+        try {
+            $emailService = $this->getEmailService();
+            $result = $emailService->verifyCode($botUser, $text);
+            
+            if ($result['success']) {
+                BotHelper::sendMessage($bot, trans('bot.email_verified_success'));
+                BotMotherStateHelper::clearState($chatId);
+                
+                // نمایش تنظیمات ایمیل
+                $this->handleEmailCommand($bot, $botUser, $type);
+            } else {
+                BotHelper::sendMessage($bot, $result['message'] ?? trans('bot.email_code_incorrect'));
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [Weather] Error verifying email code', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.email_verification_error'));
+        }
     }
 
     /**

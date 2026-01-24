@@ -4,18 +4,18 @@ overview: "پیاده‌سازی سیستم کامل ربات هواشناسی �
 todos:
   - id: "1"
     content: ایجاد migrations برای location، alerts، pro users و purchase requests
-    status: completed
+    status: in_progress
   - id: "2"
     content: "ایجاد Models: WeatherAlert, ProUser, ProPurchaseRequest, WeatherHistory"
-    status: completed
+    status: pending
     dependencies:
       - "1"
   - id: "3"
     content: ایجاد ReverseGeocodingService و WeatherComparisonService
-    status: completed
+    status: pending
   - id: "4"
     content: ایجاد ProService (ماژول عمومی) و ProHelper
-    status: completed
+    status: pending
     dependencies:
       - "2"
   - id: "5"

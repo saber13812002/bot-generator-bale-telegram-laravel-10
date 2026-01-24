@@ -18,11 +18,14 @@ class ProPurchaseRequest extends Model
         'payment_info',
         'status',
         'admin_notes',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'approved_at' => 'datetime',
     ];
 
     /**
