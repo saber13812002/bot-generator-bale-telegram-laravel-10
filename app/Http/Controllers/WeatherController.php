@@ -30,7 +30,6 @@ class WeatherController extends Controller
     private ReverseGeocodingService $reverseGeocodingService;
     private WeatherAlertService $weatherAlertService;
     private ProService $proService;
-    private EmailService $emailService;
 
     // Default location (Qom) if user hasn't set location
     private const DEFAULT_LATITUDE = 34.600209;
@@ -41,15 +40,21 @@ class WeatherController extends Controller
         WeatherOpenWeatherMapApiService $weatherOpenWeatherMapApiService,
         ReverseGeocodingService $reverseGeocodingService,
         WeatherAlertService $weatherAlertService,
-        ProService $proService,
-        EmailService $emailService
+        ProService $proService
     ) {
         $this->weatherTomorrowApiService = $weatherTomorrowApiService;
         $this->weatherOpenWeatherMapApiService = $weatherOpenWeatherMapApiService;
         $this->reverseGeocodingService = $reverseGeocodingService;
         $this->weatherAlertService = $weatherAlertService;
         $this->proService = $proService;
-        $this->emailService = $emailService;
+    }
+
+    /**
+     * Get EmailService instance
+     */
+    private function getEmailService(): EmailService
+    {
+        return app(EmailService::class);
     }
 
     /**
