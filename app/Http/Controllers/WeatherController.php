@@ -7,6 +7,7 @@ use App\Helpers\LogHelper;
 use App\Helpers\ProHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
+use App\Interfaces\Services\EmailService;
 use App\Interfaces\Services\ProService;
 use App\Interfaces\Services\ReverseGeocodingService;
 use App\Interfaces\Services\WeatherAlertService;

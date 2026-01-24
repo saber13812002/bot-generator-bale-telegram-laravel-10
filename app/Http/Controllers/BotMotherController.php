@@ -37,22 +37,48 @@ class BotMotherController extends Controller
      */
     public function botMotherWebhook(BotRequest $request)
     {
+        Log::info('🤖 [BotMother] Webhook received', [
+            'has_origin' => $request->has('origin'),
+            'has_bot_mother_id' => $request->has('bot_mother_id'),
+            'origin' => $request->input('origin'),
+            'bot_mother_id' => $request->input('bot_mother_id'),
+            'has_token' => $request->has('token'),
+        ]);
+
         if ($request->has('origin') && $request->has('bot_mother_id')) {
             $type = $request->input('origin');
             $botMotherId = $request->input('bot_mother_id');
             if ($type == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
+                $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE");
+                Log::info('🤖 [BotMother] Creating Bale bot instance', [
+                    'has_custom_token' => $request->has('token'),
+                    'using_env_token' => !$request->has('token'),
+                ]);
+                $bot = new Telegram($token, 'bale');
             } else {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
+                $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM");
+                $bot = new Telegram($token);
             }
 
             // چک کردن ادمین بودن کاربر
             $chatId = $bot->ChatID();
+            Log::info('🤖 [BotMother] Checking admin status', [
+                'chat_id' => $chatId,
+                'type' => $type,
+            ]);
+            
             if (!AdminHelper::isAdmin($chatId)) {
+                Log::warning('⚠️ [BotMother] User is not admin', [
+                    'chat_id' => $chatId,
+                ]);
                 $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
                 BotHelper::sendMessage($bot, $message);
                 return;
             }
+            
+            Log::info('✅ [BotMother] User is admin, processing request', [
+                'chat_id' => $chatId,
+            ]);
 
             // Log the request
             try {
