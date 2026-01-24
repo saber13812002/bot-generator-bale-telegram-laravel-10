@@ -150,4 +150,30 @@ lang/*/bot.php                              # Translations (همه زبان‌ه
 
 ---
 
-**آخرین به‌روزرسانی:** 2026-01-06
+---
+
+## 🔗 Webhook URL برای Bot Mother
+
+**⚠️ مهم:** هنگام تنظیم webhook برای Bot Mother در بله:
+
+1. **حتماً `bot_mother_id` را در URL اضافه کنید**
+2. **توکن را همیشه در webhook URL قرار دهید** (حتی اگر از env استفاده می‌کند)
+
+```php
+// ✅ درست - با توکن در URL
+$token = "312190186:O9PKOyN2rCI6tyDF4Y5FkuIqijQpM9Xc-3I";
+$webhookUrl = env('APP_URL') . '/api/webhook-bot-mother?origin=bale&bot_mother_id=1&token=' . $token;
+```
+
+**مثال curl یک خطی:**
+```bash
+curl "https://tapi.bale.ai/bot312190186:O9PKOyN2rCI6tyDF4Y5FkuIqijQpM9Xc-3I/setWebhook?url=https://bots.pardisania.ir/api/webhook-bot-mother?origin=bale&bot_mother_id=1&token=312190186:O9PKOyN2rCI6tyDF4Y5FkuIqijQpM9Xc-3I"
+```
+
+**نکته:** 
+- `origin` و `bot_mother_id` الزامی هستند
+- `token` در query string اختیاری است اما **همیشه باید در webhook URL قرار گیرد**
+
+---
+
+**آخرین به‌روزرسانی:** 2026-01-24
