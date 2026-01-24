@@ -4,5 +4,5 @@ namespace App\Interfaces\Services;
 
 interface WeatherOpenWeatherMapApiService
 {
-    public function getMessage(): string;
+    public function getMessage(float $latitude, float $longitude): string;
 }

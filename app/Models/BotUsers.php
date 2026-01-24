@@ -15,6 +15,7 @@ class BotUsers extends Model
         'email_verified_at' => 'datetime',
         'email_verification_code_expires_at' => 'datetime',
         'last_email_report_sent_at' => 'datetime',
+        'location_set_at' => 'datetime',
     ];
 
     protected $guarded = [];
@@ -99,5 +100,99 @@ class BotUsers extends Model
     {
         return $this->hasMany(BotUsers::class, 'invited_by', 'chat_id')
             ->where('origin', $this->origin);
+    }
+
+    /**
+     * Relationship: Weather Alerts
+     */
+    public function weatherAlerts()
+    {
+        return $this->hasMany(WeatherAlert::class, 'bot_user_id');
+    }
+
+    /**
+     * Relationship: Pro Subscriptions
+     */
+    public function proSubscriptions()
+    {
+        return $this->hasMany(ProUser::class, 'bot_user_id');
+    }
+
+    /**
+     * دریافت location
+     */
+    public function getLocation(): ?array
+    {
+        if ($this->latitude && $this->longitude) {
+            return [
+                'latitude' => (float) $this->latitude,
+                'longitude' => (float) $this->longitude,
+                'address' => $this->location_address,
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * ذخیره location
+     */
+    public function setLocation(float $lat, float $lng, ?string $address = null): self
+    {
+        $this->latitude = $lat;
+        $this->longitude = $lng;
+        $this->location_address = $address;
+        $this->location_set_at = now();
+        $this->save();
+        return $this;
+    }
+
+    /**
+     * بررسی وجود location
+     */
+    public function hasLocation(): bool
+    {
+        return !is_null($this->latitude) && !is_null($this->longitude);
+    }
+
+    /**
+     * بررسی Pro بودن برای یک ربات
+     */
+    public function isPro(?int $botId = null): bool
+    {
+        $query = $this->proSubscriptions()
+            ->where('status', 'active');
+        
+        if ($botId) {
+            $query->where('bot_id', $botId);
+        }
+        
+        $pro = $query->first();
+        
+        if (!$pro) {
+            return false;
+        }
+        
+        // بررسی انقضا
+        if ($pro->expires_at && $pro->expires_at->isPast()) {
+            $pro->status = 'expired';
+            $pro->save();
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
+     * تعداد alerts فعال برای یک ربات
+     */
+    public function getActiveAlertsCount(?int $botId = null): int
+    {
+        $query = $this->weatherAlerts()->where('is_active', true);
+        
+        if ($botId) {
+            $query->where('bot_id', $botId);
+        }
+        
+        return $query->count();
     }
 }

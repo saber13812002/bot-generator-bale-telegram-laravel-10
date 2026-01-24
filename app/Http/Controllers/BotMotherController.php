@@ -674,8 +674,26 @@ class BotMotherController extends Controller
         if ($endpoint['requires_language']) {
             $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
             
+            // برای ربات هواشناسی فقط فارسی و انگلیسی
+            if ($endpointId === 'weather-bot') {
+                $message .= "🌍 زبان را انتخاب کنید:\n\n";
+                $languages = [
+                    'fa' => '🇮🇷 فارسی',
+                    'en' => '🇬🇧 English',
+                ];
+                
+                $buttons = [
+                    [
+                        $bot->buildInlineKeyBoardButton($languages['fa'], callback_data: 'lang_fa'),
+                        $bot->buildInlineKeyBoardButton($languages['en'], callback_data: 'lang_en'),
+                    ]
+                ];
+                
+                $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+                BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+            }
             // Check if endpoint supports multiple languages
-            if (isset($endpoint['supports_multiple_languages']) && $endpoint['supports_multiple_languages']) {
+            elseif (isset($endpoint['supports_multiple_languages']) && $endpoint['supports_multiple_languages']) {
                 // Show 15 languages with inline buttons
                 $message .= "🌍 زبان را انتخاب کنید:\n\n";
                 $languages = $this->getSupportedLanguages();

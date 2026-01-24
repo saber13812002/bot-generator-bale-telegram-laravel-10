@@ -9,6 +9,7 @@ use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
 use App\Console\Commands\UsersRankingCommand;
 use App\Console\Commands\weatherWindCommand;
+use App\Jobs\CheckWeatherAlertsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -57,6 +58,12 @@ class Kernel extends ConsoleKernel
         
         if (env('TestScheduleDailyIntoSlack'))
             $schedule->command(TestScheduleDailyIntoSlack::class)->dailyAt("07:00"); //10:30 iran
+        
+        // چک کردن weather alerts هر یک ساعت
+        $schedule->job(new CheckWeatherAlertsJob)
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**

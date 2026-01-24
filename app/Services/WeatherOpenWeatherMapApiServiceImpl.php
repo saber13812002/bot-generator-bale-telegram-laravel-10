@@ -19,19 +19,21 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
     /**
      * @throws GuzzleException
      */
-    public function getMessage(): string
+    public function getMessage(float $latitude, float $longitude): string
     {
-        return $this->getMessageFromOpenWeatherMapApi();
+        return $this->getMessageFromOpenWeatherMapApi($latitude, $longitude);
     }
 
 
     /**
+     * @param float $latitude
+     * @param float $longitude
      * @return string
      * @throws GuzzleException
      */
-    public function getMessageFromOpenWeatherMapApi(): string
+    public function getMessageFromOpenWeatherMapApi(float $latitude, float $longitude): string
     {
-        $weather_data = $this->weatherOpenWeatherApiRepository->call();
+        $weather_data = $this->weatherOpenWeatherApiRepository->call($latitude, $longitude);
         return self::generateMessageByWeatherData($weather_data);
     }
 

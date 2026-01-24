@@ -4,5 +4,5 @@ namespace App\Interfaces\Repositories;
 
 interface WeatherOpenWeatherApiRepository
 {
-    public function call();
+    public function call(float $latitude, float $longitude);
 }

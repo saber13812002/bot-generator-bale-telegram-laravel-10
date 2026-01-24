@@ -11,9 +11,9 @@ class WeatherOpenWeatherApiRepositoryImpl implements WeatherOpenWeatherApiReposi
     /**
      * @throws GuzzleException
      */
-    public function call()
+    public function call(float $latitude, float $longitude)
     {
-        return self::callOpenWeatherMap();
+        return self::callOpenWeatherMap($latitude, $longitude);
     }
 
 
@@ -22,16 +22,23 @@ class WeatherOpenWeatherApiRepositoryImpl implements WeatherOpenWeatherApiReposi
      * @return mixed
      * @throws GuzzleHttp\Exception\GuzzleException
      */
-    private static function callOpenWeatherMap(): mixed
+    private static function callOpenWeatherMap(float $latitude, float $longitude): mixed
     {
         $api_key = env("OPENWEATHER_API_TOKEN");
-        $city_name = "Qom";
         $language = 'fa';
 
         $client = new GuzzleHttp\Client();
-        $response = $client->get('https://api.openweathermap.org/data/2.5/weather?q=' . $city_name . '&lang=' . $language . '&units=metric&appid=' . $api_key);
-//        echo $request->getStatusCode(); // 200
-//        echo $response->getBody()->getContents();
+        // استفاده از coordinates به جای city name
+        $response = $client->get('https://api.openweathermap.org/data/2.5/weather', [
+            'query' => [
+                'lat' => $latitude,
+                'lon' => $longitude,
+                'lang' => $language,
+                'units' => 'metric',
+                'appid' => $api_key
+            ]
+        ]);
+        
         return json_decode($response->getBody(), true);
     }
 }

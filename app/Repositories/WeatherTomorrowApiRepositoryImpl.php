@@ -12,16 +12,16 @@ class WeatherTomorrowApiRepositoryImpl implements WeatherTomorrowApiRepository
     /**
      * @throws GuzzleException
      */
-    public function call()
+    public function call(float $latitude, float $longitude)
     {
-        return self::callTomorrow();
+        return self::callTomorrow($latitude, $longitude);
     }
 
 
     /**
      * @throws GuzzleException
      */
-    private static function callTomorrow()
+    private static function callTomorrow(float $latitude, float $longitude)
     {
         $api_key = env("TOMORROW_API_TOKEN");
         
@@ -36,7 +36,7 @@ class WeatherTomorrowApiRepositoryImpl implements WeatherTomorrowApiRepository
         // استفاده از query parameters برای encoding بهتر
         $uri = $baseUrl . '/v4/timelines';
         $params = [
-            'location' => '34.600209,50.828128',
+            'location' => "{$latitude},{$longitude}",
             'apikey' => $api_key,
             'units' => 'metric',
             'timesteps' => '1h',

@@ -21,10 +21,10 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
 
     /**
      */
-    public function getMessage(string $userText, $isBot = true): string
+    public function getMessage(string $userText, float $latitude, float $longitude, $isBot = true): string
     {
         if ($isBot) {
-            $message = $this->getMessageFromTomorrowApi($userText);
+            $message = $this->getMessageFromTomorrowApi($userText, $latitude, $longitude);
             if ($message == "")
                 return "هیچ گزارش سرعت بالای حد تعیین شده نداشتیم";
             else
@@ -36,13 +36,15 @@ class WeatherTomorrowApiServiceImpl implements WeatherTomorrowApiService
 
     /**
      * @param string $botText
+     * @param float $latitude
+     * @param float $longitude
      * @return string
      * @throws Exception
      */
-    public function getMessageFromTomorrowApi(string $botText): string
+    public function getMessageFromTomorrowApi(string $botText, float $latitude, float $longitude): string
     {
         try {
-            $weather_data = $this->weatherTomorrowApiRepository->call();
+            $weather_data = $this->weatherTomorrowApiRepository->call($latitude, $longitude);
             
             // لاگ برای بررسی ساختار پاسخ API
             Log::info('🌤 [Weather] API Response Structure', [

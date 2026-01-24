@@ -4,57 +4,57 @@ overview: "پیاده‌سازی سیستم کامل ربات هواشناسی �
 todos:
   - id: "1"
     content: ایجاد migrations برای location، alerts، pro users و purchase requests
-    status: in_progress
+    status: completed
   - id: "2"
     content: "ایجاد Models: WeatherAlert, ProUser, ProPurchaseRequest, WeatherHistory"
-    status: pending
+    status: completed
     dependencies:
       - "1"
   - id: "3"
     content: ایجاد ReverseGeocodingService و WeatherComparisonService
-    status: pending
+    status: completed
   - id: "4"
     content: ایجاد ProService (ماژول عمومی) و ProHelper
-    status: pending
+    status: completed
     dependencies:
       - "2"
   - id: "5"
     content: ایجاد WeatherAlertService با محدودیت 3 alert
-    status: pending
+    status: completed
     dependencies:
       - "2"
       - "3"
   - id: "6"
     content: به‌روزرسانی WeatherController با دستورات location، alert، email، pro
-    status: pending
+    status: completed
     dependencies:
       - "3"
       - "4"
       - "5"
   - id: "7"
     content: ایجاد CheckWeatherAlertsJob و schedule در Kernel
-    status: pending
+    status: completed
     dependencies:
       - "5"
   - id: "8"
     content: پیاده‌سازی سیستم ایمیل (استفاده از کد موجود)
-    status: pending
+    status: completed
     dependencies:
       - "5"
   - id: "9"
     content: ایجاد WeatherWebController و view گزارش وب
-    status: pending
+    status: completed
     dependencies:
       - "2"
   - id: "10"
     content: به‌روزرسانی BotMotherController برای فقط زبان در ربات هواشناسی
-    status: pending
+    status: completed
   - id: "11"
     content: اضافه کردن ترجمه‌های جدید به lang files
-    status: pending
+    status: completed
   - id: "12"
     content: ایجاد Admin Controller برای تایید خرید Pro
-    status: pending
+    status: completed
     dependencies:
       - "4"
 ---
