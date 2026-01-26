@@ -1,0 +1,111 @@
+# ============================================
+# Quran API Test Commands - Ready to Copy & Paste
+# Base URL: https://bots.pardisania.ir
+# ============================================
+
+# Test 1: Get Languages
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/languages" -H "Accept: application/json"
+
+# Test 2: Get Translations for Persian
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/translations?language=fa" -H "Accept: application/json"
+
+# Test 3: Get Translations for English
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/translations?language=en" -H "Accept: application/json"
+
+# Test 4: Get All Surahs
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/surahs" -H "Accept: application/json"
+
+# Test 5: Get First Ayah of First Surah (Al-Fatiha) with Persian Translation
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/surahs/1/ayahs/1?language=fa&translator=ansarian" -H "Accept: application/json"
+
+# Test 6: Get First Ayah with English Translation
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/surahs/1/ayahs/1?language=en" -H "Accept: application/json"
+
+# Test 7: Get Second Ayah
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/surahs/1/ayahs/2?language=fa" -H "Accept: application/json"
+
+# Test 8: Get Word by ID
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/words/1" -H "Accept: application/json"
+
+# Test 9: Get Juz List
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/juz" -H "Accept: application/json"
+
+# Test 10: Get First Juz Content
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/juz/1" -H "Accept: application/json"
+
+# Test 11: Search Quran
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/search?query=الرحمن&page=1&per_page=5" -H "Accept: application/json"
+
+# Test 12: Search with Arabic text
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/search?query=بسم&page=1&per_page=3" -H "Accept: application/json"
+
+# Test 13: Trending Ayahs (Day)
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/trending/day?limit=10" -H "Accept: application/json"
+
+# Test 14: Trending Ayahs (Week)
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/trending/week?limit=10" -H "Accept: application/json"
+
+# Test 15: Trending Ayahs (Month)
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/trending/month?limit=10" -H "Accept: application/json"
+
+# Test 16: Feed with Pagination
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/feed?page=1&per_page=5&language=fa" -H "Accept: application/json"
+
+# Test 17: Feed Page 2
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/feed?page=2&per_page=5&language=fa" -H "Accept: application/json"
+
+# Test 18: Get Audio URL for First Ayah (Parhizgar)
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/audio/1/1?reciter=parhizgar" -H "Accept: application/json"
+
+# Test 19: Get Audio URL with Alafasy Reciter
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/audio/1/1?reciter=alafasy" -H "Accept: application/json"
+
+# Test 20: Get Audio URL for Surah 2, Ayah 1
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/audio/2/1?reciter=parhizgar" -H "Accept: application/json"
+
+# ============================================
+# PROTECTED ENDPOINTS (Require Authentication)
+# ============================================
+# Note: Replace YOUR_TOKEN with your actual API token from /api-tokens/generate
+
+# Test 21: Get User Settings
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/user/settings?chat_id=123456789" \
+  -H "Accept: application/json" \
+  -H "X-API-Token: YOUR_TOKEN"
+
+# Test 22: Update User Settings
+curl -X POST "https://bots.pardisania.ir/api/v1/quran/user/settings" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Token: YOUR_TOKEN" \
+  -d '{
+    "chat_id": "123456789",
+    "mp3_enable": true,
+    "mp3_reciter": "parhizgar",
+    "quran_translation_language": "fa",
+    "quran_translation_translator": "ansarian",
+    "quran_transliteration_tr": false,
+    "quran_transliteration_en": false,
+    "placequran_enable": false
+  }'
+
+# Test 23: Update Translation Only
+curl -X POST "https://bots.pardisania.ir/api/v1/quran/user/settings/translation" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Token: YOUR_TOKEN" \
+  -d '{
+    "chat_id": "123456789",
+    "language": "fa",
+    "translator": "ansarian"
+  }'
+
+# Test 24: Get User Report
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/user/report?chat_id=123456789" \
+  -H "Accept: application/json" \
+  -H "X-API-Token: YOUR_TOKEN"
+
+# Test 25: Get Referral Statistics
+curl -X GET "https://bots.pardisania.ir/api/v1/quran/user/referral-stats?chat_id=123456789" \
+  -H "Accept: application/json" \
+  -H "X-API-Token: YOUR_TOKEN"

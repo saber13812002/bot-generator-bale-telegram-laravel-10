@@ -52,13 +52,13 @@ todos:
       - create_quran_api_controller
   - id: test_endpoints
     content: تست تمام endpoints و بررسی response formats
-    status: pending
+    status: completed
     dependencies:
       - add_api_routes
       - add_swagger_annotations
   - id: generate_swagger_docs
     content: Generate کردن Swagger documentation
-    status: in_progress
+    status: completed
     dependencies:
       - update_swagger_yaml
       - test_endpoints

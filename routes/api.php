@@ -119,8 +119,8 @@ Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBot
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 
-Route::post('/api/webhook-book-pixel', [BookPixelController::class, 'webhook']);
-Route::post('/api/webhook-book-pixel-approval', [BookPixelApprovalController::class, 'index']);
+Route::post('/webhook-book-pixel', [BookPixelController::class, 'webhook']);
+Route::post('/webhook-book-pixel-approval', [BookPixelApprovalController::class, 'index']);
 Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);
 
 // mission API routes
@@ -140,17 +140,17 @@ Route::prefix('api-tokens')->middleware('api.token')->group(function () {
 });
 
 // Metadata API (no auth required for basic metadata)
-Route::prefix('api/v1')->group(function () {
+Route::prefix('v1')->group(function () {
     Route::get('/metadata', [\App\Http\Controllers\Api\MetadataApiController::class, 'getMetadata']);
 });
 
 // Token test endpoint
-Route::prefix('api/v1')->middleware('api.token')->group(function () {
+Route::prefix('v1')->middleware('api.token')->group(function () {
     Route::get('/test-token', [\App\Http\Controllers\Api\MetadataApiController::class, 'testToken']);
 });
 
 // Mission API with Token Authentication
-Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
+Route::prefix('v1/missions')->middleware('api.token')->group(function () {
     Route::post('/', [\App\Http\Controllers\Api\MissionApiController::class, 'createMission']);
     Route::get('/', [\App\Http\Controllers\Api\MissionApiController::class, 'listMissions']);
     Route::get('/{id}', [\App\Http\Controllers\Api\MissionApiController::class, 'getMission']);
@@ -161,7 +161,7 @@ Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
 });
 
 // Quran API Routes
-Route::prefix('api/v1/quran')->group(function () {
+Route::prefix('v1/quran')->group(function () {
     // Public endpoints (no authentication required)
     Route::get('/languages', [\App\Http\Controllers\Api\QuranApiController::class, 'getLanguages']);
     Route::get('/translations', [\App\Http\Controllers\Api\QuranApiController::class, 'getTranslations']);
