@@ -160,6 +160,31 @@ Route::prefix('api/v1/missions')->middleware('api.token')->group(function () {
     Route::post('/{id}/submit', [\App\Http\Controllers\Api\MissionApiController::class, 'submitResult']);
 });
 
+// Quran API Routes
+Route::prefix('api/v1/quran')->group(function () {
+    // Public endpoints (no authentication required)
+    Route::get('/languages', [\App\Http\Controllers\Api\QuranApiController::class, 'getLanguages']);
+    Route::get('/translations', [\App\Http\Controllers\Api\QuranApiController::class, 'getTranslations']);
+    Route::get('/surahs', [\App\Http\Controllers\Api\QuranApiController::class, 'getSurahs']);
+    Route::get('/surahs/{sura}/ayahs/{ayah}', [\App\Http\Controllers\Api\QuranApiController::class, 'getAyah']);
+    Route::get('/words/{wordId}', [\App\Http\Controllers\Api\QuranApiController::class, 'getWord']);
+    Route::get('/juz', [\App\Http\Controllers\Api\QuranApiController::class, 'getJuz']);
+    Route::get('/juz/{juz}', [\App\Http\Controllers\Api\QuranApiController::class, 'getJuzContent']);
+    Route::get('/search', [\App\Http\Controllers\Api\QuranApiController::class, 'search']);
+    Route::get('/trending/{period}', [\App\Http\Controllers\Api\QuranApiController::class, 'getTrending']);
+    Route::get('/feed', [\App\Http\Controllers\Api\QuranApiController::class, 'getFeed']);
+    Route::get('/audio/{sura}/{ayah}', [\App\Http\Controllers\Api\QuranApiController::class, 'getAudio']);
+    
+    // Protected endpoints (require authentication)
+    Route::middleware('api.token')->group(function () {
+        Route::get('/user/settings', [\App\Http\Controllers\Api\QuranApiController::class, 'getUserSettings']);
+        Route::post('/user/settings', [\App\Http\Controllers\Api\QuranApiController::class, 'updateUserSettings']);
+        Route::post('/user/settings/translation', [\App\Http\Controllers\Api\QuranApiController::class, 'updateTranslation']);
+        Route::get('/user/report', [\App\Http\Controllers\Api\QuranApiController::class, 'getUserReport']);
+        Route::get('/user/referral-stats', [\App\Http\Controllers\Api\QuranApiController::class, 'getReferralStats']);
+    });
+});
+
 // use App\Services\RssService;
 
 

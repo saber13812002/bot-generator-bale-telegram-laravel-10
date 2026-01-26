@@ -23,6 +23,8 @@ tags:
     description: احراز هویت و تست توکن
   - name: Missions
     description: مدیریت ماموریت‌ها
+  - name: Quran
+    description: API endpoints for Quran content, translations, and user settings
 
 security:
   - BearerAuth: []
@@ -394,6 +396,210 @@ components:
               type: string
               format: date-time
               nullable: true
+
+    AyahResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          nullable: true
+        sura:
+          type: integer
+          example: 1
+        aya:
+          type: integer
+          example: 1
+        arabic_text:
+          type: string
+          example: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"
+        simple_text:
+          type: string
+          nullable: true
+        translation:
+          type: string
+          nullable: true
+        translation_language:
+          type: string
+          nullable: true
+          example: "fa"
+        translation_translator:
+          type: string
+          nullable: true
+          example: "ansarian"
+        transliteration_tr:
+          type: string
+          nullable: true
+        transliteration_en:
+          type: string
+          nullable: true
+        page:
+          type: integer
+          nullable: true
+        juz:
+          type: integer
+          nullable: true
+        hezb:
+          type: integer
+          nullable: true
+        sura_name:
+          type: string
+          nullable: true
+        sura_name_arabic:
+          type: string
+          nullable: true
+        next_ayah:
+          type: object
+          nullable: true
+          properties:
+            sura:
+              type: integer
+            aya:
+              type: integer
+        previous_ayah:
+          type: object
+          nullable: true
+          properties:
+            sura:
+              type: integer
+            aya:
+              type: integer
+
+    SurahResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        arabic:
+          type: string
+          nullable: true
+        name:
+          type: string
+          nullable: true
+        ayah_count:
+          type: integer
+          nullable: true
+        meccamedinan:
+          type: string
+          nullable: true
+        sortnozol:
+          type: integer
+          nullable: true
+
+    TranslationResponse:
+      type: object
+      properties:
+        language:
+          type: string
+          example: "fa"
+        translator_name:
+          type: string
+          example: "ansarian"
+        translate_full_name:
+          type: string
+          nullable: true
+        is_complete:
+          type: boolean
+          example: true
+        completeness_percentage:
+          type: number
+          format: float
+          example: 100.0
+
+    UserSettingsResponse:
+      type: object
+      properties:
+        mp3_enable:
+          type: boolean
+          example: true
+        mp3_reciter:
+          type: string
+          example: "parhizgar"
+        quran_translation_language:
+          type: string
+          nullable: true
+          example: "fa"
+        quran_translation_translator:
+          type: string
+          nullable: true
+          example: "ansarian"
+        quran_transliteration_tr:
+          type: boolean
+          example: false
+        quran_transliteration_en:
+          type: boolean
+          example: false
+        placequran_enable:
+          type: boolean
+          example: false
+
+    TrendingResponse:
+      type: object
+      properties:
+        sura:
+          type: integer
+          example: 1
+        aya:
+          type: integer
+          example: 1
+        view_count:
+          type: integer
+          example: 150
+        rank:
+          type: integer
+          nullable: true
+        arabic_text:
+          type: string
+          nullable: true
+        translation:
+          type: string
+          nullable: true
+
+    UpdateTranslationRequest:
+      type: object
+      required:
+        - language
+        - translator
+      properties:
+        chat_id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+          nullable: true
+        language:
+          type: string
+          example: "fa"
+        translator:
+          type: string
+          example: "ansarian"
+
+    UpdateUserSettingsRequest:
+      type: object
+      properties:
+        chat_id:
+          type: string
+          nullable: true
+        user_id:
+          type: string
+          nullable: true
+        mp3_enable:
+          type: boolean
+        mp3_reciter:
+          type: string
+          example: "parhizgar"
+        quran_translation_language:
+          type: string
+          example: "fa"
+        quran_translation_translator:
+          type: string
+          example: "ansarian"
+        quran_transliteration_tr:
+          type: boolean
+        quran_transliteration_en:
+          type: boolean
+        placequran_enable:
+          type: boolean
 
 paths:
   /metadata:
