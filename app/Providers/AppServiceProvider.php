@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Interfaces\Repositories\BookRepository;
+use App\Interfaces\Repositories\BookPageScanRepository;
+use App\Interfaces\Repositories\BookUserScoreRepository;
 use App\Interfaces\Repositories\ContentRepository;
 use App\Interfaces\Repositories\HadithApiRepository;
 use App\Interfaces\Repositories\MissionRepository;
@@ -10,6 +13,9 @@ use App\Interfaces\Repositories\PrayerEstimateRepository;
 use App\Interfaces\Repositories\PrayerRecordRepository;
 use App\Interfaces\Repositories\WeatherOpenWeatherApiRepository;
 use App\Interfaces\Repositories\WeatherTomorrowApiRepository;
+use App\Interfaces\Services\BookGamificationService;
+use App\Interfaces\Services\BookPixelService;
+use App\Interfaces\Services\BookPublishingService;
 use App\Interfaces\Services\ContentService;
 use App\Interfaces\Services\EmailService;
 use App\Interfaces\Services\HadithApiService;
@@ -23,6 +29,9 @@ use App\Interfaces\Services\WeatherAlertService;
 use App\Interfaces\Services\WeatherComparisonService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
+use App\Repositories\BookRepositoryImpl;
+use App\Repositories\BookPageScanRepositoryImpl;
+use App\Repositories\BookUserScoreRepositoryImpl;
 use App\Repositories\ContentRepositoryImpl;
 use App\Repositories\HadithApiRepositoryImpl;
 use App\Repositories\MissionRepositoryImpl;
@@ -31,6 +40,9 @@ use App\Repositories\PrayerEstimateRepositoryImpl;
 use App\Repositories\PrayerRecordRepositoryImpl;
 use App\Repositories\WeatherOpenWeatherApiRepositoryImpl;
 use App\Repositories\WeatherTomorrowApiRepositoryImpl;
+use App\Services\BookGamificationServiceImpl;
+use App\Services\BookPixelServiceImpl;
+use App\Services\BookPublishingServiceImpl;
 use App\Services\ContentServiceImpl;
 use App\Services\HadithApiServiceImpl;
 use App\Services\MailtrapEmailServiceImpl;
@@ -67,6 +79,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PrayerRecordRepository::class, PrayerRecordRepositoryImpl::class);
         $this->app->bind(PrayerEstimateRepository::class, PrayerEstimateRepositoryImpl::class);
 
+        $this->app->bind(BookRepository::class, BookRepositoryImpl::class);
+        $this->app->bind(BookPageScanRepository::class, BookPageScanRepositoryImpl::class);
+        $this->app->bind(BookUserScoreRepository::class, BookUserScoreRepositoryImpl::class);
+
         // Services
         $this->app->bind(WeatherTomorrowApiService::class, WeatherTomorrowApiServiceImpl::class);
         $this->app->bind(WeatherOpenWeatherMapApiService::class, WeatherOpenWeatherMapApiServiceImpl::class);
@@ -85,6 +101,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ContentService::class, ContentServiceImpl::class);
 
         $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
+        
+        $this->app->bind(BookPixelService::class, BookPixelServiceImpl::class);
+        $this->app->bind(BookGamificationService::class, BookGamificationServiceImpl::class);
+        $this->app->bind(BookPublishingService::class, BookPublishingServiceImpl::class);
         
         // Email Service
         $this->app->bind(EmailService::class, MailtrapEmailServiceImpl::class);

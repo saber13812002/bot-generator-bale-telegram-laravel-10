@@ -116,6 +116,9 @@ Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBot
 
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
+
+Route::post('/api/webhook-book-pixel', [BookPixelController::class, 'webhook']);
+Route::post('/api/webhook-book-pixel-approval', [BookPixelApprovalController::class, 'index']);
 Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);
 
 // mission API routes

@@ -4,6 +4,7 @@ namespace App\Console;
 
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
+use App\Console\Commands\ScheduleBookPublishing;
 use App\Console\Commands\SendPrayerWeeklyReports;
 use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
@@ -62,6 +63,13 @@ class Kernel extends ConsoleKernel
         // چک کردن weather alerts هر یک ساعت
         $schedule->job(new CheckWeatherAlertsJob)
             ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+        
+        // انتشار صفحات کتاب (بین 7 شب تا 12 شب)
+        $schedule->command(ScheduleBookPublishing::class)
+            ->hourly()
+            ->between('19:00', '23:59')
             ->withoutOverlapping()
             ->onOneServer();
     }
