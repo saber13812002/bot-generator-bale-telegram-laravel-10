@@ -49,15 +49,24 @@ class BookPixelController extends Controller
                 'bot_mother_id' => $botMotherId
             ]);
 
-            $chatId = $bot->ChatID();
-            $text = $bot->Text();
-            
-            // Check for callback query
             $update = $request->json()->all() ?? $request->all();
+            
+            // Check for callback query first
             if (isset($update['callback_query'])) {
                 $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botId, $botMotherId);
                 return response()->json(['status' => 'ok'], 200);
             }
+
+            // Get chat_id and text safely
+            $chatId = $bot->ChatID();
+            $text = $bot->Text() ?? '';
+            
+            Log::info('📨 [BookPixel] Message received', [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'has_message' => isset($update['message']),
+                'message_type' => $update['message']['photo'] ?? ($update['message']['voice'] ?? ($update['message']['text'] ?? 'unknown'))
+            ]);
 
             // Check for photo (scan or cover)
             if (isset($update['message']['photo'])) {
@@ -71,8 +80,15 @@ class BookPixelController extends Controller
                 return response()->json(['status' => 'ok'], 200);
             }
 
-            // Handle text messages
-            $this->handleTextMessage($bot, $text, $chatId, $type, $botId, $botMotherId);
+            // Handle text messages (only if text is not empty)
+            if (!empty($text)) {
+                $this->handleTextMessage($bot, $text, $chatId, $type, $botId, $botMotherId);
+            } else {
+                Log::warning('⚠️ [BookPixel] Empty text message received', [
+                    'chat_id' => $chatId,
+                    'update' => $update
+                ]);
+            }
 
             $processingTime = round((microtime(true) - $startTime) * 1000, 2);
             Log::info('✅ [BookPixel] Request processed', [
