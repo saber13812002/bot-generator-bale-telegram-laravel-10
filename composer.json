@@ -14,7 +14,6 @@
         "ext-libxml": "*",
         "ext-simplexml": "*",
         "amenadiel/jpgraph": "^4.1",
-        "darkaonline/l5-swagger": "^8.6",
         "guzzlehttp/guzzle": "^7.2",
         "hekmatinasser/verta": "^8.3",
         "laravel/framework": "^10.0",
