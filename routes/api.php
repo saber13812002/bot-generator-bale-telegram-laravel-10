@@ -16,6 +16,8 @@ use App\Http\Controllers\RssPostItemTranslationController;
 use App\Http\Controllers\SmsController;
 use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
+use App\Http\Controllers\BookPixelApprovalController;
+use App\Http\Controllers\BookPixelController;
 use App\Http\Controllers\MissionBotController;
 use App\Http\Controllers\MissionMediaBotController;
 use App\Http\Controllers\PersonnelAdminBotController;
