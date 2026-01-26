@@ -513,12 +513,16 @@ class BotMotherController extends Controller
         $info = [];
 
         // Check if message is forwarded
-        if (isset($messageData['forward_from_chat']) || isset($messageData['forward_from'])) {
+        $isForwarded = isset($messageData['forward_from_chat']) || isset($messageData['forward_from']) || isset($messageData['forward_date']);
+        
+        if ($isForwarded) {
             $info[] = "
 " . trans('bot.forwarded message info');
 
+            $hasForwardFromChat = isset($messageData['forward_from_chat']);
+            
             // Forwarded from chat (channel or group)
-            if (isset($messageData['forward_from_chat'])) {
+            if ($hasForwardFromChat) {
                 $forwardChat = $messageData['forward_from_chat'];
                 $chatId = $forwardChat['id'] ?? null;
                 $chatType = $forwardChat['type'] ?? 'unknown';
@@ -532,9 +536,13 @@ class BotMotherController extends Controller
                         'title' => $chatTitle ? " ({$chatTitle})" : ''
                     ]);
                 }
+            } else {
+                // اگر forward_from_chat وجود نداشت، احتمالاً از گروه فوروارد شده
+                // و ربات عضو گروه نیست یا اطلاعات در دسترس نیست
+                $info[] = trans('bot.forwarded from group unknown');
             }
 
-            // Forwarded from user (original sender)
+            // Forwarded from user (original sender or forwarder)
             if (isset($messageData['forward_from'])) {
                 $forwardFrom = $messageData['forward_from'];
                 $userId = $forwardFrom['id'] ?? null;
@@ -546,11 +554,21 @@ class BotMotherController extends Controller
                     $name = trim($firstName . ' ' . $lastName);
                     $nameDisplay = $name ? " ({$name})" : '';
                     $usernameDisplay = $username ? " @{$username}" : '';
-                    $info[] = trans('bot.forwarded from user', [
-                        'id' => $userId,
-                        'name' => $nameDisplay,
-                        'username' => $usernameDisplay
-                    ]);
+                    
+                    // اگر forward_from_chat وجود نداشت، این کاربر فوروارد کننده است
+                    if (!$hasForwardFromChat) {
+                        $info[] = trans('bot.forwarded by user', [
+                            'id' => $userId,
+                            'name' => $nameDisplay,
+                            'username' => $usernameDisplay
+                        ]);
+                    } else {
+                        $info[] = trans('bot.forwarded from user', [
+                            'id' => $userId,
+                            'name' => $nameDisplay,
+                            'username' => $usernameDisplay
+                        ]);
+                    }
                 }
             }
 
@@ -563,6 +581,12 @@ class BotMotherController extends Controller
             if (isset($messageData['forward_date'])) {
                 $forwardDate = date('Y-m-d H:i:s', $messageData['forward_date']);
                 $info[] = trans('bot.forward date') . ": " . $forwardDate;
+            }
+            
+            // اگر forward_from_chat وجود نداشت، راهنمایی اضافه کنیم
+            if (!$hasForwardFromChat) {
+                $info[] = "
+" . trans('bot.forwarded group info note');
             }
         }
 

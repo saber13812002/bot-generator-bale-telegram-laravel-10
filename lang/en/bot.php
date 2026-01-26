@@ -285,6 +285,9 @@ return [
     'chat type group' => 'Group',
     'chat type supergroup' => 'Supergroup',
     'chat type private' => 'Private',
+    'forwarded from group unknown' => '📢 Forwarded from group (group info not available)',
+    'forwarded by user' => '👤 Forwarded by user (ID: :id):name:username',
+    'forwarded group info note' => '💡 Note: To see complete group information (ID and name), the bot must be a member of the group.',
     
     // Book Pixel Bot translations
     'book_pixel_welcome' => '📚 Welcome to Book Pixel Bot!\n\nThis bot allows you to share book pages.',
