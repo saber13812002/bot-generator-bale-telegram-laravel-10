@@ -271,9 +271,11 @@ class BotMotherController extends Controller
                 $bot = new GapBot($request->input('token'), $request);
             }
 
+            // Get raw update data for forwarded message extraction
+            $update = $request->json()->all() ?? $request->all();
 
             if ($request->has('language')) {
-                $message = $this->getChatIdByType($bot);
+                $message = $this->getChatIdByType($bot, $update);
                 $message .= $this->getOtherBots();
                 BotHelper::sendMessage($bot, $message);
             }
@@ -482,14 +484,145 @@ class BotMotherController extends Controller
 
     /**
      * @param mixed $bot
+     * @param array|null $update Raw update data from request
      * @return string
      */
-    public function getChatIdByType($bot): string
+    public function getChatIdByType($bot, ?array $update = null): string
     {
         $message = trans('bot.your chat id') . "
 : " . $bot->ChatID();
 
+        // Extract forwarded message information if available
+        if ($update && isset($update['message'])) {
+            $forwardInfo = $this->extractForwardedMessageInfo($update['message']);
+            if ($forwardInfo) {
+                $message .= $forwardInfo;
+            }
+        }
+
         return $message;
+    }
+
+    /**
+     * Extract forwarded message information from message data
+     * @param array $messageData
+     * @return string|null
+     */
+    private function extractForwardedMessageInfo(array $messageData): ?string
+    {
+        $info = [];
+
+        // Check if message is forwarded
+        if (isset($messageData['forward_from_chat']) || isset($messageData['forward_from'])) {
+            $info[] = "
+" . trans('bot.forwarded message info');
+
+            // Forwarded from chat (channel or group)
+            if (isset($messageData['forward_from_chat'])) {
+                $forwardChat = $messageData['forward_from_chat'];
+                $chatId = $forwardChat['id'] ?? null;
+                $chatType = $forwardChat['type'] ?? 'unknown';
+                $chatTitle = $forwardChat['title'] ?? $forwardChat['username'] ?? '';
+
+                if ($chatId) {
+                    $chatTypeLabel = $this->getChatTypeLabel($chatType);
+                    $info[] = trans('bot.forwarded from chat', [
+                        'type' => $chatTypeLabel,
+                        'id' => $chatId,
+                        'title' => $chatTitle ? " ({$chatTitle})" : ''
+                    ]);
+                }
+            }
+
+            // Forwarded from user (original sender)
+            if (isset($messageData['forward_from'])) {
+                $forwardFrom = $messageData['forward_from'];
+                $userId = $forwardFrom['id'] ?? null;
+                $firstName = $forwardFrom['first_name'] ?? '';
+                $lastName = $forwardFrom['last_name'] ?? '';
+                $username = $forwardFrom['username'] ?? '';
+
+                if ($userId) {
+                    $name = trim($firstName . ' ' . $lastName);
+                    $nameDisplay = $name ? " ({$name})" : '';
+                    $usernameDisplay = $username ? " @{$username}" : '';
+                    $info[] = trans('bot.forwarded from user', [
+                        'id' => $userId,
+                        'name' => $nameDisplay,
+                        'username' => $usernameDisplay
+                    ]);
+                }
+            }
+
+            // Forward signature (for channels)
+            if (isset($messageData['forward_signature'])) {
+                $info[] = trans('bot.forward signature') . ": " . $messageData['forward_signature'];
+            }
+
+            // Forward date
+            if (isset($messageData['forward_date'])) {
+                $forwardDate = date('Y-m-d H:i:s', $messageData['forward_date']);
+                $info[] = trans('bot.forward date') . ": " . $forwardDate;
+            }
+        }
+
+        // Current message sender info
+        if (isset($messageData['from'])) {
+            $from = $messageData['from'];
+            $senderId = $from['id'] ?? null;
+            $senderFirstName = $from['first_name'] ?? '';
+            $senderLastName = $from['last_name'] ?? '';
+            $senderUsername = $from['username'] ?? '';
+
+            if ($senderId) {
+                $senderName = trim($senderFirstName . ' ' . $senderLastName);
+                $senderNameDisplay = $senderName ? " ({$senderName})" : '';
+                $senderUsernameDisplay = $senderUsername ? " @{$senderUsername}" : '';
+                $info[] = "
+" . trans('bot.message sender', [
+                    'id' => $senderId,
+                    'name' => $senderNameDisplay,
+                    'username' => $senderUsernameDisplay
+                ]);
+            }
+        }
+
+        // Current chat info (if different from sender)
+        if (isset($messageData['chat'])) {
+            $chat = $messageData['chat'];
+            $chatId = $chat['id'] ?? null;
+            $chatType = $chat['type'] ?? 'unknown';
+            $chatTitle = $chat['title'] ?? $chat['username'] ?? '';
+
+            if ($chatId && $chatType !== 'private') {
+                $chatTypeLabel = $this->getChatTypeLabel($chatType);
+                $info[] = trans('bot.current chat', [
+                    'type' => $chatTypeLabel,
+                    'id' => $chatId,
+                    'title' => $chatTitle ? " ({$chatTitle})" : ''
+                ]);
+            }
+        }
+
+        return !empty($info) ? implode("
+", $info) : null;
+    }
+
+    /**
+     * Get localized chat type label
+     * @param string $chatType
+     * @return string
+     */
+    private function getChatTypeLabel(string $chatType): string
+    {
+        $labels = [
+            'channel' => trans('bot.chat type channel'),
+            'group' => trans('bot.chat type group'),
+            'supergroup' => trans('bot.chat type supergroup'),
+            'private' => trans('bot.chat type private'),
+        ];
+
+        return $labels[$chatType] ?? $chatType;
     }
 
     private function getOtherBots(): string

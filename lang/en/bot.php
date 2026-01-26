@@ -272,6 +272,20 @@ return [
     'weather_error' => '❌ Error getting weather data',
     'no_weather_data' => 'No weather data received',
     
+    // Get Chat ID Bot translations
+    'your chat id' => 'Your Chat ID:',
+    'forwarded message info' => '📤 Forwarded Message Info:',
+    'forwarded from chat' => '📢 Forwarded from :type (ID: :id):title',
+    'forwarded from user' => '👤 Forwarded from user (ID: :id):name:username',
+    'forward signature' => '✍️ Forward Signature',
+    'forward date' => '📅 Forward Date',
+    'message sender' => '👤 Message Sender (ID: :id):name:username',
+    'current chat' => '💬 Current Chat: :type (ID: :id):title',
+    'chat type channel' => 'Channel',
+    'chat type group' => 'Group',
+    'chat type supergroup' => 'Supergroup',
+    'chat type private' => 'Private',
+    
     // Book Pixel Bot translations
     'book_pixel_welcome' => '📚 Welcome to Book Pixel Bot!\n\nThis bot allows you to share book pages.',
     'book_pixel_ask_book_name' => 'Please send the book name or ISBN/Shabak:',
