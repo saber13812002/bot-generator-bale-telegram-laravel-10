@@ -177,7 +177,9 @@ class BookPixelController extends Controller
                 $this->handleIsbn($bot, $botUser, $botMotherId, $text, $botId);
                 break;
             case 'waiting_shabak':
-                $this->handleShabak($bot, $botUser, $botMotherId, $text, $botId);
+                // شابک همان ISBN است، پس این state دیگر استفاده نمی‌شود
+                // اما برای سازگاری با داده‌های قدیمی، آن را به handleIsbn هدایت می‌کنیم
+                $this->handleIsbn($bot, $botUser, $botMotherId, $text, $botId);
                 break;
             case 'waiting_cover':
                 BotHelper::sendMessage($bot, trans('bot.book_pixel_please_send_cover'));
@@ -203,6 +205,36 @@ class BookPixelController extends Controller
 
     private function handleBookName(Telegram $bot, BotUsers $botUser, int $botMotherId, string $bookName, int $botId): void
     {
+        // اگر ورودی فقط عدد است، آن را به عنوان ISBN/شابک در نظر بگیریم
+        if (is_numeric(trim($bookName))) {
+            $isbn = trim($bookName);
+            $this->setStateData($botUser, $botMotherId, 'isbn', $isbn);
+            $this->setStateData($botUser, $botMotherId, 'shabak', $isbn); // شابک همان ISBN است
+            
+            // اگر کتاب با این ISBN پیدا شد، از نام آن استفاده می‌کنیم
+            $book = $this->bookPixelService->findOrCreateBook("", $isbn, $isbn, $botId, $botUser->id);
+            
+            if ($book->name && $book->name !== "") {
+                $this->setStateData($botUser, $botMotherId, 'book_name', $book->name);
+            } else {
+                // اگر کتاب پیدا نشد، از ISBN به عنوان نام موقت استفاده می‌کنیم
+                $this->setStateData($botUser, $botMotherId, 'book_name', "کتاب با ISBN: " . $isbn);
+            }
+            
+            if ($book->cover_image_file_id) {
+                // Book exists, ask for page number
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_book_found', ['name' => $book->name]));
+                $this->setState($botUser, $botMotherId, 'waiting_page_number');
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_page_number'));
+            } else {
+                // New book, ask for cover
+                $this->setState($botUser, $botMotherId, 'waiting_cover');
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_cover'));
+            }
+            return;
+        }
+        
+        // اگر ورودی متن است، به عنوان نام کتاب در نظر می‌گیریم
         $this->setStateData($botUser, $botMotherId, 'book_name', $bookName);
         
         // Try to find book
@@ -214,7 +246,7 @@ class BookPixelController extends Controller
             $this->setState($botUser, $botMotherId, 'waiting_page_number');
             BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_page_number'));
         } else {
-            // New book, ask for ISBN
+            // New book, ask for ISBN (اختیاری)
             $this->setState($botUser, $botMotherId, 'waiting_isbn');
             BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_isbn'));
         }
@@ -224,9 +256,11 @@ class BookPixelController extends Controller
     {
         $bookName = $this->getStateData($botUser, $botMotherId, 'book_name');
         $this->setStateData($botUser, $botMotherId, 'isbn', $isbn);
+        $this->setStateData($botUser, $botMotherId, 'shabak', $isbn); // شابک همان ISBN است
         
-        $this->setState($botUser, $botMotherId, 'waiting_shabak');
-        BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_shabak'));
+        // مستقیماً به درخواست عکس جلد می‌رویم
+        $this->setState($botUser, $botMotherId, 'waiting_cover');
+        BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_cover'));
     }
 
     private function handleShabak(Telegram $bot, BotUsers $botUser, int $botMotherId, string $shabak, int $botId): void
@@ -294,6 +328,12 @@ class BookPixelController extends Controller
 
         $currentState = $state ? $state->state : null;
 
+        Log::info('📷 [BookPixel] Photo received', [
+            'chat_id' => $chatId,
+            'current_state' => $currentState,
+            'bot_mother_id' => $botMotherId
+        ]);
+
         // Get photo file_id (largest size)
         $photos = $message['photo'];
         $photo = end($photos);
@@ -305,7 +345,19 @@ class BookPixelController extends Controller
         } elseif ($currentState == 'waiting_scan') {
             $this->handleScanPhoto($bot, $botUser, $botMotherId, $fileId, $fileUniqueId, $botId);
         } else {
-            BotHelper::sendMessage($bot, trans('bot.book_pixel_unexpected_photo'));
+            // اگر state درست نیست، اما نام کتاب یا ISBN وجود دارد، می‌توانیم عکس را بپذیریم
+            $bookName = $this->getStateData($botUser, $botMotherId, 'book_name');
+            $isbn = $this->getStateData($botUser, $botMotherId, 'isbn');
+            
+            if ($bookName || $isbn) {
+                // اگر اطلاعات کتاب وجود دارد، عکس را به عنوان جلد در نظر می‌گیریم
+                $this->handleCoverPhoto($bot, $botUser, $botMotherId, $fileId, $fileUniqueId, $botId);
+            } else {
+                // اگر هیچ اطلاعاتی وجود ندارد، از کاربر می‌خواهیم ابتدا /start را بزند
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_unexpected_photo'));
+                $this->setState($botUser, $botMotherId, 'waiting_book_name');
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_book_name'));
+            }
         }
     }
 
@@ -315,15 +367,48 @@ class BookPixelController extends Controller
         $isbn = $this->getStateData($botUser, $botMotherId, 'isbn');
         $shabak = $this->getStateData($botUser, $botMotherId, 'shabak');
 
-        $book = $this->bookPixelService->findOrCreateBook($bookName, $isbn, $shabak, $botId, $botUser->id);
-        
-        $book->cover_image_file_id = $fileId;
-        $book->cover_image_file_unique_id = $fileUniqueId;
-        $book->save();
+        Log::info('📸 [BookPixel] Processing cover photo', [
+            'chat_id' => $bot->ChatID(),
+            'book_name' => $bookName,
+            'isbn' => $isbn,
+            'shabak' => $shabak
+        ]);
 
-        BotHelper::sendMessage($bot, trans('bot.book_pixel_book_created', ['name' => $book->name]));
-        $this->setState($botUser, $botMotherId, 'waiting_page_number');
-        BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_page_number'));
+        // اگر نام کتاب وجود ندارد اما ISBN وجود دارد، از ISBN استفاده می‌کنیم
+        if ((!$bookName || trim($bookName) === '') && ($isbn || $shabak)) {
+            $bookName = "کتاب با ISBN: " . ($isbn ?? $shabak);
+            $this->setStateData($botUser, $botMotherId, 'book_name', $bookName);
+        }
+
+        // اگر هنوز نام کتاب وجود ندارد، از کاربر بخواهیم ابتدا نام کتاب را وارد کند
+        if (!$bookName || trim($bookName) === '') {
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_book_name'));
+            $this->setState($botUser, $botMotherId, 'waiting_book_name');
+            return;
+        }
+
+        try {
+            $book = $this->bookPixelService->findOrCreateBook($bookName, $isbn, $shabak, $botId, $botUser->id);
+            
+            $book->cover_image_file_id = $fileId;
+            $book->cover_image_file_unique_id = $fileUniqueId;
+            $book->save();
+
+            Log::info('✅ [BookPixel] Cover photo saved', [
+                'book_id' => $book->id,
+                'book_name' => $book->name
+            ]);
+
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_book_created', ['name' => $book->name]));
+            $this->setState($botUser, $botMotherId, 'waiting_page_number');
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_ask_page_number'));
+        } catch (Exception $e) {
+            Log::error('❌ [BookPixel] Error saving cover photo', [
+                'error' => $e->getMessage(),
+                'chat_id' => $bot->ChatID()
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_error_saving_cover'));
+        }
     }
 
     private function handleScanPhoto(Telegram $bot, BotUsers $botUser, int $botMotherId, string $fileId, ?string $fileUniqueId, int $botId): void

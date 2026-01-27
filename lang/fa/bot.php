@@ -42,6 +42,7 @@ return [
     'book_pixel_no_scan_for_voice'                                                 => 'ابتدا باید یک اسکن صفحه ارسال کنید.',
     'book_pixel_please_send_cover'                                                  => 'لطفاً عکس جلد کتاب را ارسال کنید.',
     'book_pixel_please_send_scan'                                                   => 'لطفاً اسکن صفحه کتاب را ارسال کنید.',
+    'book_pixel_error_saving_cover'                                                 => '❌ خطا در ذخیره عکس جلد. لطفاً دوباره تلاش کنید.',
     'this is not correct bot token'                                               => 'این یک توکن تلگرام یا بله نیست',
     'send your token to turn on your bot'                                         => 'برای ساخت روبات توکن را بفرستید',
     'i cant configure your bot'                                                   => 'من نمی توانم ربات شما را پیکربندی کنم',
