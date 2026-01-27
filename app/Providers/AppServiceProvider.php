@@ -11,6 +11,11 @@ use App\Interfaces\Repositories\MissionRepository;
 use App\Interfaces\Repositories\NahjRepository;
 use App\Interfaces\Repositories\PrayerEstimateRepository;
 use App\Interfaces\Repositories\PrayerRecordRepository;
+use App\Interfaces\Repositories\PoemLikeRepository;
+use App\Interfaces\Repositories\PoemLineRepository;
+use App\Interfaces\Repositories\PoemRepository;
+use App\Interfaces\Repositories\PoemSuggestionRepository;
+use App\Interfaces\Repositories\PoemVersionRepository;
 use App\Interfaces\Repositories\WeatherOpenWeatherApiRepository;
 use App\Interfaces\Repositories\WeatherTomorrowApiRepository;
 use App\Interfaces\Services\BookGamificationService;
@@ -27,6 +32,7 @@ use App\Interfaces\Services\ProService;
 use App\Interfaces\Services\ReverseGeocodingService;
 use App\Interfaces\Services\WeatherAlertService;
 use App\Interfaces\Services\WeatherComparisonService;
+use App\Interfaces\Services\PoemBotService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
 use App\Repositories\BookRepositoryImpl;
@@ -38,6 +44,11 @@ use App\Repositories\MissionRepositoryImpl;
 use App\Repositories\NahjRepositoryImpl;
 use App\Repositories\PrayerEstimateRepositoryImpl;
 use App\Repositories\PrayerRecordRepositoryImpl;
+use App\Repositories\PoemLikeRepositoryImpl;
+use App\Repositories\PoemLineRepositoryImpl;
+use App\Repositories\PoemRepositoryImpl;
+use App\Repositories\PoemSuggestionRepositoryImpl;
+use App\Repositories\PoemVersionRepositoryImpl;
 use App\Repositories\WeatherOpenWeatherApiRepositoryImpl;
 use App\Repositories\WeatherTomorrowApiRepositoryImpl;
 use App\Services\BookGamificationServiceImpl;
@@ -54,6 +65,7 @@ use App\Services\ProServiceImpl;
 use App\Services\ReverseGeocodingServiceImpl;
 use App\Services\WeatherAlertServiceImpl;
 use App\Services\WeatherComparisonServiceImpl;
+use App\Services\PoemBotServiceImpl;
 use App\Services\WeatherOpenWeatherMapApiServiceImpl;
 use App\Services\WeatherTomorrowApiServiceImpl;
 use Illuminate\Support\Facades\Schema;
@@ -83,6 +95,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BookPageScanRepository::class, BookPageScanRepositoryImpl::class);
         $this->app->bind(BookUserScoreRepository::class, BookUserScoreRepositoryImpl::class);
 
+        $this->app->bind(PoemRepository::class, PoemRepositoryImpl::class);
+        $this->app->bind(PoemVersionRepository::class, PoemVersionRepositoryImpl::class);
+        $this->app->bind(PoemLineRepository::class, PoemLineRepositoryImpl::class);
+        $this->app->bind(PoemLikeRepository::class, PoemLikeRepositoryImpl::class);
+        $this->app->bind(PoemSuggestionRepository::class, PoemSuggestionRepositoryImpl::class);
+
         // Services
         $this->app->bind(WeatherTomorrowApiService::class, WeatherTomorrowApiServiceImpl::class);
         $this->app->bind(WeatherOpenWeatherMapApiService::class, WeatherOpenWeatherMapApiServiceImpl::class);
@@ -101,6 +119,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ContentService::class, ContentServiceImpl::class);
 
         $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
+        
+        $this->app->bind(PoemBotService::class, PoemBotServiceImpl::class);
         
         $this->app->bind(BookPixelService::class, BookPixelServiceImpl::class);
         $this->app->bind(BookGamificationService::class, BookGamificationServiceImpl::class);
