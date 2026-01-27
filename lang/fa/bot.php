@@ -43,6 +43,50 @@ return [
     'book_pixel_please_send_cover'                                                  => 'لطفاً عکس جلد کتاب را ارسال کنید.',
     'book_pixel_please_send_scan'                                                   => 'لطفاً اسکن صفحه کتاب را ارسال کنید.',
     'book_pixel_error_saving_cover'                                                 => '❌ خطا در ذخیره عکس جلد. لطفاً دوباره تلاش کنید.',
+    'book_pixel_ask_isbn_first'                                                     => 'لطفاً شابک/ISBN کتاب را ارسال کنید:',
+    'book_pixel_book_ready_no_cover'                                                => 'کتاب آماده است. می‌توانید عکس جلد ارسال کنید یا رد کنید:',
+    'book_pixel_photo_received'                                                     => '✅ عکس دریافت شد.',
+    'book_pixel_help'                                                               => '📚 راهنمای ربات یک پیکسل کتاب:\n\n' .
+        '/start - شروع\n' .
+        '/help - راهنما\n' .
+        '/cover - ارسال عکس جلد\n' .
+        '/search <query> - جستجوی کتاب\n' .
+        '/drafts - لیست پیش‌نویس‌ها\n' .
+        '/cancel - لغو فرآیند\n' .
+        '/skip - رد کردن فیلد اختیاری\n' .
+        '/score - نمایش امتیاز\n' .
+        '/stats - آمار (فقط در گروه)',
+    'book_pixel_no_books_found'                                                     => 'کتابی یافت نشد.',
+    'book_pixel_search_results'                                                     => 'نتایج جستجو:',
+    'book_pixel_no_drafts'                                                          => 'پیش‌نویسی وجود ندارد.',
+    'book_pixel_drafts_list'                                                        => 'لیست پیش‌نویس‌ها:',
+    'book_pixel_cancelled'                                                          => '✅ فرآیند لغو شد.',
+    'book_pixel_cannot_skip'                                                        => '❌ نمی‌توانید این مرحله را رد کنید.',
+    'book_pixel_nothing_to_skip'                                                    => 'چیزی برای رد کردن وجود ندارد.',
+    'book_pixel_stats_only_in_group'                                                => 'دستور /stats فقط در گروه کار می‌کند.',
+    'book_pixel_statistics'                                                         => 'آمار ربات',
+    'skip'                                                                          => 'رد کردن',
+    'send_cover'                                                                    => 'ارسال جلد',
+    'cover'                                                                         => 'جلد',
+    'scan'                                                                          => 'اسکن',
+    'voice'                                                                         => 'وویس',
+    'queue'                                                                         => 'صف',
+    'pending_approval'                                                              => 'در انتظار تایید',
+    'pending_publishing'                                                            => 'در انتظار انتشار',
+    'in_publishing_queue'                                                           => 'در صف انتشار',
+    'completed'                                                                     => 'تکمیل شده',
+    'today'                                                                         => 'امروز',
+    'last_week'                                                                     => 'هفته گذشته',
+    'last_month'                                                                    => 'ماه گذشته',
+    'last_year'                                                                     => 'سال گذشته',
+    'publishing_channels'                                                           => 'کانال‌های انتشار',
+    'new'                                                                           => 'جدید',
+    'new_users_today'                                                               => 'کاربران جدید امروز',
+    'new_books_today'                                                               => 'کتاب‌های جدید امروز',
+    'drafts'                                                                        => 'پیش‌نویس‌ها',
+    'missions'                                                                      => 'ماموریت‌ها',
+    'pending'                                                                       => 'در انتظار',
+    'assigned'                                                                      => 'اختصاص داده شده',
     'this is not correct bot token'                                               => 'این یک توکن تلگرام یا بله نیست',
     'send your token to turn on your bot'                                         => 'برای ساخت روبات توکن را بفرستید',
     'i cant configure your bot'                                                   => 'من نمی توانم ربات شما را پیکربندی کنم',

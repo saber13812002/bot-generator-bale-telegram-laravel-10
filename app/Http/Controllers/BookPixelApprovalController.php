@@ -75,6 +75,12 @@ class BookPixelApprovalController extends Controller
                 return;
             }
 
+            // Handle reply-based approval
+            if (isset($update['message']['reply_to_message'])) {
+                $this->handleReplyApproval($bot, $update['message'], $type, $moderationGroup->bot_id);
+                return;
+            }
+
             Log::info('✅ Book Pixel Approval - Message from moderation group', ['chat_id' => $chatId]);
             
         } catch (Exception $e) {
@@ -170,10 +176,12 @@ class BookPixelApprovalController extends Controller
             ]);
         }
 
-        $bot->answerCallbackQuery([
-            'callback_query_id' => $callbackQueryId,
-            'text' => '✅ تایید شد',
-        ]);
+        if (!empty($callbackQueryId) && !str_starts_with($callbackQueryId, 'reply_')) {
+            $bot->answerCallbackQuery([
+                'callback_query_id' => $callbackQueryId,
+                'text' => '✅ تایید شد',
+            ]);
+        }
 
         Log::info('✅ Book Pixel Approval - Scan approved successfully', [
             'scan_id' => $scanId
@@ -190,10 +198,12 @@ class BookPixelApprovalController extends Controller
 
         $scan = $this->scanRepository->find($scanId);
         if (!$scan || $scan->status !== 'pending_approval') {
-            $bot->answerCallbackQuery([
-                'callback_query_id' => $callbackQueryId,
-                'text' => 'اسکن یافت نشد یا قبلاً تایید/رد شده است',
-            ]);
+            if (!empty($callbackQueryId) && !str_starts_with($callbackQueryId, 'reply_')) {
+                $bot->answerCallbackQuery([
+                    'callback_query_id' => $callbackQueryId,
+                    'text' => 'اسکن یافت نشد یا قبلاً تایید/رد شده است',
+                ]);
+            }
             return;
         }
 
@@ -231,10 +241,12 @@ class BookPixelApprovalController extends Controller
             ]);
         }
 
-        $bot->answerCallbackQuery([
-            'callback_query_id' => $callbackQueryId,
-            'text' => '❌ رد شد',
-        ]);
+        if (!empty($callbackQueryId) && !str_starts_with($callbackQueryId, 'reply_')) {
+            $bot->answerCallbackQuery([
+                'callback_query_id' => $callbackQueryId,
+                'text' => '❌ رد شد',
+            ]);
+        }
 
         Log::info('❌ Book Pixel Approval - Scan rejected', [
             'scan_id' => $scanId
@@ -308,6 +320,45 @@ class BookPixelApprovalController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Book Pixel Approval - Error notifying user', [
+                'error' => $e->getMessage(),
+                'scan_id' => $scan->id
+            ]);
+        }
+    }
+
+    private function handleReplyApproval(Telegram $bot, array $message, string $type, int $botId): void
+    {
+        $replyToMessage = $message['reply_to_message'];
+        $replyToMessageId = $replyToMessage['message_id'] ?? null;
+        $approvedByChatId = $message['from']['id'] ?? null;
+
+        if (!$replyToMessageId || !$approvedByChatId) {
+            return;
+        }
+
+        Log::info('🔔 Book Pixel Approval - Reply-based approval', [
+            'reply_to_message_id' => $replyToMessageId,
+            'approved_by_chat_id' => $approvedByChatId
+        ]);
+
+        // Find scan by approval_message_id
+        $scan = BookPageScan::where('bot_id', $botId)
+            ->where('approval_message_id', $replyToMessageId)
+            ->where('status', 'pending_approval')
+            ->first();
+
+        if (!$scan) {
+            Log::warning('Book Pixel Approval - Scan not found for reply', [
+                'message_id' => $replyToMessageId
+            ]);
+            return;
+        }
+
+        // Approve the scan (using empty string for callbackQueryId since it's a reply, not a callback)
+        try {
+            $this->approveScan($bot, $scan->id, $approvedByChatId, $botId, $type, 'reply_' . $replyToMessageId);
+        } catch (\Exception $e) {
+            Log::error('Book Pixel Approval - Error approving scan via reply', [
                 'error' => $e->getMessage(),
                 'scan_id' => $scan->id
             ]);
