@@ -7,6 +7,9 @@ use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Textarea;
 use Laravel\Nova\Fields\Boolean;
+use Laravel\Nova\Fields\Image;
+use Laravel\Nova\Fields\KeyValue;
+use Laravel\Nova\Fields\BelongsToMany;
 use Laravel\Nova\Http\Requests\NovaRequest;
 
 class WebhookEndpoint extends Resource
@@ -63,7 +66,33 @@ class WebhookEndpoint extends Resource
                 ->help('مسیر endpoint (مثلاً /api/webhook-personnel-registration)'),
 
             Textarea::make('Description', 'description')
-                ->help('توضیحات endpoint'),
+                ->help('توضیحات کوتاه endpoint'),
+
+            Textarea::make('Detailed Description', 'detailed_description')
+                ->help('توضیحات کامل و جامع ربات')
+                ->rows(5),
+
+            Image::make('Image', 'image_path')
+                ->disk('public')
+                ->path('bots')
+                ->help('آپلود عکس ربات (ذخیره در storage/public/bots)'),
+
+            Text::make('Image URL', 'image_url')
+                ->help('URL خارجی عکس (در صورت استفاده از عکس خارجی)')
+                ->placeholder('https://example.com/image.jpg'),
+
+            KeyValue::make('Features', 'features')
+                ->help('لیست ویژگی‌های ربات (کلید: عنوان، مقدار: توضیحات)')
+                ->keyLabel('عنوان')
+                ->valueLabel('توضیحات'),
+
+            Textarea::make('Usage Instructions', 'usage_instructions')
+                ->help('دستورالعمل استفاده از ربات')
+                ->rows(4),
+
+            Textarea::make('Technical Details', 'technical_details')
+                ->help('جزئیات فنی ربات')
+                ->rows(4),
 
             Boolean::make('Requires Bot Mother ID', 'requires_bot_mother_id')
                 ->sortable(),
@@ -80,6 +109,16 @@ class WebhookEndpoint extends Resource
             Boolean::make('Is Active', 'is_active')
                 ->sortable()
                 ->default(true),
+
+            BelongsToMany::make('Related Bots', 'relatedBots', WebhookEndpoint::class)
+                ->help('ربات‌های مرتبط که در صفحه جزئیات نمایش داده می‌شوند')
+                ->fields(function () {
+                    return [
+                        Text::make('Order', 'order')
+                            ->help('ترتیب نمایش (عدد کمتر = اولویت بیشتر)')
+                            ->default(0),
+                    ];
+                }),
         ];
     }
 

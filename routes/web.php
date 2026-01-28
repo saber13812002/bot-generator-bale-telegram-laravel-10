@@ -19,6 +19,10 @@ use Illuminate\Http\Request;
 
 Route::get('/', [\App\Http\Controllers\WelcomeController::class, 'index']);
 
+// صفحه جزئیات ربات
+Route::get('/bot/{endpointId}', [\App\Http\Controllers\WelcomeController::class, 'show'])
+    ->name('bot.show');
+
 Route::get('/approve', function () {
     return view('approve');
 });
