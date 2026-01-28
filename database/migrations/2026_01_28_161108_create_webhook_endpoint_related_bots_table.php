@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // حذف جدول در صورت وجود (برای حل مشکل migration قبلی)
+        Schema::dropIfExists('webhook_endpoint_related_bots');
+        
         Schema::create('webhook_endpoint_related_bots', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('webhook_endpoint_id');
