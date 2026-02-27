@@ -21,7 +21,7 @@ class AddMp3ToRssForSharabebeheshti extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'افزودن تصادفی یک فایل صوتی شراب بهشتی به RSS برای انتشار در کانال‌ها';
 
     /**
      * Execute the console command.

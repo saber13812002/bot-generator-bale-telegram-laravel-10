@@ -21,7 +21,7 @@ class TestSendPost extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'تست ارسال یک صف ترجمه RSS (کانال ۲) به پیام‌رسان برای دیباگ و بررسی خروجی';
 
     /**
      * Execute the console command.

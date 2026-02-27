@@ -15,14 +15,14 @@ class RssReadTranslate extends Command
      *
      * @var string
      */
-    protected $signature = 'app:rss_read_translate {--switch : Description of the switch}';
+    protected $signature = 'app:rss_read_translate {--switch : فقط تحلیل فید امروز به‌جای همه‌ی فیدها}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'خواندن RSS، تحلیل و ترجمه آیتم‌ها (فقط امروز با --switch، در غیر این صورت همه‌ی آیتم‌ها)';
 
     /**
      * Execute the console command.
