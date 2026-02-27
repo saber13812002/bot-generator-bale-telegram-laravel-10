@@ -153,8 +153,28 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         try {
                             [$mp3Url, $title, $id] = SharabeBeheshtiMp3Controller::getMp3UrlAndTitleAndId($postLink);
 
-                            $caption = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id) . '
-' . $captionMedia;
+                            $captionPrefix = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id);
+
+                            $mediumSlug = $rssChannelOrigin->slug ?? 'messenger';
+                            $shareUrl = SharabeBeheshtiMp3Controller::buildSharabeBeheshtiShareUrlById((int)$id, $mediumSlug);
+
+                            $effectiveUrl = $shareUrl ?: $postLink;
+
+                            $captionSharabMedia = $hashtags . ' ' . $rssItemHashtags . '
+' . $effectiveUrl . '
+' . ' - #' . $rssChannelOrigin->slug;
+
+                            $caption = $captionPrefix . '
+' . $captionSharabMedia;
+
+                            Log::info('SharabeBeheshti message built', [
+                                'id' => $id,
+                                'medium_slug' => $mediumSlug,
+                                'share_url' => $shareUrl,
+                                'post_link' => $postLink,
+                                'caption_prefix' => $captionPrefix,
+                                'caption_media' => $captionSharabMedia,
+                            ]);
 
                             Log::info("mp3Url:" . $mp3Url);
                             $data = $botBuilder
@@ -163,6 +183,8 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                                 ->setTitle($title)
                                 ->setAudioUrl($mp3Url)
                                 ->sendAudio();
+
+                            Log::info('SharabeBeheshti audio send response', ['data' => $data]);
 
                         } catch (\Exception $e) {
                             \Log::error('Error in sending audio: ' . $e->getMessage());
