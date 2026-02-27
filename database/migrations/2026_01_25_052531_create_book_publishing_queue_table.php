@@ -25,7 +25,7 @@ return new class extends Migration
             $table->foreign('book_page_scan_id')->references('id')->on('book_page_scans')->onDelete('cascade');
             $table->foreign('book_page_voice_id')->references('id')->on('book_page_voices')->onDelete('cascade');
             $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
-            $table->foreign('channel_id')->references('id')->on('book_publishing_channels')->onDelete('cascade');
+            // $table->foreign('channel_id')->references('id')->on('book_publishing_channels')->onDelete('cascade');
             $table->index(['bot_id', 'status']);
             $table->index('scheduled_at');
         });
