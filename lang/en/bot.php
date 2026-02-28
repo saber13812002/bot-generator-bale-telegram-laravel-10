@@ -399,4 +399,8 @@ return [
     'poem_bot_help_text' => '📖 Poem Bot Guide:\n\n/start - Start\n/newpoem - New Poem\n/editpoem - Edit Poem\n/like [id] - Like Poem\n/help - Help',
     'poem_bot_about' => '📝 Poem & Music Bot\n\nThis bot allows you to send, edit and share poems.',
     'poem_bot_profile' => '👤 Your Profile:\n\n📚 Poems Count: {poems_count}',
+
+    'blog_messenger_not_found' => 'Channel settings not found. Please contact the admin.',
+    'blog_start_message' => 'Send a message or file to publish to your channels (Telegram, Bale, Eitaa).',
+    'blog_no_content' => 'Please send a text or file.',
 ];
