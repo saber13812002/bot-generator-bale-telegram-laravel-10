@@ -2,9 +2,11 @@
 
 namespace App\Console;
 
+use App\Console\Commands\PostDailyVerseToChannels;
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
 use App\Console\Commands\ScheduleBookPublishing;
+use App\Console\Commands\SendDailyQuranSuggestionToAdmins;
 use App\Console\Commands\SendPrayerWeeklyReports;
 use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
@@ -70,6 +72,18 @@ class Kernel extends ConsoleKernel
         $schedule->command(ScheduleBookPublishing::class)
             ->hourly()
             ->between('19:00', '23:59')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پیشنهاد روزانه قرآن به ادمین‌ها (هر ۲۴ ساعت)
+        $schedule->command(SendDailyQuranSuggestionToAdmins::class)
+            ->dailyAt('08:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // ارسال روزانه آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (هر ۲۴ ساعت)
+        $schedule->command(PostDailyVerseToChannels::class)
+            ->dailyAt('09:00')
             ->withoutOverlapping()
             ->onOneServer();
     }

@@ -6,6 +6,7 @@ use App\Models\Bot;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
+use App\Models\QuranSearchSuggestion;
 use App\Models\QuranSurah;
 use App\Models\QuranTranslation;
 use App\Models\QuranTransliterationEn;
@@ -853,6 +854,22 @@ class QuranHelper
         $searchPhrase = IndexedRecord::normalize($searchPhrase);
         $results = self::getResultSearch($searchPhrase, $pageNumber);
 //        dd($pageNumber,$results);
+        $resultsCount = $results->count();
+        if ($resultsCount === 1) {
+            $first = $results->first();
+            $indexable = $first->indexable ?? null;
+            if ($indexable && isset($indexable->sura, $indexable->aya)) {
+                QuranSearchSuggestion::create([
+                    'search_phrase' => mb_substr($searchPhrase, 0, 200),
+                    'result_count' => 1,
+                    'sura' => $indexable->sura,
+                    'aya' => $indexable->aya,
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                    'source' => QuranSearchSuggestion::SOURCE_SINGLE_RESULT,
+                ]);
+            }
+        }
         $message = "";
 
         $resultText = self::getResultCountText($results->count(), $pageNumber, $searchPhrase) . "

@@ -112,5 +112,11 @@ class BotMotherStateHelper
     const STATE_WAITING_CONTENT_BOT_NEED_APPROVAL = 'waiting_content_bot_need_approval';
     const STATE_WAITING_CONTENT_BOT_GROUP_FORWARD = 'waiting_content_bot_group_forward';
     const STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS = 'waiting_content_bot_required_approvals';
+
+    // Admin daily channel (verse/hadith/nahj/sharabe_beheshti) wizard
+    const STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE = 'waiting_daily_channel_content_type';
+    const STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD = 'waiting_daily_channel_bale_forward';
+    const STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD = 'waiting_daily_channel_telegram_forward';
+    const STATE_WAITING_DAILY_CHANNEL_EITAA_ID = 'waiting_daily_channel_eitaa_id';
 }
 

@@ -12,6 +12,7 @@ use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranScanPage;
+use App\Models\QuranSearchSuggestion;
 use Exception;
 use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
@@ -1186,6 +1187,15 @@ class QuranWordController extends Controller
                             ]);
 
                             if ($aya > 0) {
+                                QuranSearchSuggestion::create([
+                                    'search_phrase' => null,
+                                    'result_count' => 0,
+                                    'sura' => $sure,
+                                    'aya' => $aya,
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type,
+                                    'source' => QuranSearchSuggestion::SOURCE_CLICKED,
+                                ]);
                                 $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
                                 $language = $request->input('language', App::getLocale());
                                 

@@ -623,6 +623,8 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر ساعت | CheckWeatherAlertsJob |
 | هر ساعت ۱۹:۰۰–۲۳:۵۹ | ScheduleBookPublishing |
 | روزانه ۰۷:۰۰ (در صورت فعال بودن env) | TestScheduleDailyIntoSlack |
+| هر روز ۰۸:۰۰ | SendDailyQuranSuggestionToAdmins |
+| هر روز ۰۹:۰۰ | PostDailyVerseToChannels |
 
 # 📋 دستورات مهم
 

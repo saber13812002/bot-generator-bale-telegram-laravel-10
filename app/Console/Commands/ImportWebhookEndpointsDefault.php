@@ -166,6 +166,15 @@ class ImportWebhookEndpointsDefault extends Command
                 'requires_token' => true,
                 'requires_language' => false,
             ],
+            [
+                'id' => 'admin-daily-channel',
+                'name' => 'ربات ادمین کانال (تک‌آیه/حدیث/نهج/شراب بهشتی)',
+                'route' => '/api/webhook-bot-mother',
+                'description' => 'هر ۲۴ ساعت یک آیه یا حدیث یا نهج یا شراب بهشتی در کانال/گروه ارسال می‌شود',
+                'requires_bot_mother_id' => true,
+                'requires_token' => false,
+                'requires_language' => false,
+            ],
         ];
     }
 
