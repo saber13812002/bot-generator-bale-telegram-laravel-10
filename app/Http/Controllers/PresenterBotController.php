@@ -183,8 +183,8 @@ class PresenterBotController extends Controller
         }
         
         // Get lines
-        $lines = $presenterBot->getLines();
-        $totalLines = count($lines);
+        $items = $presenterBot->getItems();
+        $totalLines = count($items);
         
         if ($totalLines == 0) {
             BotHelper::sendMessage($bot, 'خطا: محتوای ربات خالی است.');
@@ -197,7 +197,7 @@ class PresenterBotController extends Controller
             'presenter_total_lines' => $totalLines,
         ]);
         
-        // Send first line
+        // Send first item
         $this->sendLine($bot, $presenterBot, $botUser, 0);
     }
 
@@ -281,9 +281,9 @@ class PresenterBotController extends Controller
             ]);
             $botUser->save();
             
-            // Get lines and set initial state
-            $lines = $presenterBot->getLines();
-            $totalLines = count($lines);
+            // Get items and set initial state
+            $items = $presenterBot->getItems();
+            $totalLines = count($items);
             $botUser->settings([
                 'presenter_current_line' => 0,
                 'presenter_total_lines' => $totalLines,
@@ -330,31 +330,88 @@ class PresenterBotController extends Controller
      */
     private function sendLine(Telegram $bot, PresenterBot $presenterBot, BotUsers $botUser, int $lineIndex): void
     {
-        $lines = $presenterBot->getLines();
-        $totalLines = count($lines);
+        $items = $presenterBot->getItems();
+        $totalLines = count($items);
         
         if ($lineIndex >= $totalLines) {
             return;
         }
         
-        $line = $lines[$lineIndex];
         $chatId = $bot->ChatID();
         
         // Check if this is the last line
         if ($lineIndex == $totalLines - 1) {
-            // Last line - send without button or with end message
-            BotHelper::sendMessage($bot, $line);
+            // Last item - send without button then end message
+            $this->sendItem($bot, $items[$lineIndex]);
             $endMessage = trans('bot.presenter.end');
             BotHelper::sendMessage($bot, $endMessage);
         } else {
-            // Not last line - send with "next" button
+            // Not last item - send with "next" button
             $nextButtonText = trans('bot.presenter.next');
             $option = [
                 array($bot->buildInlineKeyBoardButton($nextButtonText, callback_data: 'presenter_next'))
             ];
             $inlineKeyboard = $bot->buildInlineKeyBoard($option);
-            
-            BotHelper::sendKeyboardMessage($bot, $line, $inlineKeyboard);
+
+            $this->sendItem($bot, $items[$lineIndex], $inlineKeyboard);
+        }
+    }
+
+    private function sendItem(Telegram $bot, array $item, $inlineKeyboard = null): void
+    {
+        $chatId = $bot->ChatID();
+        $type = $item['type'] ?? 'text';
+
+        if ($type === 'text') {
+            $text = (string) ($item['content'] ?? '');
+            if ($inlineKeyboard) {
+                BotHelper::sendKeyboardMessage($bot, $text, $inlineKeyboard);
+            } else {
+                BotHelper::sendMessage($bot, $text);
+            }
+            return;
+        }
+
+        $fileId = (string) ($item['file_id'] ?? '');
+        if ($fileId === '') {
+            return;
+        }
+
+        $content = [
+            'chat_id' => $chatId,
+        ];
+
+        $caption = (string) ($item['caption'] ?? '');
+        if ($caption !== '') {
+            $content['caption'] = $caption;
+        }
+
+        if ($inlineKeyboard) {
+            $content['reply_markup'] = $inlineKeyboard;
+        }
+
+        switch ($type) {
+            case 'photo':
+                $content['photo'] = $fileId;
+                $bot->sendPhoto($content);
+                break;
+            case 'video':
+                $content['video'] = $fileId;
+                $bot->sendVideo($content);
+                break;
+            case 'voice':
+                $content['voice'] = $fileId;
+                $bot->sendVoice($content);
+                break;
+            case 'audio':
+                $content['audio'] = $fileId;
+                $bot->sendAudio($content);
+                break;
+            case 'document':
+            default:
+                $content['document'] = $fileId;
+                $bot->sendDocument($content);
+                break;
         }
     }
 }

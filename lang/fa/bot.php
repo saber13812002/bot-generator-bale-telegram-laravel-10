@@ -286,6 +286,11 @@ return [
         'end' => 'پایان معرفی',
         'send_content' => 'لطفاً محتوای ربات را ارسال کنید (هر خط یک پیام)',
     ],
+    'rating' => [
+        'prompt' => 'چقدر این عبارت را قبول داری؟',
+        'end' => 'پایان نظر سنجی',
+        'send_content' => 'لطفاً عبارت‌های نظر سنجی را ارسال کنید (هر خط یک عبارت)',
+    ],
     'your activity report' => 'گزارش فعالیت شما',
     'your reading is more than yesterday activity' => ':count آیه مطالعه شما بیشتر از فعالیت دیروز است',
     'your reading is less than yesterday activity' => ':count آیه مطالعه شما کمتر از فعالیت دیروز است',

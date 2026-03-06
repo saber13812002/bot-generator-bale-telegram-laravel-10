@@ -115,6 +115,9 @@ Route::post('/webhook-task-approval', [TaskApprovalController::class, 'index']);
 // presenter bot
 Route::post('/webhook-presenter-bot', [\App\Http\Controllers\PresenterBotController::class, 'index']);
 
+// rating bot
+Route::post('/webhook-rating-bot', [\App\Http\Controllers\RatingBotController::class, 'index']);
+
 // psychology test bot
 Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBotController::class, 'index']);
 

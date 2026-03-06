@@ -17,6 +17,7 @@ use App\Models\BotLog;
 use App\Models\ContentSubmissionBotConfig;
 use App\Models\BotUsers;
 use App\Models\PresenterBot;
+use App\Models\RatingBot;
 use App\Models\PsychologyTestBot;
 use App\Models\PsychologyTestCategory;
 use App\Models\PsychologyTestQuestion;
@@ -221,7 +222,11 @@ class BotMotherController extends Controller
             }
             // Handle presenter bot content input
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT) {
-                $this->handlePresenterContentInput($bot, $text, $stateData, $type, $botMotherId);
+                $this->handlePresenterContentInput($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // Handle rating bot content input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_RATING_CONTENT) {
+                $this->handleRatingContentInput($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
             }
             // Handle psychology test questions input
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_PSYCHOLOGY_QUESTIONS) {
@@ -1245,12 +1250,32 @@ class BotMotherController extends Controller
                 $message = "✅ ربات با موفقیت ثبت شد!\n\n";
                 $message .= "📝 حالا لطفاً محتوای ربات را ارسال کنید.\n";
                 $message .= "می‌توانید محتوا را در یک یا چند پیام ارسال کنید.\n";
+                $message .= "پشتیبانی: متن، عکس، ویدیو، وویس، صوت (MP3)، فایل.\n";
                 $message .= "هر خط با Enter (\\n) از خط بعدی جدا می‌شود.\n";
                 $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.\n\n";
                 $message .= "💡 نکته: خطوط خالی و فاصله‌های اضافی به صورت خودکار حذف می‌شوند.";
                 
                 BotHelper::sendMessage($bot, $message);
                 return; // Return early - don't set webhook yet
+            }
+
+            // Check if this is rating bot - if so, ask for content
+            if ($endpointId == 'webhook-rating-bot') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                    'content_lines' => [],
+                ]));
+
+                $message = "✅ ربات با موفقیت ثبت شد!\n\n";
+                $message .= "📝 حالا لطفاً عبارت‌های نظر سنجی را ارسال کنید.\n";
+                $message .= "می‌توانید محتوا را در یک یا چند پیام ارسال کنید.\n";
+                $message .= "پشتیبانی: متن، عکس، ویدیو، وویس، صوت (MP3)، فایل.\n";
+                $message .= "هر خط با Enter (\\n) از خط بعدی جدا می‌شود.\n";
+                $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.\n\n";
+                $message .= "💡 نکته: خطوط خالی و فاصله‌های اضافی به صورت خودکار حذف می‌شوند.";
+
+                BotHelper::sendMessage($bot, $message);
+                return;
             }
             
             // Check if this is psychology test bot - if so, create bot record and ask for questions
@@ -1423,6 +1448,77 @@ class BotMotherController extends Controller
     }
 
     /**
+     * Extract wizard content items (text/media) from update.
+     *
+     * @return array<int, array{type:string, content?:string, file_id?:string, caption?:string}>
+     */
+    private function extractWizardContentItems(string $text, array $update): array
+    {
+        $message = $update['message'] ?? [];
+        $items = [];
+
+        $caption = is_array($message) ? ($message['caption'] ?? null) : null;
+        if (!is_string($caption)) {
+            $caption = null;
+        }
+
+        // Media
+        if (is_array($message) && isset($message['photo']) && is_array($message['photo']) && count($message['photo']) > 0) {
+            $photos = $message['photo'];
+            $last = end($photos);
+            $fileId = is_array($last) ? ($last['file_id'] ?? null) : null;
+            if (is_string($fileId) && $fileId !== '') {
+                $items[] = array_filter([
+                    'type' => 'photo',
+                    'file_id' => $fileId,
+                    'caption' => $caption,
+                ], static fn ($v) => $v !== null && $v !== '');
+            }
+            return $items;
+        }
+
+        $mediaMap = [
+            'video' => 'video',
+            'voice' => 'voice',
+            'audio' => 'audio',
+            'document' => 'document',
+        ];
+
+        foreach ($mediaMap as $key => $type) {
+            if (is_array($message) && isset($message[$key]['file_id'])) {
+                $fileId = $message[$key]['file_id'];
+                if (is_string($fileId) && $fileId !== '') {
+                    $items[] = array_filter([
+                        'type' => $type,
+                        'file_id' => $fileId,
+                        'caption' => $caption,
+                    ], static fn ($v) => $v !== null && $v !== '');
+                }
+                return $items;
+            }
+        }
+
+        // Text
+        $rawText = '';
+        if (is_array($message) && isset($message['text']) && is_string($message['text'])) {
+            $rawText = $message['text'];
+        } else if (is_string($text)) {
+            $rawText = $text;
+        }
+
+        if ($rawText !== '') {
+            foreach (explode("\n", $rawText) as $line) {
+                $trimmed = trim($line);
+                if ($trimmed !== '') {
+                    $items[] = ['type' => 'text', 'content' => $trimmed];
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
      * Handle presenter bot content input
      * 
      * @param Telegram $bot
@@ -1430,13 +1526,15 @@ class BotMotherController extends Controller
      * @param array $stateData
      * @param string $type
      * @param int $botMotherId
+     * @param array $update
      * @return void
      */
-    private function handlePresenterContentInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    private function handlePresenterContentInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update = []): void
     {
         $chatId = $bot->ChatID();
         $botId = $stateData['bot_id'] ?? null;
         $contentLines = $stateData['content_lines'] ?? [];
+        $items = $stateData['items'] ?? [];
         $endpointId = $stateData['endpoint_id'] ?? 'webhook-presenter-bot';
         $botType = $stateData['bot_type'] ?? $type;
         $language = $stateData['language'] ?? 'fa';
@@ -1452,6 +1550,7 @@ class BotMotherController extends Controller
             // Reset content lines
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT, array_merge($stateData, [
                 'content_lines' => [],
+                'items' => [],
             ]));
             
             $message = "🗑️ محتوای قبلی پاک شد.\n\n";
@@ -1464,22 +1563,30 @@ class BotMotherController extends Controller
         
         // Check if user wants to finish
         if (strtolower(trim($text)) == 'پایان' || strtolower(trim($text)) == 'end' || strtolower(trim($text)) == 'finish') {
-            if (empty($contentLines)) {
+            if (empty($items) && !empty($contentLines)) {
+                $items = array_map(static fn ($line) => ['type' => 'text', 'content' => $line], $contentLines);
+            }
+
+            if (empty($items)) {
                 BotHelper::sendMessage($bot, "❌ هیچ محتوایی ارسال نشده است. لطفاً حداقل یک خط محتوا ارسال کنید.");
                 return;
             }
             
             // Save content to database
             try {
-                // Content lines are already cleaned (empty lines removed and trimmed)
-                // Just join them with newlines
-                $content = implode("\n", $contentLines);
-                $lines = $contentLines; // Use the already cleaned lines
+                $textLines = [];
+                foreach ($items as $it) {
+                    if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                        $textLines[] = trim($it['content']);
+                    }
+                }
+                $textLines = array_values(array_filter($textLines, static fn ($v) => $v !== ''));
+                $content = implode("\n", $textLines);
                 
                 // Create or update presenter bot
                 $presenterBot = PresenterBot::updateOrCreate(
                     ['bot_id' => $botId],
-                    ['content' => $content]
+                    ['content' => $content, 'items' => $items]
                 );
                 
                 // Get bot item
@@ -1517,7 +1624,7 @@ class BotMotherController extends Controller
                 $successMessage = "✅ ربات پرزنتر با موفقیت ساخته شد!\n\n";
                 $successMessage .= "📝 اطلاعات ربات:\n";
                 $successMessage .= "• Bot ID: {$botItem->id}\n";
-                $successMessage .= "• تعداد خطوط: " . count($lines) . "\n";
+                $successMessage .= "• تعداد آیتم‌ها: " . count($items) . "\n";
                 $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
                 $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n\n";
                 $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
@@ -1540,7 +1647,7 @@ class BotMotherController extends Controller
                 Log::info('Presenter bot created successfully via Bot Mother', [
                     'bot_id' => $botItem->id,
                     'presenter_bot_id' => $presenterBot->id,
-                    'content_lines_count' => count($lines),
+                    'content_items_count' => count($items),
                     'type' => $botType,
                     'chat_id' => $chatId,
                 ]);
@@ -1560,30 +1667,172 @@ class BotMotherController extends Controller
                 ]);
             }
         } else {
-            // Split text by newlines and add all lines
-            $linesFromMessage = explode("\n", $text);
-            
-            // Remove empty lines and trim each line
-            foreach ($linesFromMessage as $line) {
-                $trimmedLine = trim($line);
-                // Remove lines that are only whitespace or empty
-                if ($trimmedLine !== '') {
-                    $contentLines[] = $trimmedLine;
+            $newItems = $this->extractWizardContentItems($text, $update);
+            foreach ($newItems as $it) {
+                $items[] = $it;
+                if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                    $contentLines[] = $it['content'];
                 }
             }
             
             // Update state
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT, array_merge($stateData, [
                 'content_lines' => $contentLines,
+                'items' => $items,
             ]));
             
             // Send confirmation
-            $totalLines = count($contentLines);
-            $message = "✅ " . $totalLines . " خط ثبت شد.\n\n";
-            $message .= "خط بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
+            $totalItems = count($items);
+            $message = "✅ " . $totalItems . " آیتم ثبت شد.\n\n";
+            $message .= "آیتم بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
             
             BotHelper::sendMessage($bot, $message);
         }
+    }
+
+    /**
+     * Handle rating bot content input
+     */
+    private function handleRatingContentInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update = []): void
+    {
+        $chatId = $bot->ChatID();
+        $botId = $stateData['bot_id'] ?? null;
+        $contentLines = $stateData['content_lines'] ?? [];
+        $items = $stateData['items'] ?? [];
+        $endpointId = $stateData['endpoint_id'] ?? 'webhook-rating-bot';
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$botId) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات یافت نشد. لطفاً دوباره شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        if (strtolower(trim($text)) == 'پاک' || strtolower(trim($text)) == 'clear' || strtolower(trim($text)) == 'reset') {
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+                'content_lines' => [],
+                'items' => [],
+            ]));
+
+            $message = "🗑️ محتوای قبلی پاک شد.\n\n";
+            $message .= "📝 حالا می‌توانید محتوای جدید را ارسال کنید.\n";
+            $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        if (strtolower(trim($text)) == 'پایان' || strtolower(trim($text)) == 'end' || strtolower(trim($text)) == 'finish') {
+            if (empty($items) && !empty($contentLines)) {
+                $items = array_map(static fn ($line) => ['type' => 'text', 'content' => $line], $contentLines);
+            }
+
+            if (empty($items)) {
+                BotHelper::sendMessage($bot, "❌ هیچ محتوایی ارسال نشده است. لطفاً حداقل یک خط محتوا ارسال کنید.");
+                return;
+            }
+
+            try {
+                $textLines = [];
+                foreach ($items as $it) {
+                    if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                        $textLines[] = trim($it['content']);
+                    }
+                }
+                $textLines = array_values(array_filter($textLines, static fn ($v) => $v !== ''));
+                $content = implode("\n", $textLines);
+
+                $ratingBot = RatingBot::updateOrCreate(
+                    ['bot_id' => $botId],
+                    ['content' => $content, 'items' => $items]
+                );
+
+                $botItem = Bot::find($botId);
+                if (!$botItem) {
+                    throw new Exception("ربات یافت نشد");
+                }
+
+                $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+
+                $token = $botType == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+                $newBot = new Telegram($token, $botType);
+
+                $setWebhookResult = $newBot->setWebhook($webhookUrl);
+                if (!$setWebhookResult['ok']) {
+                    throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
+                }
+
+                if ($botType == 'bale') {
+                    $botItem->bale_webhook_is_set = 1;
+                } else {
+                    $botItem->telegram_webhook_is_set = 1;
+                }
+                $botItem->save();
+
+                $webhookInfo = BotHelper::checkWebhookInfo($token, $botType);
+
+                $successMessage = "✅ ربات امتیازدهی با موفقیت ساخته شد!\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• Bot ID: {$botItem->id}\n";
+                $successMessage .= "• تعداد آیتم‌ها: " . count($items) . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+                $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
+
+                BotHelper::sendMessage($bot, $successMessage);
+
+                BotMotherStateHelper::clearState($chatId);
+
+                Log::info('Rating bot created successfully via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'rating_bot_id' => $ratingBot->id,
+                    'content_items_count' => count($items),
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                ]);
+            } catch (Exception $e) {
+                $errorMessage = "❌ خطا در ذخیره محتوا:\n\n";
+                $errorMessage .= $e->getMessage() . "\n\n";
+                $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+
+                BotHelper::sendMessage($bot, $errorMessage);
+
+                Log::error('Error saving rating bot content', [
+                    'error' => $e->getMessage(),
+                    'bot_id' => $botId,
+                    'chat_id' => $chatId,
+                ]);
+            }
+
+            return;
+        }
+
+        $newItems = $this->extractWizardContentItems($text, $update);
+        foreach ($newItems as $it) {
+            $items[] = $it;
+            if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                $contentLines[] = $it['content'];
+            }
+        }
+
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+            'content_lines' => $contentLines,
+            'items' => $items,
+        ]));
+
+        $totalItems = count($items);
+        $message = "✅ " . $totalItems . " آیتم ثبت شد.\n\n";
+        $message .= "آیتم بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
+        BotHelper::sendMessage($bot, $message);
     }
 
     /**

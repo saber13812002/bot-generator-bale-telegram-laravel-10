@@ -158,6 +158,15 @@ class ImportWebhookEndpointsDefault extends Command
                 'requires_language' => false,
             ],
             [
+                'id' => 'webhook-rating-bot',
+                'name' => 'ربات امتیازدهی (نظر سنجی)',
+                'route' => '/api/webhook-rating-bot',
+                'description' => 'ربات نظر سنجی - ارسال عبارت‌ها و دریافت امتیاز ۱ تا ۵ از کاربر',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-psychology-test',
                 'name' => 'تست روانشناسی',
                 'route' => '/api/webhook-psychology-test',

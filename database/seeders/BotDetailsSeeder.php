@@ -169,6 +169,14 @@ class BotDetailsSeeder extends Seeder
                 ],
                 'related_bots' => ['webhook-blog', 'webhook-rss'],
             ],
+            'webhook-rating-bot' => [
+                'detailed_description' => 'ربات امتیازدهی (نظر سنجی) عبارت‌ها را به‌صورت ترتیبی نمایش می‌دهد و کاربر برای هر عبارت با ۵ گزینه (۱ تا ۵) میزان موافقت خود را ثبت می‌کند.',
+                'features' => [
+                    'دکمه‌های ۱ تا ۵' => 'ثبت سریع میزان موافقت/مخالفت برای هر عبارت',
+                    'ذخیره پاسخ‌ها' => 'ثبت پاسخ‌ها برای گزارش‌گیری و تحلیل',
+                ],
+                'related_bots' => ['webhook-presenter-bot', 'webhook-psychology-test'],
+            ],
         ];
 
         foreach ($botDetails as $endpointId => $details) {

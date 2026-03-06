@@ -99,6 +99,7 @@ class BotMotherStateHelper
     const STATE_WAITING_TYPE = 'waiting_type';
     const STATE_WAITING_LANGUAGE = 'waiting_language';
     const STATE_WAITING_PRESENTER_CONTENT = 'waiting_presenter_content';
+    const STATE_WAITING_RATING_CONTENT = 'waiting_rating_content';
     const STATE_WAITING_PSYCHOLOGY_QUESTIONS = 'waiting_psychology_questions';
     const STATE_WAITING_CATEGORY_DESCRIPTIONS = 'waiting_category_descriptions';
     const STATE_WAITING_BROADCAST_LANGUAGE = 'waiting_broadcast_language';
