@@ -120,6 +120,19 @@ class PrayerBotController extends Controller
             'callback_data' => $callbackData
         ]);
 
+        // دکمه‌های سریع ثبت نماز (۲، ۳۴، ۴۴) بعد از هر ثبت
+        if (in_array($callbackData, ['prayer_quick_2', 'prayer_quick_34', 'prayer_quick_44'], true)) {
+            $bot->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
+            if ($callbackData === 'prayer_quick_2') {
+                $this->handleRecordPrayer($bot, 2, '2', $chatId, $type, $botMotherId);
+            } elseif ($callbackData === 'prayer_quick_34') {
+                $this->handleRecordPrayer34($bot, '34', $chatId, $type, $botMotherId);
+            } else {
+                $this->handleRecordPrayer44($bot, '44', $chatId, $type, $botMotherId);
+            }
+            return;
+        }
+
         // پردازش انتخاب نماز
         if (str_starts_with($callbackData, 'prayer_')) {
             $prayerType = str_replace('prayer_', '', $callbackData);
@@ -783,12 +796,16 @@ class PrayerBotController extends Controller
             $message .= "🗑️ " . trans('bot.to_remove') . ": /remove_{$record->id}\n\n";
             $message .= PrayerHelper::getRandomEncouragementMessage();
 
-            // ارسال با reply به پیام اصلی
+            $keyboard = $this->getPrayerQuickRecordKeyboard();
+            $content = [
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+            ];
             if ($messageId) {
-                BotHelper::sendMessageWithReply($bot, $message, $messageId);
-            } else {
-                BotHelper::sendMessage($bot, $message);
+                $content['reply_to_message_id'] = $messageId;
             }
+            $bot->sendMessage($content);
         } catch (Exception $e) {
             Log::error('❌ [PrayerBot] Error recording prayer', [
                 'error' => $e->getMessage(),
@@ -815,11 +832,16 @@ class PrayerBotController extends Controller
             $message .= "🆔 " . trans('bot.record_id') . ": {$r1->id}, {$r2->id}\n\n";
             $message .= "🗑️ " . trans('bot.to_remove') . ": /remove_{$r1->id} /remove_{$r2->id}\n\n";
             $message .= PrayerHelper::getRandomEncouragementMessage();
+            $keyboard = $this->getPrayerQuickRecordKeyboard();
+            $content = [
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+            ];
             if ($messageId) {
-                BotHelper::sendMessageWithReply($bot, $message, $messageId);
-            } else {
-                BotHelper::sendMessage($bot, $message);
+                $content['reply_to_message_id'] = $messageId;
             }
+            $bot->sendMessage($content);
         } catch (Exception $e) {
             Log::error('❌ [PrayerBot] Error recording 34', ['error' => $e->getMessage(), 'chat_id' => $chatId]);
             BotHelper::sendMessage($bot, "❌ " . trans('bot.error_recording_prayer'));
@@ -841,11 +863,16 @@ class PrayerBotController extends Controller
             $message .= "🆔 " . trans('bot.record_id') . ": {$r1->id}, {$r2->id}\n\n";
             $message .= "🗑️ " . trans('bot.to_remove') . ": /remove_{$r1->id} /remove_{$r2->id}\n\n";
             $message .= PrayerHelper::getRandomEncouragementMessage();
+            $keyboard = $this->getPrayerQuickRecordKeyboard();
+            $content = [
+                'chat_id' => $chatId,
+                'text' => $message,
+                'reply_markup' => json_encode(['inline_keyboard' => $keyboard]),
+            ];
             if ($messageId) {
-                BotHelper::sendMessageWithReply($bot, $message, $messageId);
-            } else {
-                BotHelper::sendMessage($bot, $message);
+                $content['reply_to_message_id'] = $messageId;
             }
+            $bot->sendMessage($content);
         } catch (Exception $e) {
             Log::error('❌ [PrayerBot] Error recording 44', ['error' => $e->getMessage(), 'chat_id' => $chatId]);
             BotHelper::sendMessage($bot, "❌ " . trans('bot.error_recording_prayer'));
@@ -853,7 +880,21 @@ class PrayerBotController extends Controller
     }
 
     /**
-     * حذف رکعات ثبت شده
+     * دکمه‌های شیشه‌ای (inline) برای ثبت سریع بعد از هر رکعت: ۲، ۳۴، ۴۴
+     */
+    protected function getPrayerQuickRecordKeyboard(): array
+    {
+        return [
+            [
+                ['text' => '۲ ' . trans('bot.fajr'), 'callback_data' => 'prayer_quick_2'],
+                ['text' => '۳۴ ' . trans('bot.maghrib_isha'), 'callback_data' => 'prayer_quick_34'],
+                ['text' => '۴۴ ' . trans('bot.dhuhr_asr'), 'callback_data' => 'prayer_quick_44'],
+            ],
+        ];
+    }
+
+    /**
+     * حذف رکعات ثبت شده. حذف فقط در صورتی انجام می‌شود که رکورد متعلق به همین کاربر (chat_id و origin) باشد.
      */
     protected function handleRemove(Telegram $bot, int $recordId, int $chatId, string $type): void
     {

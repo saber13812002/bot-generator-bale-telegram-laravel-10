@@ -45,7 +45,8 @@ class PrayerRecordRepositoryImpl implements PrayerRecordRepository
     }
 
     /**
-     * حذف رکورد با شناسه (فقط برای کاربر خودش)
+     * حذف رکورد با شناسه — فقط اگر رکورد متعلق به همان کاربر (chat_id + origin) باشد.
+     * در غیر این صورت حذفی انجام نمی‌شود و false برمی‌گردد.
      */
     public function deleteById(int $id, int $chatId, string $origin): bool
     {
