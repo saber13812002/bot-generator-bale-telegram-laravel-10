@@ -208,6 +208,17 @@ class PrayerHelper
     }
 
     /**
+     * تبدیل ارقام فارسی و عربی به انگلیسی
+     */
+    public static function normalizePersianDigitsToEnglish(string $text): string
+    {
+        $persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+        $arabic = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        return str_replace(array_merge($persian, $arabic), array_merge($english, $english), $text);
+    }
+
+    /**
      * تشخیص عدد در متن
      * 
      * @param string $text
@@ -215,22 +226,17 @@ class PrayerHelper
      */
     public static function detectNumberInText(string $text): ?int
     {
-        // تشخیص اعداد انگلیسی
-        if (preg_match('/\b([234])\b/', $text, $matches)) {
-            return (int) $matches[1];
+        $normalized = self::normalizePersianDigitsToEnglish($text);
+        $trimmed = trim($normalized);
+
+        // کدهای ترکیبی: 34 = مغرب+عشا، 44 = ظهر+عصر
+        if (preg_match('/^(34|44)$/', $trimmed, $m)) {
+            return (int) $m[1];
         }
 
-        // تشخیص اعداد فارسی
-        $persianNumbers = [
-            '۲' => 2,
-            '۳' => 3,
-            '۴' => 4,
-        ];
-
-        foreach ($persianNumbers as $persian => $english) {
-            if (str_contains($text, $persian)) {
-                return $english;
-            }
+        // تشخیص اعداد انگلیسی یا نرمال‌شده (۲→2)
+        if (preg_match('/\b([234])\b/', $normalized, $matches)) {
+            return (int) $matches[1];
         }
 
         // تشخیص کلمات
@@ -239,10 +245,9 @@ class PrayerHelper
             'سه' => 3, 'three' => 3,
             'چهار' => 4, 'four' => 4,
         ];
-
-        $text = mb_strtolower($text);
+        $textLower = mb_strtolower($text);
         foreach ($words as $word => $number) {
-            if (str_contains($text, $word)) {
+            if (str_contains($textLower, $word)) {
                 return $number;
             }
         }

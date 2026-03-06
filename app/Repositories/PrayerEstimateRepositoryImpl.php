@@ -95,6 +95,7 @@ class PrayerEstimateRepositoryImpl implements PrayerEstimateRepository
         $progress = [
             'total_missed_prayers' => $estimate->total_missed_prayers,
             'total_missed_rakats' => $estimate->total_missed_rakats,
+            'estimate' => $estimate->total_missed_rakats,
             'remaining_rakats' => $remaining,
             'progress_percentage' => $percentage,
             'completed_prayers' => $completedPrayers,

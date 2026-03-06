@@ -164,13 +164,13 @@ class PrayerBotServiceImpl implements PrayerBotService
         ]);
 
         try {
-            // محاسبه تعداد رکعات بر اساس تعداد نماز
-            // میانگین: (2+4+4+3+4) / 5 = 3.4 رکعت به ازای هر نماز
-            $totalMissedRakats = (int) ceil($totalMissedPrayers * 3.4);
+            // ورودی از مسیر تخمین (واحد روز/هفته/ماه/سال/رکعت) همیشه رکعات است؛ ذخیره مستقیم بدون ضرب مجدد
+            $totalMissedRakats = (int) $totalMissedPrayers;
+            $totalMissedPrayersCount = (int) round($totalMissedPrayers / 3.4);
 
             $data = [
                 'chat_id' => $chatId,
-                'total_missed_prayers' => $totalMissedPrayers,
+                'total_missed_prayers' => $totalMissedPrayersCount,
                 'total_missed_rakats' => $totalMissedRakats,
                 'start_date' => now()->toDateString(),
                 'notes' => $notes,
@@ -435,7 +435,7 @@ class PrayerBotServiceImpl implements PrayerBotService
         return match($unit) {
             'day' => $value * 17,        // 5 نماز × 17 رکعت در روز
             'week' => $value * 7 * 17,   // 7 روز × 17 رکعت
-            'month' => $value * 30 * 17, // 30 روز × 17 رکعت
+            'month' => $value * 31 * 17, // 31 روز × 17 رکعت
             'year' => $value * 365 * 17, // 365 روز × 17 رکعت
             'rakat' => $value,           // مستقیم رکعت
             default => 0
@@ -450,7 +450,7 @@ class PrayerBotServiceImpl implements PrayerBotService
         return [
             'days' => round($rakats / 17, 1),
             'weeks' => round($rakats / (7 * 17), 1),
-            'months' => round($rakats / (30 * 17), 1),
+            'months' => round($rakats / (31 * 17), 1),
             'years' => round($rakats / (365 * 17), 2),
         ];
     }

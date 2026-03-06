@@ -341,7 +341,9 @@ return [
     'asr' => 'عصر',
     'maghrib' => 'مغرب',
     'isha' => 'عشا',
-    
+    'maghrib_isha' => 'مغرب و عشا',
+    'dhuhr_asr' => 'ظهر و عصر',
+
     // آمار
     'weekly_stats' => 'آمار هفتگی',
     'total_rakats' => 'مجموع رکعات',

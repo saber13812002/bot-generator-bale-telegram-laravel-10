@@ -245,6 +245,14 @@ class PrayerBotController extends Controller
 
         // تشخیص و ثبت عدد (رکعات)
         $number = PrayerHelper::detectNumberInText($text);
+        if ($number === 34) {
+            $this->handleRecordPrayer34($bot, $text, $chatId, $type, $botMotherId);
+            return;
+        }
+        if ($number === 44) {
+            $this->handleRecordPrayer44($bot, $text, $chatId, $type, $botMotherId);
+            return;
+        }
         if ($number && PrayerHelper::isValidRakatCount($number)) {
             $this->handleRecordPrayer($bot, $number, $text, $chatId, $type, $botMotherId);
             return;
@@ -624,8 +632,8 @@ class PrayerBotController extends Controller
      */
     protected function handleEstimateValue(Telegram $bot, int $chatId, string $text, $state, $botUser, string $type): void
     {
-        // چک کردن عدد بودن
-        if (!is_numeric($text) || $text <= 0) {
+        $normalized = PrayerHelper::normalizePersianDigitsToEnglish(trim($text));
+        if (!preg_match('/^\d+$/', $normalized) || (int) $normalized <= 0) {
             $bot->sendMessage([
                 'chat_id' => $chatId,
                 'text' => trans('bot.estimate_invalid_number')
@@ -633,7 +641,7 @@ class PrayerBotController extends Controller
             return;
         }
         
-        $value = (int) $text;
+        $value = (int) $normalized;
         $unit = $state->getData('unit');
         
         // تبدیل به رکعت
@@ -789,6 +797,58 @@ class PrayerBotController extends Controller
 
             $message = "❌ " . trans('bot.error_recording_prayer');
             BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    /**
+     * ثبت 34 = مغرب + عشا (دو رکورد: ۳ و ۴ رکعت)
+     */
+    protected function handleRecordPrayer34(Telegram $bot, string $text, int $chatId, string $type, int $botMotherId): void
+    {
+        $messageId = $bot->MessageID();
+        try {
+            $r1 = $this->prayerBotService->recordPrayer($chatId, 3, $type, $botMotherId, $messageId, 'مغرب');
+            $r2 = $this->prayerBotService->recordPrayer($chatId, 4, $type, $botMotherId, $messageId, 'عشا');
+            $label = trans('bot.maghrib_isha');
+            $message = "✅ " . trans('bot.prayer_recorded') . "\n\n";
+            $message .= "🔢 7 " . trans('bot.rakats') . " ({$label})\n";
+            $message .= "🆔 " . trans('bot.record_id') . ": {$r1->id}, {$r2->id}\n\n";
+            $message .= "🗑️ " . trans('bot.to_remove') . ": /remove_{$r1->id} /remove_{$r2->id}\n\n";
+            $message .= PrayerHelper::getRandomEncouragementMessage();
+            if ($messageId) {
+                BotHelper::sendMessageWithReply($bot, $message, $messageId);
+            } else {
+                BotHelper::sendMessage($bot, $message);
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Error recording 34', ['error' => $e->getMessage(), 'chat_id' => $chatId]);
+            BotHelper::sendMessage($bot, "❌ " . trans('bot.error_recording_prayer'));
+        }
+    }
+
+    /**
+     * ثبت 44 = ظهر + عصر (دو رکورد: ۴ و ۴ رکعت)
+     */
+    protected function handleRecordPrayer44(Telegram $bot, string $text, int $chatId, string $type, int $botMotherId): void
+    {
+        $messageId = $bot->MessageID();
+        try {
+            $r1 = $this->prayerBotService->recordPrayer($chatId, 4, $type, $botMotherId, $messageId, 'ظهر');
+            $r2 = $this->prayerBotService->recordPrayer($chatId, 4, $type, $botMotherId, $messageId, 'عصر');
+            $label = trans('bot.dhuhr_asr');
+            $message = "✅ " . trans('bot.prayer_recorded') . "\n\n";
+            $message .= "🔢 8 " . trans('bot.rakats') . " ({$label})\n";
+            $message .= "🆔 " . trans('bot.record_id') . ": {$r1->id}, {$r2->id}\n\n";
+            $message .= "🗑️ " . trans('bot.to_remove') . ": /remove_{$r1->id} /remove_{$r2->id}\n\n";
+            $message .= PrayerHelper::getRandomEncouragementMessage();
+            if ($messageId) {
+                BotHelper::sendMessageWithReply($bot, $message, $messageId);
+            } else {
+                BotHelper::sendMessage($bot, $message);
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [PrayerBot] Error recording 44', ['error' => $e->getMessage(), 'chat_id' => $chatId]);
+            BotHelper::sendMessage($bot, "❌ " . trans('bot.error_recording_prayer'));
         }
     }
 

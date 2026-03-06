@@ -608,6 +608,22 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 
 20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
 
+### دستوراتی که با `schedule:run` اجرا می‌شوند
+
+با تنظیم یک کران‌جاب برای `php artisan schedule:run` (مثلاً هر دقیقه یا طبق یکی از ردیف‌های بالا)، این دستورات به‌صورت خودکار طبق زمان‌بندی زیر اجرا می‌شوند (مربوط به `app/Console/Kernel.php`):
+
+| فرکانس | دستور / Job |
+|--------|--------------|
+| هر پنج‌شنبه ۲۰:۲۷ | TaskReminderCommand |
+| هر روز ۲۰:۲۹ | UsersRankingCommand |
+| هر ۱۵ دقیقه | RssReadTranslate |
+| هر ۱۰ دقیقه | SendPrayerWeeklyReports (batch 5, interval 10) |
+| هر ۳۰ دقیقه | SendPrayerWeeklyReports (batch 10, interval 30) |
+| هر ساعت | SendPrayerWeeklyReports (batch 10, interval 60) |
+| هر ساعت | CheckWeatherAlertsJob |
+| هر ساعت ۱۹:۰۰–۲۳:۵۹ | ScheduleBookPublishing |
+| روزانه ۰۷:۰۰ (در صورت فعال بودن env) | TestScheduleDailyIntoSlack |
+
 # 📋 دستورات مهم
 
 ```bash
