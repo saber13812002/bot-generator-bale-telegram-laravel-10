@@ -13,6 +13,7 @@ use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
 use App\Models\Bot;
 use App\Models\BotLog;
+use App\Models\ContentSubmissionBotConfig;
 use App\Models\BotUsers;
 use App\Models\PresenterBot;
 use App\Models\PsychologyTestBot;
@@ -228,6 +229,16 @@ class BotMotherController extends Controller
             // Handle category descriptions input
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_CATEGORY_DESCRIPTIONS) {
                 $this->handleCategoryDescriptionsInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Content submission bot wizard
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS,
+            ])) {
+                $this->handleContentBotWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
             }
             // Legacy support - if language is provided in request
             else if ($request->has('language')) {
@@ -1257,6 +1268,23 @@ class BotMotherController extends Controller
                 BotHelper::sendMessage($bot, $message);
                 return; // Return early - don't set webhook yet
             }
+
+            // Content submission bot - start channel/group wizard
+            if ($endpointId == 'content-submission') {
+                Log::info('[ContentSubmission] Wizard start after token', [
+                    'bot_id' => $botItem->id,
+                    'chat_id' => $chatId,
+                    'step' => 'wizard_channel_confirm',
+                ]);
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                ]));
+                $message = "✅ ربات با موفقیت ثبت شد!\n\n";
+                $message .= "در کانال ادمین هستی؟ عضو هستی؟\n";
+                $message .= "اگر بله، پاسخ «بله» را بفرست.";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
             
             // Create webhook URL
             $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
@@ -1839,6 +1867,202 @@ class BotMotherController extends Controller
                 'category_index' => $categoryIndex,
                 'chat_id' => $chatId,
             ]);
+        }
+    }
+
+    /**
+     * Content submission bot wizard: channel confirm → channel forward → need approval? → group forward → required approvals → save config & setWebhook
+     */
+    private function handleContentBotWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $botId = (int) ($stateData['bot_id'] ?? 0);
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+        $endpointId = 'content-submission';
+
+        Log::info('[ContentSubmission] handleContentBotWizard', [
+            'chat_id' => $chatId,
+            'bot_id' => $botId,
+            'current_state' => $currentState,
+            'step' => 'wizard_step',
+        ]);
+
+        if (!$botId) {
+            BotHelper::sendMessage($bot, '❌ خطا: ربات یافت نشد. لطفاً از /start دوباره شروع کنید.');
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        $botItem = Bot::find($botId);
+        if (!$botItem) {
+            BotHelper::sendMessage($bot, '❌ خطا: ربات یافت نشد.');
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        $newBotToken = $botType === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+        $newBot = $botType === 'bale' ? new Telegram($newBotToken, 'bale') : new Telegram($newBotToken);
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'بله' && $t !== 'yes' && $t !== 'y') {
+                BotHelper::sendMessage($bot, 'لطفاً «بله» را بفرستید تا ادامه دهیم.');
+                return;
+            }
+            Log::info('[ContentSubmission] Channel confirm received', ['chat_id' => $chatId, 'step' => 'wizard_channel_confirm']);
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD, $stateData);
+            BotHelper::sendMessage($bot, 'یک پیام از کانال فوروارد کن.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD) {
+            $message = $update['message'] ?? null;
+            $forwardFromChat = $message['forward_from_chat'] ?? null;
+            if (!$forwardFromChat || !isset($forwardFromChat['id'])) {
+                Log::warning('[ContentSubmission] No forward_from_chat in message', ['chat_id' => $chatId, 'step' => 'wizard_channel_forward']);
+                BotHelper::sendMessage($bot, 'لطفاً یک پیام از خود کانال فوروارد کن (نه از گروه).');
+                return;
+            }
+            $channelChatId = (int) $forwardFromChat['id'];
+            $stateData['channel_chat_id'] = $channelChatId;
+            Log::info('[ContentSubmission] Channel forward received', ['chat_id' => $chatId, 'channel_chat_id' => $channelChatId, 'step' => 'wizard_channel_forward']);
+
+            try {
+                $newBot->sendMessage([
+                    'chat_id' => $channelChatId,
+                    'text' => 'تست - این پیام را پاک کنید.',
+                ]);
+            } catch (Exception $e) {
+                Log::error('[ContentSubmission] Failed to send test message to channel', [
+                    'channel_chat_id' => $channelChatId,
+                    'error' => $e->getMessage(),
+                    'step' => 'wizard_channel_forward',
+                ]);
+                BotHelper::sendMessage($bot, '❌ نتوانستم در کانال پیام بفرستم. مطمئن شو ربات در کانال ادمین است. دوباره یک پیام از کانال فوروارد کن.');
+                return;
+            }
+
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL, $stateData);
+            BotHelper::sendMessage($bot, "پیام تست در کانال فرستاده شد. آن را پاک کن.\n\nنیاز به تایید داری؟ بله یا خیر");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL) {
+            $t = mb_strtolower(trim($text));
+            if ($t === 'خیر' || $t === 'no' || $t === 'n') {
+                ContentSubmissionBotConfig::updateOrCreate(
+                    ['bot_id' => $botId],
+                    [
+                        'channel_chat_id' => $stateData['channel_chat_id'],
+                        'group_chat_id' => null,
+                        'required_approvals' => 0,
+                        'origin' => $botType,
+                    ]
+                );
+                Log::info('[ContentSubmission] Config saved without approval group', ['bot_id' => $botId, 'step' => 'wizard_need_approval']);
+                $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+                return;
+            }
+            if ($t !== 'بله' && $t !== 'yes' && $t !== 'y') {
+                BotHelper::sendMessage($bot, 'بله یا خیر بفرست.');
+                return;
+            }
+            Log::info('[ContentSubmission] Need approval: yes', ['chat_id' => $chatId, 'step' => 'wizard_need_approval']);
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD, $stateData);
+            BotHelper::sendMessage($bot, 'عضو گروه تایید هستی؟ اگر بله، یک پیام از گروه فوروارد کن.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD) {
+            $message = $update['message'] ?? null;
+            $forwardFromChat = $message['forward_from_chat'] ?? null;
+            if (!$forwardFromChat || !isset($forwardFromChat['id'])) {
+                Log::warning('[ContentSubmission] No forward_from_chat for group', ['chat_id' => $chatId, 'step' => 'wizard_group_forward']);
+                BotHelper::sendMessage($bot, 'لطفاً یک پیام از گروه تایید فوروارد کن.');
+                return;
+            }
+            $groupChatId = (int) $forwardFromChat['id'];
+            $stateData['group_chat_id'] = $groupChatId;
+            Log::info('[ContentSubmission] Group forward received', ['chat_id' => $chatId, 'group_chat_id' => $groupChatId, 'step' => 'wizard_group_forward']);
+
+            try {
+                $newBot->sendMessage([
+                    'chat_id' => $groupChatId,
+                    'text' => '.',
+                ]);
+            } catch (Exception $e) {
+                Log::error('[ContentSubmission] Failed to send dot to group', [
+                    'group_chat_id' => $groupChatId,
+                    'error' => $e->getMessage(),
+                    'step' => 'wizard_group_forward',
+                ]);
+                BotHelper::sendMessage($bot, '❌ نتوانستم در گروه پیام بفرستم. مطمئن شو ربات عضو گروه است. دوباره یک پیام از گروه فوروارد کن.');
+                return;
+            }
+
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS, $stateData);
+            BotHelper::sendMessage($bot, "پیام نقطه در گروه فرستاده شد. پاکش کن.\n\nتایید یک نفر کافی است یا دو نفر؟ ۱ یا ۲");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS) {
+            $t = trim($text);
+            $requiredApprovals = ($t === '2' || $t === '۲' || $t === 'دو') ? 2 : 1;
+            ContentSubmissionBotConfig::updateOrCreate(
+                ['bot_id' => $botId],
+                [
+                    'channel_chat_id' => $stateData['channel_chat_id'],
+                    'group_chat_id' => $stateData['group_chat_id'] ?? null,
+                    'required_approvals' => $requiredApprovals,
+                    'origin' => $botType,
+                ]
+            );
+            Log::info('[ContentSubmission] Config saved with approval group', [
+                'bot_id' => $botId,
+                'required_approvals' => $requiredApprovals,
+                'step' => 'wizard_required_approvals',
+            ]);
+            $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+        }
+    }
+
+    private function finishContentBotWizard(Telegram $bot, Bot $botItem, string $botType, string $language, int $botMotherId, string $endpointId, $chatId): void
+    {
+        try {
+            $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+            $token = $botType === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            $newBot = $botType === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+            $setWebhookResult = $newBot->setWebhook($webhookUrl);
+
+            if (!$setWebhookResult['ok']) {
+                throw new Exception('خطا در تنظیم webhook: ' . ($setWebhookResult['description'] ?? 'Unknown error'));
+            }
+
+            if ($botType === 'bale') {
+                $botItem->bale_webhook_is_set = 1;
+            } else {
+                $botItem->telegram_webhook_is_set = 1;
+            }
+            $botItem->save();
+
+            Log::info('[ContentSubmission] Wizard finished, webhook set', [
+                'bot_id' => $botItem->id,
+                'chat_id' => $chatId,
+                'step' => 'wizard_finish',
+            ]);
+
+            BotHelper::sendMessage($bot, "✅ ربات محتوای متنی/عکس/فیلم آماده است.\n\nWebhook تنظیم شد. کاربران می‌توانند در خصوصی متن/عکس/ویدیو بفرستند؛ در گروه تایید با ریپلای «۱» تایید شود و در کانال منتشر شود.\n\n💡 برای مشاهده لیست دستورات: /help");
+            BotMotherStateHelper::clearState($chatId);
+        } catch (Exception $e) {
+            Log::error('[ContentSubmission] finishContentBotWizard error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'chat_id' => $chatId,
+                'step' => 'wizard_finish',
+            ]);
+            BotHelper::sendMessage($bot, '❌ خطا در تنظیم webhook: ' . $e->getMessage());
         }
     }
 

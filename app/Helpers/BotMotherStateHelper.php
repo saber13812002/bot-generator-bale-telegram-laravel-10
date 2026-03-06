@@ -105,5 +105,12 @@ class BotMotherStateHelper
     const STATE_WAITING_BROADCAST_MESSAGE = 'waiting_broadcast_message';
     const STATE_WAITING_QURAN_BOTS_LANGUAGE = 'waiting_quran_bots_language';
     const STATE_WAITING_QURAN_BOTS_SOURCE = 'waiting_quran_bots_source';
+
+    // Content submission bot wizard
+    const STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM = 'waiting_content_bot_channel_confirm';
+    const STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD = 'waiting_content_bot_channel_forward';
+    const STATE_WAITING_CONTENT_BOT_NEED_APPROVAL = 'waiting_content_bot_need_approval';
+    const STATE_WAITING_CONTENT_BOT_GROUP_FORWARD = 'waiting_content_bot_group_forward';
+    const STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS = 'waiting_content_bot_required_approvals';
 }
 

@@ -18,6 +18,7 @@ use App\Http\Controllers\SocialPublishController;
 use App\Http\Controllers\AudioBookController;
 use App\Http\Controllers\BookPixelApprovalController;
 use App\Http\Controllers\BookPixelController;
+use App\Http\Controllers\ContentSubmissionController;
 use App\Http\Controllers\MissionBotController;
 use App\Http\Controllers\PoemBotController;
 use App\Http\Controllers\MissionMediaBotController;
@@ -122,6 +123,8 @@ Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 
 Route::post('/webhook-book-pixel', [BookPixelController::class, 'webhook']);
 Route::post('/webhook-book-pixel-approval', [BookPixelApprovalController::class, 'index']);
+
+Route::post('/webhook-content-submission', [ContentSubmissionController::class, 'webhook']);
 
 Route::post('/api/webhook-poem-bot', [PoemBotController::class, 'webhook']);
 Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);

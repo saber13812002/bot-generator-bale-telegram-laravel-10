@@ -27,6 +27,7 @@ use App\Interfaces\Services\BookDraftService;
 use App\Interfaces\Services\BookScanMissionService;
 use App\Interfaces\Services\BookStatisticsService;
 use App\Interfaces\Services\ContentService;
+use App\Interfaces\Services\ContentSubmissionService;
 use App\Interfaces\Services\EmailService;
 use App\Interfaces\Services\HadithApiService;
 use App\Interfaces\Services\MissionService;
@@ -65,6 +66,7 @@ use App\Services\BookDraftServiceImpl;
 use App\Services\BookScanMissionServiceImpl;
 use App\Services\BookStatisticsServiceImpl;
 use App\Services\ContentServiceImpl;
+use App\Services\ContentSubmissionServiceImpl;
 use App\Services\HadithApiServiceImpl;
 use App\Services\MailtrapEmailServiceImpl;
 use App\Services\MissionServiceImpl;
@@ -140,6 +142,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BookDraftService::class, BookDraftServiceImpl::class);
         $this->app->bind(BookScanMissionService::class, BookScanMissionServiceImpl::class);
         $this->app->bind(BookStatisticsService::class, BookStatisticsServiceImpl::class);
+        $this->app->bind(ContentSubmissionService::class, ContentSubmissionServiceImpl::class);
         
         // Email Service
         $this->app->bind(EmailService::class, MailtrapEmailServiceImpl::class);
