@@ -184,6 +184,15 @@ class ImportWebhookEndpointsDefault extends Command
                 'requires_token' => false,
                 'requires_language' => false,
             ],
+            [
+                'id' => 'webhook-list-bot',
+                'name' => 'فهرست با دکمه شیشه‌ای',
+                'route' => '/api/webhook-list-bot',
+                'description' => 'ربات فهرست با منوی درختی و دکمه‌های اینلاین (لینک به ربات/کانال/ایتا/سایت)',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
         ];
     }
 

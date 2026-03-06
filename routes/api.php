@@ -121,6 +121,9 @@ Route::post('/webhook-rating-bot', [\App\Http\Controllers\RatingBotController::c
 // psychology test bot
 Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBotController::class, 'index']);
 
+// list bot (فهرست با دکمه شیشه‌ای)
+Route::post('/webhook-list-bot', [\App\Http\Controllers\ListBotController::class, 'index']);
+
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 

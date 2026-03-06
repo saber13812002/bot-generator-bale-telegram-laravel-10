@@ -1318,6 +1318,9 @@ class BotMotherController extends Controller
                 return; // Return early - don't set webhook yet
             }
 
+            // List bot (فهرست با دکمه شیشه‌ای) - no wizard, continue to set webhook
+            // (handled below with other endpoints; success message customized later)
+
             // Content submission bot - start channel/group wizard
             if ($endpointId == 'content-submission') {
                 Log::info('[ContentSubmission] Wizard start after token', [
@@ -1405,6 +1408,10 @@ class BotMotherController extends Controller
                 }
                 
                 $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
+            }
+
+            if ($endpointId === 'webhook-list-bot') {
+                $successMessage .= "\n\n━━━━━━━━━━━━━━━━━━━━\n📋 ربات فهرست با دکمه شیشه‌ای:\nبه ربات برو و /start بزن. اگر سازنده ربات هستی، یک بار متن منو را به فرمت زیر بفرست تا دکمه‌ها ساخته شوند:\n\n• خط اول با یک - : عنوان اصلی\n• هر خط با -- یا --- و بعد عنوان و در صورت نیاز : لینک\n\nمثال:\n- عنوان مادر\n-- زیر۱: https://t.me/bot\n-- زیر۲: لینک کانال بله\n--- زیر۲-۱: https://site.com";
             }
             
             BotHelper::sendMessage($bot, $successMessage);
