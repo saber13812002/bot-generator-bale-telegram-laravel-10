@@ -26,6 +26,9 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /** حداکثر زمان اجرای جاب (ثانیه)؛ جلوگیری از انتظار طولانی برای tapi.bale.ai و غیره */
+    public int $timeout = 45;
+
     protected RssPostItemTranslationQueue $rssPostItemTranslationQueue;
 
     public function __construct(RssPostItemTranslationQueue $rssPostItemTranslationQueue)
@@ -55,12 +58,13 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 //        dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 
         try {
-//            dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
             $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
-//            dd($response);
-//            if ($response && $response["ok"] != true) {
-            Log::info(json_encode($response));
-//            }
+            if (is_array($response) && empty($response['ok'])) {
+                Log::warning('RssPostItemTranslationToMessengerJob: send message failed', [
+                    'channel_id' => $this->rssPostItemTranslationQueue->rss_channel_id,
+                    'response' => $response,
+                ]);
+            }
             /** @var RssPostItem|null $rssPostItem */
             $rssPostItem = optional($postTranslation)->post;
             $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $rssChannelOrigin->slug));
