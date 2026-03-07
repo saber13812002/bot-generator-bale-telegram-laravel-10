@@ -65,12 +65,38 @@ class ListBotController extends Controller
                 $this->handleTextMessage($bot, $text, $botItem, $type, $token);
             }
         } catch (Exception $e) {
-            Log::error('❌ List Bot - Error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
+            $context = [
+                'exception' => get_class($e),
+                'message'   => $e->getMessage(),
+                'file'      => $e->getFile(),
+                'line'      => $e->getLine(),
+                'trace'     => $e->getTraceAsString(),
+            ];
             if (isset($bot)) {
-                BotHelper::sendMessage($bot, 'خطایی رخ داد. لطفا دوباره تلاش کنید.');
+                try {
+                    $context['chat_id'] = $bot->ChatID();
+                } catch (\Throwable $t) {
+                    $context['chat_id'] = null;
+                    $context['chat_id_error'] = $t->getMessage();
+                }
+            }
+            if (isset($botItem)) {
+                $context['bot_id'] = $botItem->id;
+            }
+            $context['origin'] = $request->input('origin');
+            $context['token_preview'] = $request->has('token') ? substr((string) $request->input('token'), 0, 10) . '...' : null;
+
+            Log::error('❌ [ListBot] خطا هنگام پردازش وب‌هوک — کاربر پیام «خطایی رخ داد» دریافت کرد', $context);
+
+            if (isset($bot)) {
+                try {
+                    BotHelper::sendMessage($bot, 'خطایی رخ داد. لطفا دوباره تلاش کنید.');
+                } catch (\Throwable $sendEx) {
+                    Log::error('❌ [ListBot] خطا در ارسال پیام خطا به کاربر', [
+                        'send_error' => $sendEx->getMessage(),
+                        'original_error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
     }

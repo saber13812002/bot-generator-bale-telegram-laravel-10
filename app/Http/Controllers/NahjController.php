@@ -93,7 +93,11 @@ class NahjController extends Controller
 
                 $command_type = "";
 
-                if (StringHelper::ifBotTextIsTooLong($bot, $bot->Text())) {
+                $text = $bot->Text() ?? '';
+                if ($text === '') {
+                    return 1;
+                }
+                if (StringHelper::ifBotTextIsTooLong($bot, $text)) {
                     return 1;
                 }
 

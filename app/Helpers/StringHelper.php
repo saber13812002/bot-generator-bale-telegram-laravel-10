@@ -184,8 +184,11 @@ class StringHelper
     }
 
 
-    public static function ifBotTextIsTooLong($bot, string $botText): bool
+    public static function ifBotTextIsTooLong($bot, ?string $botText): bool
     {
+        if ($botText === null) {
+            return false;
+        }
         if (Str::length($botText) > 70) {
             BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
             return true;
