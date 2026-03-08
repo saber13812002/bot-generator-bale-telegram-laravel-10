@@ -2251,16 +2251,35 @@ class BotMotherController extends Controller
             }
             Log::info('[ContentSubmission] Need approval: yes', ['chat_id' => $chatId, 'step' => 'wizard_need_approval']);
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD, $stateData);
-            BotHelper::sendMessage($bot, 'عضو گروه تایید هستی؟ اگر بله، یک پیام از گروه فوروارد کن.');
+            BotHelper::sendMessage($bot, 'عضو گروه تایید هستی؟ اگر بله، یک پیام از گروه فوروارد کن. اگر فوروارد در بله کار نمی‌کند، می‌توانی «رد کن» بفرستی تا این مرحله رد شود.');
             return;
         }
 
         if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD) {
+            $skipPhrases = ['رد کن', 'skip', 'بگذر', 'ادمه', 'رد'];
+            $t = mb_strtolower(trim($text));
+            $wantsSkip = in_array($t, array_map('mb_strtolower', $skipPhrases), true)
+                || in_array($text, $skipPhrases, true);
+            if ($wantsSkip) {
+                ContentSubmissionBotConfig::updateOrCreate(
+                    ['bot_id' => $botId],
+                    [
+                        'channel_chat_id' => $stateData['channel_chat_id'],
+                        'group_chat_id' => null,
+                        'required_approvals' => 0,
+                        'origin' => $botType,
+                    ]
+                );
+                Log::info('[ContentSubmission] Group step skipped by user', ['chat_id' => $chatId, 'bot_id' => $botId, 'step' => 'wizard_group_forward']);
+                $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+                return;
+            }
+
             $message = $update['message'] ?? null;
             $forwardFromChat = $message['forward_from_chat'] ?? null;
             if (!$forwardFromChat || !isset($forwardFromChat['id'])) {
                 Log::warning('[ContentSubmission] No forward_from_chat for group', ['chat_id' => $chatId, 'step' => 'wizard_group_forward']);
-                BotHelper::sendMessage($bot, 'لطفاً یک پیام از گروه تایید فوروارد کن.');
+                BotHelper::sendMessage($bot, 'لطفاً یک پیام از گروه تایید فوروارد کن. اگر ربات در گروه ادمین است ولی فوروارد در بله کار نمی‌کند، عبارت «رد کن» را بفرست تا این مرحله رد شود.');
                 return;
             }
             $groupChatId = (int) $forwardFromChat['id'];
