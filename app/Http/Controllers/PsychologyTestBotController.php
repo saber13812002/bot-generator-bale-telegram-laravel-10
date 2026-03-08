@@ -129,6 +129,23 @@ class PsychologyTestBotController extends Controller
                 Log::info('▶️ Psychology Test Bot - Processing /start command', ['chat_id' => $chatId]);
                 $this->handleStart($bot, $type, $botItem, $psychologyTestBot);
             }
+            // Handle back / دیدن نتایج قبلی
+            elseif ($text === '/back' || $text === '/قبلی' || $text === '/my_results' || $text === '/نتایج_من') {
+                $botUser = BotUsers::where('chat_id', $chatId)->where('origin', $type)->where('bot_id', $botItem->id)->first();
+                if ($text === '/back' || $text === '/قبلی') {
+                    if ($botUser) {
+                        $this->handleBack($bot, $chatId, $botUser, $type, $botItem, $psychologyTestBot, false);
+                    } else {
+                        BotHelper::sendMessage($bot, 'در حال تست نیستید.');
+                    }
+                } else {
+                    if (!$botUser) {
+                        $botUser = new BotUsers(['chat_id' => $chatId, 'bot_id' => $botItem->id, 'origin' => $type, 'status' => 'active']);
+                        $botUser->save();
+                    }
+                    $this->handleMyResults($bot, $chatId, $botUser, $type, $botItem, $psychologyTestBot);
+                }
+            }
             // Handle /add_admin command (for admins)
             else if (str_starts_with($text, '/add_admin')) {
                 Log::info('👤 Psychology Test Bot - Processing /add_admin command', ['chat_id' => $chatId]);
@@ -189,20 +206,36 @@ class PsychologyTestBotController extends Controller
             ]);
             $botUser->save();
         }
-        
+
+        $questionIds = $botUser->setting('psychology_test_questions', []);
+        $currentIndex = $botUser->setting('psychology_test_current_question_index', 0);
+        $savedBotId = $botUser->setting('psychology_test_bot_id');
+        $total = count($questionIds);
+
+        // Continue incomplete test for this bot
+        if (!empty($questionIds) && $savedBotId == $psychologyTestBot->id && $currentIndex > 0 && $currentIndex < $total) {
+            $currentQuestionId = $questionIds[$currentIndex];
+            $currentQuestion = PsychologyTestQuestion::with('category')->find($currentQuestionId);
+            if ($currentQuestion) {
+                BotHelper::sendMessageByChatId($bot, $chatId, "ادامه تست — سوال " . ($currentIndex + 1) . " از {$total}");
+                $this->sendQuestion($bot, $currentQuestion, $currentIndex, $total, null, $psychologyTestBot);
+                return;
+            }
+        }
+
         // Get all questions
         $questions = PsychologyTestQuestion::where('psychology_test_bot_id', $psychologyTestBot->id)
             ->with('category')
             ->get();
-        
+
         if ($questions->isEmpty()) {
             BotHelper::sendMessage($bot, 'خطا: هیچ سوالی تعریف نشده است.');
             return;
         }
-        
+
         // Shuffle questions for random order
         $questions = $questions->shuffle();
-        
+
         // Reset user state
         $botUser->settings([
             'psychology_test_questions' => $questions->pluck('id')->toArray(),
@@ -210,24 +243,35 @@ class PsychologyTestBotController extends Controller
             'psychology_test_answers' => [],
             'psychology_test_bot_id' => $psychologyTestBot->id,
         ]);
-        
+
         // Send first question
-        $this->sendQuestion($bot, $questions->first(), 0, $questions->count());
+        $this->sendQuestion($bot, $questions->first(), 0, $questions->count(), null, $psychologyTestBot);
+    }
+
+    /**
+     * Back navigation mode: none, button, command, both. Default both.
+     */
+    private function getBackNavigation(PsychologyTestBot $psychologyTestBot): string
+    {
+        $v = $psychologyTestBot->back_navigation ?? 'both';
+        return in_array($v, ['none', 'button', 'command', 'both'], true) ? $v : 'both';
     }
 
     /**
      * Send a question to user
-     * 
+     *
      * @param Telegram $bot
      * @param PsychologyTestQuestion $question
      * @param int $questionIndex
      * @param int $totalQuestions
+     * @param int|string|null $explicitChatId when set (e.g. from callback), message is sent to this chat
+     * @param PsychologyTestBot|null $psychologyTestBot for back button visibility (back_navigation)
      * @return void
      */
-    private function sendQuestion(Telegram $bot, PsychologyTestQuestion $question, int $questionIndex, int $totalQuestions): void
+    private function sendQuestion(Telegram $bot, PsychologyTestQuestion $question, int $questionIndex, int $totalQuestions, $explicitChatId = null, ?PsychologyTestBot $psychologyTestBot = null): void
     {
-        $chatId = $bot->ChatID();
-        
+        $chatId = $explicitChatId ?? $bot->ChatID();
+
         // Options: خیلی کم, کم, متوسط, زیاد, خیلی زیاد
         $options = [
             'psychology_answer_1' => 'خیلی کم',
@@ -236,10 +280,10 @@ class PsychologyTestBotController extends Controller
             'psychology_answer_4' => 'زیاد',
             'psychology_answer_5' => 'خیلی زیاد',
         ];
-        
+
         $message = "📝 سوال " . ($questionIndex + 1) . "/{$totalQuestions}\n\n";
         $message .= $question->question_text . "\n\n";
-        
+
         // Build inline keyboard
         $keyboard = [];
         foreach ($options as $callbackData => $optionText) {
@@ -247,11 +291,23 @@ class PsychologyTestBotController extends Controller
                 $bot->buildInlineKeyBoardButton($optionText, callback_data: "{$callbackData}_{$question->id}")
             ];
         }
-        
+
+        $backNav = $psychologyTestBot ? $this->getBackNavigation($psychologyTestBot) : 'both';
+        if ($questionIndex > 0 && ($backNav === 'button' || $backNav === 'both')) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton('◀ سوال قبلی', callback_data: 'psychology_back')];
+        }
+        if ($questionIndex === 0) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton('📋 دیدن نتایج قبلی', callback_data: 'psychology_my_results')];
+        }
+
         $inlineKeyboard = $bot->buildInlineKeyBoard($keyboard);
-        
-        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
-        
+
+        if ($explicitChatId !== null) {
+            BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+        } else {
+            BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+        }
+
         Log::info('Psychology Test Bot - Question sent', [
             'chat_id' => $chatId,
             'question_id' => $question->id,
@@ -327,12 +383,19 @@ class PsychologyTestBotController extends Controller
             return;
         }
         
+        $psychologyTestBot = PsychologyTestBot::where('bot_id', $botItem->id)->first();
+
         // Parse callback data: psychology_answer_X_questionId
         if (preg_match('/^psychology_answer_(\d+)_(\d+)$/', $callbackData, $matches)) {
-            $answerIndex = intval($matches[1]); // 1-5
+            $answerIndex = intval($matches[1]);
             $questionId = intval($matches[2]);
-            
-            $this->handleAnswer($bot, $botUser, $answerIndex, $questionId, $type, $botItem);
+            $this->handleAnswer($bot, $chatId, $botUser, $answerIndex, $questionId, $type, $botItem);
+        } elseif ($callbackData === 'psychology_back') {
+            $this->handleBack($bot, $chatId, $botUser, $type, $botItem, $psychologyTestBot, true);
+        } elseif ($callbackData === 'psychology_my_results') {
+            $this->handleMyResults($bot, $chatId, $botUser, $type, $botItem, $psychologyTestBot);
+        } elseif (preg_match('/^psychology_show_result_(\d+)$/', $callbackData, $m)) {
+            $this->handleShowResult($bot, $chatId, (int) $m[1], $type, $botItem);
         } else {
             Log::warning('Psychology Test Bot - Unknown callback data', [
                 'chat_id' => $chatId,
@@ -342,145 +405,113 @@ class PsychologyTestBotController extends Controller
     }
 
     /**
-     * Handle answer to question
-     * 
-     * @param Telegram $bot
-     * @param BotUsers $botUser
-     * @param int $answerIndex (1-5)
-     * @param int $questionId
-     * @param string $type
-     * @param Bot $botItem
-     * @return void
+     * Handle back to previous question (callback or command).
+     * @param bool $fromCallback true when triggered by inline button, false when by /back or /قبلی
      */
-    private function handleAnswer(Telegram $bot, BotUsers $botUser, int $answerIndex, int $questionId, string $type, Bot $botItem): void
+    private function handleBack(Telegram $bot, $chatId, BotUsers $botUser, string $type, Bot $botItem, ?PsychologyTestBot $psychologyTestBot, bool $fromCallback = true): void
     {
-        $chatId = $bot->ChatID();
-        
-        // Get current state
-        $questions = $botUser->setting('psychology_test_questions', []);
-        $currentIndex = $botUser->setting('psychology_test_current_question_index', 0);
-        $answers = $botUser->setting('psychology_test_answers', []);
-        $psychologyTestBotId = $botUser->setting('psychology_test_bot_id');
-        
-        if (!$psychologyTestBotId) {
-            BotHelper::sendMessage($bot, 'خطا: اطلاعات تست یافت نشد.');
+        $backNav = $psychologyTestBot ? $this->getBackNavigation($psychologyTestBot) : 'both';
+        if ($backNav === 'none') {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'امکان برگشت به سوال قبلی در این ربات غیرفعال است.');
             return;
         }
-        
-        // Save answer
-        $answers[$questionId] = $answerIndex;
-        $botUser->settings([
-            'psychology_test_answers' => $answers,
-        ]);
-        
-        // Move to next question
-        $currentIndex++;
-        $botUser->settings([
-            'psychology_test_current_question_index' => $currentIndex,
-        ]);
-        
-        // Check if all questions answered
-        if ($currentIndex >= count($questions)) {
-            // All questions answered - calculate results
-            $this->calculateAndShowResults($bot, $botUser, $psychologyTestBotId, $type);
-        } else {
-            // Get next question
-            $nextQuestionId = $questions[$currentIndex];
-            $nextQuestion = PsychologyTestQuestion::with('category')->find($nextQuestionId);
-            
-            if ($nextQuestion) {
-                $this->sendQuestion($bot, $nextQuestion, $currentIndex, count($questions));
-            } else {
-                BotHelper::sendMessage($bot, 'خطا: سوال بعدی یافت نشد.');
-            }
+        if ($fromCallback && $backNav === 'command') {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'امکان برگشت فقط با دستور /back یا /قبلی است.');
+            return;
         }
+        if (!$fromCallback && $backNav === 'button') {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'امکان برگشت فقط از دکمه «سوال قبلی» است.');
+            return;
+        }
+
+        $questionIds = $botUser->setting('psychology_test_questions', []);
+        $currentIndex = $botUser->setting('psychology_test_current_question_index', 0);
+        $psychologyTestBotId = $botUser->setting('psychology_test_bot_id');
+
+        if (!$psychologyTestBotId || empty($questionIds)) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'خطا: اطلاعات تست یافت نشد.');
+            return;
+        }
+
+        if ($currentIndex <= 0) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'سوال قبلی وجود ندارد.');
+            return;
+        }
+
+        $currentIndex--;
+        $botUser->settings(['psychology_test_current_question_index' => $currentIndex]);
+
+        $prevQuestionId = $questionIds[$currentIndex];
+        $prevQuestion = PsychologyTestQuestion::with('category')->find($prevQuestionId);
+        if (!$prevQuestion) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'خطا: سوال قبلی یافت نشد.');
+            return;
+        }
+
+        $this->sendQuestion($bot, $prevQuestion, $currentIndex, count($questionIds), $chatId, $psychologyTestBot);
     }
 
     /**
-     * Calculate and show results
-     * 
-     * @param Telegram $bot
-     * @param BotUsers $botUser
-     * @param int $psychologyTestBotId
-     * @param string $type
-     * @return void
+     * Show list of user's past results and optional incomplete-test notice.
      */
-    private function calculateAndShowResults(Telegram $bot, BotUsers $botUser, int $psychologyTestBotId, string $type): void
+    private function handleMyResults(Telegram $bot, $chatId, BotUsers $botUser, string $type, Bot $botItem, ?PsychologyTestBot $psychologyTestBot): void
     {
-        $chatId = $bot->ChatID();
-        $answers = $botUser->setting('psychology_test_answers', []);
-        
-        // Get all questions with answers
-        $questions = PsychologyTestQuestion::where('psychology_test_bot_id', $psychologyTestBotId)
-            ->with('category')
+        if (!$psychologyTestBot) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'خطا: اطلاعات تست یافت نشد.');
+            return;
+        }
+
+        $results = PsychologyTestResult::where('psychology_test_bot_id', $psychologyTestBot->id)
+            ->where('chat_id', $chatId)
+            ->where('origin', $type)
+            ->orderBy('completed_at', 'desc')
+            ->limit(20)
             ->get();
-        
-        // Calculate scores for each category
-        $categoryScores = [];
-        
-        foreach ($questions as $question) {
-            $answerIndex = $answers[$question->id] ?? null;
-            if ($answerIndex === null) {
-                continue;
-            }
-            
-            $categoryId = $question->psychology_test_category_id;
-            if (!isset($categoryScores[$categoryId])) {
-                $categoryScores[$categoryId] = [
-                    'total_score' => 0,
-                    'total_weight' => 0,
-                ];
-            }
-            
-            // Calculate score based on direction
-            // answerIndex: 1=خیلی کم, 2=کم, 3=متوسط, 4=زیاد, 5=خیلی زیاد
-            // Convert to 0-4 scale
-            $answerValue = $answerIndex - 1;
-            
-            if ($question->direction == 1) {
-                // خیلی زیاد به سمت دسته
-                $score = ($answerValue / 4) * $question->weight;
-            } else {
-                // خیلی کم به سمت دسته
-                $score = ((4 - $answerValue) / 4) * $question->weight;
-            }
-            
-            $categoryScores[$categoryId]['total_score'] += $score;
-            $categoryScores[$categoryId]['total_weight'] += $question->weight;
+
+        $questionIds = $botUser->setting('psychology_test_questions', []);
+        $currentIndex = $botUser->setting('psychology_test_current_question_index', 0);
+        $hasIncomplete = !empty($questionIds) && $currentIndex > 0 && $currentIndex < count($questionIds);
+
+        $message = "📋 نتایج تست‌های شما\n\n";
+        if ($hasIncomplete) {
+            $message .= "⏸ یک تست ناقص دارید — برای ادامه /start بزنید.\n\n";
         }
-        
-        // Calculate final scores (percentage)
-        $resultData = [];
-        foreach ($categoryScores as $categoryId => $scoreData) {
-            $category = PsychologyTestCategory::find($categoryId);
-            if (!$category) {
-                continue;
-            }
-            
-            $finalScore = 0;
-            if ($scoreData['total_weight'] > 0) {
-                $finalScore = ($scoreData['total_score'] / $scoreData['total_weight']) * 100;
-            }
-            
-            $resultData[$category->name] = [
-                'score' => round($finalScore, 2),
-                'description' => $category->description,
-            ];
+        if ($results->isEmpty()) {
+            $message .= "هنوز نتیجه‌ای ثبت نشده است. با /start تست را شروع کنید.";
+            BotHelper::sendMessageByChatId($bot, $chatId, $message);
+            return;
         }
-        
-        // Save result
-        $result = PsychologyTestResult::create([
-            'psychology_test_bot_id' => $psychologyTestBotId,
-            'chat_id' => $chatId,
-            'origin' => $type,
-            'result_data' => $resultData,
-            'completed_at' => now(),
-        ]);
-        
-        // Build result message
-        $message = "✅ تست شما تکمیل شد!\n\n";
-        $message .= "📊 نتایج:\n\n";
-        
+
+        $keyboard = [];
+        foreach ($results as $r) {
+            $date = $r->completed_at->format('Y-m-d H:i');
+            $keyboard[] = [$bot->buildInlineKeyBoardButton("📅 {$date} — مشاهده کارنامه", callback_data: "psychology_show_result_{$r->id}")];
+        }
+        $inlineKeyboard = $bot->buildInlineKeyBoard($keyboard);
+        BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+    }
+
+    /**
+     * Send report for one result by id (must belong to this chat and bot).
+     */
+    private function handleShowResult(Telegram $bot, $chatId, int $resultId, string $type, Bot $botItem): void
+    {
+        $result = PsychologyTestResult::find($resultId);
+        if (!$result || $result->chat_id != $chatId || $result->origin !== $type) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'نتیجه یافت نشد.');
+            return;
+        }
+
+        $message = $this->buildResultMessage($result->result_data);
+        BotHelper::sendMessageByChatId($bot, $chatId, $message);
+    }
+
+    /**
+     * Build result report text from result_data (same format as calculateAndShowResults).
+     */
+    private function buildResultMessage(array $resultData): string
+    {
+        $message = "📊 کارنامه تست\n\n";
         foreach ($resultData as $categoryName => $categoryResult) {
             $message .= "📌 {$categoryName}:\n";
             $message .= "   امتیاز: " . $categoryResult['score'] . "%\n";
@@ -489,24 +520,180 @@ class PsychologyTestBotController extends Controller
             }
             $message .= "\n";
         }
-        
-        $message .= "💡 می‌توانید دوباره تست را با دستور /start شروع کنید.";
-        
-        BotHelper::sendMessage($bot, $message);
-        
-        // Clear user state
+        return $message;
+    }
+
+    /**
+     * Handle answer to question
+     *
+     * @param Telegram $bot
+     * @param int|string $chatId chat_id from callback (for sending in callback context)
+     * @param BotUsers $botUser
+     * @param int $answerIndex (1-5)
+     * @param int $questionId
+     * @param string $type
+     * @param Bot $botItem
+     * @return void
+     */
+    private function handleAnswer(Telegram $bot, $chatId, BotUsers $botUser, int $answerIndex, int $questionId, string $type, Bot $botItem): void
+    {
+        // Get current state
+        $questions = $botUser->setting('psychology_test_questions', []);
+        $currentIndex = $botUser->setting('psychology_test_current_question_index', 0);
+        $answers = $botUser->setting('psychology_test_answers', []);
+        $psychologyTestBotId = $botUser->setting('psychology_test_bot_id');
+
+        if (!$psychologyTestBotId) {
+            BotHelper::sendMessageByChatId($bot, $chatId, 'خطا: اطلاعات تست یافت نشد.');
+            return;
+        }
+
+        // Save answer
+        $answers[$questionId] = $answerIndex;
         $botUser->settings([
-            'psychology_test_questions' => null,
-            'psychology_test_current_question_index' => null,
-            'psychology_test_answers' => null,
-            'psychology_test_bot_id' => null,
+            'psychology_test_answers' => $answers,
         ]);
-        
-        Log::info('Psychology Test Bot - Test completed', [
-            'chat_id' => $chatId,
-            'psychology_test_bot_id' => $psychologyTestBotId,
-            'result_id' => $result->id,
+
+        // Move to next question
+        $currentIndex++;
+        $botUser->settings([
+            'psychology_test_current_question_index' => $currentIndex,
         ]);
+
+        // Check if all questions answered
+        if ($currentIndex >= count($questions)) {
+            // All questions answered - calculate results
+            $this->calculateAndShowResults($bot, $chatId, $botUser, $psychologyTestBotId, $type);
+        } else {
+            // Get next question
+            $nextQuestionId = $questions[$currentIndex];
+            $nextQuestion = PsychologyTestQuestion::with('category')->find($nextQuestionId);
+
+            if ($nextQuestion) {
+                $psychologyTestBot = PsychologyTestBot::find($psychologyTestBotId);
+                $this->sendQuestion($bot, $nextQuestion, $currentIndex, count($questions), $chatId, $psychologyTestBot);
+            } else {
+                BotHelper::sendMessageByChatId($bot, $chatId, 'خطا: سوال بعدی یافت نشد.');
+            }
+        }
+    }
+
+    /**
+     * Calculate and show results
+     *
+     * @param Telegram $bot
+     * @param int|string $chatId chat_id to send result to (from callback)
+     * @param BotUsers $botUser
+     * @param int $psychologyTestBotId
+     * @param string $type
+     * @return void
+     */
+    private function calculateAndShowResults(Telegram $bot, $chatId, BotUsers $botUser, int $psychologyTestBotId, string $type): void
+    {
+        try {
+            $answers = $botUser->setting('psychology_test_answers', []);
+
+            // Get all questions with answers
+            $questions = PsychologyTestQuestion::where('psychology_test_bot_id', $psychologyTestBotId)
+                ->with('category')
+                ->get();
+
+            // Calculate scores for each category
+            $categoryScores = [];
+
+            foreach ($questions as $question) {
+                $answerIndex = $answers[$question->id] ?? null;
+                if ($answerIndex === null) {
+                    continue;
+                }
+
+                $categoryId = $question->psychology_test_category_id;
+                if (!isset($categoryScores[$categoryId])) {
+                    $categoryScores[$categoryId] = [
+                        'total_score' => 0,
+                        'total_weight' => 0,
+                    ];
+                }
+
+                // Calculate score based on direction
+                $answerValue = $answerIndex - 1;
+
+                if ($question->direction == 1) {
+                    $score = ($answerValue / 4) * $question->weight;
+                } else {
+                    $score = ((4 - $answerValue) / 4) * $question->weight;
+                }
+
+                $categoryScores[$categoryId]['total_score'] += $score;
+                $categoryScores[$categoryId]['total_weight'] += $question->weight;
+            }
+
+            // Calculate final scores (percentage)
+            $resultData = [];
+            foreach ($categoryScores as $categoryId => $scoreData) {
+                $category = PsychologyTestCategory::find($categoryId);
+                if (!$category) {
+                    continue;
+                }
+
+                $finalScore = 0;
+                if ($scoreData['total_weight'] > 0) {
+                    $finalScore = ($scoreData['total_score'] / $scoreData['total_weight']) * 100;
+                }
+
+                $resultData[$category->name] = [
+                    'score' => round($finalScore, 2),
+                    'description' => $category->description,
+                ];
+            }
+
+            // Save result
+            $result = PsychologyTestResult::create([
+                'psychology_test_bot_id' => $psychologyTestBotId,
+                'chat_id' => $chatId,
+                'origin' => $type,
+                'result_data' => $resultData,
+                'completed_at' => now(),
+            ]);
+
+            // Build result message
+            $message = "✅ تست شما تکمیل شد!\n\n";
+            $message .= "📊 نتایج:\n\n";
+
+            foreach ($resultData as $categoryName => $categoryResult) {
+                $message .= "📌 {$categoryName}:\n";
+                $message .= "   امتیاز: " . $categoryResult['score'] . "%\n";
+                if (!empty($categoryResult['description'])) {
+                    $message .= "   {$categoryResult['description']}\n";
+                }
+                $message .= "\n";
+            }
+
+            $message .= "💡 می‌توانید دوباره تست را با دستور /start شروع کنید.";
+
+            BotHelper::sendMessageByChatId($bot, $chatId, $message);
+
+            // Clear user state
+            $botUser->settings([
+                'psychology_test_questions' => null,
+                'psychology_test_current_question_index' => null,
+                'psychology_test_answers' => null,
+                'psychology_test_bot_id' => null,
+            ]);
+
+            Log::info('Psychology Test Bot - Test completed', [
+                'chat_id' => $chatId,
+                'psychology_test_bot_id' => $psychologyTestBotId,
+                'result_id' => $result->id,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Psychology Test Bot - Error in calculateAndShowResults', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            BotHelper::sendMessageByChatId($bot, $chatId, 'خطا در ثبت یا ارسال نتیجه. لطفاً دوباره تلاش کنید.');
+        }
     }
 
     /**

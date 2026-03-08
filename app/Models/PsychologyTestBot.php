@@ -15,6 +15,7 @@ class PsychologyTestBot extends Model
         'bot_id',
         'title',
         'description',
+        'back_navigation',
     ];
 
     /**
