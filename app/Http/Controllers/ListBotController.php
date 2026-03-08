@@ -40,29 +40,38 @@ class ListBotController extends Controller
                 Log::info($e->getMessage());
             }
 
-            $botItem = $this->getBotByToken($token, $type);
-            if (!$botItem || $botItem->endpoint_id !== 'webhook-list-bot') {
-                Log::warning('List Bot - Bot not found or wrong endpoint', ['token_preview' => substr($token, 0, 8) . '...']);
-                BotHelper::sendMessage($bot, 'ربات در سیستم یافت نشد.');
-                return;
-            }
-
             $update = $request->json()->all() ?? $request->all();
             if (isset($update['callback_query'])) {
+                $botItem = $this->getBotByToken($token, $type);
+                if (!$botItem || $botItem->endpoint_id !== 'webhook-list-bot') {
+                    Log::warning('List Bot - Bot not found or wrong endpoint (callback)', ['token_preview' => substr($token, 0, 8) . '...']);
+                    return;
+                }
                 $this->handleCallbackQuery($bot, $update['callback_query'], $botItem, $type, $token);
                 return;
             }
 
-            $text = $bot->Text();
-            $chatId = $bot->ChatID();
+            // متن و chat_id را مستقیم از آپدیت بگیر تا حتی اگر پکیج Telegram بدنه را نخوانده باشد کار کند
+            $message = $update['message'] ?? $update['edited_message'] ?? null;
+            $text = $message['text'] ?? $bot->Text();
+            $chatId = $message['chat']['id'] ?? $bot->ChatID();
 
-            if ($text === '/start' || str_starts_with($text ?? '', '/start ')) {
-                $this->handleStart($bot, $botItem, $type, $token);
+            $botItem = $this->getBotByToken($token, $type);
+            if (!$botItem || $botItem->endpoint_id !== 'webhook-list-bot') {
+                Log::warning('List Bot - Bot not found or wrong endpoint', ['token_preview' => substr($token, 0, 8) . '...']);
+                if ($chatId !== null) {
+                    BotHelper::sendMessageByChatId($bot, $chatId, 'ربات در سیستم یافت نشد.');
+                }
+                return;
+            }
+
+            if ($text === '/start' || str_starts_with((string) ($text ?? ''), '/start ')) {
+                $this->handleStart($bot, $botItem, $type, $token, $chatId);
                 return;
             }
 
             if ($text !== null && $text !== '') {
-                $this->handleTextMessage($bot, $text, $botItem, $type, $token);
+                $this->handleTextMessage($bot, $text, $botItem, $type, $token, $chatId);
             }
         } catch (Exception $e) {
             $context = [
@@ -117,9 +126,9 @@ class ListBotController extends Controller
         return (string) $botItem->telegram_owner_chat_id === (string) $chatId;
     }
 
-    private function handleStart(Telegram $bot, Bot $botItem, string $type, string $token): void
+    private function handleStart(Telegram $bot, Bot $botItem, string $type, string $token, $chatId = null): void
     {
-        $chatId = $bot->ChatID();
+        $chatId = $chatId ?? $bot->ChatID();
         $config = ListBotConfig::firstOrCreate(
             ['bot_id' => $botItem->id],
             ['menu_json' => null, 'raw_content' => null]
@@ -136,9 +145,9 @@ class ListBotController extends Controller
                 $msg .= "-- زیر۱: https://t.me/bot\n";
                 $msg .= "-- زیر۲: https://example.com\n";
                 $msg .= "--- زیر۲-۱: https://eitaa.com/join/xxx";
-                BotHelper::sendMessage($bot, $msg);
+                BotHelper::sendMessageByChatId($bot, $chatId, $msg);
             } else {
-                BotHelper::sendMessage($bot, 'منو در حال آماده‌سازی است. لطفاً بعداً مراجعه کنید.');
+                BotHelper::sendMessageByChatId($bot, $chatId, 'منو در حال آماده‌سازی است. لطفاً بعداً مراجعه کنید.');
             }
             return;
         }
@@ -149,25 +158,25 @@ class ListBotController extends Controller
         $this->sendMenuMessage($bot, $message, $rows, $type, $token, $chatId);
     }
 
-    private function handleTextMessage(Telegram $bot, string $text, Bot $botItem, string $type, string $token): void
+    private function handleTextMessage(Telegram $bot, string $text, Bot $botItem, string $type, string $token, $chatId = null): void
     {
-        $chatId = $bot->ChatID();
+        $chatId = $chatId ?? $bot->ChatID();
 
         if (!$this->isAdmin($botItem, $chatId, $type)) {
-            BotHelper::sendMessage($bot, 'فقط از دکمه‌ها استفاده کنید.');
+            BotHelper::sendMessageByChatId($bot, $chatId, 'فقط از دکمه‌ها استفاده کنید.');
             return;
         }
 
         $trimmed = trim($text);
         if ($trimmed === '' || $trimmed[0] !== '-') {
-            BotHelper::sendMessage($bot, 'برای به‌روز کردن منو، متن را با خطی که با «-» شروع می‌شود بفرستید. نمونه در /start');
+            BotHelper::sendMessageByChatId($bot, $chatId, 'برای به‌روز کردن منو، متن را با خطی که با «-» شروع می‌شود بفرستید. نمونه در /start');
             return;
         }
 
         $parser = new ListBotMenuParser();
         $tree = $parser->parse($text);
         if (empty($tree['children']) && ($tree['title'] ?? '') === '') {
-            BotHelper::sendMessage($bot, 'فرمت متن قابل تشخیص نبود. لطفاً مطابق نمونه در /start ارسال کنید.');
+            BotHelper::sendMessageByChatId($bot, $chatId, 'فرمت متن قابل تشخیص نبود. لطفاً مطابق نمونه در /start ارسال کنید.');
             return;
         }
 
@@ -181,7 +190,7 @@ class ListBotController extends Controller
 
         $message = $tree['title'] ?? 'فهرست';
         $rows = $this->buildKeyboardFromNode($bot, $tree, '', $type);
-        BotHelper::sendMessage($bot, 'منو به‌روز شد.');
+        BotHelper::sendMessageByChatId($bot, $chatId, 'منو به‌روز شد.');
         $this->sendMenuMessage($bot, $message, $rows, $type, $token, $chatId);
     }
 
@@ -199,7 +208,7 @@ class ListBotController extends Controller
 
         $config = ListBotConfig::where('bot_id', $botItem->id)->first();
         if (!$config || !$config->hasMenu()) {
-            BotHelper::sendMessage($bot, 'منو یافت نشد.');
+            BotHelper::sendMessageByChatId($bot, $chatId, 'منو یافت نشد.');
             return;
         }
 
