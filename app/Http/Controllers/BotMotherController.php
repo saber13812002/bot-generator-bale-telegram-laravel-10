@@ -2381,16 +2381,28 @@ class BotMotherController extends Controller
                 return;
             }
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD, array_merge($stateData, ['content_type' => $contentType]));
-            BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\nاگر کانال بله داری، یک پیام از آن کانال فوروارد کن. اگر نداری یا نمی‌خواهی، «رد» بفرست.");
+            $balePrompt = $type === 'bale'
+                ? "اگر کانال بله داری، یک پیام از آن کانال فوروارد کن. اگر نداری یا نمی‌خواهی، «رد» بفرست."
+                : "الان از ربات مادر تلگرام استفاده می‌کنی؛ نمی‌شود از بله فوروارد کرد.\n\nاز بله با یک ربات (مثلاً رباتی که چت‌آیدی می‌دهد)، چت‌آیدی کانال یا گروه یا چت خصوصی بله را بگیر و اینجا همان عدد را بفرست.\nاگر کانال/گروه بله نداری یا نمی‌خواهی، «رد» بفرست.";
+            BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\n" . $balePrompt);
             return;
         }
 
         if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD) {
             $t = mb_strtolower(trim($text));
             if ($t !== 'رد' && $t !== 'skip') {
-                $forwardFromChat = $update['message']['forward_from_chat'] ?? null;
-                if ($forwardFromChat && isset($forwardFromChat['id']) && $type === 'bale') {
-                    $stateData['bale_channel_chat_id'] = (int) $forwardFromChat['id'];
+                if ($type === 'bale') {
+                    $forwardFromChat = $update['message']['forward_from_chat'] ?? null;
+                    if ($forwardFromChat && isset($forwardFromChat['id'])) {
+                        $stateData['bale_channel_chat_id'] = (int) $forwardFromChat['id'];
+                    }
+                } else {
+                    // تلگرام: کاربر چت‌آیدی بله را به صورت عدد می‌فرستد (مثلاً -1001234567890)
+                    if (!preg_match('/^-?\d+$/', trim($text))) {
+                        BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
+                        return;
+                    }
+                    $stateData['bale_channel_chat_id'] = (int) trim($text);
                 }
             }
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD, $stateData);
