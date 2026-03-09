@@ -116,6 +116,7 @@ class BotMotherStateHelper
 
     // Admin daily channel (verse/hadith/nahj/sharabe_beheshti) wizard
     const STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE = 'waiting_daily_channel_content_type';
+    const STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW = 'waiting_daily_channel_edit_or_new';
     const STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD = 'waiting_daily_channel_bale_forward';
     const STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD = 'waiting_daily_channel_telegram_forward';
     const STATE_WAITING_DAILY_CHANNEL_EITAA_ID = 'waiting_daily_channel_eitaa_id';

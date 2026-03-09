@@ -6,6 +6,7 @@ use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
+use App\Helpers\MultiPlatformChannelWizardHelper;
 use App\Helpers\TokenHelper;
 use App\Helpers\WebhookEndpointHelper;
 use App\Http\Requests\BotRequest;
@@ -184,6 +185,10 @@ class BotMotherController extends Controller
             else if (str_starts_with($text, '/pro_confirm')) {
                 $this->handleProConfirm($bot, $text, $type);
             }
+            // تنظیمات ربات ادمین کانال روزانه (تکمیل/ویرایش بله، تلگرام، ایتا)
+            else if ($text == '/daily_channel_settings' || $text == '/تنظیمات_کانال_روزانه' || strtolower($text) == 'daily_channel_settings') {
+                $this->handleDailyChannelSettings($bot, $type, $botMotherId);
+            }
             // Handle Quran bots introduction command
             else if ($text == '/quran_bots' || $text == '/ربات_قرآن' || $text == 'ربات قرآن' || strtolower($text) == 'quran_bots' || strtolower($text) == 'quran bots') {
                 $this->handleQuranBotsIntroduction($bot, $type, $botMotherId);
@@ -249,6 +254,7 @@ class BotMotherController extends Controller
             // Admin daily channel wizard (verse/hadith/nahj/sharabe_beheshti)
             else if (in_array($currentState, [
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID,
@@ -884,8 +890,29 @@ class BotMotherController extends Controller
         $endpoint = $stateData['endpoint'];
         $endpointId = $endpoint['id'] ?? $stateData['endpoint_id'] ?? '';
 
-        // Admin daily channel: no token, start wizard (content type -> channel forwards -> eitaa id)
+        // Admin daily channel: no token؛ ویرایش/تکمیل قبلی یا تنظیم جدید
         if ($endpointId === 'admin-daily-channel') {
+            $existingConfigs = AdminDailyChannelConfig::where('admin_chat_id', $chatId)->get();
+            if ($existingConfigs->isNotEmpty()) {
+                $message = "✅ ربات ادمین کانال روزانه.\n\nشما " . $existingConfigs->count() . " تنظیمات دارید:\n";
+                $contentLabels = ['verse' => 'آیه', 'hadith' => 'حدیث', 'nahj' => 'نهج', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
+                foreach ($existingConfigs as $i => $c) {
+                    $label = $contentLabels[$c->content_type] ?? $c->content_type;
+                    $missing = [];
+                    if (empty($c->bale_channel_chat_id)) $missing[] = 'بله';
+                    if (empty($c->telegram_channel_chat_id)) $missing[] = 'تلگرام';
+                    if (empty($c->eitaa_channel_chat_id)) $missing[] = 'ایتا';
+                    $suffix = !empty($missing) ? ' (ناقص: ' . implode(', ', $missing) . ')' : '';
+                    $num = $i + 1;
+                    $message .= "{$num} = {$label}{$suffix}\n";
+                }
+                $message .= "\nبرای تکمیل یا تغییر یکی، شماره نوع محتوا (۱–۶) بفرست.\nبرای تنظیم جدید، ۰ بفرست.";
+                BotHelper::sendMessage($bot, $message);
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW, array_merge($stateData, [
+                    'bot_type' => $selectedType,
+                ]));
+                return;
+            }
             $message = "✅ ربات ادمین کانال روزانه.\n\n";
             $message .= "نوع محتوا را انتخاب کن (هر ۲۴ ساعت یکی ارسال می‌شود):\n";
             $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n5 = ترکیبی رندوم\n6 = ترکیبی ترتیبی (آیه → حدیث → نهج → شراب بهشتی → …)\n\n";
@@ -2373,6 +2400,52 @@ class BotMotherController extends Controller
         $chatId = $bot->ChatID();
         $currentState = BotMotherStateHelper::getCurrentState($chatId);
 
+        // انتخاب بین ویرایش/تکمیل تنظیم موجود یا ساخت تنظیم جدید
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW) {
+            $trim = trim($text);
+
+            if ($trim === '0') {
+                // تنظیم جدید: انتخاب نوع محتوا
+                $message = "نوع محتوا را انتخاب کن (هر ۲۴ ساعت یکی ارسال می‌شود):\n";
+                $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n5 = ترکیبی رندوم\n6 = ترکیبی ترتیبی (آیه → حدیث → نهج → شراب بهشتی → …)\n\n";
+                $message .= "شماره را بفرست:";
+                BotHelper::sendMessage($bot, $message);
+                BotMotherStateHelper::setState(
+                    $chatId,
+                    BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE,
+                    $stateData
+                );
+                return;
+            }
+
+            $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti', '5' => 'mixed', '6' => 'sequential'];
+            $contentType = $map[$trim] ?? null;
+            if (!$contentType) {
+                BotHelper::sendMessage($bot, 'لطفاً ۰ یا عدد ۱ تا ۶ بفرست.');
+                return;
+            }
+
+            // اگر تنظیم موجود است، مقدارهای فعلی بله/تلگرام/ایتا را برای ویرایش/تکمیل prefill کن
+            $existing = AdminDailyChannelConfig::where('admin_chat_id', $chatId)
+                ->where('content_type', $contentType)
+                ->first();
+            if ($existing) {
+                $stateData['bale_channel_chat_id'] = $existing->bale_channel_chat_id;
+                $stateData['telegram_channel_chat_id'] = $existing->telegram_channel_chat_id;
+                $stateData['eitaa_channel_chat_id'] = $existing->eitaa_channel_chat_id;
+            }
+            $stateData['content_type'] = $contentType;
+
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                $stateData
+            );
+            $balePrompt = MultiPlatformChannelWizardHelper::getBalePrompt($type);
+            BotHelper::sendMessage($bot, "نوع محتوا انتخاب شد.\n\n" . $balePrompt);
+            return;
+        }
+
         if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE) {
             $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti', '5' => 'mixed', '6' => 'sequential'];
             $contentType = $map[trim($text)] ?? null;
@@ -2380,10 +2453,12 @@ class BotMotherController extends Controller
                 BotHelper::sendMessage($bot, 'لطفاً عدد ۱ تا ۶ بفرست.');
                 return;
             }
-            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD, array_merge($stateData, ['content_type' => $contentType]));
-            $balePrompt = $type === 'bale'
-                ? "اگر کانال بله داری، یک پیام از آن کانال فوروارد کن. اگر نداری یا نمی‌خواهی، «رد» بفرست."
-                : "الان از ربات مادر تلگرام استفاده می‌کنی؛ نمی‌شود از بله فوروارد کرد.\n\nاز بله با یک ربات (مثلاً رباتی که چت‌آیدی می‌دهد)، چت‌آیدی کانال یا گروه یا چت خصوصی بله را بگیر و اینجا همان عدد را بفرست.\nاگر کانال/گروه بله نداری یا نمی‌خواهی، «رد» بفرست.";
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                array_merge($stateData, ['content_type' => $contentType])
+            );
+            $balePrompt = MultiPlatformChannelWizardHelper::getBalePrompt($type);
             BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\n" . $balePrompt);
             return;
         }
@@ -2391,35 +2466,43 @@ class BotMotherController extends Controller
         if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD) {
             $t = mb_strtolower(trim($text));
             if ($t !== 'رد' && $t !== 'skip') {
-                if ($type === 'bale') {
-                    $forwardFromChat = $update['message']['forward_from_chat'] ?? null;
-                    if ($forwardFromChat && isset($forwardFromChat['id'])) {
-                        $stateData['bale_channel_chat_id'] = (int) $forwardFromChat['id'];
-                    }
-                } else {
-                    // تلگرام: کاربر چت‌آیدی بله را به صورت عدد می‌فرستد (مثلاً -1001234567890)
-                    if (!preg_match('/^-?\d+$/', trim($text))) {
-                        BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
-                        return;
-                    }
-                    $stateData['bale_channel_chat_id'] = (int) trim($text);
+                if (MultiPlatformChannelWizardHelper::isBaleInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $baleId = MultiPlatformChannelWizardHelper::parseBaleInput($type, $text, $update);
+                if ($baleId !== null) {
+                    $stateData['bale_channel_chat_id'] = $baleId;
                 }
             }
-            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD, $stateData);
-            BotHelper::sendMessage($bot, "اگر کانال تلگرام داری، یک پیام از آن کانال فوروارد کن. اگر نداری یا نمی‌خواهی، «رد» بفرست.");
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD,
+                $stateData
+            );
+            $telegramPrompt = MultiPlatformChannelWizardHelper::getTelegramPrompt($type);
+            BotHelper::sendMessage($bot, $telegramPrompt);
             return;
         }
 
         if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD) {
             $t = mb_strtolower(trim($text));
             if ($t !== 'رد' && $t !== 'skip') {
-                $forwardFromChat = $update['message']['forward_from_chat'] ?? null;
-                if ($forwardFromChat && isset($forwardFromChat['id']) && $type === 'telegram') {
-                    $stateData['telegram_channel_chat_id'] = (int) $forwardFromChat['id'];
+                if (MultiPlatformChannelWizardHelper::isTelegramInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $telegramId = MultiPlatformChannelWizardHelper::parseTelegramInput($type, $text, $update);
+                if ($telegramId !== null) {
+                    $stateData['telegram_channel_chat_id'] = $telegramId;
                 }
             }
-            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID, $stateData);
-            BotHelper::sendMessage($bot, "شناسه ارسال به کانال یا گروه ایتا را وارد کن (یک عدد یا رشته). اگر نمی‌خواهی ایتا را اضافه کنی، «رد» بفرست.");
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID,
+                $stateData
+            );
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getEitaaPrompt());
             return;
         }
 
@@ -2446,6 +2529,50 @@ class BotMotherController extends Controller
             $label = $contentLabels[$contentType] ?? $contentType;
             BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر ۲۴ ساعت یک محتوای " . $label . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
         }
+    }
+
+    /**
+     * تنظیمات/تکمیل ربات ادمین کانال روزانه (دسترسی مستقیم از دستور جداگانه).
+     */
+    private function handleDailyChannelSettings(Telegram $bot, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $configs = AdminDailyChannelConfig::where('admin_chat_id', $chatId)->get();
+
+        if ($configs->isEmpty()) {
+            $message = "هنوز هیچ تنظیمی برای ربات ادمین کانال روزانه ثبت نکردی.\n\n";
+            $message .= "برای ساخت تنظیم جدید از /start استفاده کن و endpoint «ربات ادمین کانال (تک‌آیه/حدیث/نهج/شراب بهشتی)» را انتخاب کن.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        $contentLabels = ['verse' => 'آیه', 'hadith' => 'حدیث', 'nahj' => 'نهج', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
+
+        $message = "⚙️ تنظیمات ربات ادمین کانال روزانه:\n\n";
+        foreach ($configs as $c) {
+            $label = $contentLabels[$c->content_type] ?? $c->content_type;
+            $missing = [];
+            if (empty($c->bale_channel_chat_id)) {
+                $missing[] = 'بله';
+            }
+            if (empty($c->telegram_channel_chat_id)) {
+                $missing[] = 'تلگرام';
+            }
+            if (empty($c->eitaa_channel_chat_id)) {
+                $missing[] = 'ایتا';
+            }
+            $suffix = !empty($missing) ? ' (ناقص: ' . implode(', ', $missing) . ')' : '';
+            $message .= "- {$label}{$suffix}\n";
+        }
+
+        $message .= "\nبرای تکمیل یا تغییر یکی، شماره نوع محتوا (۱–۶) را بفرست.\n";
+        $message .= "برای تنظیم جدید، «۰» بفرست.";
+
+        BotHelper::sendMessage($bot, $message);
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
     }
 
     /**
