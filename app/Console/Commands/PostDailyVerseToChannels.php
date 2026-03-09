@@ -12,9 +12,10 @@ use Telegram;
 class PostDailyVerseToChannels extends Command
 {
     protected $signature = 'daily-channel:post
+                            {--slot= : اسلات ۱–۴ (۱=۰۰:۰۰، ۲=۰۶:۰۰، ۳=۱۲:۰۰، ۴=۱۸:۰۰). اگر ندهی از ساعت فعلی محاسبه می‌شود}
                             {--dry-run : فقط نمایش، بدون ارسال}';
 
-    protected $description = 'ارسال روزانه یک آیه/حدیث/نهج/شراب بهشتی به کانال‌های ثبت‌شده در admin_daily_channel_configs';
+    protected $description = 'ارسال آیه/حدیث/نهج/شراب بهشتی به کانال‌های ثبت‌شده؛ فرکانس بر اساس posts_per_day (۱/۲/۴ بار در روز)';
 
     public function __construct(
         private DailyChannelContentService $contentService
@@ -24,9 +25,14 @@ class PostDailyVerseToChannels extends Command
 
     public function handle(): int
     {
-        $configs = AdminDailyChannelConfig::query()->where('is_active', true)->get();
+        $slot = $this->resolveSlot();
+        $configs = AdminDailyChannelConfig::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (AdminDailyChannelConfig $c) => $c->shouldRunInSlot($slot));
+
         if ($configs->isEmpty()) {
-            $this->info('هیچ کانال فعالی برای ارسال روزانه ثبت نشده است.');
+            $this->info("هیچ کانال فعالی برای اسلات {$slot} ثبت نشده است.");
             return 0;
         }
 
@@ -102,8 +108,34 @@ class PostDailyVerseToChannels extends Command
             }
         }
 
-        $this->info('ارسال روزانه به کانال‌ها انجام شد.');
+        $this->info("ارسال به کانال‌ها (اسلات {$slot}) انجام شد.");
         return 0;
+    }
+
+    /**
+     * اسلات ۱–۴ را از گزینه یا از ساعت فعلی برمی‌گرداند.
+     * اسلات ۱=۰۰:۰۰، ۲=۰۶:۰۰، ۳=۱۲:۰۰، ۴=۱۸:۰۰
+     */
+    private function resolveSlot(): int
+    {
+        $opt = $this->option('slot');
+        if ($opt !== null && $opt !== '') {
+            $s = (int) $opt;
+            if ($s >= 1 && $s <= 4) {
+                return $s;
+            }
+        }
+        $hour = (int) now()->format('G');
+        if ($hour >= 0 && $hour < 6) {
+            return 1;
+        }
+        if ($hour >= 6 && $hour < 12) {
+            return 2;
+        }
+        if ($hour >= 12 && $hour < 18) {
+            return 3;
+        }
+        return 4;
     }
 
     /**

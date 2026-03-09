@@ -117,8 +117,17 @@ class BotMotherStateHelper
     // Admin daily channel (verse/hadith/nahj/sharabe_beheshti) wizard
     const STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE = 'waiting_daily_channel_content_type';
     const STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW = 'waiting_daily_channel_edit_or_new';
+    const STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY = 'waiting_daily_channel_posts_per_day';
     const STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD = 'waiting_daily_channel_bale_forward';
     const STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD = 'waiting_daily_channel_telegram_forward';
     const STATE_WAITING_DAILY_CHANNEL_EITAA_ID = 'waiting_daily_channel_eitaa_id';
+
+    // Admin channel with media queue wizard
+    const STATE_MEDIA_QUEUE_SELECT_OR_CREATE = 'media_queue_select_or_create';
+    const STATE_MEDIA_QUEUE_NEW_NAME = 'media_queue_new_name';
+    const STATE_MEDIA_QUEUE_ADD_ITEMS = 'media_queue_add_items';
+    const STATE_MEDIA_QUEUE_BALE = 'media_queue_bale';
+    const STATE_MEDIA_QUEUE_TELEGRAM = 'media_queue_telegram';
+    const STATE_MEDIA_QUEUE_EITAA = 'media_queue_eitaa';
 }
 

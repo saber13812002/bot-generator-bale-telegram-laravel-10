@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\PostDailyVerseToChannels;
+use App\Console\Commands\PostMediaQueueToChannels;
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
 use App\Console\Commands\ScheduleBookPublishing;
@@ -81,9 +82,15 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
-        // ارسال روزانه آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (هر ۲۴ ساعت)
-        $schedule->command(PostDailyVerseToChannels::class)
-            ->dailyAt('09:00')
+        // ارسال آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (اسلات‌های ۶ ساعته؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند)
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=1'])->dailyAt('00:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=2'])->dailyAt('06:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=3'])->dailyAt('12:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=4'])->dailyAt('18:00')->withoutOverlapping()->onOneServer();
+
+        // ارسال نوبتی صف رسانه به کانال‌ها (روزانه یک بار)
+        $schedule->command(PostMediaQueueToChannels::class)
+            ->dailyAt('10:00')
             ->withoutOverlapping()
             ->onOneServer();
     }

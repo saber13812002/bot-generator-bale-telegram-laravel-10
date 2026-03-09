@@ -185,6 +185,15 @@ class ImportWebhookEndpointsDefault extends Command
                 'requires_language' => false,
             ],
             [
+                'id' => 'admin-channel-media-queue',
+                'name' => 'ادمین کانال با صف رسانه پویا',
+                'route' => '/api/webhook-bot-mother',
+                'description' => 'صف مطالب (متن/عکس/ویدیو) بساز و به ترتیب به کانال/گروه ارسال کن',
+                'requires_bot_mother_id' => true,
+                'requires_token' => false,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-list-bot',
                 'name' => 'فهرست با دکمه شیشه‌ای',
                 'route' => '/api/webhook-list-bot',

@@ -624,35 +624,43 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر ساعت ۱۹:۰۰–۲۳:۵۹ | ScheduleBookPublishing |
 | روزانه ۰۷:۰۰ (در صورت فعال بودن env) | TestScheduleDailyIntoSlack |
 | هر روز ۰۸:۰۰ | SendDailyQuranSuggestionToAdmins |
-| هر روز ۰۹:۰۰ | PostDailyVerseToChannels |
+| هر روز ۰۰:۰۰، ۰۶:۰۰، ۱۲:۰۰، ۱۸:۰۰ | PostDailyVerseToChannels (با --slot=1 تا ۴؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند) |
+| هر روز ۱۰:۰۰ | PostMediaQueueToChannels |
 
-#### ارسال روزانه به کانال (تک‌آیه / حدیث / نهج / شراب / ترکیبی رندوم / ترکیبی ترتیبی)
+#### ارسال به کانال (تک‌آیه / حدیث / نهج / شراب / ترکیبی / صف رسانه)
 
-این قابلیت خودکار اجرا نمی‌شود مگر اینکه روی سرور **کران‌جاب** تنظیم کنید. یکی از دو روش زیر را استفاده کنید (مسیر پروژه را با مسیر واقعی روی سرور عوض کنید):
+این قابلیت خودکار اجرا نمی‌شود مگر اینکه روی سرور **کران‌جاب** تنظیم کنید.
 
-**روش ۱ (پیشنهادی):** یک بار در دقیقه (یا حداقل یک بار در روز قبل از ساعت ۰۹:۰۰) `schedule:run` را اجرا کنید تا طبق `Kernel.php` هر روز ۰۹:۰۰ دستور `PostDailyVerseToChannels` اجرا شود:
+**ارسال تک‌آیه/حدیث/نهج/شراب:** در ربات مادر می‌توانید «تعداد ارسال در روز» را ۱، ۲ یا ۴ انتخاب کنید. دستور `daily-channel:post` در چهار اسلات (۰۰:۰۰، ۰۶:۰۰، ۱۲:۰۰، ۱۸:۰۰) اجرا می‌شود و هر config فقط در اسلات‌های مجاز خودش ارسال می‌کند.
+
+**روش ۱ (پیشنهادی):** یک بار در دقیقه `schedule:run` را اجرا کنید:
 
 ```cron
 */1	*	*	*	*	cd /مسیر/پروژه && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-**روش ۲:** فقط همان دستور ارسال روزانه را هر روز ساعت ۹ صبح اجرا کنید:
+**روش ۲:** دستورات را مستقیم در کران بگذارید (مثلاً چهار بار برای daily-channel و یک بار برای media-queue):
 
 ```cron
-0	9	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post >> /dev/null 2>&1
+0	0	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post --slot=1 >> /dev/null 2>&1
+0	6	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post --slot=2 >> /dev/null 2>&1
+0	12	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post --slot=3 >> /dev/null 2>&1
+0	18	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post --slot=4 >> /dev/null 2>&1
+0	10	*	*	*	cd /مسیر/پروژه && php artisan media-queue:post >> /dev/null 2>&1
 ```
 
-در ویندوز (Task Scheduler) معادل دستور: `php artisan daily-channel:post` با working directory مسیر پروژه و trigger روزانه ساعت ۰۹:۰۰.
+در ویندوز (Task Scheduler) معادل هر خط را با trigger روزانه در ساعت مربوط تنظیم کنید.
 
 ---
 
-### ستون `last_sent_content_type` (گزینه ترتیبی)
+### ستون‌های اضافی برای ادمین کانال روزانه (در صورت اجرای دستی کوئری روی MSSQL)
 
-برای گزینه **۶ = ترکیبی ترتیبی** باید ستون `last_sent_content_type` در جدول `admin_daily_channel_configs` وجود داشته باشد. اگر مایگریشن اجرا نکردید، این کوئری را خودتان روی دیتابیس (MSSQL) اجرا کنید:
+- **ترکیبی ترتیبی:** `last_sent_content_type NVARCHAR(30) NULL`
+- **فرکانس ارسال:** `posts_per_day TINYINT NOT NULL DEFAULT 1` (مقادیر مجاز: ۱، ۲، ۴)
 
 ```sql
-ALTER TABLE admin_daily_channel_configs
-ADD last_sent_content_type NVARCHAR(30) NULL;
+ALTER TABLE admin_daily_channel_configs ADD last_sent_content_type NVARCHAR(30) NULL;
+ALTER TABLE admin_daily_channel_configs ADD posts_per_day TINYINT NOT NULL DEFAULT 1;
 ```
 
 # 📋 دستورات مهم

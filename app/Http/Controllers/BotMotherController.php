@@ -12,8 +12,11 @@ use App\Helpers\WebhookEndpointHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
+use App\Models\AdminChannelMediaQueueConfig;
 use App\Models\AdminDailyChannelConfig;
 use App\Models\Bot;
+use App\Models\MediaQueue;
+use App\Models\MediaQueueItem;
 use App\Models\BotLog;
 use App\Models\ContentSubmissionBotConfig;
 use App\Models\BotUsers;
@@ -255,11 +258,23 @@ class BotMotherController extends Controller
             else if (in_array($currentState, [
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD,
                 BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID,
             ])) {
                 $this->handleDailyChannelWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // ادمین کانال با صف رسانه پویا
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA,
+            ])) {
+                $this->handleMediaQueueWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
             }
             // Legacy support - if language is provided in request
             else if ($request->has('language')) {
@@ -921,6 +936,25 @@ class BotMotherController extends Controller
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE, array_merge($stateData, [
                 'bot_type' => $selectedType,
             ]));
+            return;
+        }
+
+        // ادمین کانال با صف رسانه پویا: انتخاب یا ساخت صف
+        if ($endpointId === 'admin-channel-media-queue') {
+            $queues = MediaQueue::where('admin_chat_id', $chatId)->orderBy('id')->get();
+            $message = "✅ ادمین کانال با صف رسانه پویا.\n\n";
+            if ($queues->isEmpty()) {
+                $message .= "هنوز صفی نداری. نام صف جدید را بفرست (مثلاً «مناسبت‌ها»):";
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME, array_merge($stateData, ['bot_type' => $selectedType]));
+            } else {
+                foreach ($queues as $i => $q) {
+                    $num = $i + 1;
+                    $message .= "{$num} = {$q->name}\n";
+                }
+                $message .= "\n۰ = صف جدید\nشماره صف را بفرست یا ۰ برای ساخت صف جدید:";
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE, array_merge($stateData, ['bot_type' => $selectedType]));
+            }
+            BotHelper::sendMessage($bot, $message);
             return;
         }
 
@@ -2425,7 +2459,7 @@ class BotMotherController extends Controller
                 return;
             }
 
-            // اگر تنظیم موجود است، مقدارهای فعلی بله/تلگرام/ایتا را برای ویرایش/تکمیل prefill کن
+            // اگر تنظیم موجود است، مقدارهای فعلی بله/تلگرام/ایتا و posts_per_day را برای ویرایش prefill کن
             $existing = AdminDailyChannelConfig::where('admin_chat_id', $chatId)
                 ->where('content_type', $contentType)
                 ->first();
@@ -2433,16 +2467,19 @@ class BotMotherController extends Controller
                 $stateData['bale_channel_chat_id'] = $existing->bale_channel_chat_id;
                 $stateData['telegram_channel_chat_id'] = $existing->telegram_channel_chat_id;
                 $stateData['eitaa_channel_chat_id'] = $existing->eitaa_channel_chat_id;
+                $stateData['posts_per_day'] = $existing->posts_per_day ?? 1;
+            } else {
+                $stateData['posts_per_day'] = 1;
             }
             $stateData['content_type'] = $contentType;
 
+            $ppd = (int) ($stateData['posts_per_day'] ?? 1);
             BotMotherStateHelper::setState(
                 $chatId,
-                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
                 $stateData
             );
-            $balePrompt = MultiPlatformChannelWizardHelper::getBalePrompt($type);
-            BotHelper::sendMessage($bot, "نوع محتوا انتخاب شد.\n\n" . $balePrompt);
+            BotHelper::sendMessage($bot, "نوع محتوا انتخاب شد.\n\nتعداد ارسال در روز فعلی: {$ppd}. برای تغییر ۱ یا ۲ یا ۴ بفرست، یا «همون» برای حفظ.");
             return;
         }
 
@@ -2455,11 +2492,31 @@ class BotMotherController extends Controller
             }
             BotMotherStateHelper::setState(
                 $chatId,
-                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
                 array_merge($stateData, ['content_type' => $contentType])
             );
+            BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\nتعداد ارسال در روز: ۱ = یک بار، ۲ = دو بار، ۴ = چهار بار. شماره را بفرست:");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY) {
+            $t = mb_strtolower(trim($text));
+            $ppdMap = ['1' => 1, '2' => 2, '4' => 4];
+            if ($t !== 'همون' && $t !== 'same') {
+                $ppd = $ppdMap[trim($text)] ?? null;
+                if ($ppd === null) {
+                    BotHelper::sendMessage($bot, 'لطفاً ۱، ۲ یا ۴ بفرست (یا «همون» برای حفظ).');
+                    return;
+                }
+                $stateData['posts_per_day'] = $ppd;
+            }
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                $stateData
+            );
             $balePrompt = MultiPlatformChannelWizardHelper::getBalePrompt($type);
-            BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\n" . $balePrompt);
+            BotHelper::sendMessage($bot, "تعداد ارسال در روز ثبت شد.\n\n" . $balePrompt);
             return;
         }
 
@@ -2512,12 +2569,17 @@ class BotMotherController extends Controller
                 $eitaaId = trim($text);
             }
             $contentType = $stateData['content_type'] ?? 'verse';
+            $postsPerDay = isset($stateData['posts_per_day']) ? (int) $stateData['posts_per_day'] : 1;
+            if (!in_array($postsPerDay, [1, 2, 4], true)) {
+                $postsPerDay = 1;
+            }
             AdminDailyChannelConfig::updateOrCreate(
                 [
                     'admin_chat_id' => $chatId,
                     'content_type' => $contentType,
                 ],
                 [
+                    'posts_per_day' => $postsPerDay,
                     'bale_channel_chat_id' => $stateData['bale_channel_chat_id'] ?? null,
                     'telegram_channel_chat_id' => $stateData['telegram_channel_chat_id'] ?? null,
                     'eitaa_channel_chat_id' => $eitaaId,
@@ -2527,7 +2589,8 @@ class BotMotherController extends Controller
             BotMotherStateHelper::clearState($chatId);
             $contentLabels = ['verse' => 'آیه قرآن', 'hadith' => 'حدیث', 'nahj' => 'نهج البلاغه', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
             $label = $contentLabels[$contentType] ?? $contentType;
-            BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر ۲۴ ساعت یک محتوای " . $label . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
+            $ppdLabel = $postsPerDay === 1 ? 'یک بار' : ($postsPerDay === 2 ? 'دو بار' : 'چهار بار');
+            BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر روز {$ppdLabel} محتوای " . $label . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
         }
     }
 
@@ -2573,6 +2636,163 @@ class BotMotherController extends Controller
             'bot_mother_id' => $botMotherId,
             'type' => $type,
         ]);
+    }
+
+    /**
+     * ویزارد ادمین کانال با صف رسانه پویا: انتخاب/ساخت صف -> افزودن آیتم‌ها -> کانال بله/تلگرام/ایتا.
+     */
+    private function handleMediaQueueWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE) {
+            $trim = trim($text);
+            if ($trim === '0') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME, $stateData);
+                BotHelper::sendMessage($bot, "نام صف جدید را بفرست (مثلاً «مناسبت‌ها»):");
+                return;
+            }
+            $queues = MediaQueue::where('admin_chat_id', $chatId)->orderBy('id')->get();
+            $idx = (int) $trim;
+            if ($idx < 1 || $idx > $queues->count()) {
+                BotHelper::sendMessage($bot, 'لطفاً شماره صف یا ۰ بفرست.');
+                return;
+            }
+            $queue = $queues[$idx - 1];
+            $stateData['media_queue_id'] = $queue->id;
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS, $stateData);
+            BotHelper::sendMessage($bot, "صف «{$queue->name}» انتخاب شد.\nآیتم بعدی را بفرست (متن، عکس یا ویدیو) یا /done برای پایان و رفتن به مرحله کانال‌ها.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME) {
+            $name = trim($text);
+            if ($name === '') {
+                BotHelper::sendMessage($bot, 'نام صف را بفرست.');
+                return;
+            }
+            $queue = MediaQueue::create(['admin_chat_id' => $chatId, 'name' => $name]);
+            $stateData['media_queue_id'] = $queue->id;
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS, $stateData);
+            BotHelper::sendMessage($bot, "صف «{$name}» ساخته شد.\nآیتم بعدی را بفرست (متن، عکس یا ویدیو) یا /done برای پایان و رفتن به مرحله کانال‌ها.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS) {
+            if (mb_strtolower(trim($text)) === '/done') {
+                $stateData['media_queue_id'] = $stateData['media_queue_id'] ?? null;
+                if (!$stateData['media_queue_id']) {
+                    BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست. از /start دوباره شروع کن.');
+                    return;
+                }
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE, $stateData);
+                BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getBalePrompt($type));
+                return;
+            }
+            $queueId = $stateData['media_queue_id'] ?? null;
+            if (!$queueId) {
+                BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست.');
+                return;
+            }
+            $msg = $update['message'] ?? [];
+            $contentType = MediaQueueItem::TYPE_TEXT;
+            $contentText = trim($text);
+            $fileIdTelegram = null;
+            $fileIdBale = null;
+            if (!empty($msg['photo'])) {
+                $contentType = MediaQueueItem::TYPE_PHOTO;
+                $photo = is_array($msg['photo']) ? end($msg['photo']) : $msg['photo'];
+                $fileId = $photo['file_id'] ?? null;
+                if ($type === 'telegram') {
+                    $fileIdTelegram = $fileId;
+                } else {
+                    $fileIdBale = $fileId;
+                }
+                $contentText = $contentText ?: (isset($msg['caption']) ? trim($msg['caption']) : '');
+            } elseif (!empty($msg['video'])) {
+                $contentType = MediaQueueItem::TYPE_VIDEO;
+                $fileId = $msg['video']['file_id'] ?? null;
+                if ($type === 'telegram') {
+                    $fileIdTelegram = $fileId;
+                } else {
+                    $fileIdBale = $fileId;
+                }
+                $contentText = $contentText ?: (isset($msg['caption']) ? trim($msg['caption']) : '');
+            }
+            $maxPosition = MediaQueueItem::where('media_queue_id', $queueId)->max('position') ?? 0;
+            MediaQueueItem::create([
+                'media_queue_id' => $queueId,
+                'position' => $maxPosition + 1,
+                'content_type' => $contentType,
+                'content_text' => $contentText ?: null,
+                'file_id_telegram' => $fileIdTelegram,
+                'file_id_bale' => $fileIdBale,
+            ]);
+            BotHelper::sendMessage($bot, "آیتم اضافه شد. بعدی را بفرست یا /done برای پایان.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isBaleInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد. دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $baleId = MultiPlatformChannelWizardHelper::parseBaleInput($type, $text, $update);
+                if ($baleId !== null) {
+                    $stateData['bale_channel_chat_id'] = $baleId;
+                }
+            }
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM, $stateData);
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getTelegramPrompt($type));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isTelegramInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد. دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $telegramId = MultiPlatformChannelWizardHelper::parseTelegramInput($type, $text, $update);
+                if ($telegramId !== null) {
+                    $stateData['telegram_channel_chat_id'] = $telegramId;
+                }
+            }
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA, $stateData);
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getEitaaPrompt());
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA) {
+            $eitaaId = null;
+            if (mb_strtolower(trim($text)) !== 'رد' && mb_strtolower(trim($text)) !== 'skip') {
+                $eitaaId = trim($text);
+            }
+            $queueId = $stateData['media_queue_id'] ?? null;
+            if (!$queueId) {
+                BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست.');
+                return;
+            }
+            AdminChannelMediaQueueConfig::updateOrCreate(
+                [
+                    'admin_chat_id' => $chatId,
+                    'media_queue_id' => $queueId,
+                ],
+                [
+                    'bale_channel_chat_id' => $stateData['bale_channel_chat_id'] ?? null,
+                    'telegram_channel_chat_id' => $stateData['telegram_channel_chat_id'] ?? null,
+                    'eitaa_channel_chat_id' => $eitaaId,
+                    'is_active' => true,
+                ]
+            );
+            BotMotherStateHelper::clearState($chatId);
+            $queueName = MediaQueue::find($queueId)->name ?? 'صف';
+            BotHelper::sendMessage($bot, "✅ تنظیمات ادمین کانال با صف رسانه ذخیره شد.\nصف «{$queueName}» به ترتیب به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
+        }
     }
 
     /**
