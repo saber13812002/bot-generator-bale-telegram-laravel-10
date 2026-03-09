@@ -13,6 +13,7 @@ class AdminDailyChannelConfig extends Model
     const CONTENT_TYPE_HADITH = 'hadith';
     const CONTENT_TYPE_NAHJ = 'nahj';
     const CONTENT_TYPE_SHARABE_BEHESHTI = 'sharabe_beheshti';
+    const CONTENT_TYPE_MIXED = 'mixed';
 
     protected $fillable = [
         'admin_chat_id',

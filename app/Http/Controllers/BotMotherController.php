@@ -888,7 +888,7 @@ class BotMotherController extends Controller
         if ($endpointId === 'admin-daily-channel') {
             $message = "✅ ربات ادمین کانال روزانه.\n\n";
             $message .= "نوع محتوا را انتخاب کن (هر ۲۴ ساعت یکی ارسال می‌شود):\n";
-            $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n\n";
+            $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n5 = ترکیبی (هر بار به‌صورت رندوم یکی از همه)\n\n";
             $message .= "شماره را بفرست:";
             BotHelper::sendMessage($bot, $message);
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE, array_merge($stateData, [
@@ -2374,10 +2374,10 @@ class BotMotherController extends Controller
         $currentState = BotMotherStateHelper::getCurrentState($chatId);
 
         if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE) {
-            $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti'];
+            $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti', '5' => 'mixed'];
             $contentType = $map[trim($text)] ?? null;
             if (!$contentType) {
-                BotHelper::sendMessage($bot, 'لطفاً ۱، ۲، ۳ یا ۴ بفرست.');
+                BotHelper::sendMessage($bot, 'لطفاً ۱، ۲، ۳، ۴ یا ۵ بفرست.');
                 return;
             }
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD, array_merge($stateData, ['content_type' => $contentType]));
@@ -2430,7 +2430,9 @@ class BotMotherController extends Controller
                 ]
             );
             BotMotherStateHelper::clearState($chatId);
-            BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر ۲۴ ساعت یک محتوای " . $contentType . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
+            $contentLabels = ['verse' => 'آیه قرآن', 'hadith' => 'حدیث', 'nahj' => 'نهج البلاغه', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی (آیه/حدیث/نهج/شراب بهشتی)'];
+            $label = $contentLabels[$contentType] ?? $contentType;
+            BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر ۲۴ ساعت یک محتوای " . $label . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
         }
     }
 

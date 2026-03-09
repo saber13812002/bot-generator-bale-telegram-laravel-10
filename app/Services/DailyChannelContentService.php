@@ -97,9 +97,15 @@ class DailyChannelContentService
 
     /**
      * بر اساس content_type یک متن رندوم برمی‌گرداند.
+     * برای mixed به‌صورت رندوم یکی از آیه، حدیث، نهج، شراب بهشتی انتخاب می‌شود.
      */
     public function getTextForContentType(string $contentType): ?string
     {
+        if ($contentType === 'mixed') {
+            $types = ['verse', 'hadith', 'nahj', 'sharabe_beheshti'];
+            $type = $types[array_rand($types)];
+            return $this->getTextForContentType($type);
+        }
         return match ($contentType) {
             'verse' => $this->getRandomVerseText(),
             'hadith' => $this->getRandomHadithText(),
