@@ -23,8 +23,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['admin_chat_id', 'media_queue_id']);
-            $table->index('is_active');
+            $table->index(['admin_chat_id', 'media_queue_id'], 'acmq_configs_admin_queue_idx');
+            $table->index('is_active', 'acmq_configs_active_idx');
         });
     }
 
