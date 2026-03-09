@@ -14,10 +14,15 @@ class AdminDailyChannelConfig extends Model
     const CONTENT_TYPE_NAHJ = 'nahj';
     const CONTENT_TYPE_SHARABE_BEHESHTI = 'sharabe_beheshti';
     const CONTENT_TYPE_MIXED = 'mixed';
+    const CONTENT_TYPE_SEQUENTIAL = 'sequential';
+
+    /** ترتیب نوبت برای نوع ترتیبی */
+    const SEQUENTIAL_ORDER = ['verse', 'hadith', 'nahj', 'sharabe_beheshti'];
 
     protected $fillable = [
         'admin_chat_id',
         'content_type',
+        'last_sent_content_type',
         'bale_channel_chat_id',
         'telegram_channel_chat_id',
         'eitaa_channel_chat_id',

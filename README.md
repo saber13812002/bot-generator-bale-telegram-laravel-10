@@ -626,6 +626,35 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر روز ۰۸:۰۰ | SendDailyQuranSuggestionToAdmins |
 | هر روز ۰۹:۰۰ | PostDailyVerseToChannels |
 
+#### ارسال روزانه به کانال (تک‌آیه / حدیث / نهج / شراب / ترکیبی رندوم / ترکیبی ترتیبی)
+
+این قابلیت خودکار اجرا نمی‌شود مگر اینکه روی سرور **کران‌جاب** تنظیم کنید. یکی از دو روش زیر را استفاده کنید (مسیر پروژه را با مسیر واقعی روی سرور عوض کنید):
+
+**روش ۱ (پیشنهادی):** یک بار در دقیقه (یا حداقل یک بار در روز قبل از ساعت ۰۹:۰۰) `schedule:run` را اجرا کنید تا طبق `Kernel.php` هر روز ۰۹:۰۰ دستور `PostDailyVerseToChannels` اجرا شود:
+
+```cron
+*/1	*	*	*	*	cd /مسیر/پروژه && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**روش ۲:** فقط همان دستور ارسال روزانه را هر روز ساعت ۹ صبح اجرا کنید:
+
+```cron
+0	9	*	*	*	cd /مسیر/پروژه && php artisan daily-channel:post >> /dev/null 2>&1
+```
+
+در ویندوز (Task Scheduler) معادل دستور: `php artisan daily-channel:post` با working directory مسیر پروژه و trigger روزانه ساعت ۰۹:۰۰.
+
+---
+
+### ستون `last_sent_content_type` (گزینه ترتیبی)
+
+برای گزینه **۶ = ترکیبی ترتیبی** باید ستون `last_sent_content_type` در جدول `admin_daily_channel_configs` وجود داشته باشد. اگر مایگریشن اجرا نکردید، این کوئری را خودتان روی دیتابیس (MSSQL) اجرا کنید:
+
+```sql
+ALTER TABLE admin_daily_channel_configs
+ADD last_sent_content_type NVARCHAR(30) NULL;
+```
+
 # 📋 دستورات مهم
 
 ```bash

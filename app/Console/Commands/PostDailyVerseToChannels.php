@@ -36,17 +36,24 @@ class PostDailyVerseToChannels extends Command
         $eitaaToken = env('BOT_EITAA_TOKEN_SABER') ?: env('EITAA_BOT_TOKEN');
 
         foreach ($configs as $config) {
-            $text = $this->contentService->getTextForContentType($config->content_type);
+            $contentType = $config->content_type;
+            $effectiveType = $contentType;
+
+            if ($contentType === 'sequential') {
+                $effectiveType = $this->getNextSequentialType($config->last_sent_content_type);
+            }
+
+            $text = $this->contentService->getTextForContentType($effectiveType);
             if (!$text || trim($text) === '') {
                 Log::warning('[PostDailyVerseToChannels] No content for config', [
                     'config_id' => $config->id,
-                    'content_type' => $config->content_type,
+                    'content_type' => $contentType,
                 ]);
                 continue;
             }
 
             if ($dryRun) {
-                $this->line("Config #{$config->id} ({$config->content_type}): " . mb_substr($text, 0, 80) . '...');
+                $this->line("Config #{$config->id} ({$contentType}" . ($contentType === 'sequential' ? " → {$effectiveType}" : '') . "): " . mb_substr($text, 0, 80) . '...');
                 continue;
             }
 
@@ -89,9 +96,32 @@ class PostDailyVerseToChannels extends Command
                     ]);
                 }
             }
+
+            if ($contentType === 'sequential') {
+                $config->update(['last_sent_content_type' => $effectiveType]);
+            }
         }
 
         $this->info('ارسال روزانه به کانال‌ها انجام شد.');
         return 0;
+    }
+
+    /**
+     * برای content_type=sequential: نوبت بعدی را بر اساس last_sent برمی‌گرداند.
+     * ترتیب: verse → hadith → nahj → sharabe_beheshti → verse → …
+     */
+    private function getNextSequentialType(?string $lastSent): string
+    {
+        $order = AdminDailyChannelConfig::SEQUENTIAL_ORDER;
+        if ($lastSent === null || $lastSent === '') {
+            return $order[0];
+        }
+        $idx = array_search($lastSent, $order, true);
+        if ($idx === false) {
+            return $order[0];
+        }
+        $next = $idx + 1;
+
+        return $order[$next % count($order)];
     }
 }
