@@ -27,4 +27,12 @@ class Bot extends Model
     {
         return $this->belongsTo(Language::class, 'language_code', 'code');
     }
+
+    /**
+     * رابطه با مالک ربات (پنل وب)
+     */
+    public function botOwner(): BelongsTo
+    {
+        return $this->belongsTo(\App\Modules\BotOwner\Models\BotOwner::class, 'bot_owner_id');
+    }
 }

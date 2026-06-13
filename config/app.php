@@ -191,6 +191,9 @@ return [
          * Application Service Providers...
          */
         App\Providers\AppServiceProvider::class,
+        App\Modules\BaleOtp\Providers\BaleOtpServiceProvider::class,
+        App\Modules\BotOwner\Providers\BotOwnerServiceProvider::class,
+        App\Modules\AdminBots\Providers\AdminBotsServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
