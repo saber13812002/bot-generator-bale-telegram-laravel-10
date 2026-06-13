@@ -17,6 +17,7 @@ return [
         'telegram' => 'https://t.me/',
         'gap' => 'https://gap.ir/',
     ],
+    'admin_bots_link' => env('ADMIN_BOTS_LINK', 'https://ble.ir'),
     'tokens' =>[
         'bale' =>[
             'robat' => env('ROBAT_BALE_TOKEN_TEST'),

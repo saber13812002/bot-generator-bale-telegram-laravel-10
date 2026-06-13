@@ -7,25 +7,25 @@ todos:
     status: completed
   - id: module-bot-owner-db
     content: "Migrations و Models: bot_owners, otp_sessions, pro_requests + bot_owner_id روی bots"
-    status: in_progress
+    status: completed
   - id: module-bot-owner-web
     content: صفحات وب /bots, login, dashboard + middleware + BotOwnerAuthService + feature tests
-    status: pending
+    status: completed
   - id: ui-welcome-show
     content: افزودن CTA و دکمه «+ ساختن» به welcome.blade.php و bot/show.blade.php
-    status: pending
+    status: completed
   - id: module-bot-owner-pro
     content: BotOwnerProService + Nova resource + /owner_pro_confirm + web approve routes
-    status: pending
+    status: completed
   - id: module-bot-registration
     content: استخراج BotRegistrationService از Bot Mother + ویزارد وب ساخت ربات (Pro-only)
-    status: pending
+    status: completed
   - id: module-admin-bots
     content: "ربات Admin Bots: webhook, seeder, /bots /admin-bots /link + feature tests"
-    status: pending
+    status: completed
   - id: docs-translations
     content: مستندات BOT_OWNER_SELF_SERVICE.md + ترجمه ۱۵ زبانه + لینک pardisania.ir
-    status: pending
+    status: completed
 isProject: false
 ---
 

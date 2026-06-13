@@ -58,3 +58,9 @@ Route::get('/admin/pro-purchase/{id}/approve', [\App\Http\Controllers\Admin\ProP
     ->name('admin.pro-purchase.approve');
 Route::get('/admin/pro-purchase/{id}/reject', [\App\Http\Controllers\Admin\ProPurchaseController::class, 'reject'])
     ->name('admin.pro-purchase.reject');
+
+// Bot Owner Pro Approval Routes
+Route::get('/admin/bot-owner-pro/{id}/approve', [\App\Http\Controllers\Admin\BotOwnerProController::class, 'approve'])
+    ->name('admin.bot-owner-pro.approve');
+Route::get('/admin/bot-owner-pro/{id}/reject', [\App\Http\Controllers\Admin\BotOwnerProController::class, 'reject'])
+    ->name('admin.bot-owner-pro.reject');

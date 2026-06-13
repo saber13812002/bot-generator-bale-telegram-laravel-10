@@ -105,7 +105,7 @@
                     <!-- Links Section -->
                     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">لینک‌های نمونه</h2>
-                        <div class="flex flex-wrap gap-4">
+                        <div class="flex flex-wrap gap-4 mb-4">
                             @if($bot->sample_telegram_link)
                                 <a href="{{ $bot->sample_telegram_link }}" 
                                    target="_blank" 
@@ -141,6 +141,12 @@
                                 </a>
                             @endif
                         </div>
+                        @if(!in_array($bot->endpoint_id, ['admin-bots', 'get-chat-id']))
+                        <a href="{{ route('bot-owner.create', $bot->endpoint_id) }}"
+                           class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                            + ساختن این ربات
+                        </a>
+                        @endif
                     </div>
                 </div>
 

@@ -844,13 +844,32 @@
         </div>
 
         <div class="mt-16">
+            {{-- CTA: ساخت ربات خودتان --}}
+            <div class="mb-8 p-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg border border-red-200 dark:border-red-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">ساخت ربات خودتان</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">با OTP بله وارد شوید و ربات اختصاصی خود را بسازید</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{{ route('bot-owner.intro') }}"
+                       class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold">
+                        شروع کنید
+                    </a>
+                    <a href="https://pardisania.ir" target="_blank"
+                       class="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-800">
+                        pardisania.ir
+                    </a>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                 @forelse($bots ?? [] as $bot)
                     @php
                         $icon = $bot->icon_emoji ?? ($bot->icon_svg ?? '🤖');
+                        $canCreate = !in_array($bot->endpoint_id, ['admin-bots', 'get-chat-id']);
                     @endphp
-                    <a href="{{ route('bot.show', $bot->endpoint_id) }}"
-                       class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
+                    <div class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250">
+                        <a href="{{ route('bot.show', $bot->endpoint_id) }}" class="flex flex-1 focus:outline focus:outline-2 focus:outline-red-500 rounded">
                         <div>
                             <div class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
                                 @if($bot->icon_svg)
@@ -882,7 +901,15 @@
                              class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
                         </svg>
-                    </a>
+                        </a>
+                        @if($canCreate)
+                        <a href="{{ route('bot-owner.create', $bot->endpoint_id) }}"
+                           class="self-center shrink-0 px-3 py-2 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 whitespace-nowrap"
+                           title="ساختن این ربات">
+                            + ساختن
+                        </a>
+                        @endif
+                    </div>
                 @empty
                     <div class="col-span-2 text-center py-12">
                         <p class="text-gray-500 dark:text-gray-400">هیچ ربات فعالی یافت نشد.</p>

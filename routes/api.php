@@ -106,6 +106,7 @@ Route::get('calendar-data', [ContributionController::class, 'calendarData']);
 // personnel registration
 Route::post('/webhook-personnel-registration', [PersonnelRegistrationController::class, 'index']);
 Route::post('/webhook-personnel-admin', [PersonnelAdminBotController::class, 'index']);
+Route::post('/webhook-admin-bots', [\App\Modules\AdminBots\Http\Controllers\AdminBotsController::class, 'index']);
 
 // mission bot
 Route::post('/webhook-mission-bot', [MissionBotController::class, 'index']);

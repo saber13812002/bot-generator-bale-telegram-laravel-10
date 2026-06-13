@@ -193,6 +193,7 @@ return [
         App\Providers\AppServiceProvider::class,
         App\Modules\BaleOtp\Providers\BaleOtpServiceProvider::class,
         App\Modules\BotOwner\Providers\BotOwnerServiceProvider::class,
+        App\Modules\BotRegistration\Providers\BotRegistrationServiceProvider::class,
         App\Modules\AdminBots\Providers\AdminBotsServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,

@@ -188,6 +188,10 @@ class BotMotherController extends Controller
             else if (str_starts_with($text, '/pro_confirm')) {
                 $this->handleProConfirm($bot, $text, $type);
             }
+            // Handle owner_pro_confirm command (Bot Owner Pro)
+            else if (str_starts_with($text, '/owner_pro_confirm')) {
+                $this->handleOwnerProConfirm($bot, $text, $type);
+            }
             // تنظیمات ربات ادمین کانال روزانه (تکمیل/ویرایش بله، تلگرام، ایتا)
             else if ($text == '/daily_channel_settings' || $text == '/تنظیمات_کانال_روزانه' || strtolower($text) == 'daily_channel_settings') {
                 $this->handleDailyChannelSettings($bot, $type, $botMotherId);
@@ -3720,6 +3724,58 @@ class BotMotherController extends Controller
             ]);
             
             BotHelper::sendMessage($bot, "❌ خطا در پردازش درخواست:\n\n" . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle /owner_pro_confirm command for Bot Owner Pro requests
+     */
+    private function handleOwnerProConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /owner_pro_confirm [REQUEST_ID]");
+            return;
+        }
+
+        try {
+            $proService = app(\App\Modules\BotOwner\Contracts\BotOwnerProServiceInterface::class);
+            $result = $proService->confirmPro((int) $requestId, 1);
+
+            if ($result) {
+                $request = \App\Modules\BotOwner\Models\BotOwnerProRequest::find($requestId);
+                $owner = $request?->botOwner;
+
+                $message = "✅ درخواست Pro مالک ربات تایید شد!\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($owner) {
+                    $message .= "📱 Phone: {$owner->phone}\n";
+                }
+                BotHelper::sendMessage($bot, $message);
+
+                if ($owner && $owner->bale_chat_id) {
+                    $adminToken = env('ADMIN_BOTS_TOKEN_BALE');
+                    if ($adminToken) {
+                        $adminBot = new Telegram($adminToken, 'bale');
+                        BotHelper::sendMessageByChatId(
+                            $adminBot,
+                            $owner->bale_chat_id,
+                            trans('bot-owner.pro_approved_notify')
+                        );
+                    }
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ خطا در تایید درخواست مالک ربات.");
+            }
+        } catch (Exception $e) {
+            Log::error('BotMother owner_pro_confirm error', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
         }
     }
 
