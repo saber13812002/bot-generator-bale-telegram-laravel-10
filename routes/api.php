@@ -24,6 +24,8 @@ use App\Http\Controllers\PoemBotController;
 use App\Http\Controllers\MissionMediaBotController;
 use App\Http\Controllers\PersonnelAdminBotController;
 use App\Http\Controllers\PersonnelRegistrationController;
+use App\Http\Controllers\BookLibraryController;
+use App\Http\Controllers\BookLibraryReaderController;
 use App\Http\Controllers\PrayerBotController;
 use App\Http\Controllers\SongSaraPostController;
 use App\Http\Controllers\TaskApprovalController;
@@ -134,6 +136,9 @@ Route::post('/webhook-book-pixel-approval', [BookPixelApprovalController::class,
 Route::post('/webhook-content-submission', [ContentSubmissionController::class, 'webhook']);
 
 Route::post('/api/webhook-poem-bot', [PoemBotController::class, 'webhook']);
+
+Route::post('/webhook-book-library', [BookLibraryController::class, 'webhook']);
+Route::post('/webhook-book-library-reader', [BookLibraryReaderController::class, 'webhook']);
 Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);
 
 // mission API routes

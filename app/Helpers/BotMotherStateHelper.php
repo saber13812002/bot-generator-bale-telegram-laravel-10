@@ -129,5 +129,8 @@ class BotMotherStateHelper
     const STATE_MEDIA_QUEUE_BALE = 'media_queue_bale';
     const STATE_MEDIA_QUEUE_TELEGRAM = 'media_queue_telegram';
     const STATE_MEDIA_QUEUE_EITAA = 'media_queue_eitaa';
+
+    // Book library — link reader bot after main bot token
+    const STATE_WAITING_LIBRARY_READER_TOKEN = 'waiting_library_reader_token';
 }
 

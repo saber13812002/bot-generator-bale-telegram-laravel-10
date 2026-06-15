@@ -7,28 +7,28 @@ todos:
     status: completed
   - id: endpoints
     content: Seeder دو endpoint + route + related_bots + مستندات اولیه
-    status: in_progress
+    status: completed
   - id: services
     content: "Repository/Service: ژانر، کتاب، سهمیه، تحویل (DeliveryService + FileUploadHelper)"
-    status: pending
+    status: completed
   - id: main-controller
     content: "BookLibraryController: منو، ژانر صفحه‌بندی، لیست کتاب، رندوم، پیشرفت، Quick Actions"
-    status: pending
+    status: completed
   - id: reader-controller
     content: BookLibraryReaderController + لینک reader_bot_id در library_bot_configs
-    status: pending
+    status: completed
   - id: plan-flow
     content: "جریان پلن دستی: library_plan_requests + تأیید Nova/Bot Mother"
-    status: pending
+    status: completed
   - id: bot-mother-wizard
     content: ویزارد Bot Mother برای لینک توکن reader پس از ثبت book-library
-    status: pending
+    status: completed
   - id: content-admin
     content: Nova resources + GenreSeeder + کتاب نمونه
-    status: pending
+    status: completed
   - id: i18n
     content: ترجمه کلیدهای book_library.* در ۱۵ زبان
-    status: pending
+    status: completed
 isProject: false
 ---
 
