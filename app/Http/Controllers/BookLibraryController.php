@@ -116,6 +116,12 @@ class BookLibraryController extends Controller
             return;
         }
 
+        if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
+            BotHelper::sendMessage($bot, trans('book_library.main_help'));
+            $this->sendMainMenu($bot);
+            return;
+        }
+
         if (!$instanceBotId) {
             BotHelper::sendMessage($bot, trans('book_library.delivery_error'));
             return;

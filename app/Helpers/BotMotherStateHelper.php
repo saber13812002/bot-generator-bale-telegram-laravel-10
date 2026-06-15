@@ -132,5 +132,7 @@ class BotMotherStateHelper
 
     // Book library — link reader bot after main bot token
     const STATE_WAITING_LIBRARY_READER_TOKEN = 'waiting_library_reader_token';
+    // Book library reader — link to existing main bot (standalone registration)
+    const STATE_WAITING_LIBRARY_MAIN_BOT_ID = 'waiting_library_main_bot_id';
 }
 

@@ -21,7 +21,29 @@ return [
     'no_audio' => 'Audio is not available for this book.',
     'delivery_error' => 'Delivery failed. Please try again.',
     'reader_required' => 'Please /start the reader bot first so content can be delivered there.',
-    'reader_welcome' => "📖 Welcome to the Book Reader bot!\n\nAudio summaries and book files will be sent here.",
+    'reader_welcome' => "📖 Welcome to the Book Reader bot!\n\nAudio summaries, PDFs and infographics are delivered here.\n\nFor full guide: /help",
+    'reader_help' => "📖 Book Reader — Help\n\n" .
+        "This bot delivers book content. Browse and pick books in the main Smart Book Library bot.\n\n" .
+        "Commands:\n" .
+        "/start — Activate delivery to this chat\n" .
+        "/help — Show this guide\n\n" .
+        "After each book:\n" .
+        "📄 Get PDF\n" .
+        "🖼 Get infographic\n" .
+        "🎧 Replay audio\n\n" .
+        "Tip: /start both this bot and the main library bot.",
+    'reader_main_bot_hint' => "📚 Main library bot: @:username\nChoose books there; content arrives here.",
+    'reader_use_help' => "Send /help for guidance.\nUse the main library bot to pick books.",
+    'main_help' => "📚 Smart Book Library — Help\n\n" .
+        "Commands:\n" .
+        "/start — Main menu\n" .
+        "/help — This guide\n\n" .
+        "Menu:\n" .
+        "📚 Discover Books — genres and summaries\n" .
+        "🎲 Random Pick — random book\n" .
+        "⭐ My Books — history\n" .
+        "💎 Upgrade Plan — more quota\n\n" .
+        "If you have a separate reader bot, /start it too for audio and PDF delivery.",
     'sent_to_reader' => '✅ Content was sent to your reader bot.',
     'progress' => "Progress:\n:bar\n:used of :limit books (:percent%)",
     'quota_exceeded' => 'Your book quota is used up. Upgrade your plan to continue.',

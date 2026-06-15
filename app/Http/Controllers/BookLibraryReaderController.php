@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
+use App\Interfaces\Services\BookLibraryDeliveryService;
 use App\Interfaces\Services\BookLibraryService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\LibraryUserBook;
-use App\Interfaces\Services\BookLibraryDeliveryService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -46,10 +46,22 @@ class BookLibraryReaderController extends Controller
                 return 200;
             }
 
-            $text = $bot->Text() ?? '';
-            if ($text !== '' && str_starts_with(trim($text), '/start')) {
-                $this->handleStart($bot, $chatId, $type, $botMotherId, $botId);
+            $text = trim($bot->Text() ?? '');
+            if ($text === '') {
+                return 200;
             }
+
+            if (str_starts_with($text, '/start')) {
+                $this->handleStart($bot, $chatId, $type, $botMotherId, $botId);
+                return 200;
+            }
+
+            if ($this->isHelpCommand($text)) {
+                $this->sendHelp($bot, $botId);
+                return 200;
+            }
+
+            BotHelper::sendMessage($bot, trans('book_library.reader_use_help'));
 
             return 200;
         } catch (Exception $e) {
@@ -88,6 +100,29 @@ class BookLibraryReaderController extends Controller
         }
 
         BotHelper::sendMessage($bot, trans('book_library.reader_welcome'));
+        $this->sendHelp($bot, $readerBotId);
+    }
+
+    private function sendHelp(Telegram $bot, ?int $readerBotId): void
+    {
+        $mainBotId = $this->resolveMainBotId($readerBotId);
+
+        $message = trans('book_library.reader_help');
+        if ($mainBotId) {
+            $mainBot = Bot::find($mainBotId);
+            $mainName = $mainBot?->bale_bot_name ?: $mainBot?->telegram_bot_name;
+            if ($mainName) {
+                $message .= "\n\n" . trans('book_library.reader_main_bot_hint', ['username' => $mainName]);
+            }
+        }
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    private function isHelpCommand(string $text): bool
+    {
+        $lower = mb_strtolower($text);
+        return in_array($lower, ['/help', 'help', 'راهنما', '/راهنما'], true);
     }
 
     private function handleCallbackQuery(

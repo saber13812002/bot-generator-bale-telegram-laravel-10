@@ -255,6 +255,9 @@ class BotMotherController extends Controller
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_LIBRARY_READER_TOKEN) {
                 $this->handleLibraryReaderTokenInput($bot, $text, $stateData, $type, $botMotherId);
             }
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_LIBRARY_MAIN_BOT_ID) {
+                $this->handleLibraryMainBotIdInput($bot, $text, $stateData, $type, $botMotherId);
+            }
             // Content submission bot wizard
             else if (in_array($currentState, [
                 BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM,
@@ -872,6 +875,16 @@ class BotMotherController extends Controller
         $message .= "📝 نام: {$selectedEndpoint['name']}\n";
         $message .= "🔗 Route: {$selectedEndpoint['route']}\n";
         $message .= "📄 توضیحات: {$selectedEndpoint['description']}\n\n";
+
+        if ($selectedEndpoint['id'] === 'book-library') {
+            $message .= "ℹ️ این ربات در دو مرحله ساخته می‌شود:\n";
+            $message .= "۱) ربات اصلی کتابخانه (همین endpoint)\n";
+            $message .= "۲) ربات کتابخوان — بعد از ثبت، توکن ربات دوم را می‌گیریم (یا بعداً از endpoint «Book Library Reader»)\n\n";
+        } elseif ($selectedEndpoint['id'] === 'book-library-reader') {
+            $message .= "⚠️ ابتدا باید ربات «Smart Book Library» (book-library) ساخته شده باشد.\n";
+            $message .= "پس از ثبت توکن این ربات، شناسه Bot ID ربات اصلی را از شما می‌پرسیم.\n\n";
+        }
+
         $message .= "نوع ربات را انتخاب کنید:\n";
         $message .= "1. تلگرام (Telegram)\n";
         $message .= "2. بله (Bale)\n\n";
@@ -1416,10 +1429,26 @@ class BotMotherController extends Controller
                     'bot_id' => $botItem->id,
                     'main_bot_token' => $text,
                 ]));
-                $message = "✅ ربات کتابخانه با موفقیت ثبت شد!\n\n";
-                $message .= "📖 حالا توکن ربات کتابخوان (book-library-reader) را ارسال کنید.\n";
-                $message .= "این ربات محتوای صوتی و PDF را در چت جداگانه ارسال می‌کند.\n\n";
-                $message .= "اگر فعلاً نمی‌خواهید ربات کتابخوان لینک شود، «رد» را بفرستید.";
+                $message = "✅ ربات کتابخانه (مرحله ۱ از ۲) ثبت شد!\n\n";
+                $message .= "🆔 Bot ID ربات اصلی: {$botItem->id}\n\n";
+                $message .= "📖 مرحله ۲ — ربات کتابخوان:\n";
+                $message .= "یک ربات جدا در بله/تلگرام بسازید و توکن آن را اینجا بفرستید.\n";
+                $message .= "محتوای صوتی و PDF در آن ربات تحویل داده می‌شود.\n\n";
+                $message .= "اگر الان آماده نیستید، «رد» بفرستید و بعداً از endpoint «Book Library Reader» بسازید.\n";
+                $message .= "(در آن حالت به Bot ID بالا نیاز دارید: {$botItem->id})";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            if ($endpointId == 'book-library-reader') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LIBRARY_MAIN_BOT_ID, array_merge($stateData, [
+                    'reader_bot_id' => $botItem->id,
+                    'reader_bot_token' => $text,
+                ]));
+                $message = "✅ ربات کتابخوان (مرحله ۲) ثبت شد!\n\n";
+                $message .= "🆔 Reader Bot ID: {$botItem->id}\n\n";
+                $message .= "🔗 حالا Bot ID ربات اصلی «Smart Book Library» را بفرستید.\n";
+                $message .= "(همان شماره‌ای که هنگام ساخت book-library دریافت کردید، مثلاً 52)";
                 BotHelper::sendMessage($bot, $message);
                 return;
             }
@@ -3871,10 +3900,16 @@ class BotMotherController extends Controller
             $message .= "🆔 Main Bot ID: {$mainBotId}\n";
             if ($readerBotId) {
                 $message .= "📖 Reader Bot ID: {$readerBotId}\n";
+                $message .= "✅ هر دو ربات به هم متصل شدند.\n";
             } else {
-                $message .= "ℹ️ بدون ربات کتابخوان (محتوا در همین ربات ارسال می‌شود)\n";
+                $message .= "ℹ️ هنوز ربات کتابخوان متصل نیست.\n\n";
+                $message .= "📖 مرحله بعد — ساخت ربات کتابخوان:\n";
+                $message .= "1. در ربات مادر /start بزنید\n";
+                $message .= "2. endpoint «Book Library Reader» را انتخاب کنید\n";
+                $message .= "3. توکن ربات کتابخوان را بدهید\n";
+                $message .= "4. وقتی Bot ID اصلی خواست: {$mainBotId}\n";
             }
-            $message .= "\n🔗 Webhook:\n{$mainWebhookUrl}";
+            $message .= "\n🔗 Webhook ربات اصلی:\n{$mainWebhookUrl}";
             BotHelper::sendMessage($bot, $message);
         } catch (Exception $e) {
             Log::error('❌ [BotMother] Book library setup failed', ['error' => $e->getMessage()]);
@@ -3923,6 +3958,78 @@ class BotMotherController extends Controller
         $botItem->save();
 
         return $botItem;
+    }
+
+    /**
+     * Link standalone book-library-reader to an existing book-library main bot.
+     */
+    private function handleLibraryMainBotIdInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $readerBotId = $stateData['reader_bot_id'] ?? null;
+        $readerToken = $stateData['reader_bot_token'] ?? null;
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$readerBotId || !$readerToken) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات کتابخوان یافت نشد. لطفاً دوباره از /start شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        if (!is_numeric(trim($text))) {
+            BotHelper::sendMessage($bot, "❌ لطفاً Bot ID عددی ربات اصلی book-library را ارسال کنید.");
+            return;
+        }
+
+        $mainBotId = (int) trim($text);
+        $mainBotItem = Bot::where('id', $mainBotId)->where('endpoint_id', 'book-library')->first();
+
+        if (!$mainBotItem) {
+            BotHelper::sendMessage($bot, "❌ ربات اصلی با ID {$mainBotId} و endpoint book-library یافت نشد.\n\nابتدا Smart Book Library را بسازید.");
+            return;
+        }
+
+        $readerBotItem = Bot::find($readerBotId);
+        if (!$readerBotItem) {
+            BotHelper::sendMessage($bot, "❌ ربات کتابخوان یافت نشد.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        try {
+            LibraryBotConfig::updateOrCreate(
+                ['bot_id' => $mainBotId],
+                ['reader_bot_id' => $readerBotId]
+            );
+
+            $readerWebhookUrl = WebhookEndpointHelper::createWebhookUrl('book-library-reader', $readerBotItem, $botType, $language, $botMotherId);
+            $readerTelegram = new Telegram($readerToken, $botType === 'bale' ? 'bale' : null);
+            $readerWebhookResult = $readerTelegram->setWebhook($readerWebhookUrl);
+            if (!$readerWebhookResult['ok']) {
+                throw new Exception('خطا در تنظیم webhook ربات کتابخوان');
+            }
+            if ($botType === 'bale') {
+                $readerBotItem->bale_webhook_is_set = 1;
+            } else {
+                $readerBotItem->telegram_webhook_is_set = 1;
+            }
+            $readerBotItem->save();
+
+            BotMotherStateHelper::clearState($chatId);
+
+            $message = "✅ ربات کتابخوان به ربات اصلی متصل شد!\n\n";
+            $message .= "🆔 Main Bot ID: {$mainBotId}\n";
+            $message .= "📖 Reader Bot ID: {$readerBotId}\n\n";
+            $message .= "🔗 Webhook کتابخوان:\n{$readerWebhookUrl}\n\n";
+            $message .= "💡 به کاربران بگویید هر دو ربات را /start کنند:\n";
+            $message .= "• ربات اصلی: انتخاب کتاب و منو\n";
+            $message .= "• ربات کتابخوان: دریافت صوت و PDF";
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] Link library reader failed', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
     }
 
     private function handleLibraryPlanConfirm(Telegram $bot, string $text, string $type): void

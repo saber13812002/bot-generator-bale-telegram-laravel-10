@@ -1,0 +1,69 @@
+---
+description: قوانین migration و Foreign Key برای MariaDB/MySQL در production
+globs: database/migrations/**/*.php
+alwaysApply: false
+---
+
+# Migration و Foreign Key (تجربه production)
+
+## مشکل رایج
+
+روی سرورهای MariaDB/MySQL (مثلاً cPanel) migration ممکن است با خطای زیر بخورد:
+
+```
+errno: 150 "Foreign key constraint is incorrectly formed"
+```
+
+Laravel گاهی ابتدا جدول را **بدون FK** می‌سازد و در `ALTER TABLE ... ADD CONSTRAINT` خطا می‌دهد؛ جدول نیمه‌کاره (`library_*` بدون constraint) باقی می‌ماند و اجرای مجدد `migrate` هم شکست می‌خورد.
+
+## علل شناخته‌شده
+
+1. **دو FK به یک جدول والد** (مثلاً `bot_id` و `reader_bot_id` هر دو به `bots`) — روی بعضی MariaDB مشکل‌ساز است.
+2. **عدم تطابق نوع ستون** (`bots.id` قدیمی `INT` در برابر `unsignedBigInteger`).
+3. **موتور جدول** (`bots` با MyISAM و جدول جدید InnoDB).
+4. **اجرای نیمه‌کاره** — جدول ساخته شده ولی migration در `migrations` ثبت نشده.
+
+## قوانین نوشتن migration جدید
+
+### 1. FK به جداول legacy (`bots`, `bot_users`)
+
+ترجیحاً **فقط index** بگذارید، نه `foreign()`:
+
+```php
+// ✅ امن برای production
+$table->unsignedBigInteger('bot_id');
+$table->index('bot_id');
+
+// ❌ ممکن است errno 150 بدهد
+$table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
+```
+
+FK فقط **بین جداول همان feature** (مثلاً `library_books` → `library_book_media`) مجاز است.
+
+### 2. پاک‌سازی قبل از ساخت (migration تازه)
+
+اگر migration قبلاً روی سرور fail شده، در `up()` ابتدا جدول‌های همان feature را drop کنید:
+
+```php
+Schema::disableForeignKeyConstraints();
+Schema::dropIfExists('child_table');
+Schema::dropIfExists('parent_table');
+Schema::enableForeignKeyConstraints();
+```
+
+فقط وقتی migration هنوز در `migrations` ثبت نشده یا rollback تمیز نشده.
+
+### 3. یک migration = یک feature
+
+جدول‌های مرتبط یک ربات (مثلاً همه `library_*`) در یک فایل migration؛ FK داخلی بین آن‌ها.
+
+### 4. قبل از merge به production
+
+- روی سرور تست: `php artisan migrate`
+- در صورت fail: `SHOW CREATE TABLE bots` و `SHOW TABLES LIKE 'feature_%'`
+- هرگز migration شکسته را دستی در `migrations` insert نکنید بدون drop جدول نیمه‌کاره
+
+## مرجع
+
+- نمونه اصلاح‌شده: `database/migrations/2026_06_15_100000_create_library_tables.php`
+- الگوی بدون FK به bots: `list_bot_configs`, `library_bot_configs`
