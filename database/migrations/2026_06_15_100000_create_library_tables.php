@@ -6,16 +6,35 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Clean up partial runs (Laravel may create the table before adding FKs).
+     */
+    private function dropLibraryTablesIfExist(): void
+    {
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('library_plan_requests');
+        Schema::dropIfExists('library_user_books');
+        Schema::dropIfExists('library_user_subscriptions');
+        Schema::dropIfExists('library_book_media');
+        Schema::dropIfExists('library_book_genre');
+        Schema::dropIfExists('library_books');
+        Schema::dropIfExists('library_genres');
+        Schema::dropIfExists('library_bot_configs');
+        Schema::enableForeignKeyConstraints();
+    }
+
     public function up(): void
     {
+        $this->dropLibraryTablesIfExist();
+
         Schema::create('library_bot_configs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('bot_id')->unique();
-            $table->unsignedBigInteger('reader_bot_id')->nullable();
+            // No FK on reader_bot_id — dual FK to `bots` breaks on some MariaDB setups
+            $table->unsignedBigInteger('reader_bot_id')->nullable()->index();
             $table->timestamps();
 
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
-            $table->foreign('reader_bot_id')->references('id')->on('bots')->onDelete('set null');
+            $table->index('bot_id');
         });
 
         Schema::create('library_genres', function (Blueprint $table) {
@@ -27,7 +46,6 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
             $table->index(['bot_id', 'page', 'sort_order']);
         });
 
@@ -40,7 +58,6 @@ return new class extends Migration
             $table->boolean('random_eligible')->default(true);
             $table->timestamps();
 
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
             $table->index(['bot_id', 'is_active']);
         });
 
@@ -58,7 +75,7 @@ return new class extends Migration
         Schema::create('library_book_media', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('book_id');
-            $table->string('type', 20); // audio, pdf, infographic
+            $table->string('type', 20);
             $table->text('content_url')->nullable();
             $table->string('telegram_file_id')->nullable();
             $table->string('bale_file_id')->nullable();
@@ -79,9 +96,8 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
-            $table->foreign('bot_user_id')->references('id')->on('bot_users')->onDelete('cascade');
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
             $table->unique(['bot_user_id', 'bot_id']);
+            $table->index('bot_id');
         });
 
         Schema::create('library_user_books', function (Blueprint $table) {
@@ -95,9 +111,7 @@ return new class extends Migration
             $table->boolean('is_random')->default(false);
             $table->timestamps();
 
-            $table->foreign('bot_user_id')->references('id')->on('bot_users')->onDelete('cascade');
             $table->foreign('book_id')->references('id')->on('library_books')->onDelete('cascade');
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
             $table->index(['bot_user_id', 'bot_id']);
         });
 
@@ -115,21 +129,12 @@ return new class extends Migration
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();
 
-            $table->foreign('bot_user_id')->references('id')->on('bot_users')->onDelete('cascade');
-            $table->foreign('bot_id')->references('id')->on('bots')->onDelete('cascade');
             $table->index(['bot_id', 'status']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('library_plan_requests');
-        Schema::dropIfExists('library_user_books');
-        Schema::dropIfExists('library_user_subscriptions');
-        Schema::dropIfExists('library_book_media');
-        Schema::dropIfExists('library_book_genre');
-        Schema::dropIfExists('library_books');
-        Schema::dropIfExists('library_genres');
-        Schema::dropIfExists('library_bot_configs');
+        $this->dropLibraryTablesIfExist();
     }
 };
