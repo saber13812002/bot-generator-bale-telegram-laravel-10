@@ -33,6 +33,8 @@ use App\Interfaces\Services\EmailService;
 use App\Interfaces\Services\BookLibraryDeliveryService;
 use App\Interfaces\Services\BookLibraryPlanService;
 use App\Interfaces\Services\BookLibraryService;
+use App\Interfaces\Services\ContentDeliveryService;
+use App\Interfaces\Services\ContentQueueService;
 use App\Interfaces\Services\HadithApiService;
 use App\Interfaces\Services\MissionService;
 use App\Interfaces\Services\NahjService;
@@ -75,6 +77,9 @@ use App\Services\ContentSubmissionServiceImpl;
 use App\Services\BookLibraryDeliveryServiceImpl;
 use App\Services\BookLibraryPlanServiceImpl;
 use App\Services\BookLibraryServiceImpl;
+use App\Services\ContentAdminService;
+use App\Services\ContentDeliveryServiceImpl;
+use App\Services\ContentQueueServiceImpl;
 use App\Services\HadithApiServiceImpl;
 use App\Services\MailtrapEmailServiceImpl;
 use App\Services\MissionServiceImpl;
@@ -136,6 +141,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BookLibraryService::class, BookLibraryServiceImpl::class);
         $this->app->bind(BookLibraryDeliveryService::class, BookLibraryDeliveryServiceImpl::class);
         $this->app->bind(BookLibraryPlanService::class, BookLibraryPlanServiceImpl::class);
+
+        $this->app->bind(ContentQueueService::class, ContentQueueServiceImpl::class);
+        $this->app->bind(ContentDeliveryService::class, ContentDeliveryServiceImpl::class);
+        $this->app->singleton(ContentAdminService::class);
 
         $this->app->bind(HadithApiService::class, HadithApiServiceImpl::class);
         $this->app->bind(NahjService::class, NahjServiceImpl::class);

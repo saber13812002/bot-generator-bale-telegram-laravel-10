@@ -28,6 +28,7 @@ use App\Models\PsychologyTestCategory;
 use App\Models\PsychologyTestQuestion;
 use App\Models\PsychologyTestBotAdmin;
 use App\Services\BotMessageBroadcastService;
+use App\Services\ContentBotMotherService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,10 @@ use Gap\SDP\Api as GapBot;
 
 class BotMotherController extends Controller
 {
+    public function __construct(
+        private ContentBotMotherService $contentBotMotherService
+    ) {}
+
     /**
      * Handle bot mother webhook with interactive bot creation
      * @throws Exception
@@ -151,11 +156,22 @@ class BotMotherController extends Controller
                     $this->handleQuranBotsLanguageSelection($bot, $selectedLanguage, $stateData, $type, $botMotherId);
                     return;
                 }
+
+                if (str_starts_with($callbackData, 'bm:cnt:')) {
+                    $bot->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
+                    if ($this->contentBotMotherService->handleCallback($bot, $callbackData, (string) $callbackChatId, $type)) {
+                        return;
+                    }
+                }
             }
             
             $text = $bot->Text();
             $currentState = BotMotherStateHelper::getCurrentState($chatId);
             $stateData = BotMotherStateHelper::getData($chatId);
+
+            if ($this->contentBotMotherService->handleMediaInState($bot, $update, (string) $chatId)) {
+                return;
+            }
 
             // Handle /start or "ساختن" command
             if ($text == '/start' || $text == 'ساختن' || $text == '/new' || strtolower($text) == 'new') {
@@ -196,7 +212,10 @@ class BotMotherController extends Controller
             else if (str_starts_with($text, '/library_plan_confirm')) {
                 $this->handleLibraryPlanConfirm($bot, $text, $type);
             }
-            // تنظیمات ربات ادمین کانال روزانه (تکمیل/ویرایش بله، تلگرام، ایتا)
+            else if ($text == '/content' || $text == '/محتوا' || strtolower($text) == 'content') {
+                $this->contentBotMotherService->handleContentCommand($bot, (string) $chatId, $type);
+            }
+            // تنظیمات ربات ادمین کانال روزانه
             else if ($text == '/daily_channel_settings' || $text == '/تنظیمات_کانال_روزانه' || strtolower($text) == 'daily_channel_settings') {
                 $this->handleDailyChannelSettings($bot, $type, $botMotherId);
             }
@@ -257,6 +276,17 @@ class BotMotherController extends Controller
             }
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_LIBRARY_MAIN_BOT_ID) {
                 $this->handleLibraryMainBotIdInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_CONTENT_MENU,
+                BotMotherStateHelper::STATE_CONTENT_ADD_CATEGORY,
+                BotMotherStateHelper::STATE_CONTENT_ADD_CATEGORY_BROADCAST,
+                BotMotherStateHelper::STATE_CONTENT_BROADCAST_MESSAGE,
+                BotMotherStateHelper::STATE_CONTENT_BROADCAST_FILTER,
+            ])) {
+                if ($this->contentBotMotherService->handleTextInState($bot, $text, $stateData, (string) $chatId, $type)) {
+                    return;
+                }
             }
             // Content submission bot wizard
             else if (in_array($currentState, [
@@ -1429,13 +1459,12 @@ class BotMotherController extends Controller
                     'bot_id' => $botItem->id,
                     'main_bot_token' => $text,
                 ]));
-                $message = "✅ ربات کتابخانه (مرحله ۱ از ۲) ثبت شد!\n\n";
-                $message .= "🆔 Bot ID ربات اصلی: {$botItem->id}\n\n";
-                $message .= "📖 مرحله ۲ — ربات کتابخوان:\n";
-                $message .= "یک ربات جدا در بله/تلگرام بسازید و توکن آن را اینجا بفرستید.\n";
-                $message .= "محتوای صوتی و PDF در آن ربات تحویل داده می‌شود.\n\n";
-                $message .= "اگر الان آماده نیستید، «رد» بفرستید و بعداً از endpoint «Book Library Reader» بسازید.\n";
-                $message .= "(در آن حالت به Bot ID بالا نیاز دارید: {$botItem->id})";
+                $message = "✅ ربات کتابخانه ثبت شد!\n\n";
+                $message .= "🆔 Bot ID: {$botItem->id}\n\n";
+                $message .= "📖 ربات کتابخوان (reader) **اختیاری** است و فعلاً لازم نیست.\n";
+                $message .= "محتوا مستقیماً در همین ربات ارسال می‌شود.\n\n";
+                $message .= "اگر بعداً reader خواستید، «رد» بفرستید یا توکن reader را بدهید.\n";
+                $message .= "مدیریت محتوا: داخل ربات (مالک) یا /content در Bot Mother.";
                 BotHelper::sendMessage($bot, $message);
                 return;
             }
@@ -3902,12 +3931,10 @@ class BotMotherController extends Controller
                 $message .= "📖 Reader Bot ID: {$readerBotId}\n";
                 $message .= "✅ هر دو ربات به هم متصل شدند.\n";
             } else {
-                $message .= "ℹ️ هنوز ربات کتابخوان متصل نیست.\n\n";
-                $message .= "📖 مرحله بعد — ساخت ربات کتابخوان:\n";
-                $message .= "1. در ربات مادر /start بزنید\n";
-                $message .= "2. endpoint «Book Library Reader» را انتخاب کنید\n";
-                $message .= "3. توکن ربات کتابخوان را بدهید\n";
-                $message .= "4. وقتی Bot ID اصلی خواست: {$mainBotId}\n";
+                $message .= "✅ محتوا مستقیماً در همین ربات ارسال می‌شود (reader لازم نیست).\n\n";
+                $message .= "📂 Seed دسته‌ها:\n";
+                $message .= "CONTENT_SEED_BOT_ID={$mainBotId} php artisan db:seed --class=ContentCategorySeeder\n\n";
+                $message .= "⚙️ مدیریت: /content در Bot Mother یا دستورات مالک داخل ربات.\n";
             }
             $message .= "\n🔗 Webhook ربات اصلی:\n{$mainWebhookUrl}";
             BotHelper::sendMessage($bot, $message);

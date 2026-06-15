@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\BotHelper;
-use App\Interfaces\Repositories\LibraryRepository;
-use App\Interfaces\Services\BookLibraryDeliveryService;
+use App\Helpers\ContentBotAdminHelper;
 use App\Interfaces\Services\BookLibraryPlanService;
 use App\Interfaces\Services\BookLibraryService;
+use App\Interfaces\Services\ContentDeliveryService;
+use App\Interfaces\Services\ContentQueueService;
+use App\Jobs\ContentBroadcastJob;
 use App\Models\Bot;
 use App\Models\BotUsers;
-use App\Models\LibraryUserBook;
+use App\Models\ContentBroadcastJob as ContentBroadcastJobModel;
+use App\Models\ContentPendingUpload;
+use App\Services\ContentAdminService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -18,10 +22,11 @@ use Telegram;
 class BookLibraryController extends Controller
 {
     public function __construct(
-        private LibraryRepository $libraryRepository,
+        private ContentQueueService $queueService,
+        private ContentDeliveryService $deliveryService,
         private BookLibraryService $bookLibraryService,
-        private BookLibraryDeliveryService $deliveryService,
-        private BookLibraryPlanService $planService
+        private BookLibraryPlanService $planService,
+        private ContentAdminService $adminService
     ) {}
 
     public function webhook(Request $request): int
@@ -43,12 +48,6 @@ class BookLibraryController extends Controller
                 return 200;
             }
 
-            Log::info('📥 [BookLibrary] Request details', [
-                'type' => $type,
-                'bot_id' => $botId,
-                'bot_mother_id' => $botMotherId,
-            ]);
-
             $update = $request->json()->all() ?? $request->all();
             $chatId = $bot->ChatID();
 
@@ -57,9 +56,16 @@ class BookLibraryController extends Controller
                 return 200;
             }
 
+            $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
+            $instanceBotId = $this->resolveInstanceBotId($botUser, $botId);
+
+            if ($this->handleMediaUpload($bot, $update, $botUser, $instanceBotId, $type, $chatId)) {
+                return 200;
+            }
+
             $text = $bot->Text() ?? '';
             if ($text !== '') {
-                $this->handleTextMessage($bot, trim($text), $chatId, $type, $botMotherId, $botId);
+                $this->handleTextMessage($bot, trim($text), $botUser, $chatId, $type, $botMotherId, $instanceBotId, $update);
             }
 
             return 200;
@@ -92,27 +98,28 @@ class BookLibraryController extends Controller
         return $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
     }
 
+    private function resolveInstanceBotId(BotUsers $botUser, ?int $botId): int
+    {
+        if ($botId) {
+            $botUser->settings(['library_bot_instance_id' => $botId]);
+            return $botId;
+        }
+
+        return (int) $botUser->setting('library_bot_instance_id', 0);
+    }
+
     private function handleTextMessage(
         Telegram $bot,
         string $text,
+        BotUsers $botUser,
         int $chatId,
         string $type,
         int $botMotherId,
-        ?int $botId
+        int $instanceBotId,
+        array $update
     ): void {
-        $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
-        $instanceBotId = $botId ?? (int) $botUser->setting('library_bot_instance_id', 0);
-
-        if (!$instanceBotId && $botId) {
-            $botUser->settings(['library_bot_instance_id' => $botId]);
-            $instanceBotId = $botId;
-        }
-
         if (str_starts_with($text, '/start')) {
-            if ($botId) {
-                $botUser->settings(['library_bot_instance_id' => $botId]);
-            }
-            $this->showWelcome($bot, $botUser);
+            $this->showWelcome($bot, $botUser, $instanceBotId);
             return;
         }
 
@@ -127,18 +134,38 @@ class BookLibraryController extends Controller
             return;
         }
 
-        if ($text === trans('book_library.menu_intro')) {
-            $this->showGenrePage($bot, $botUser, $instanceBotId, 1);
+        $botModel = Bot::find($instanceBotId);
+        $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+
+        if ($isOwner && $this->handleAdminWizardText($bot, $text, $botUser, $instanceBotId, $type)) {
             return;
         }
 
-        if ($text === trans('book_library.menu_random')) {
-            $this->deliverRandomBook($bot, $botUser, $instanceBotId, $type, null);
+        if ($isOwner && str_starts_with($text, '/addFileToCategory')) {
+            $parts = preg_split('/\s+/', $text);
+            $pendingId = (int) ($parts[1] ?? 0);
+            if ($pendingId > 0) {
+                $this->adminService->showCategoryPickerForPending($bot, $instanceBotId, $pendingId);
+            } else {
+                BotHelper::sendMessage($bot, trans('book_library.admin_add_to_category_usage'));
+            }
+            return;
+        }
+
+        if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
+            $botUser->settings(['content_wizard' => 'add_category_name']);
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt'));
+            return;
+        }
+
+        if ($isOwner && mb_strtolower($text) === '/broadcast') {
+            $botUser->settings(['content_wizard' => 'broadcast_message']);
+            BotHelper::sendMessage($bot, trans('book_library.broadcast_message_prompt'));
             return;
         }
 
         if ($text === trans('book_library.menu_my_books')) {
-            $this->showMyBooks($bot, $botUser, $instanceBotId);
+            $this->showMyProgress($bot, $botUser, $instanceBotId);
             return;
         }
 
@@ -147,7 +174,102 @@ class BookLibraryController extends Controller
             return;
         }
 
+        if ($text === trans('book_library.menu_categories')) {
+            $this->showCategoryPage($bot, $instanceBotId, 1);
+            return;
+        }
+
         BotHelper::sendMessage($bot, trans('book_library.use_menu'));
+    }
+
+    private function handleAdminWizardText(
+        Telegram $bot,
+        string $text,
+        BotUsers $botUser,
+        int $botId,
+        string $type
+    ): bool {
+        $wizard = $botUser->setting('content_wizard');
+        if (!$wizard) {
+            return false;
+        }
+
+        if ($wizard === 'add_category_name') {
+            $botUser->settings(['content_wizard' => 'add_category_broadcast', 'content_category_draft' => $text]);
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton(trans('book_library.yes'), callback_data: 'bl:catbc:yes')],
+                [$bot->buildInlineKeyBoardButton(trans('book_library.no'), callback_data: 'bl:catbc:no')],
+            ];
+            BotHelper::sendKeyboardMessage($bot, trans('book_library.admin_category_broadcast_prompt'), $bot->buildInlineKeyBoard($keyboard));
+            return true;
+        }
+
+        if ($wizard === 'broadcast_message') {
+            $botUser->settings(['content_wizard' => 'broadcast_filter', 'content_broadcast_text' => $text]);
+            $this->showBroadcastFilterPicker($bot);
+            return true;
+        }
+
+        return false;
+    }
+
+    private function handleMediaUpload(
+        Telegram $bot,
+        array $update,
+        BotUsers $botUser,
+        int $instanceBotId,
+        string $type,
+        int $chatId
+    ): bool {
+        if (!$instanceBotId) {
+            return false;
+        }
+
+        $botModel = Bot::find($instanceBotId);
+        if (!$botModel || !ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type)) {
+            return false;
+        }
+
+        $message = $update['message'] ?? [];
+        $fileId = null;
+        $fileUniqueId = null;
+        $mimeType = null;
+
+        if (isset($message['voice'])) {
+            $fileId = $message['voice']['file_id'];
+            $fileUniqueId = $message['voice']['file_unique_id'] ?? null;
+            $mimeType = 'voice';
+        } elseif (isset($message['audio'])) {
+            $fileId = $message['audio']['file_id'];
+            $fileUniqueId = $message['audio']['file_unique_id'] ?? null;
+            $mimeType = $message['audio']['mime_type'] ?? 'audio';
+        } elseif (isset($message['document'])) {
+            $mime = $message['document']['mime_type'] ?? '';
+            if (str_contains($mime, 'audio') || str_ends_with($message['document']['file_name'] ?? '', '.mp3')) {
+                $fileId = $message['document']['file_id'];
+                $fileUniqueId = $message['document']['file_unique_id'] ?? null;
+                $mimeType = $mime;
+            }
+        }
+
+        if (!$fileId) {
+            return false;
+        }
+
+        $wizard = $botUser->setting('content_wizard');
+        if ($wizard === 'broadcast_message') {
+            $botUser->settings([
+                'content_wizard' => 'broadcast_filter',
+                'content_broadcast_file_id' => $fileId,
+                'content_broadcast_file_type' => 'audio',
+            ]);
+            $this->showBroadcastFilterPicker($bot);
+            return true;
+        }
+
+        $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
+        $this->adminService->notifyFileReceived($bot, $pending);
+        return true;
     }
 
     private function handleCallbackQuery(
@@ -160,57 +282,84 @@ class BookLibraryController extends Controller
     ): void {
         $callbackData = $callbackQuery['data'] ?? '';
         $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
-        $instanceBotId = $botId ?? (int) $botUser->setting('library_bot_instance_id', 0);
+        $instanceBotId = $this->resolveInstanceBotId($botUser, $botId);
 
         $callbackQueryId = $callbackQuery['id'] ?? null;
         if ($callbackQueryId) {
             $bot->answerCallbackQuery(['callback_query_id' => $callbackQueryId]);
         }
 
-        if (str_starts_with($callbackData, 'bl:genre_page:')) {
-            $page = (int) str_replace('bl:genre_page:', '', $callbackData);
-            $this->showGenrePage($bot, $botUser, $instanceBotId, $page);
+        if (str_starts_with($callbackData, 'bl:cat_page:')) {
+            $page = (int) str_replace('bl:cat_page:', '', $callbackData);
+            $this->showCategoryPage($bot, $instanceBotId, $page);
             return;
         }
 
-        if (str_starts_with($callbackData, 'bl:genre:')) {
-            $genreId = (int) str_replace('bl:genre:', '', $callbackData);
-            $botUser->settings(['library_selected_genre_id' => $genreId]);
-            $this->showBookPage($bot, $botUser, $instanceBotId, $genreId, 1);
+        if (str_starts_with($callbackData, 'bl:cat:')) {
+            $categoryId = (int) str_replace('bl:cat:', '', $callbackData);
+            $this->deliverNextInCategory($bot, $botUser, $instanceBotId, $type, $categoryId);
             return;
         }
 
-        if (str_starts_with($callbackData, 'bl:books_page:')) {
+        if (str_starts_with($callbackData, 'bl:acf:')) {
             $parts = explode(':', $callbackData);
-            $genreId = (int) ($parts[2] ?? 0);
-            $page = (int) ($parts[3] ?? 1);
-            $this->showBookPage($bot, $botUser, $instanceBotId, $genreId, $page);
-            return;
-        }
-
-        if (str_starts_with($callbackData, 'bl:book:')) {
-            $bookId = (int) str_replace('bl:book:', '', $callbackData);
-            $this->deliverSelectedBook($bot, $botUser, $instanceBotId, $type, $bookId);
-            return;
-        }
-
-        if (str_starts_with($callbackData, 'bl:random:')) {
-            $genreId = (int) str_replace('bl:random:', '', $callbackData);
-            $genreId = $genreId > 0 ? $genreId : null;
-            $this->deliverRandomBook($bot, $botUser, $instanceBotId, $type, $genreId);
-            return;
-        }
-
-        if (str_starts_with($callbackData, 'bl:qa:')) {
-            $parts = explode(':', $callbackData);
-            $action = $parts[2] ?? '';
-            $userBookId = (int) ($parts[3] ?? 0);
-            $userBook = LibraryUserBook::where('id', $userBookId)
-                ->where('bot_user_id', $botUser->id)
-                ->first();
-            if ($userBook) {
-                $this->deliveryService->sendQuickAction($bot, $botUser, $userBook, $instanceBotId, $type, $action);
+            $pendingId = (int) ($parts[2] ?? 0);
+            $categoryId = (int) ($parts[3] ?? 0);
+            $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
+            if ($item) {
+                BotHelper::sendMessage($bot, trans('book_library.admin_file_added', [
+                    'category' => $item->category->title ?? '',
+                    'order' => $item->queue_order,
+                ]));
+            } else {
+                BotHelper::sendMessage($bot, trans('book_library.admin_pending_not_found'));
             }
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:catbc:')) {
+            $doBroadcast = str_ends_with($callbackData, ':yes');
+            $name = $botUser->setting('content_category_draft', '');
+            $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
+            $category = $this->adminService->createCategory($instanceBotId, $name);
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_created', ['title' => $category->title]));
+            if ($doBroadcast) {
+                $botModel = Bot::find($instanceBotId);
+                if ($botModel) {
+                    $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
+                    BotHelper::sendMessage($bot, trans('book_library.admin_category_broadcast_sent'));
+                }
+            }
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:bcf:')) {
+            $filter = str_replace('bl:bcf:', '', $callbackData);
+            $botUser->settings(['content_broadcast_filter' => $filter, 'content_wizard' => 'broadcast_confirm']);
+            $text = $botUser->setting('content_broadcast_text', '');
+            $confirm = trans('book_library.broadcast_confirm', ['filter' => trans('book_library.broadcast_filter_' . $filter)]);
+            $confirm .= $text ? "\n\n" . $text : '';
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton(trans('book_library.broadcast_send'), callback_data: 'bl:bcyes')],
+                [$bot->buildInlineKeyBoardButton(trans('book_library.broadcast_cancel'), callback_data: 'bl:bcno')],
+            ];
+            BotHelper::sendKeyboardMessage($bot, $confirm, $bot->buildInlineKeyBoard($keyboard));
+            return;
+        }
+
+        if ($callbackData === 'bl:bcyes') {
+            $this->dispatchBroadcast($bot, $botUser, $instanceBotId, (string) $chatId);
+            return;
+        }
+
+        if ($callbackData === 'bl:bcno') {
+            $botUser->settings([
+                'content_wizard' => null,
+                'content_broadcast_text' => null,
+                'content_broadcast_file_id' => null,
+                'content_broadcast_filter' => null,
+            ]);
+            BotHelper::sendMessage($bot, trans('book_library.broadcast_cancelled'));
             return;
         }
 
@@ -219,130 +368,98 @@ class BookLibraryController extends Controller
             $identifier = $botUser->chat_id . ' (' . $type . ')';
             $result = $this->planService->requestPlanUpgrade($botUser, $instanceBotId, $plan, $identifier);
             BotHelper::sendMessage($bot, $result['message']);
-            return;
         }
     }
 
-    private function showWelcome(Telegram $bot, BotUsers $botUser): void
+    private function showWelcome(Telegram $bot, BotUsers $botUser, int $botId): void
     {
         BotHelper::sendMessage($bot, trans('book_library.welcome'));
         $this->sendMainMenu($bot);
+        if ($botId > 0) {
+            $this->showCategoryPage($bot, $botId, 1);
+        }
     }
 
     private function sendMainMenu(Telegram $bot): void
     {
         $keyboard = [
-            [trans('book_library.menu_intro')],
-            [trans('book_library.menu_random')],
+            [trans('book_library.menu_categories')],
             [trans('book_library.menu_my_books')],
             [trans('book_library.menu_upgrade')],
         ];
-        $replyKeyboard = $bot->buildKeyBoard($keyboard, true, true);
-        BotHelper::sendKeyboardMessage($bot, trans('book_library.menu_prompt'), $replyKeyboard);
+        BotHelper::sendKeyboardMessage($bot, trans('book_library.menu_prompt'), $bot->buildKeyBoard($keyboard, true, true));
     }
 
-    private function showGenrePage(Telegram $bot, BotUsers $botUser, int $botId, int $page): void
+    private function showCategoryPage(Telegram $bot, int $botId, int $page): void
     {
-        $genres = $this->libraryRepository->getGenresForPage($botId, $page);
-        if ($genres->isEmpty()) {
-            BotHelper::sendMessage($bot, trans('book_library.no_genres'));
+        if ($botId <= 0) {
+            BotHelper::sendMessage($bot, trans('book_library.delivery_error'));
+            return;
+        }
+
+        $categories = $this->queueService->getCategoriesForPage($botId, $page);
+        if ($categories->isEmpty()) {
+            BotHelper::sendMessage($bot, trans('book_library.no_genres') . "\n\n" . trans('book_library.no_categories_admin_hint'));
             return;
         }
 
         $keyboard = [];
-        foreach ($genres as $genre) {
-            $keyboard[] = [$bot->buildInlineKeyBoardButton($genre->name, callback_data: "bl:genre:{$genre->id}")];
+        foreach ($categories as $category) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton($category->title, callback_data: "bl:cat:{$category->id}")];
         }
 
-        $maxPage = $this->libraryRepository->getMaxGenrePage($botId);
+        $maxPage = $this->queueService->getMaxCategoryPage($botId);
         if ($page < $maxPage) {
-            $keyboard[] = [$bot->buildInlineKeyBoardButton(trans('book_library.genre_next'), callback_data: 'bl:genre_page:' . ($page + 1))];
+            $keyboard[] = [$bot->buildInlineKeyBoardButton(trans('book_library.genre_next'), callback_data: 'bl:cat_page:' . ($page + 1))];
         }
 
-        $inlineKeyboard = $bot->buildInlineKeyBoard($keyboard);
-        BotHelper::sendKeyboardMessage($bot, trans('book_library.genre_prompt'), $inlineKeyboard);
+        BotHelper::sendKeyboardMessage($bot, trans('book_library.genre_prompt'), $bot->buildInlineKeyBoard($keyboard));
     }
 
-    private function showBookPage(Telegram $bot, BotUsers $botUser, int $botId, int $genreId, int $page): void
-    {
-        $genre = $this->libraryRepository->findGenre($genreId, $botId);
-        if (!$genre) {
+    private function deliverNextInCategory(
+        Telegram $bot,
+        BotUsers $botUser,
+        int $botId,
+        string $type,
+        int $categoryId
+    ): void {
+        if (!$this->planService->canDeliver($botUser, $botId)) {
+            BotHelper::sendMessage($bot, trans('book_library.quota_exceeded'));
+            $this->showPlanMenu($bot, $botUser, $botId);
+            return;
+        }
+
+        $category = $this->queueService->findCategory($categoryId, $botId);
+        if (!$category) {
             BotHelper::sendMessage($bot, trans('book_library.genre_not_found'));
             return;
         }
 
-        $perPage = config('book_library.books_per_page', 4);
-        $books = $this->libraryRepository->getBooksForGenre($botId, $genreId, $page, $perPage);
-        $total = $this->libraryRepository->countBooksForGenre($botId, $genreId);
-
-        if ($books->isEmpty()) {
-            BotHelper::sendMessage($bot, trans('book_library.no_books'));
+        $item = $this->queueService->getNextItemForUser($botUser, $categoryId, $botId);
+        if (!$item) {
+            BotHelper::sendMessage($bot, trans('book_library.queue_end', ['category' => $category->title]));
             return;
         }
 
-        $keyboard = [];
-        foreach ($books as $book) {
-            $keyboard[] = [$bot->buildInlineKeyBoardButton('📘 ' . $book->title, callback_data: "bl:book:{$book->id}")];
+        $delivered = $this->deliveryService->deliverNextInCategory($bot, $botUser, $item, $botId, $type);
+        if ($delivered) {
+            $this->queueService->advanceProgress($botUser, $categoryId, $botId, $item);
         }
-
-        $maxPage = (int) ceil($total / $perPage);
-        if ($page < $maxPage) {
-            $keyboard[] = [$bot->buildInlineKeyBoardButton(trans('book_library.books_next'), callback_data: "bl:books_page:{$genreId}:" . ($page + 1))];
-        }
-
-        $keyboard[] = [$bot->buildInlineKeyBoardButton(trans('book_library.random_pick'), callback_data: "bl:random:{$genreId}")];
-
-        $inlineKeyboard = $bot->buildInlineKeyBoard($keyboard);
-        $message = trans('book_library.books_prompt', ['genre' => $genre->name]);
-        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
     }
 
-    private function deliverSelectedBook(Telegram $bot, BotUsers $botUser, int $botId, string $type, int $bookId): void
+    private function showMyProgress(Telegram $bot, BotUsers $botUser, int $botId): void
     {
-        if (!$this->planService->canDeliver($botUser, $botId)) {
-            BotHelper::sendMessage($bot, trans('book_library.quota_exceeded'));
-            $this->showPlanMenu($bot, $botUser, $botId);
-            return;
-        }
-
-        $book = $this->libraryRepository->findBook($bookId, $botId);
-        if (!$book) {
-            BotHelper::sendMessage($bot, trans('book_library.book_not_found'));
-            return;
-        }
-
-        $this->deliveryService->deliverBook($bot, $botUser, $book, $botId, $type, false, true);
-    }
-
-    private function deliverRandomBook(Telegram $bot, BotUsers $botUser, int $botId, string $type, ?int $genreId): void
-    {
-        if (!$this->planService->canDeliver($botUser, $botId)) {
-            BotHelper::sendMessage($bot, trans('book_library.quota_exceeded'));
-            $this->showPlanMenu($bot, $botUser, $botId);
-            return;
-        }
-
-        $book = $this->libraryRepository->getRandomBook($botId, $genreId);
-        if (!$book) {
-            BotHelper::sendMessage($bot, trans('book_library.no_books'));
-            return;
-        }
-
-        $this->deliveryService->deliverBook($bot, $botUser, $book, $botId, $type, true, false);
-    }
-
-    private function showMyBooks(Telegram $bot, BotUsers $botUser, int $botId): void
-    {
-        $userBooks = $this->libraryRepository->getUserBooks($botUser->id, $botId, 10);
-        if ($userBooks->isEmpty()) {
+        $progressList = $this->queueService->getUserProgressList($botUser, $botId, 10);
+        if ($progressList->isEmpty()) {
             BotHelper::sendMessage($bot, trans('book_library.my_books_empty'));
             return;
         }
 
         $message = trans('book_library.my_books_title') . "\n\n";
-        foreach ($userBooks as $index => $userBook) {
-            $title = $userBook->book->title ?? trans('book_library.unknown_book');
-            $message .= ($index + 1) . '. ' . $title . "\n";
+        foreach ($progressList as $index => $progress) {
+            $catTitle = $progress->category->title ?? trans('book_library.unknown_book');
+            $itemTitle = $progress->lastItem->title ?? ('#' . $progress->last_position);
+            $message .= ($index + 1) . '. ' . $catTitle . ' — ' . $itemTitle . "\n";
         }
 
         BotHelper::sendMessage($bot, $message);
@@ -367,7 +484,45 @@ class BookLibraryController extends Controller
             $keyboard[] = [$bot->buildInlineKeyBoardButton($label, callback_data: "bl:plan:{$planKey}")];
         }
 
-        $inlineKeyboard = $bot->buildInlineKeyBoard($keyboard);
-        BotHelper::sendKeyboardMessage($bot, $message, $inlineKeyboard);
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function showBroadcastFilterPicker(Telegram $bot): void
+    {
+        $filters = ['all', 'free', 'paid', 'active'];
+        $keyboard = [];
+        foreach ($filters as $filter) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton(
+                trans('book_library.broadcast_filter_' . $filter),
+                callback_data: "bl:bcf:{$filter}"
+            )];
+        }
+        BotHelper::sendKeyboardMessage($bot, trans('book_library.broadcast_filter_prompt'), $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function dispatchBroadcast(Telegram $bot, BotUsers $botUser, int $botId, string $chatId): void
+    {
+        $filter = $botUser->setting('content_broadcast_filter', 'all');
+        $job = ContentBroadcastJobModel::create([
+            'bot_id' => $botId,
+            'target_filter' => $filter,
+            'message_text' => $botUser->setting('content_broadcast_text'),
+            'file_id' => $botUser->setting('content_broadcast_file_id'),
+            'file_type' => $botUser->setting('content_broadcast_file_type'),
+            'status' => 'pending',
+            'created_by_chat_id' => $chatId,
+        ]);
+
+        ContentBroadcastJob::dispatch($job->id);
+
+        $botUser->settings([
+            'content_wizard' => null,
+            'content_broadcast_text' => null,
+            'content_broadcast_file_id' => null,
+            'content_broadcast_filter' => null,
+            'content_broadcast_file_type' => null,
+        ]);
+
+        BotHelper::sendMessage($bot, trans('book_library.broadcast_queued'));
     }
 }

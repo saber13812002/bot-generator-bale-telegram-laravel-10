@@ -1,79 +1,104 @@
-# ربات کتابخانه هوشمند (Book Library)
+# ربات کتابخانه محتوا (Content Library)
 
-## توضیحات
+## معماری جدید (Content-centric)
 
-ربات «کتابخانه هوشمند» به کاربران امکان کشف کتاب بر اساس ژانر، دریافت خلاصه صوتی، پیگیری سهمیه پلن، و ارتقای دستی پلن را می‌دهد. محتوا می‌تواند از طریق ربات جداگانه **کتابخوان** (`book-library-reader`) تحویل داده شود.
+ربات `book-library` با مدل **دسته‌بندی + صف ترتیبی** کار می‌کند:
+
+- هر **دسته** (`content_categories`) یک موضوع است
+- هر **آیتم** (`content_items`) با `queue_order` در صف قرار دارد
+- کاربر با انتخاب دسته، آیتم بعدی (`last_position + 1`) را دریافت می‌کند
+- فاز فعلی: فقط **audio** (`content_assets`)
+- **reader** (`book-library-reader`) اختیاری است — فعلاً استفاده نکنید؛ محتوا در همین ربات ارسال می‌شود
 
 ## Endpoint ها
 
 | endpoint_id | route | نقش |
 |-------------|-------|-----|
-| `book-library` | `api/webhook-book-library` | ربات اصلی (منو، ژانر، پلن) |
-| `book-library-reader` | `api/webhook-book-library-reader` | تحویل صوت/PDF/اینفوگرافی |
+| `book-library` | `api/webhook-book-library` | ربات اصلی (کاربر + ادمین مالک) |
+| `book-library-reader` | `api/webhook-book-library-reader` | اختیاری — فاز بعد |
 
 ## ثبت از Bot Mother
 
-### روش ۱ — پشت سر هم (پیشنهادی)
-1. endpoint `book-library` → توکن ربات اصلی
-2. در همان گفتگو توکن `book-library-reader` یا «رد»
-3. webhook هر دو تنظیم و در `library_bot_configs` لینک می‌شوند
+1. endpoint `book-library` → توکن ربات
+2. مرحله reader: **«رد»** بزنید (پیشنهادی)
+3. دسته‌ها را seed کنید (پایین)
+4. مدیریت محتوا: `/content` در Bot Mother یا دستورات داخل ربات (مالک)
 
-### روش ۲ — reader جداگانه (مثل Bot ID 53)
-1. ابتدا `book-library` را بسازید و **Main Bot ID** را یادداشت کنید
-2. endpoint `book-library-reader` → توکن reader
-3. وقتی خواست Bot ID اصلی را بدهید (مثلاً `52`)
+## جریان کاربر
 
-## دستورات کاربر
+1. `/start` → لیست دسته‌ها (صفحه‌بندی)
+2. انتخاب دسته → ارسال آیتم بعدی صف (صوت)
+3. «کتاب‌های من» → تاریخچه پیشرفت per category
+4. «ارتقای پلن» → همان `library_plan_*`
 
-| ربات | دستورات |
-|------|---------|
-| کتابخانه اصلی | `/start`, `/help`, منوی دکمه‌ای |
-| کتابخوان | `/start`, `/help` — دریافت صوت/PDF |
+## ادمین داخل ربات (مالک)
 
-## فایل‌ها
+| دستور / رویداد | رفتار |
+|----------------|--------|
+| ارسال voice/audio | ذخیره در `content_pending_uploads` + File ID |
+| `/addFileToCategory {id}` | انتخاب دسته → append به انتهای صف |
+| `/addCategory` | نام دسته → اعلان بله/خیر |
+| `/broadcast` | متن/صوت → فیلتر → Job |
 
-- `app/Http/Controllers/BookLibraryController.php`
-- `app/Http/Controllers/BookLibraryReaderController.php`
-- `app/Services/BookLibraryServiceImpl.php`
-- `app/Services/BookLibraryDeliveryServiceImpl.php`
-- `app/Services/BookLibraryPlanServiceImpl.php`
-- `database/seeders/BookLibraryWebhookEndpointSeeder.php`
-- `database/seeders/BookLibraryGenreSeeder.php`
-- `config/book_library.php`
+## Bot Mother `/content` (ادمین پلتفرم)
+
+- لیست ربات‌های محتوایی (`config/content_bots.php`)
+- دسته‌ها، فایل‌های pending، آمار، broadcast
+
+## Seeder دسته‌ها (۱۶ دسته)
+
+```bash
+CONTENT_SEED_BOT_ID=<bot_id> php artisan db:seed --class=ContentCategorySeeder
+```
+
+یا (سازگاری قدیمی):
+
+```bash
+BOOK_LIBRARY_SEED_BOT_ID=<bot_id> php artisan db:seed --class=BookLibraryGenreSeeder
+```
+
+## جداول `content_*`
+
+- `content_categories` — دسته per bot_id
+- `content_items` — آیتم صف
+- `content_assets` — audio/pdf/…
+- `content_pending_uploads` — قبل از دسته‌بندی
+- `content_user_progress` — last_position per user+category
+- `content_broadcast_jobs` — پیام همگانی
+
+داده‌های `library_*` در migration به `content_*` منتقل می‌شوند.
 
 ## پلن‌ها
 
-| پلن | سهمیه |
-|-----|-------|
-| رایگان | ۳ کتاب |
-| plan_100 | ۱۰۰ کتاب |
-| plan_300 | ۳۰۰ کتاب |
-| plan_1000 | ۱۰۰۰ کتاب |
+همان `config/book_library.php` و `library_user_subscriptions`.
 
-تأیید پلن: `/library_plan_confirm {id}` در Bot Mother یا Nova → Library Plan Requests.
+تأیید: `/library_plan_confirm {id}` در Bot Mother.
 
-## مدیریت محتوا
+## Nova
 
-از Nova استفاده کنید:
+- Content Category
+- Content Item (+ Assets)
 
-- Library Genre
-- Library Book (+ genres)
-- Library Book Media (audio, pdf, infographic)
+## فایل‌های کلیدی
 
-برای seed نمونه:
+- `app/Http/Controllers/BookLibraryController.php`
+- `app/Services/ContentQueueServiceImpl.php`
+- `app/Services/ContentDeliveryServiceImpl.php`
+- `app/Services/ContentAdminService.php`
+- `app/Services/ContentBotMotherService.php`
+- `app/Jobs/ContentBroadcastJob.php`
+- `app/Jobs/NotifyNewCategoryJob.php`
+- `database/migrations/2026_06_16_100000_create_content_tables.php`
+- `database/seeders/ContentCategorySeeder.php`
+
+## Deploy
 
 ```bash
-BOOK_LIBRARY_SEED_BOT_ID=123 php artisan db:seed --class=BookLibraryGenreSeeder
+php artisan migrate
+CONTENT_SEED_BOT_ID=<id> php artisan db:seed --class=ContentCategorySeeder
+php artisan cache:clear
 ```
 
 ## ترجمه
 
 کلیدها در `lang/{locale}/book_library.php` (۱۵ زبان).
-
-## فاز ۲ (خارج از محدوده فعلی)
-
-- یادگیری / کویز
-- لایک و دیس‌لایک
-- ربات ادمین
-- پنل وب تحلیلی
-- درگاه پرداخت آنلاین
