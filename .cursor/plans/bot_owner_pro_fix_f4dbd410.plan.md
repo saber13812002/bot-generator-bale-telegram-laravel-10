@@ -4,25 +4,25 @@ overview: رفع باگ تایید Nova، جلوگیری از درخواست Pro
 todos:
   - id: migration-expires
     content: "Migration: pro_expires_at روی bot_owners + متد hasActivePro در BotOwner"
-    status: pending
+    status: completed
   - id: service-logic
     content: تقویت requestPro/confirmPro با months و جلوگیری از تکرار تا انقضا
-    status: pending
+    status: completed
   - id: approve-paths
     content: Web approve با ?months، کامند /owner_pro_confirm با months، Nova action با Select مدت
-    status: pending
+    status: completed
   - id: nova-readonly
     content: "Nova: Status/Approved readonly، غیرفعال کردن Create دستی"
-    status: pending
+    status: completed
   - id: notification-dashboard
     content: به‌روزرسانی نوتیف ادمین و dashboard با hasActivePro
-    status: pending
+    status: completed
   - id: tests-sync
     content: تست‌های unit + کامند sync برای رکوردهای خراب موجود
-    status: pending
+    status: completed
   - id: intro-login-hide
     content: "صفحه /bots: مخفی کردن دکمه ورود برای کاربر لاگین‌شده + لینک پنل"
-    status: pending
+    status: completed
 isProject: false
 ---
 

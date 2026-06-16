@@ -27,9 +27,15 @@
             <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ trans('bot-owner.intro_title') }}</h1>
             <p class="text-gray-600 max-w-2xl mx-auto">{{ trans('bot-owner.intro_description') }}</p>
             <div class="mt-6 flex gap-4 justify-center">
-                <a href="{{ route('bot-owner.login') }}" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                    {{ trans('bot-owner.start_login') }}
-                </a>
+                @if($owner)
+                    <a href="{{ route('bot-owner.dashboard') }}" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        {{ trans('bot-owner.go_to_dashboard') }}
+                    </a>
+                @else
+                    <a href="{{ route('bot-owner.login') }}" class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        {{ trans('bot-owner.start_login') }}
+                    </a>
+                @endif
                 <a href="{{ url('/') }}" class="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-100">
                     {{ trans('bot-owner.explore_bots') }}
                 </a>

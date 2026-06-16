@@ -17,14 +17,23 @@ class BotOwnerProNotificationService
             return;
         }
 
+        $id = $request->id;
         $message = "💳 درخواست Pro مالک ربات\n\n";
         $message .= "📱 Phone: {$owner->phone}\n";
         $message .= "🆔 Owner ID: {$owner->id}\n";
-        $message .= "🆔 Request ID: {$request->id}\n";
+        $message .= "🆔 Request ID: {$id}\n";
         $message .= "📅 Created: " . $request->created_at->format('Y-m-d H:i') . "\n\n";
-        $message .= "تایید: /owner_pro_confirm {$request->id}\n";
-        $message .= "Nova: " . url('/nova/resources/bot-owner-pro-requests/' . $request->id) . "\n";
-        $message .= "Web: " . route('admin.bot-owner-pro.approve', $request->id);
+        $message .= "🤖 ربات مادر:\n";
+        $message .= "/owner_pro_confirm {$id} 3  (۳ ماهه)\n";
+        $message .= "/owner_pro_confirm {$id} 6  (۶ ماهه)\n";
+        $message .= "/owner_pro_confirm {$id} 12 (۱۲ ماهه)\n";
+        $message .= "/owner_pro_confirm {$id} 0  (نامحدود)\n\n";
+        $message .= "🌐 Web:\n";
+        $message .= "۳ ماهه: " . route('admin.bot-owner-pro.approve', ['id' => $id, 'months' => 3]) . "\n";
+        $message .= "۶ ماهه: " . route('admin.bot-owner-pro.approve', ['id' => $id, 'months' => 6]) . "\n";
+        $message .= "۱۲ ماهه: " . route('admin.bot-owner-pro.approve', ['id' => $id, 'months' => 12]) . "\n";
+        $message .= "نامحدود: " . route('admin.bot-owner-pro.approve', ['id' => $id, 'months' => 0]) . "\n\n";
+        $message .= "Nova (مشاهده + اکشن Approve Pro): " . url('/nova/resources/bot-owner-pro-requests/' . $id);
 
         $this->sendToBotMother($message);
         $this->sendToAdminBots($message);

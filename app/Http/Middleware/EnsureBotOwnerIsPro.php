@@ -13,7 +13,7 @@ class EnsureBotOwnerIsPro
     {
         $owner = app(BotOwnerAuthServiceInterface::class)->currentOwner();
 
-        if (!$owner || !$owner->is_pro) {
+        if (!$owner || !$owner->hasActivePro()) {
             return redirect()->route('bot-owner.dashboard')
                 ->with('error', trans('bot-owner.pro_required'));
         }

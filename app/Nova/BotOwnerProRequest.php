@@ -25,6 +25,11 @@ class BotOwnerProRequest extends Resource
         return 'Bot Owner Pro Requests';
     }
 
+    public static function authorizedToCreate(Request $request): bool
+    {
+        return false;
+    }
+
     public function fields(NovaRequest $request): array
     {
         return [
@@ -34,9 +39,9 @@ class BotOwnerProRequest extends Resource
                 'pending' => 'Pending',
                 'confirmed' => 'Confirmed',
                 'rejected' => 'Rejected',
-            ])->displayUsingLabels(),
+            ])->displayUsingLabels()->readonly(),
             Textarea::make('Notes', 'notes')->nullable(),
-            DateTime::make('Approved At', 'approved_at')->nullable(),
+            DateTime::make('Approved At', 'approved_at')->nullable()->readonly(),
             DateTime::make('Created At', 'created_at')->exceptOnForms(),
         ];
     }

@@ -9,7 +9,7 @@ interface BotOwnerProServiceInterface
      */
     public function requestPro(int $botOwnerId): array;
 
-    public function confirmPro(int $requestId, ?int $adminId = null): bool;
+    public function confirmPro(int $requestId, ?int $adminId = null, int $months = 3): bool;
 
     public function rejectPro(int $requestId, ?string $notes = null): bool;
 }

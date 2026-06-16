@@ -3816,13 +3816,15 @@ class BotMotherController extends Controller
         $requestId = $parts[1] ?? null;
 
         if (!$requestId || !is_numeric($requestId)) {
-            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /owner_pro_confirm [REQUEST_ID]");
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /owner_pro_confirm [REQUEST_ID] [months]\nmonths: 3, 6, 12, 0 (نامحدود) — پیش‌فرض: 3");
             return;
         }
 
+        $months = isset($parts[2]) && is_numeric($parts[2]) ? (int) $parts[2] : 3;
+
         try {
             $proService = app(\App\Modules\BotOwner\Contracts\BotOwnerProServiceInterface::class);
-            $result = $proService->confirmPro((int) $requestId, 1);
+            $result = $proService->confirmPro((int) $requestId, 1, $months);
 
             if ($result) {
                 $request = \App\Modules\BotOwner\Models\BotOwnerProRequest::find($requestId);

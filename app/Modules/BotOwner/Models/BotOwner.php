@@ -13,6 +13,7 @@ class BotOwner extends Model
         'bale_chat_id',
         'is_pro',
         'pro_confirmed_at',
+        'pro_expires_at',
         'status',
         'last_login_at',
     ];
@@ -20,6 +21,7 @@ class BotOwner extends Model
     protected $casts = [
         'is_pro' => 'boolean',
         'pro_confirmed_at' => 'datetime',
+        'pro_expires_at' => 'datetime',
         'last_login_at' => 'datetime',
     ];
 
@@ -36,5 +38,29 @@ class BotOwner extends Model
     public function isActive(): bool
     {
         return $this->status === 'active';
+    }
+
+    public function hasActivePro(): bool
+    {
+        if (!$this->is_pro) {
+            return false;
+        }
+
+        if ($this->pro_expires_at === null) {
+            return true;
+        }
+
+        if ($this->pro_expires_at->isPast()) {
+            $this->update(['is_pro' => false]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public function isProUnlimited(): bool
+    {
+        return $this->is_pro && $this->pro_expires_at === null;
     }
 }

@@ -5,13 +5,33 @@ namespace App\Modules\BotOwner\Services;
 use App\Modules\BotOwner\Contracts\BotOwnerProServiceInterface;
 use App\Modules\BotOwner\Models\BotOwner;
 use App\Modules\BotOwner\Models\BotOwnerProRequest;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class BotOwnerProService implements BotOwnerProServiceInterface
 {
+    public const ALLOWED_MONTHS = [0, 3, 6, 12];
+
     public function __construct(
         private readonly BotOwnerProNotificationService $notificationService,
     ) {
+    }
+
+    public static function validateMonths(int $months): array
+    {
+        if (!in_array($months, self::ALLOWED_MONTHS, true)) {
+            return [false, 'Invalid months value. Allowed: 0, 3, 6, 12'];
+        }
+
+        return [true, ''];
+    }
+
+    public static function expiresAtForMonths(int $months): ?Carbon
+    {
+        return match ($months) {
+            0 => null,
+            default => now()->addMonths($months),
+        };
     }
 
     public function requestPro(int $botOwnerId): array
@@ -21,7 +41,7 @@ class BotOwnerProService implements BotOwnerProServiceInterface
             return ['success' => false, 'message' => trans('bot-owner.owner_not_found')];
         }
 
-        if ($owner->is_pro) {
+        if ($owner->hasActivePro()) {
             return ['success' => false, 'message' => trans('bot-owner.already_pro')];
         }
 
@@ -56,8 +76,13 @@ class BotOwnerProService implements BotOwnerProServiceInterface
         ];
     }
 
-    public function confirmPro(int $requestId, ?int $adminId = null): bool
+    public function confirmPro(int $requestId, ?int $adminId = null, int $months = 3): bool
     {
+        [$valid] = self::validateMonths($months);
+        if (!$valid) {
+            return false;
+        }
+
         $request = BotOwnerProRequest::find($requestId);
         if (!$request || $request->status !== 'pending') {
             return false;
@@ -70,6 +95,7 @@ class BotOwnerProService implements BotOwnerProServiceInterface
 
         $owner->is_pro = true;
         $owner->pro_confirmed_at = now();
+        $owner->pro_expires_at = self::expiresAtForMonths($months);
         $owner->save();
 
         $request->status = 'confirmed';
@@ -81,6 +107,7 @@ class BotOwnerProService implements BotOwnerProServiceInterface
             'request_id' => $requestId,
             'bot_owner_id' => $owner->id,
             'admin_id' => $adminId,
+            'months' => $months,
         ]);
 
         return true;

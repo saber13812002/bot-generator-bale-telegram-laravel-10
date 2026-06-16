@@ -26,7 +26,7 @@ class CreateBotController extends Controller
             ]);
         }
 
-        if (!$owner->is_pro) {
+        if (!$owner->hasActivePro()) {
             return redirect()->route('bot-owner.dashboard')
                 ->with('error', trans('bot-owner.pro_required'));
         }

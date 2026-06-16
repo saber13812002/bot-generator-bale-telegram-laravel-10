@@ -119,7 +119,7 @@ class AdminBotsController extends Controller
         $message = trans('bot-owner.admin_bots_menu', ['url' => route('bot-owner.dashboard')]);
         BotHelper::sendMessage($bot, $message);
 
-        if ($owner && !$owner->is_pro) {
+        if ($owner && !$owner->hasActivePro()) {
             BotHelper::sendMessage($bot, trans('bot-owner.pro_upgrade_hint'));
         }
     }
@@ -161,7 +161,7 @@ class AdminBotsController extends Controller
             return;
         }
 
-        if (!$owner->is_pro) {
+        if (!$owner->hasActivePro()) {
             BotHelper::sendMessage($bot, trans('bot-owner.pro_required'));
             return;
         }
@@ -181,7 +181,7 @@ class AdminBotsController extends Controller
 
     private function handleEndpointSelection(Telegram $bot, string $text, string $chatId, $owner, int $botMotherId): void
     {
-        if (!$owner || !$owner->is_pro) {
+        if (!$owner || !$owner->hasActivePro()) {
             AdminBotsStateHelper::clearState($chatId);
             BotHelper::sendMessage($bot, trans('bot-owner.pro_required'));
             return;

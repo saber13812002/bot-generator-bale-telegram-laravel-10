@@ -40,6 +40,15 @@
             <div class="bg-white p-4 rounded shadow">
                 <div class="text-2xl font-bold">{{ $stats['is_pro'] ? '✓' : '—' }}</div>
                 <div class="text-sm text-gray-500">{{ trans('bot-owner.pro_status') }}</div>
+                @if($stats['is_pro'])
+                    <div class="text-xs text-gray-400 mt-1">
+                        @if($stats['pro_unlimited'] ?? false)
+                            {{ trans('bot-owner.pro_unlimited') }}
+                        @elseif($stats['pro_expires_at'])
+                            {{ trans('bot-owner.pro_expires_at', ['date' => $stats['pro_expires_at']->format('Y-m-d')]) }}
+                        @endif
+                    </div>
+                @endif
             </div>
             <div class="bg-white p-4 rounded shadow">
                 <a href="{{ route('bot-owner.intro') }}" class="text-red-600 hover:underline text-sm">{{ trans('bot-owner.create_new_bot') }}</a>

@@ -31,6 +31,7 @@ class BotOwner extends Resource
             Text::make('Bale Chat ID', 'bale_chat_id')->nullable(),
             Boolean::make('Is Pro', 'is_pro'),
             DateTime::make('Pro Confirmed At', 'pro_confirmed_at')->nullable(),
+            DateTime::make('Pro Expires At', 'pro_expires_at')->nullable(),
             Text::make('Status', 'status'),
             DateTime::make('Last Login', 'last_login_at')->nullable(),
         ];

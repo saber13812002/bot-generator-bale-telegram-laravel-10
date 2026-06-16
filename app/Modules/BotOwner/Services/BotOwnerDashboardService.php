@@ -15,13 +15,16 @@ class BotOwnerDashboardService implements BotOwnerDashboardServiceInterface
             ->get();
 
         $pendingPro = $owner->proRequests()->where('status', 'pending')->exists();
+        $isPro = $owner->hasActivePro();
 
         return [
             'bots' => $bots,
             'stats' => [
                 'total_bots' => $bots->count(),
-                'is_pro' => $owner->is_pro,
+                'is_pro' => $isPro,
                 'has_pending_pro' => $pendingPro,
+                'pro_expires_at' => $isPro ? $owner->pro_expires_at : null,
+                'pro_unlimited' => $isPro && $owner->isProUnlimited(),
             ],
         ];
     }

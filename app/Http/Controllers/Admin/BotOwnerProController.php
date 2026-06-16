@@ -5,26 +5,38 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Modules\BotOwner\Contracts\BotOwnerProServiceInterface;
 use App\Modules\BotOwner\Models\BotOwnerProRequest;
+use App\Modules\BotOwner\Services\BotOwnerProService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class BotOwnerProController extends Controller
 {
-    public function approve(int $id): RedirectResponse
+    public function approve(Request $request, int $id): RedirectResponse
     {
         try {
-            $request = BotOwnerProRequest::findOrFail($id);
+            $proRequest = BotOwnerProRequest::findOrFail($id);
 
-            if ($request->status !== 'pending') {
+            if ($proRequest->status !== 'pending') {
                 return redirect('/nova/resources/bot-owner-pro-requests/' . $id)
                     ->with('error', trans('bot-owner.pro_already_processed'));
+            }
+
+            $months = (int) $request->query('months', 3);
+            [$valid] = BotOwnerProService::validateMonths($months);
+            if (!$valid) {
+                return redirect('/nova/resources/bot-owner-pro-requests/' . $id)
+                    ->with('error', trans('bot-owner.pro_invalid_months'));
             }
 
             $proService = app(BotOwnerProServiceInterface::class);
             $adminId = auth()->id() ?? 1;
 
-            if ($proService->confirmPro($id, $adminId)) {
-                Log::info('BotOwner Pro approved via web link', ['request_id' => $id]);
+            if ($proService->confirmPro($id, $adminId, $months)) {
+                Log::info('BotOwner Pro approved via web link', [
+                    'request_id' => $id,
+                    'months' => $months,
+                ]);
 
                 return redirect('/nova/resources/bot-owner-pro-requests/' . $id)
                     ->with('success', trans('bot-owner.pro_approved'));
@@ -43,9 +55,9 @@ class BotOwnerProController extends Controller
     public function reject(int $id): RedirectResponse
     {
         try {
-            $request = BotOwnerProRequest::findOrFail($id);
+            $proRequest = BotOwnerProRequest::findOrFail($id);
 
-            if ($request->status !== 'pending') {
+            if ($proRequest->status !== 'pending') {
                 return redirect('/nova/resources/bot-owner-pro-requests/' . $id)
                     ->with('error', trans('bot-owner.pro_already_processed'));
             }
