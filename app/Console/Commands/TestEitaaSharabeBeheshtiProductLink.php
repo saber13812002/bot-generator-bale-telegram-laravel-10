@@ -18,8 +18,9 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
 {
     protected $signature = 'app:test-eitaa-sharabe-beheshti-product-link
                             {--id=63 : Sharabe Beheshti MP3 record id}
-                            {--rss-channel=2 : rss_channels.id for token and default target_id}
-                            {--chat-id= : Override Eitaa chat_id (channel/group) — use when target_id is wrong}
+                            {--rss-channel=0 : rss_channels.id for token (0 = use env token)}
+                            {--chat-id= : Target chat_id (required if no rss channel)}
+                            {--token= : Eitaa bot token override (default: env BOT_EITAA_TOKEN_SABER)}
                             {--variant= : Send only one variant: 1=html+icon, 2=html simple, 3=plain url (default: 2)}
                             {--all-variants : Send all 3 format variants for comparison}
                             {--list : List available Eitaa channels/targets and Sharabe Beheshti ids}
@@ -85,24 +86,35 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
         }
 
         $rssChannelId = (int) $this->option('rss-channel');
-        $rssChannel = RssChannel::with('RssChannelOrigin')->find($rssChannelId);
+        $rssChannel = $rssChannelId > 0
+            ? RssChannel::with('RssChannelOrigin')->find($rssChannelId)
+            : null;
 
-        if (!$rssChannel && !$dryRun) {
-            $this->error("RssChannel id={$rssChannelId} not found. Use --list or --rss-channel=.");
+        if ($rssChannelId > 0 && !$rssChannel && !$dryRun) {
+            $this->error("RssChannel id={$rssChannelId} not found. Use --rss-channel=0 with --chat-id= and env token.");
             return self::FAILURE;
         }
 
         $chatId = $this->option('chat-id') ?: ($rssChannel?->target_id);
+        $token = $this->resolveToken($rssChannel);
+
         if (!$chatId && !$dryRun) {
-            $this->error('No chat_id. Set --chat-id=YOUR_CHANNEL_ID or fix rss_channels.target_id.');
+            $this->error('No chat_id. Set --chat-id=YOUR_CHANNEL_ID');
+            return self::FAILURE;
+        }
+
+        if (!$token && !$dryRun) {
+            $this->error('No Eitaa bot token. Set BOT_EITAA_TOKEN_SABER in .env or use --token=');
             return self::FAILURE;
         }
 
         if ($rssChannel) {
             $this->info("RssChannel: id={$rssChannel->id}, title={$rssChannel->title}, origin={$rssChannel->RssChannelOrigin?->slug}");
-            $this->info("Sending to chat_id: {$chatId}" . ($this->option('chat-id') ? ' (override)' : ''));
-            $this->newLine();
+        } else {
+            $this->info('Token source: ' . ($this->option('token') ? '--token' : 'env BOT_EITAA_TOKEN_SABER / EITAA_BOT_TOKEN'));
         }
+        $this->info("Sending to chat_id: {$chatId}" . ($this->option('chat-id') ? ' (--chat-id)' : ''));
+        $this->newLine();
 
         foreach ($variants as $variant) {
             $this->line('--- ' . $variant['label'] . ' ---');
@@ -115,7 +127,7 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
 
             $response = BotHelper::sendMessageEitaaSupport(
                 $variant['message'],
-                $rssChannel->token,
+                $token,
                 $chatId,
                 'eitaa',
                 $variant['parse_mode']
@@ -172,6 +184,13 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
 
         if ($rssChannels->isEmpty()) {
             $this->warn('  No rss_channels with eitaa origin.');
+            $allChannels = RssChannel::with('RssChannelOrigin')->limit(10)->get();
+            if ($allChannels->isNotEmpty()) {
+                $this->line('  All rss_channels (sample):');
+                foreach ($allChannels as $ch) {
+                    $this->line("    id={$ch->id} | {$ch->title} | origin={$ch->RssChannelOrigin?->slug} | target_id={$ch->target_id}");
+                }
+            }
         } else {
             foreach ($rssChannels as $ch) {
                 $tokenPreview = $ch->token ? substr($ch->token, 0, 8) . '...' : '(empty)';
@@ -209,12 +228,31 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
         }
         $this->newLine();
 
+        $envToken = env('BOT_EITAA_TOKEN_SABER') ?: env('EITAA_BOT_TOKEN');
+        $this->info('=== Eitaa token (env) ===');
+        $this->line($envToken ? '  BOT_EITAA_TOKEN_SABER is set (' . substr($envToken, 0, 12) . '...)' : '  NOT SET — add BOT_EITAA_TOKEN_SABER to .env');
+        $this->newLine();
+
         $this->comment('Usage examples:');
         $this->line('  php artisan app:test-eitaa-sharabe-beheshti-product-link --list');
-        $this->line('  php artisan app:test-eitaa-sharabe-beheshti-product-link --id=63 --variant=3 --chat-id=YOUR_CHANNEL_ID');
-        $this->line('  php artisan app:test-eitaa-sharabe-beheshti-product-link --rss-channel=2 --dry-run');
+        $this->line('  php artisan app:test-eitaa-sharabe-beheshti-product-link --id=1 --chat-id=YOUR_EITAA_CHANNEL_ID');
+        $this->line('  php artisan app:test-eitaa-sharabe-beheshti-product-link --id=1 --chat-id=YOUR_ID --dry-run');
 
         return self::SUCCESS;
+    }
+
+    private function resolveToken(?RssChannel $rssChannel): ?string
+    {
+        $override = $this->option('token');
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
+        if ($rssChannel?->token) {
+            return $rssChannel->token;
+        }
+
+        return env('BOT_EITAA_TOKEN_SABER') ?: env('EITAA_BOT_TOKEN') ?: null;
     }
 
     private function buildVariants(string $shareUrl, string $title): array
