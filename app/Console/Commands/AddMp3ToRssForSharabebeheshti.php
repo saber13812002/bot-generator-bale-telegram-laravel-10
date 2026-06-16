@@ -40,15 +40,27 @@ class AddMp3ToRssForSharabebeheshti extends Command
         }
 
         // Create the RSS feed item
-        $rssItem = RssFeedWebOrigin::create([
-            "origin" => $mp3Item->origin ?? null,
-            "title" => $mp3Item->title ?? 'Untitled',
-            "image" => "https://bots.pardisania.ir/sharabebeheshti.jpg",
-            "link" => "https://" . $mp3Item->origin . "/shb" . $mp3Item->part . "?random_id=" . $randNumber . "&id=" . $rand . "&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman",
-//            "media_link" => $mp3Item->link,
-            "media_id" => "7777777777" . $rand,
+        $link = 'https://' . $mp3Item->origin . '/shb' . $mp3Item->part
+            . '?random_id=' . $randNumber . '&id=' . $rand
+            . '&utm_source=saber&utm_medium=messenger&utm_campaign=campaign_khoda&utm_term=term_zohoor&utm_content=emamzaman';
 
+        $rssItem = RssFeedWebOrigin::create([
+            'origin' => $mp3Item->origin ?? null,
+            'title' => $mp3Item->title ?? 'Untitled',
+            'image' => 'https://bots.pardisania.ir/sharabebeheshti.jpg',
+            'link' => $link,
+            'media_id' => '7777777777' . $rand,
         ]);
 
+        $this->info("RSS feed item created (id={$rssItem->id})");
+        $this->line("MP3 id={$rand} | {$mp3Item->title}");
+        $this->line("link: {$link}");
+        $this->newLine();
+        $this->comment('پیش‌نمایش خروجی جاب (بدون صف RSS):');
+        $this->line("  php artisan app:preview-sharabe-beheshti-rss-job --id={$rand} --medium=eitaa");
+        $this->comment('مسیر کامل RSS:');
+        $this->line('  php artisan app:ensure-eitaa-rss-channel');
+        $this->line('  php artisan app:rss_read_translate');
+        $this->line('  php artisan app:test-send-post --pending');
     }
 }
