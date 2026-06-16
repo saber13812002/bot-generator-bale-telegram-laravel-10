@@ -38,9 +38,19 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
 
         $item = SharabeBeheshtiMp3::find($id);
         if (!$item) {
-            $this->error("SharabeBeheshtiMp3 record not found for id: {$id}");
-            $this->line('Run with --list to see available ids.');
-            return self::FAILURE;
+            $total = SharabeBeheshtiMp3::count();
+            if ($total === 0) {
+                $this->error('Table sharabe_beheshti_mp3s is empty on this server.');
+                $this->line('Seed data first:');
+                $this->line('  php artisan db:seed --class=SharabeBeheshtiMp3sTableSeeder');
+                return self::FAILURE;
+            }
+
+            $fallback = SharabeBeheshtiMp3::query()->orderBy('id')->first();
+            $this->warn("SharabeBeheshtiMp3 id={$id} not found (table has {$total} rows). Using id={$fallback->id} instead.");
+            $this->line('Run with --list to see all ids.');
+            $id = (int) $fallback->id;
+            $item = $fallback;
         }
 
         $shareUrl = SharabeBeheshtiMp3Controller::buildSharabeBeheshtiShareUrlById($id, 'eitaa');
@@ -136,6 +146,10 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
     private function listTargets(): int
     {
         $this->info('=== Sharabe Beheshti MP3 ids (sample) ===');
+        $total = SharabeBeheshtiMp3::count();
+        if ($total === 0) {
+            $this->warn('  Table is EMPTY. Run: php artisan db:seed --class=SharabeBeheshtiMp3sTableSeeder');
+        }
         SharabeBeheshtiMp3::query()
             ->orderBy('id')
             ->limit(15)
@@ -143,9 +157,10 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
             ->each(function ($row) {
                 $this->line("  id={$row->id} | part={$row->part} ({$row->part_name}) | {$row->title}");
             });
-        $total = SharabeBeheshtiMp3::count();
         if ($total > 15) {
             $this->line("  ... and " . ($total - 15) . " more (ids 1–{$total})");
+        } elseif ($total > 0) {
+            $this->line("  Total: {$total} records");
         }
         $this->newLine();
 
