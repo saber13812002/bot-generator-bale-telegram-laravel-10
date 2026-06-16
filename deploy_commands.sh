@@ -10,10 +10,16 @@ export COMPOSER_MEMORY_LIMIT=-1
 
 # 2. نصب dependencies
 echo "📦 نصب dependencies..."
-php -d memory_limit=-1 /usr/bin/composer install --no-dev --optimize-autoloader
-
-# اگر composer در مسیر دیگری است، از این استفاده کنید:
-# php -d memory_limit=-1 /usr/local/bin/composer install --no-dev --optimize-autoloader
+COMPOSER_BIN="$(command -v composer 2>/dev/null || true)"
+if [ -z "$COMPOSER_BIN" ] && [ -f composer.phar ]; then
+    COMPOSER_BIN="php composer.phar"
+elif [ -n "$COMPOSER_BIN" ]; then
+    COMPOSER_BIN="php -d memory_limit=-1 $COMPOSER_BIN"
+else
+    echo "❌ composer پیدا نشد. ابتدا: which composer"
+    exit 1
+fi
+$COMPOSER_BIN install --no-dev --optimize-autoloader
 
 # 3. پاک کردن cache ها
 echo "🧹 پاک کردن cache ها..."
