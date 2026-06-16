@@ -69,7 +69,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "darkaonline/l5-swagger"
+            ]
         }
     },
     "config": {

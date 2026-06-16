@@ -4,12 +4,15 @@ namespace App\Services;
 
 use App\Models\WebhookEndpoint;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
 class WebhookEndpointCatalogService
 {
     private const INTERNAL_IDS = ['admin-bots', 'get-chat-id'];
+
+    public function __construct(
+        private readonly WebhookEndpointDefaultImporter $importer
+    ) {}
 
     public function getActiveEndpoints(bool $forOwnerIntro = false): Collection
     {
@@ -29,8 +32,8 @@ class WebhookEndpointCatalogService
         $total = WebhookEndpoint::count();
 
         if ($total === 0) {
-            Log::warning('WebhookEndpoint catalog is empty; running webhook-endpoints:import-default');
-            Artisan::call('webhook-endpoints:import-default');
+            Log::warning('WebhookEndpoint catalog is empty; importing defaults');
+            $this->importer->import();
 
             return;
         }

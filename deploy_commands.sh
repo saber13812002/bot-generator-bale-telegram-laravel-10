@@ -26,11 +26,11 @@ php artisan view:clear
 echo "🗄️  اجرای migrations..."
 php artisan migrate --force
 
-# 5. Generate Swagger docs
-echo "📚 Generate کردن Swagger documentation..."
-php artisan l5-swagger:generate
+# 5. Import webhook endpoints (در صورت نیاز)
+php artisan webhook-endpoints:import-default
 
 # 6. Cache کردن config و route (برای production)
+# توجه: از optimize:clear استفاده نکنید — bootstrap cache را پاک می‌کند و ممکن است با پکیج‌های نصب‌نشده خطا بدهد
 echo "⚡ Cache کردن config و route..."
 php artisan config:cache
 php artisan route:cache
