@@ -20,7 +20,8 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
                             {--id=63 : Sharabe Beheshti MP3 record id}
                             {--rss-channel=2 : rss_channels.id for token and default target_id}
                             {--chat-id= : Override Eitaa chat_id (channel/group) — use when target_id is wrong}
-                            {--variant= : Send only one variant: 1=html+icon, 2=html simple, 3=plain url}
+                            {--variant= : Send only one variant: 1=html+icon, 2=html simple, 3=plain url (default: 2)}
+                            {--all-variants : Send all 3 format variants for comparison}
                             {--list : List available Eitaa channels/targets and Sharabe Beheshti ids}
                             {--dry-run : Preview messages without sending to Eitaa}';
 
@@ -52,6 +53,9 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
         $variants = $this->buildVariants($shareUrl, $title);
 
         $variantFilter = $this->option('variant');
+        if (!$this->option('all-variants') && ($variantFilter === null || $variantFilter === '')) {
+            $variantFilter = '2';
+        }
         if ($variantFilter !== null && $variantFilter !== '') {
             $key = (int) $variantFilter - 1;
             if (!isset($variants[$key])) {
@@ -203,12 +207,12 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
         return [
             [
                 'label' => '1) HTML with xf-eitaa icon (parse_mode=html)',
-                'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: true),
+                'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: true, platformSlug: 'eitaa'),
                 'parse_mode' => 'html',
             ],
             [
                 'label' => '2) HTML simple link (parse_mode=html)',
-                'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: false),
+                'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: false, platformSlug: 'eitaa'),
                 'parse_mode' => 'html',
             ],
             [

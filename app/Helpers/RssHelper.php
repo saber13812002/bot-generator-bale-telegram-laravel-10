@@ -10,7 +10,7 @@ class RssHelper
      * @param bool $withCommand
      * @return string
      */
-    public static function createMessage($rssPostItemTranslation, bool $withCommand = false): string
+    public static function createMessage($rssPostItemTranslation, bool $withCommand = false, ?string $platformSlug = null): string
     {
 
         $message = "
@@ -28,12 +28,18 @@ class RssHelper
 
 : " . self::trimIfNeeded($rssPostItemTranslation->post->description, 2500);
         }
+
+        $postLink = $rssPostItemTranslation->post->link ?? '';
+        $linkBlock = ProductLinkMessageHelper::isSharabeBeheshtiLink($postLink)
+            ? ProductLinkMessageHelper::buildSharabeProductBlockFromPostLink($postLink, $platformSlug)
+            : $postLink;
+
         $message .= "
 
 📌
 : " . self::stringifyTags($rssPostItemTranslation->post->rssItem->tags) . "
 👇👇👇
-: " . $rssPostItemTranslation->post->link
+: " . $linkBlock
 
                 . self::createCommands($rssPostItemTranslation->id, withCommand: $withCommand);
 

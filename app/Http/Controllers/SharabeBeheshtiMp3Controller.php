@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ProductLinkMessageHelper;
 use App\Models\SharabeBeheshtiMp3;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSharabeBeheshtiMp3Request;
@@ -46,18 +47,13 @@ class SharabeBeheshtiMp3Controller extends Controller
         return isset($params['id']) ? (string)$params['id'] : null; // اطمینان از نوع بازگشتی
     }
 
-    public static function getCaptionByCheckEvenOrOdd($number)
+    public static function getCaptionByCheckEvenOrOdd($number, ?string $platformSlug = null)
     {
-
-        $caption = "در ایتا: https://eitaa.com/sharabebeheshti
-در بله: https://ble.ir/sharabebeheshti
-در تلگرام: https://t.me/sharabebeheshti_ir";
-
-        if ($number % 2 === 0) {
-            return $caption; // اگر عدد زوج باشد
-        } else {
-            return "انتشار حداکثری"; // اگر عدد فرد باشد
+        if ($number % 2 !== 0) {
+            return 'انتشار حداکثری';
         }
+
+        return ProductLinkMessageHelper::buildChannelPromoBlock($platformSlug);
     }
 
     public static function buildSharabeBeheshtiShareUrlById(int $id, ?string $mediumSlug = null): ?string

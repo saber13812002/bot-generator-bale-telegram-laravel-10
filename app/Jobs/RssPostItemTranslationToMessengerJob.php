@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Builders\BotBuilder;
 use App\Helpers\BotHelper;
+use App\Helpers\ProductLinkMessageHelper;
 use App\Helpers\RssHelper;
 use App\Helpers\WebPageMediaFindSave;
 use App\Http\Controllers\NahjController;
@@ -54,11 +55,13 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
         }
 
         $postTranslation = $this->rssPostItemTranslationQueue->postTranslation;
-        $message = RssHelper::createMessage($postTranslation, true);
+        $mediumSlug = $rssChannelOrigin->slug ?? 'messenger';
+        $message = RssHelper::createMessage($postTranslation, true, $mediumSlug);
 //        dd($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
 
         try {
-            $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $rssChannelOrigin->slug);
+            $parseMode = ProductLinkMessageHelper::parseModeForPlatform($mediumSlug);
+            $response = BotHelper::sendMessageEitaaSupport($message, $rssChannel->token, $rssChannel->target_id, $mediumSlug, $parseMode);
             if (is_array($response) && empty($response['ok'])) {
                 Log::warning('RssPostItemTranslationToMessengerJob: send message failed', [
                     'channel_id' => $this->rssPostItemTranslationQueue->rss_channel_id,
@@ -157,15 +160,13 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                         try {
                             [$mp3Url, $title, $id] = SharabeBeheshtiMp3Controller::getMp3UrlAndTitleAndId($postLink);
 
-                            $captionPrefix = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id);
-
-                            $mediumSlug = $rssChannelOrigin->slug ?? 'messenger';
                             $shareUrl = SharabeBeheshtiMp3Controller::buildSharabeBeheshtiShareUrlById((int)$id, $mediumSlug);
-
                             $effectiveUrl = $shareUrl ?: $postLink;
+                            $productBlock = ProductLinkMessageHelper::buildSharabeProductBlock($effectiveUrl, $mediumSlug);
+                            $captionPrefix = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd($id, $mediumSlug);
 
                             $captionSharabMedia = $hashtags . ' ' . $rssItemHashtags . '
-' . $effectiveUrl . '
+' . $productBlock . '
 ' . ' - #' . $rssChannelOrigin->slug;
 
                             $caption = $captionPrefix . '
@@ -181,6 +182,9 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
                             ]);
 
                             Log::info("mp3Url:" . $mp3Url);
+                            if (ProductLinkMessageHelper::needsParseMode($mediumSlug)) {
+                                $botBuilder->setParseMode('html');
+                            }
                             $data = $botBuilder
                                 ->setChatId($rssChannel->target_id)
                                 ->setCaption($caption)

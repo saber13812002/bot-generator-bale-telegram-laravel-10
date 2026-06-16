@@ -296,11 +296,11 @@ class BotHelper
         return self::call_eitaa_api($bot_token, $channel_chat_id, $message, null, $parseMode);
     }
 
-    public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
+    public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption, $parseMode = null)
     {
         // todo: test eitaa image sender with test send photo message to eitaa command TestSendPhotoMessageToEitaa
         return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "
-" . $caption, $photoUrl);
+" . $caption, $photoUrl, $parseMode);
     }
 
     private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null, $parseMode = null)

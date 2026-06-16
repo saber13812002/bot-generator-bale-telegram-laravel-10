@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Helpers\BotHelper;
+use App\Helpers\ProductLinkMessageHelper;
 use App\Models\AdminDailyChannelConfig;
 use App\Services\DailyChannelContentService;
 use Illuminate\Console\Command;
@@ -49,7 +50,7 @@ class PostDailyVerseToChannels extends Command
                 $effectiveType = $this->getNextSequentialType($config->last_sent_content_type);
             }
 
-            $text = $this->contentService->getTextForContentType($effectiveType);
+            $text = $this->getTextForConfig($config, $effectiveType, 'messenger');
             if (!$text || trim($text) === '') {
                 Log::warning('[PostDailyVerseToChannels] No content for config', [
                     'config_id' => $config->id,
@@ -65,8 +66,9 @@ class PostDailyVerseToChannels extends Command
 
             if ($config->hasBale() && $baleToken) {
                 try {
+                    $baleText = $this->getTextForConfig($config, $effectiveType, 'bale');
                     $bot = new Telegram($baleToken, 'bale');
-                    BotHelper::sendMessageByChatId($bot, (string) $config->bale_channel_chat_id, $text);
+                    BotHelper::sendMessageByChatId($bot, (string) $config->bale_channel_chat_id, $baleText);
                 } catch (\Throwable $e) {
                     Log::warning('[PostDailyVerseToChannels] Bale send failed', [
                         'config_id' => $config->id,
@@ -77,8 +79,9 @@ class PostDailyVerseToChannels extends Command
 
             if ($config->hasTelegram() && $telegramToken) {
                 try {
+                    $telegramText = $this->getTextForConfig($config, $effectiveType, 'telegram');
                     $bot = new Telegram($telegramToken);
-                    BotHelper::sendMessageByChatId($bot, (string) $config->telegram_channel_chat_id, $text);
+                    BotHelper::sendMessageByChatId($bot, (string) $config->telegram_channel_chat_id, $telegramText);
                 } catch (\Throwable $e) {
                     Log::warning('[PostDailyVerseToChannels] Telegram send failed', [
                         'config_id' => $config->id,
@@ -89,11 +92,13 @@ class PostDailyVerseToChannels extends Command
 
             if ($config->hasEitaa() && $eitaaToken) {
                 try {
+                    $eitaaText = $this->getTextForConfig($config, $effectiveType, 'eitaa');
                     BotHelper::sendMessageEitaaSupport(
-                        $text,
+                        $eitaaText,
                         $eitaaToken,
                         $config->eitaa_channel_chat_id,
-                        'eitaa'
+                        'eitaa',
+                        ProductLinkMessageHelper::parseModeForPlatform('eitaa')
                     );
                 } catch (\Throwable $e) {
                     Log::warning('[PostDailyVerseToChannels] Eitaa send failed', [
@@ -155,5 +160,14 @@ class PostDailyVerseToChannels extends Command
         $next = $idx + 1;
 
         return $order[$next % count($order)];
+    }
+
+    private function getTextForConfig(AdminDailyChannelConfig $config, string $effectiveType, string $platformSlug): ?string
+    {
+        if ($effectiveType === AdminDailyChannelConfig::CONTENT_TYPE_SHARABE_BEHESHTI) {
+            return $this->contentService->getRandomSharabeBeheshtiTextForPlatform($platformSlug);
+        }
+
+        return $this->contentService->getTextForContentType($effectiveType);
     }
 }

@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Helpers\ProductLinkMessageHelper;
 use App\Helpers\StringHelper;
+use App\Http\Controllers\SharabeBeheshtiMp3Controller;
 use App\Models\BotHadithItem;
 use App\Models\Nahj;
 use App\Models\QuranAyat;
@@ -82,17 +84,37 @@ class DailyChannelContentService
     }
 
     /**
-     * یک آیتم شراب بهشتی رندوم (عنوان + لینک) برمی‌گرداند.
+     * یک آیتم شراب بهشتی رندوم (عنوان + لینک کوتاه صفحه محصول) برمی‌گرداند.
      */
-    public function getRandomSharabeBeheshtiText(): ?string
+    public function getRandomSharabeBeheshtiTextForPlatform(string $platformSlug): ?string
     {
         $item = SharabeBeheshtiMp3::query()->inRandomOrder()->limit(1)->first();
         if (!$item) {
             return null;
         }
+
         $title = $item->title ?? 'شراب بهشتی';
-        $link = $item->link ?? '';
-        return "شراب بهشتی\n{$title}\n" . ($link ? "\n{$link}" : '');
+        $shareUrl = SharabeBeheshtiMp3Controller::buildSharabeBeheshtiShareUrlById((int) $item->id, $platformSlug);
+        $productBlock = $shareUrl
+            ? ProductLinkMessageHelper::buildSharabeProductBlock($shareUrl, $platformSlug)
+            : '';
+        $channelPromo = SharabeBeheshtiMp3Controller::getCaptionByCheckEvenOrOdd((int) $item->id, $platformSlug);
+
+        $parts = array_filter([
+            "شراب بهشتی\n{$title}",
+            $productBlock,
+            $channelPromo,
+        ]);
+
+        return implode("\n\n", $parts);
+    }
+
+    /**
+     * @deprecated Use getRandomSharabeBeheshtiTextForPlatform()
+     */
+    public function getRandomSharabeBeheshtiText(): ?string
+    {
+        return $this->getRandomSharabeBeheshtiTextForPlatform('messenger');
     }
 
     /**
