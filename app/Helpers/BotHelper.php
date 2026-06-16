@@ -281,19 +281,19 @@ class BotHelper
         return $messenger->sendMessage($content);
     }
 
-    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram')
+    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram', $parseMode = null)
     {
         if ($type != "eitaa") {
             $bot = new Telegram($bot_token, $type);
             return self::sendMessageByChatId($bot, $channel_chat_id, $message);
         } else {
-            return self::sendMessageEitaa($message, $bot_token, $channel_chat_id);
+            return self::sendMessageEitaa($message, $bot_token, $channel_chat_id, $parseMode);
         }
     }
 
-    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id)
+    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id, $parseMode = null)
     {
-        return self::call_eitaa_api($bot_token, $channel_chat_id, $message);
+        return self::call_eitaa_api($bot_token, $channel_chat_id, $message, null, $parseMode);
     }
 
     public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
@@ -303,7 +303,7 @@ class BotHelper
 " . $caption, $photoUrl);
     }
 
-    private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null)
+    private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null, $parseMode = null)
     {
         $uri = 'https://eitaayar.ir/api/' . $bot_token . ($photoUrl ? '/sendFile' : '/sendMessage');
 
@@ -319,6 +319,10 @@ class BotHelper
             'chat_id' => $chat_id,
             'text' => $text,
         ];
+
+        if ($parseMode !== null && $parseMode !== '') {
+            $postFields['parse_mode'] = $parseMode;
+        }
 
         // Check if a file path is provided
         if ($photoUrl) {
