@@ -293,6 +293,7 @@ class ImportWebhookEndpointsDefault extends Command
                             'requires_token' => $endpoint['requires_token'] ?? false,
                             'requires_language' => $endpoint['requires_language'] ?? false,
                             'supports_multiple_languages' => $endpoint['supports_multiple_languages'] ?? false,
+                            'is_active' => true,
                         ]);
 
                         $updated++;
