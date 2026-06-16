@@ -10,15 +10,16 @@ class EnsureEitaaRssChannel extends Command
     protected $signature = 'app:ensure-eitaa-rss-channel
                             {--channel-id=2 : rss_channels.id for Eitaa}
                             {--target-id=8419225 : Eitaa channel chat_id}
+                            {--token= : توکن ربات ایتا (پیش‌فرض: env یا --token)}
                             {--dry-run : فقط نمایش، بدون ذخیره}';
 
     protected $description = 'ایجاد/به‌روزرسانی rss_channel ایتا از BOT_EITAA_TOKEN_SABER در .env';
 
     public function handle(): int
     {
-        $token = env('BOT_EITAA_TOKEN_SABER') ?: env('EITAA_BOT_TOKEN');
+        $token = $this->resolveEitaaToken();
         if (!$token) {
-            $this->error('BOT_EITAA_TOKEN_SABER (یا EITAA_BOT_TOKEN) در .env تنظیم نشده است.');
+            $this->error('توکن ایتا پیدا نشد. BOT_EITAA_TOKEN_SABER را در .env بگذارید یا --token= بدهید.');
             return self::FAILURE;
         }
 
@@ -67,5 +68,22 @@ class EnsureEitaaRssChannel extends Command
         $this->line("target_id={$payload['target_id']} | token=" . substr($token, 0, 12) . '...');
 
         return self::SUCCESS;
+    }
+
+    private function resolveEitaaToken(): ?string
+    {
+        $override = $this->option('token');
+        if (is_string($override) && $override !== '') {
+            return $override;
+        }
+
+        foreach (['BOT_EITAA_TOKEN_SABER', 'EITAA_BOT_TOKEN', 'BOT_EITAA_TOKEN'] as $key) {
+            $value = env($key);
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

@@ -16,6 +16,7 @@ class PreviewSharabeBeheshtiRssJob extends Command
                             {--medium=eitaa : Platform slug (eitaa, bale, telegram, messenger)}
                             {--rss-channel=2 : rss_channels.id for bot token and default chat_id}
                             {--chat-id= : Override Eitaa chat_id (channel/group)}
+                            {--token= : توکن ربات ایتا (اگر rss_channel خالی است)}
                             {--send : ارسال واقعی صوت + caption مثل جاب}
                             {--dry-run : فقط نمایش (پیش‌فرض وقتی --send نیست)}';
 
@@ -63,19 +64,30 @@ class PreviewSharabeBeheshtiRssJob extends Command
 
         $rssChannelId = (int) $this->option('rss-channel');
         $rssChannel = RssChannel::with('RssChannelOrigin')->find($rssChannelId);
-        if (!$rssChannel || empty($rssChannel->token)) {
-            $this->error("rss_channels id={$rssChannelId} یافت نشد یا token خالی است.");
-            $this->line('اجرا کنید: php artisan app:ensure-eitaa-rss-channel');
+        $tokenOverride = $this->option('token');
+        $token = (is_string($tokenOverride) && $tokenOverride !== '')
+            ? $tokenOverride
+            : ($rssChannel->token ?? null);
+
+        if (!$token) {
+            $this->error("توکن ایتا پیدا نشد (rss_channels id={$rssChannelId} خالی است).");
+            $this->line('اجرا کنید: php artisan app:ensure-eitaa-rss-channel --token=YOUR_TOKEN');
 
             return self::FAILURE;
         }
 
-        $chatId = $this->option('chat-id') ?: $rssChannel->target_id;
-        $originSlug = $rssChannel->RssChannelOrigin?->slug ?? $medium;
+        $chatId = $this->option('chat-id') ?: ($rssChannel?->target_id ?? null);
+        if (!$chatId) {
+            $this->error('chat_id مشخص نیست. --chat-id= بدهید یا app:ensure-eitaa-rss-channel --target-id= را تنظیم کنید.');
 
-        $this->info("Sending to chat_id={$chatId} via rss_channel id={$rssChannelId} ({$originSlug})");
+            return self::FAILURE;
+        }
 
-        $botBuilder = new BotBuilder(new Telegram($rssChannel->token, $originSlug));
+        $originSlug = $rssChannel?->RssChannelOrigin?->slug ?? $medium;
+
+        $this->info("Sending to chat_id={$chatId} ({$originSlug})");
+
+        $botBuilder = new BotBuilder(new Telegram($token, $originSlug));
         if ($payload['parse_mode']) {
             $botBuilder->setParseMode($payload['parse_mode']);
         }
