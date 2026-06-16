@@ -9,6 +9,7 @@ use App\Interfaces\Repositories\BookDraftRepository;
 use App\Interfaces\Repositories\BookScanMissionRepository;
 use App\Interfaces\Repositories\ContentRepository;
 use App\Interfaces\Repositories\HadithApiRepository;
+use App\Interfaces\Repositories\LibraryRepository;
 use App\Interfaces\Repositories\MissionRepository;
 use App\Interfaces\Repositories\NahjRepository;
 use App\Interfaces\Repositories\PrayerEstimateRepository;
@@ -29,6 +30,11 @@ use App\Interfaces\Services\BookStatisticsService;
 use App\Interfaces\Services\ContentService;
 use App\Interfaces\Services\ContentSubmissionService;
 use App\Interfaces\Services\EmailService;
+use App\Interfaces\Services\BookLibraryDeliveryService;
+use App\Interfaces\Services\BookLibraryPlanService;
+use App\Interfaces\Services\BookLibraryService;
+use App\Interfaces\Services\ContentDeliveryService;
+use App\Interfaces\Services\ContentQueueService;
 use App\Interfaces\Services\HadithApiService;
 use App\Interfaces\Services\MissionService;
 use App\Interfaces\Services\NahjService;
@@ -47,6 +53,7 @@ use App\Repositories\BookUserScoreRepositoryImpl;
 use App\Repositories\BookDraftRepositoryImpl;
 use App\Repositories\BookScanMissionRepositoryImpl;
 use App\Repositories\ContentRepositoryImpl;
+use App\Repositories\LibraryRepositoryImpl;
 use App\Repositories\HadithApiRepositoryImpl;
 use App\Repositories\MissionRepositoryImpl;
 use App\Repositories\NahjRepositoryImpl;
@@ -67,6 +74,12 @@ use App\Services\BookScanMissionServiceImpl;
 use App\Services\BookStatisticsServiceImpl;
 use App\Services\ContentServiceImpl;
 use App\Services\ContentSubmissionServiceImpl;
+use App\Services\BookLibraryDeliveryServiceImpl;
+use App\Services\BookLibraryPlanServiceImpl;
+use App\Services\BookLibraryServiceImpl;
+use App\Services\ContentAdminService;
+use App\Services\ContentDeliveryServiceImpl;
+use App\Services\ContentQueueServiceImpl;
 use App\Services\HadithApiServiceImpl;
 use App\Services\MailtrapEmailServiceImpl;
 use App\Services\MissionServiceImpl;
@@ -97,6 +110,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(HadithApiRepository::class, HadithApiRepositoryImpl::class);
         $this->app->bind(NahjRepository::class, NahjRepositoryImpl::class);
 
+        $this->app->bind(LibraryRepository::class, LibraryRepositoryImpl::class);
         $this->app->bind(MissionRepository::class, MissionRepositoryImpl::class);
         $this->app->bind(ContentRepository::class, ContentRepositoryImpl::class);
 
@@ -123,6 +137,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(WeatherComparisonService::class, WeatherComparisonServiceImpl::class);
         $this->app->bind(ProService::class, ProServiceImpl::class);
         $this->app->bind(WeatherAlertService::class, WeatherAlertServiceImpl::class);
+
+        $this->app->bind(BookLibraryService::class, BookLibraryServiceImpl::class);
+        $this->app->bind(BookLibraryDeliveryService::class, BookLibraryDeliveryServiceImpl::class);
+        $this->app->bind(BookLibraryPlanService::class, BookLibraryPlanServiceImpl::class);
+
+        $this->app->bind(ContentQueueService::class, ContentQueueServiceImpl::class);
+        $this->app->bind(ContentDeliveryService::class, ContentDeliveryServiceImpl::class);
+        $this->app->singleton(ContentAdminService::class);
 
         $this->app->bind(HadithApiService::class, HadithApiServiceImpl::class);
         $this->app->bind(NahjService::class, NahjServiceImpl::class);

@@ -129,5 +129,16 @@ class BotMotherStateHelper
     const STATE_MEDIA_QUEUE_BALE = 'media_queue_bale';
     const STATE_MEDIA_QUEUE_TELEGRAM = 'media_queue_telegram';
     const STATE_MEDIA_QUEUE_EITAA = 'media_queue_eitaa';
+
+    // Book library — link reader bot after main bot token (reader اختیاری)
+    const STATE_WAITING_LIBRARY_READER_TOKEN = 'waiting_library_reader_token';
+    const STATE_WAITING_LIBRARY_MAIN_BOT_ID = 'waiting_library_main_bot_id';
+
+    // Content library management (/content in Bot Mother)
+    const STATE_CONTENT_MENU = 'content_menu';
+    const STATE_CONTENT_ADD_CATEGORY = 'content_add_category';
+    const STATE_CONTENT_ADD_CATEGORY_BROADCAST = 'content_add_category_broadcast';
+    const STATE_CONTENT_BROADCAST_MESSAGE = 'content_broadcast_message';
+    const STATE_CONTENT_BROADCAST_FILTER = 'content_broadcast_filter';
 }
 

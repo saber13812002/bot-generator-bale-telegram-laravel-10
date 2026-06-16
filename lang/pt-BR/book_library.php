@@ -1,0 +1,100 @@
+<?php
+
+return [
+    'welcome' => "Hello 👋\n\nWelcome to the Smart Book Library.\n\nGet daily audio summaries, PDFs, and infographics.\n\n👇 Where shall we start?",
+    'menu_prompt' => 'Choose an option:',
+    'menu_categories' => '📂 Categories',
+    'menu_intro' => '📚 Discover Books',
+    'menu_random' => '🎲 Random Pick',
+    'menu_my_books' => '⭐ My Books',
+    'menu_upgrade' => '💎 Upgrade Plan',
+    'use_menu' => 'Please use the menu below.',
+    'genre_prompt' => 'Which topic interests you most?',
+    'genre_next' => 'More ➡️',
+    'genre_not_found' => 'Genre not found.',
+    'no_genres' => 'No categories defined yet.',
+    'no_categories_admin_hint' => 'Admin: /addCategory or /content in Bot Mother',
+    'queue_end' => 'You reached the end of «:category».',
+    'books_prompt' => 'Four book suggestions in «:genre»',
+    'books_next' => '➡️ More books',
+    'random_pick' => '🎲 Random pick',
+    'no_books' => 'No books found in this section.',
+    'book_not_found' => 'Book not found.',
+    'preparing' => '🎧 Preparing your file...',
+    'no_audio' => 'Audio is not available for this book.',
+    'delivery_error' => 'Delivery failed. Please try again.',
+    'reader_required' => 'Please /start the reader bot first so content can be delivered there.',
+    'reader_welcome' => "📖 Welcome to the Book Reader bot!\n\nAudio summaries, PDFs and infographics are delivered here.\n\nFor full guide: /help",
+    'reader_help' => "📖 Book Reader — Help\n\n" .
+        "This bot delivers book content. Browse and pick books in the main Smart Book Library bot.\n\n" .
+        "Commands:\n" .
+        "/start — Activate delivery to this chat\n" .
+        "/help — Show this guide\n\n" .
+        "After each book:\n" .
+        "📄 Get PDF\n" .
+        "🖼 Get infographic\n" .
+        "🎧 Replay audio\n\n" .
+        "Tip: /start both this bot and the main library bot.",
+    'reader_main_bot_hint' => "📚 Main library bot: @:username\nChoose books there; content arrives here.",
+    'reader_use_help' => "Send /help for guidance.\nUse the main library bot to pick books.",
+    'main_help' => "📚 Smart Book Library — Help\n\n" .
+        "Commands:\n" .
+        "/start — Main menu\n" .
+        "/help — This guide\n\n" .
+        "Menu:\n" .
+        "📚 Discover Books — genres and summaries\n" .
+        "🎲 Random Pick — random book\n" .
+        "⭐ My Books — history\n" .
+        "💎 Upgrade Plan — more quota\n\n" .
+        "If you have a separate reader bot, /start it too for audio and PDF delivery.",
+    'sent_to_reader' => '✅ Content was sent to your reader bot.',
+    'progress' => "Progress:\n:bar\n:used of :limit books (:percent%)",
+    'quota_exceeded' => 'Your book quota is used up. Upgrade your plan to continue.',
+    'quick_actions' => 'More options:',
+    'qa_pdf' => '📄 Get PDF',
+    'qa_infographic' => '🖼 Get infographic',
+    'qa_replay' => '🎧 Replay audio',
+    'media_not_available' => 'This content type is not available for this book.',
+    'my_books_title' => '📚 Your received books:',
+    'my_books_empty' => 'You have not received any books yet.',
+    'unknown_book' => 'Unknown book',
+    'plan_current' => '💎 Current plan: :plan',
+    'plan_choose' => 'Select a plan to request purchase:',
+    'plan_invalid' => 'Invalid plan selected.',
+    'plan_pending' => 'Your previous request is still pending.',
+    'plan_requested' => '✅ Request submitted. An admin will activate your plan after payment.',
+    'plan_not_found' => 'Request not found or already processed.',
+    'plan_confirmed' => 'Plan activated successfully.',
+    'plan_activated' => '✅ Your plan is active! You can receive more books now.',
+    'currency' => 'IRR',
+    'yes' => 'Yes',
+    'no' => 'No',
+    'admin_file_received' => '✅ File received. File ID: :id',
+    'admin_add_to_category_cmd' => '/addFileToCategory :id',
+    'admin_add_to_category_usage' => 'Usage: /addFileToCategory {id}',
+    'admin_pending_not_found' => 'Pending file not found.',
+    'admin_pick_category' => 'Pick a category:',
+    'admin_category_name_prompt' => 'Send the new category name:',
+    'admin_category_broadcast_prompt' => 'Notify users about the new category?',
+    'admin_category_created' => '✅ Category «:title» created.',
+    'admin_category_broadcast_sent' => '📢 Notification queued.',
+    'admin_file_added' => '✅ File added to «:category» (order: :order)',
+    'new_category_broadcast' => '🆕 New category: :category — tap /start.',
+    'broadcast_message_prompt' => 'Send broadcast text or audio:',
+    'broadcast_filter_prompt' => 'Recipients:',
+    'broadcast_filter_all' => 'All users',
+    'broadcast_filter_free' => 'Free plan',
+    'broadcast_filter_paid' => 'Paid plan',
+    'broadcast_filter_active' => 'Active users',
+    'broadcast_confirm' => 'Confirm broadcast — filter: :filter',
+    'broadcast_send' => '✅ Send',
+    'broadcast_cancel' => '❌ Cancel',
+    'broadcast_cancelled' => 'Broadcast cancelled.',
+    'broadcast_queued' => '✅ Broadcast queued.',
+    'plan' => [
+        'free' => 'Free (3 books)',
+        'plan_100' => '🥉 100 books',
+        'plan_300' => '🥈 300 books',
+        'plan_1000' => '🥇 1000 books',
+    ],
+];

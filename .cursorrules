@@ -119,6 +119,19 @@ lang/*/bot.php                              # Translations (همه زبان‌ه
 - [ ] Seeder اجرا شده
 - [ ] Cache پاک شده
 - [ ] مستندات نوشته شده
+- [ ] Migrationها بدون FK به `bots`/`bot_users` (مگر تست شده روی MariaDB) — ر.ک. `.cursor/rules/database-migrations.mdc`
+
+---
+
+## 🗄️ Migration و Foreign Key (MariaDB / production)
+
+قبل از نوشتن migration جدید حتماً [`.cursor/rules/database-migrations.mdc`](.cursor/rules/database-migrations.mdc) را بخوانید.
+
+خلاصه:
+- FK به `bots` و `bot_users` معمولاً **errno 150** می‌دهد → فقط `unsignedBigInteger` + `index`
+- FK فقط بین جدول‌های همان feature (مثلاً `library_*`)
+- در صورت fail قبلی، `dropIfExists` جدول‌های نیمه‌کاره در ابتدای `up()`
+- دو FK به یک جدول (`bot_id` + `reader_bot_id` → `bots`) استفاده نکنید
 
 ---
 
@@ -176,4 +189,4 @@ curl "https://tapi.bale.ai/bot312190186:O9PKOyN2rCI6tyDF4Y5FkuIqijQpM9Xc-3I/setW
 
 ---
 
-**آخرین به‌روزرسانی:** 2026-01-24
+**آخرین به‌روزرسانی:** 2026-06-15
