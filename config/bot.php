@@ -18,6 +18,7 @@ return [
         'gap' => 'https://gap.ir/',
     ],
     'admin_bots_link' => env('ADMIN_BOTS_LINK', 'https://ble.ir'),
+    'hidden_admin_kie_command' => env('HIDDEN_ADMIN_KIE_COMMAND', '/adminkie'),
     'tokens' =>[
         'bale' =>[
             'robat' => env('ROBAT_BALE_TOKEN_TEST'),

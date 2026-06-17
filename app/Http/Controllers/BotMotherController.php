@@ -209,6 +209,12 @@ class BotMotherController extends Controller
             else if (str_starts_with($text, '/owner_pro_confirm')) {
                 $this->handleOwnerProConfirm($bot, $text, $type);
             }
+            else if (str_starts_with($text, '/adminbot_confirm')) {
+                $this->handleAdminbotConfirm($bot, $text, $type);
+            }
+            else if (str_starts_with($text, '/adminbot_reject')) {
+                $this->handleAdminbotReject($bot, $text, $type);
+            }
             else if (str_starts_with($text, '/library_plan_confirm')) {
                 $this->handleLibraryPlanConfirm($bot, $text, $type);
             }
@@ -3858,6 +3864,74 @@ class BotMotherController extends Controller
             ]);
             BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Handle /adminbot_confirm command for hidden adminkie requests
+     */
+    private function handleAdminbotConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
+            return;
+        }
+
+        try {
+            $service = app(\App\Services\BotAdminKieService::class);
+            $result = $service->confirmRequest((int) $requestId, (int) $chatId);
+
+            if ($result) {
+                $request = \App\Models\BotAdminKieRequest::find($requestId);
+                $message = trans('bot.admin_kie_confirmed_admin') . "\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($request) {
+                    $message .= "👤 {$request->displayName()}\n";
+                    $message .= "💬 Chat ID: {$request->chat_id}\n";
+                    $message .= "🤖 Bot ID: " . ($request->bot_id ?? '—') . "\n";
+                }
+                BotHelper::sendMessage($bot, $message);
+            } else {
+                BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+            }
+        } catch (Exception $e) {
+            Log::error('BotMother adminbot_confirm error', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessage($bot, '❌ خطا: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle /adminbot_reject command for hidden adminkie requests
+     */
+    private function handleAdminbotReject(Telegram $bot, string $text, string $type): void
+    {
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
+            return;
+        }
+
+        $request = \App\Models\BotAdminKieRequest::pending()->find($requestId);
+        if (!$request) {
+            BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+            return;
+        }
+
+        $request->update([
+            'status' => 'rejected',
+            'approved_by' => $bot->ChatID(),
+            'approved_at' => now(),
+        ]);
+
+        BotHelper::sendMessage($bot, trans('bot.admin_kie_rejected_admin') . "\n🆔 Request ID: {$requestId}");
     }
 
     private function handleLibraryReaderTokenInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void

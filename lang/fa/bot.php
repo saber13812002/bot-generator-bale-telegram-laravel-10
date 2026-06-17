@@ -640,4 +640,13 @@ return [
     'poem_bot_help_text' => '📖 راهنمای ربات شعر:\n\n/start - شروع\n/newpoem - ارسال شعر جدید\n/editpoem - ویرایش شعر\n/like [id] - لایک کردن شعر\n/help - راهنما',
     'poem_bot_about' => '📝 ربات شعر و موسیقی\n\nاین ربات به شما امکان ارسال، ویرایش و به اشتراک‌گذاری اشعار را می‌دهد.',
     'poem_bot_profile' => '👤 پروفایل شما:\n\n📚 تعداد اشعار: {poems_count}',
+
+    'admin_kie_submitted' => '✅ درخواست شما ثبت شد و در حال بررسی است.',
+    'admin_kie_pending' => '⏳ درخواست قبلی شما هنوز در حال بررسی است.',
+    'admin_kie_already_owner' => 'ℹ️ شما قبلاً ادمین این ربات هستید.',
+    'admin_kie_approved_user' => '✅ دسترسی ادمین ربات برای شما فعال شد.',
+    'admin_kie_confirmed_admin' => '✅ درخواست adminkie تایید شد. کاربر اکنون ادمین ربات است.',
+    'admin_kie_rejected_admin' => '❌ درخواست adminkie رد شد.',
+    'admin_kie_confirm_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_confirm [REQUEST_ID]",
+    'admin_kie_reject_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_reject [REQUEST_ID]",
 ];

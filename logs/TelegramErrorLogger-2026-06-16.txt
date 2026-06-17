@@ -1,0 +1,33 @@
+============[Date]============
+[ 2026-06-16 08:59:06  UTC ] 
+==========[Response]==========
+ok:			False
+error_code:		403
+description:		Bad Request: Token not found
+=========[Sent Data]==========
+[ref]
+ref.text= ✅ دسترسی ادمین ربات برای شما فعال شد.
+ref.parse_mode= html
+
+
+============[Trace]===========
+#0 D:\saberprojects\kasra\bot-rad-git\vendor\saber13812002\telegram-bale-bot-php\Telegram.php(1884): TelegramErrorLogger::log(Array, Array)
+#1 D:\saberprojects\kasra\bot-rad-git\vendor\saber13812002\telegram-bale-bot-php\Telegram.php(136): Telegram->sendAPIRequest('https://tapi.ba...', Array)
+#2 D:\saberprojects\kasra\bot-rad-git\vendor\saber13812002\telegram-bale-bot-php\Telegram.php(211): Telegram->endpoint('sendMessage', Array)
+#3 D:\saberprojects\kasra\bot-rad-git\app\Helpers\BotHelper.php(468): Telegram->sendMessage(Array)
+#4 D:\saberprojects\kasra\bot-rad-git\app\Services\BotAdminKieService.php(199): App\Helpers\BotHelper::sendMessageByChatId(Object(Telegram), 999888777, '\xE2\x9C\x85 \xD8\xAF\xD8\xB3\xD8\xAA\xD8\xB1\xD8\xB3\xDB...')
+#5 D:\saberprojects\kasra\bot-rad-git\app\Services\BotAdminKieService.php(149): App\Services\BotAdminKieService->notifyUserApproved(Object(App\Models\Bot), Object(App\Models\BotAdminKieRequest))
+#6 D:\saberprojects\kasra\bot-rad-git\tests\Unit\Services\BotAdminKieServiceTest.php(60): App\Services\BotAdminKieService->confirmRequest(1, 111222333)
+#7 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestCase.php(1122): Tests\Unit\Services\BotAdminKieServiceTest->test_confirm_request_sets_bot_owner()
+#8 D:\saberprojects\kasra\bot-rad-git\vendor\laravel\framework\src\Illuminate\Foundation\Testing\TestCase.php(61): PHPUnit\Framework\TestCase->runTest()
+#9 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestCase.php(654): Illuminate\Foundation\Testing\TestCase->runTest()
+#10 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestRunner.php(105): PHPUnit\Framework\TestCase->runBare()
+#11 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestCase.php(488): PHPUnit\Framework\TestRunner->run(Object(Tests\Unit\Services\BotAdminKieServiceTest))
+#12 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestSuite.php(341): PHPUnit\Framework\TestCase->run()
+#13 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestSuite.php(341): PHPUnit\Framework\TestSuite->run()
+#14 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\Framework\TestSuite.php(341): PHPUnit\Framework\TestSuite->run()
+#15 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\TextUI\TestRunner.php(62): PHPUnit\Framework\TestSuite->run()
+#16 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\src\TextUI\Application.php(198): PHPUnit\TextUI\TestRunner->run(Object(PHPUnit\TextUI\Configuration\Configuration), Object(PHPUnit\Runner\ResultCache\DefaultResultCache), Object(PHPUnit\Framework\TestSuite))
+#17 D:\saberprojects\kasra\bot-rad-git\vendor\phpunit\phpunit\phpunit(104): PHPUnit\TextUI\Application->run(Array)
+#18 {main}
+
