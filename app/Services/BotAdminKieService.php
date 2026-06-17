@@ -7,6 +7,7 @@ use App\Helpers\BotHelper;
 use App\Models\Bot;
 use App\Models\BotAdminKieRequest;
 use App\Models\BotUsers;
+use App\Models\LibraryBotConfig;
 use App\Models\PsychologyTestBot;
 use App\Models\PsychologyTestBotAdmin;
 use Illuminate\Http\Request;
@@ -68,31 +69,31 @@ class BotAdminKieService
             return response('', 200);
         }
 
-        $botId = $this->resolveBotId($request, $origin);
+        $rawBotId = $this->resolveBotId($request, $origin);
+        $webhookEndpoint = $request->segment(2);
+        $ownerBot = $this->resolveOwnerTargetBot($rawBotId, $webhookEndpoint);
+        $ownerBotId = $ownerBot?->id ?? $rawBotId;
         $from = $message['from'] ?? [];
-        $botUser = $this->findBotUser($chatId, $botId, $origin);
+        $botUser = $this->findBotUser($chatId, $rawBotId, $origin);
 
-        if ($botId) {
-            $botModel = Bot::find($botId);
-            if ($botModel && $this->isAlreadyBotOwner($botModel, $chatId, $origin)) {
-                BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
-                return response('', 200);
-            }
+        if ($ownerBot && $this->isAlreadyBotOwner($ownerBot, $chatId, $origin)) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
+            return response('', 200);
         }
 
         $pending = BotAdminKieRequest::pending()
             ->where('chat_id', $chatId)
             ->where('origin', $origin)
-            ->when($botId, fn ($q) => $q->where('bot_id', $botId))
+            ->when($ownerBotId, fn ($q) => $q->where('bot_id', $ownerBotId))
             ->first();
 
         if ($pending) {
-            BotHelper::sendMessage($bot, trans('bot.admin_kie_pending'));
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_pending', ['id' => $pending->id]));
             return response('', 200);
         }
 
         $kieRequest = BotAdminKieRequest::create([
-            'bot_id' => $botId,
+            'bot_id' => $ownerBotId,
             'chat_id' => $chatId,
             'origin' => $origin,
             'bot_user_id' => $botUser?->id,
@@ -101,7 +102,7 @@ class BotAdminKieService
             'username' => $from['username'] ?? null,
             'alias_name' => $botUser?->alias_name,
             'email' => $botUser?->email,
-            'webhook_endpoint' => $request->segment(2),
+            'webhook_endpoint' => $webhookEndpoint,
             'status' => 'pending',
         ]);
 
@@ -119,12 +120,21 @@ class BotAdminKieService
         }
 
         if (!$kieRequest->bot_id) {
-            throw new \RuntimeException('ربات مشخص نیست؛ bot_id در درخواست خالی است.');
+            throw new \RuntimeException(trans('bot.admin_kie_bot_id_missing'));
         }
 
-        $bot = Bot::find($kieRequest->bot_id);
+        $bot = $this->resolveOwnerTargetBot($kieRequest->bot_id, $kieRequest->webhook_endpoint);
         if (!$bot) {
-            throw new \RuntimeException('ربات یافت نشد.');
+            Log::error('[AdminKie] Bot not found for confirm', [
+                'request_id' => $requestId,
+                'bot_id' => $kieRequest->bot_id,
+                'webhook_endpoint' => $kieRequest->webhook_endpoint,
+            ]);
+
+            throw new \RuntimeException(trans('bot.admin_kie_bot_not_found', [
+                'id' => $kieRequest->bot_id,
+                'request_id' => $requestId,
+            ]));
         }
 
         $chatId = (string) $kieRequest->chat_id;
@@ -267,5 +277,43 @@ class BotAdminKieService
         }
 
         return false;
+    }
+
+    /**
+     * مالکیت ادمین باید روی ربات اصلی (مثلاً book-library) ثبت شود، نه reader.
+     */
+    private function resolveOwnerTargetBot(?int $botId, ?string $webhookEndpoint): ?Bot
+    {
+        if (!$botId) {
+            return null;
+        }
+
+        $bot = Bot::find($botId);
+        $isReaderContext = $this->isBookLibraryReaderContext($bot, $webhookEndpoint);
+
+        if ($isReaderContext) {
+            $mainBotId = LibraryBotConfig::where('reader_bot_id', $botId)->value('bot_id');
+            if ($mainBotId) {
+                $mainBot = Bot::find($mainBotId);
+                if ($mainBot) {
+                    return $mainBot;
+                }
+            }
+        }
+
+        return $bot;
+    }
+
+    private function isBookLibraryReaderContext(?Bot $bot, ?string $webhookEndpoint): bool
+    {
+        if ($bot && $bot->endpoint_id === 'book-library-reader') {
+            return true;
+        }
+
+        if (!$webhookEndpoint) {
+            return false;
+        }
+
+        return str_contains($webhookEndpoint, 'book-library-reader');
     }
 }

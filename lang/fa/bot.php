@@ -642,11 +642,13 @@ return [
     'poem_bot_profile' => '👤 پروفایل شما:\n\n📚 تعداد اشعار: {poems_count}',
 
     'admin_kie_submitted' => '✅ درخواست شما ثبت شد و در حال بررسی است.',
-    'admin_kie_pending' => '⏳ درخواست قبلی شما هنوز در حال بررسی است.',
+    'admin_kie_pending' => "⏳ درخواست قبلی شما (ID: :id) هنوز در حال بررسی است.\n\nاگر ادمین هستید:\n/adminbot_confirm :id\n/adminbot_reject :id",
     'admin_kie_already_owner' => 'ℹ️ شما قبلاً ادمین این ربات هستید.',
     'admin_kie_approved_user' => '✅ دسترسی ادمین ربات برای شما فعال شد.',
     'admin_kie_confirmed_admin' => '✅ درخواست adminkie تایید شد. کاربر اکنون ادمین ربات است.',
     'admin_kie_rejected_admin' => '❌ درخواست adminkie رد شد.',
     'admin_kie_confirm_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_confirm [REQUEST_ID]",
     'admin_kie_reject_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_reject [REQUEST_ID]",
+    'admin_kie_bot_id_missing' => 'ربات مشخص نیست؛ bot_id در درخواست خالی است.',
+    'admin_kie_bot_not_found' => "❌ ربات با شناسه :id یافت نشد (Request ID: :request_id).\n\nاحتمالاً ربات حذف یا بازسازی شده.\nبرای آزاد کردن درخواست:\n/adminbot_reject :request_id\n\nسپس کاربر از ربات اصلی کتابخانه (نه reader) دوباره /adminkie بزند.",
 ];

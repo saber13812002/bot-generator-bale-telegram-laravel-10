@@ -405,11 +405,13 @@ return [
     'blog_no_content' => 'Please send a text or file.',
 
     'admin_kie_submitted' => '✅ Your request has been submitted and is under review.',
-    'admin_kie_pending' => '⏳ Your previous request is still pending.',
+    'admin_kie_pending' => "⏳ Your previous request (ID: :id) is still pending.\n\nAdmins:\n/adminbot_confirm :id\n/adminbot_reject :id",
     'admin_kie_already_owner' => 'ℹ️ You are already an admin of this bot.',
     'admin_kie_approved_user' => '✅ Bot admin access has been granted to you.',
     'admin_kie_confirmed_admin' => '✅ adminkie request confirmed. User is now bot admin.',
     'admin_kie_rejected_admin' => '❌ adminkie request rejected.',
     'admin_kie_confirm_usage' => "❌ Invalid command format.\n\nUsage: /adminbot_confirm [REQUEST_ID]",
     'admin_kie_reject_usage' => "❌ Invalid command format.\n\nUsage: /adminbot_reject [REQUEST_ID]",
+    'admin_kie_bot_id_missing' => 'Bot is not specified; bot_id is empty in the request.',
+    'admin_kie_bot_not_found' => "❌ Bot :id not found (Request ID: :request_id).\n\nThe bot may have been deleted or recreated.\nTo unblock:\n/adminbot_reject :request_id\n\nThen ask the user to send /adminkie from the main library bot (not the reader).",
 ];

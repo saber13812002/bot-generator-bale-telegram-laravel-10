@@ -4,6 +4,7 @@ namespace Tests\Unit\Services;
 
 use App\Models\Bot;
 use App\Models\BotAdminKieRequest;
+use App\Models\LibraryBotConfig;
 use App\Services\BotAdminKieNotificationService;
 use App\Services\BotAdminKieService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -72,5 +73,47 @@ class BotAdminKieServiceTest extends TestCase
     {
         $service = $this->makeService();
         $this->assertFalse($service->confirmRequest(99999, 1));
+    }
+
+    public function test_confirm_resolves_main_bot_from_reader_bot_id(): void
+    {
+        $notify = Mockery::mock(BotAdminKieNotificationService::class);
+        $service = new BotAdminKieService($notify);
+
+        $mainBot = Bot::create([
+            'endpoint_id' => 'book-library',
+            'bale_bot_name' => 'main_library',
+            'bale_bot_token' => '111:main',
+            'bale_bot_status' => 'Active',
+        ]);
+
+        $readerBot = Bot::create([
+            'endpoint_id' => 'book-library-reader',
+            'bale_bot_name' => 'reader_library',
+            'bale_bot_token' => '222:reader',
+            'bale_bot_status' => 'Active',
+        ]);
+
+        LibraryBotConfig::create([
+            'bot_id' => $mainBot->id,
+            'reader_bot_id' => $readerBot->id,
+        ]);
+
+        $request = BotAdminKieRequest::create([
+            'bot_id' => $readerBot->id,
+            'chat_id' => 2060645916,
+            'origin' => 'bale',
+            'webhook_endpoint' => 'webhook-book-library-reader',
+            'first_name' => 'Reza',
+            'status' => 'pending',
+        ]);
+
+        $this->assertTrue($service->confirmRequest($request->id, 485750575));
+
+        $mainBot->refresh();
+        $this->assertEquals('2060645916', (string) $mainBot->bale_owner_chat_id);
+
+        $request->refresh();
+        $this->assertEquals('confirmed', $request->status);
     }
 }
