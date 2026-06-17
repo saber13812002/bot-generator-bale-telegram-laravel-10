@@ -53,6 +53,16 @@ class BotAdminKieNotificationService
                     $name = $mainBot->bale_bot_name ?? $mainBot->telegram_bot_name ?? ('Bot #' . $mainBot->id);
                     $message .= "/adminbot_confirm {$id} {$mainBot->id} — {$name}\n";
                 }
+            } else {
+                $readerBots = Bot::where('endpoint_id', 'book-library-reader')->orderByDesc('id')->get();
+                if ($readerBots->isNotEmpty()) {
+                    $message .= "\n\n📖 تایید دستی (فقط reader — ربات اصلی book-library ثبت نشده):\n";
+                    foreach ($readerBots as $readerBot) {
+                        $name = $readerBot->bale_bot_name ?? $readerBot->telegram_bot_name ?? ('Bot #' . $readerBot->id);
+                        $message .= "/adminbot_confirm {$id} {$readerBot->id} — {$name}\n";
+                    }
+                    $message .= "\n💡 برای /manage بهتر است از Bot Mother ربات book-library (اصلی) بسازید.";
+                }
             }
         }
 

@@ -332,8 +332,16 @@ class BotAdminKieService
                         ->pluck('id'))
                     ->value('bot_id');
                 if ($mainBotId) {
-                    return Bot::find($mainBotId);
+                    $resolvedMain = Bot::find($mainBotId);
+                    if ($resolvedMain) {
+                        return $resolvedMain;
+                    }
                 }
+            }
+
+            // بدون ربات اصلی book-library: مالکیت روی خود reader
+            if ($bot && $bot->endpoint_id === 'book-library-reader') {
+                return $bot;
             }
         }
 
@@ -358,7 +366,20 @@ class BotAdminKieService
         if ($this->isBookLibraryReaderContext(null, $kieRequest->webhook_endpoint)) {
             $mainBotId = LibraryBotConfig::where('reader_bot_id', $kieRequest->bot_id)->value('bot_id');
             if ($mainBotId) {
-                return Bot::find($mainBotId);
+                $main = Bot::find($mainBotId);
+                if ($main) {
+                    return $main;
+                }
+            }
+
+            $token = $this->getStoredWebhookToken($kieRequest);
+            if ($token) {
+                $readerBot = Bot::where('bale_bot_token', $token)
+                    ->orWhere('telegram_bot_token', $token)
+                    ->first();
+                if ($readerBot) {
+                    return $readerBot;
+                }
             }
         }
 
