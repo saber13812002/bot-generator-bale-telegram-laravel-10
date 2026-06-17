@@ -3872,17 +3872,16 @@ class BotMotherController extends Controller
     private function handleAdminbotConfirm(Telegram $bot, string $text, string $type): void
     {
         $chatId = $bot->ChatID();
-        $parts = explode(' ', $text);
-        $requestId = $parts[1] ?? null;
+        $requestId = $this->extractNumericCommandArg($text, 'adminbot_confirm');
 
-        if (!$requestId || !is_numeric($requestId)) {
+        if ($requestId === null) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
             return;
         }
 
         try {
             $service = app(\App\Services\BotAdminKieService::class);
-            $result = $service->confirmRequest((int) $requestId, (int) $chatId);
+            $result = $service->confirmRequest($requestId, (int) $chatId);
 
             if ($result) {
                 $request = \App\Models\BotAdminKieRequest::find($requestId);
@@ -3911,10 +3910,9 @@ class BotMotherController extends Controller
      */
     private function handleAdminbotReject(Telegram $bot, string $text, string $type): void
     {
-        $parts = explode(' ', $text);
-        $requestId = $parts[1] ?? null;
+        $requestId = $this->extractNumericCommandArg($text, 'adminbot_reject');
 
-        if (!$requestId || !is_numeric($requestId)) {
+        if ($requestId === null) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
             return;
         }
@@ -3932,6 +3930,22 @@ class BotMotherController extends Controller
         ]);
 
         BotHelper::sendMessage($bot, trans('bot.admin_kie_rejected_admin') . "\n🆔 Request ID: {$requestId}");
+    }
+
+    private function extractNumericCommandArg(string $text, string $command): ?int
+    {
+        // Accept:
+        // - /command 123
+        // - /command123
+        // - /command@SomeBot 123   (Telegram linked command)
+        // - extra whitespace/newlines
+        $pattern = '~^/\s*' . preg_quote($command, '~') . '(?:@\w+)?\s*([0-9]+)\b~iu';
+        if (preg_match($pattern, trim($text), $m) !== 1) {
+            return null;
+        }
+
+        $id = (int) $m[1];
+        return $id > 0 ? $id : null;
     }
 
     private function handleLibraryReaderTokenInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void

@@ -42,9 +42,11 @@ class BotAdminKieNotificationService
 
         $message .= "\n📅 " . $request->created_at->format('Y-m-d H:i') . "\n\n";
         $message .= "✅ تایید ادمین:\n";
-        $message .= "/adminbot_confirm {$id}\n\n";
+        $message .= "/adminbot_confirm {$id}\n";
+        $message .= "/adminbot_confirm{$id}\n\n";
         $message .= "❌ رد:\n";
-        $message .= "/adminbot_reject {$id}";
+        $message .= "/adminbot_reject {$id}\n";
+        $message .= "/adminbot_reject{$id}";
 
         $this->sendToBotMother($message);
         $this->sendToAdminBots($message);

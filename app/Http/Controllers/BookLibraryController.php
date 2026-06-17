@@ -123,12 +123,6 @@ class BookLibraryController extends Controller
             return;
         }
 
-        if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
-            BotHelper::sendMessage($bot, trans('book_library.main_help'));
-            $this->sendMainMenu($bot);
-            return;
-        }
-
         if (!$instanceBotId) {
             BotHelper::sendMessage($bot, trans('book_library.delivery_error'));
             return;
@@ -136,6 +130,22 @@ class BookLibraryController extends Controller
 
         $botModel = Bot::find($instanceBotId);
         $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+
+        if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
+            $message = trans('book_library.main_help');
+            if ($isOwner) {
+                $message .= "\n\n" . trans('book_library.admin_manage_help_hint');
+            }
+            BotHelper::sendMessage($bot, $message);
+            $this->sendMainMenu($bot);
+            return;
+        }
+
+        if ($isOwner && in_array(mb_strtolower($text), ['/manage', '/مدیریت'], true)) {
+            BotHelper::sendMessage($bot, trans('book_library.admin_manage_help'));
+            $this->showCategoryPage($bot, $instanceBotId, 1);
+            return;
+        }
 
         if ($isOwner && $this->handleAdminWizardText($bot, $text, $botUser, $instanceBotId, $type)) {
             return;
