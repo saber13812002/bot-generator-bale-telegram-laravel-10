@@ -43,8 +43,20 @@ class BotAdminKieNotificationService
         $message .= "\n📅 " . $request->created_at->format('Y-m-d H:i') . "\n\n";
         $message .= "✅ تایید ادمین:\n";
         $message .= "/adminbot_confirm {$id}\n";
-        $message .= "/adminbot_confirm{$id}\n\n";
-        $message .= "❌ رد:\n";
+        $message .= "/adminbot_confirm{$id}\n";
+
+        if ($this->isBookLibraryReaderEndpoint($request->webhook_endpoint)) {
+            $mainBots = Bot::where('endpoint_id', 'book-library')->orderByDesc('id')->get();
+            if ($mainBots->isNotEmpty()) {
+                $message .= "\n\n📚 تایید دستی (ربات اصلی کتابخانه):\n";
+                foreach ($mainBots as $mainBot) {
+                    $name = $mainBot->bale_bot_name ?? $mainBot->telegram_bot_name ?? ('Bot #' . $mainBot->id);
+                    $message .= "/adminbot_confirm {$id} {$mainBot->id} — {$name}\n";
+                }
+            }
+        }
+
+        $message .= "\n❌ رد:\n";
         $message .= "/adminbot_reject {$id}\n";
         $message .= "/adminbot_reject{$id}";
 
@@ -100,5 +112,10 @@ class BotAdminKieNotificationService
                 Log::warning('[AdminKie] Failed to notify via Admin Bots', ['error' => $e->getMessage()]);
             }
         }
+    }
+
+    private function isBookLibraryReaderEndpoint(?string $endpoint): bool
+    {
+        return $endpoint && str_contains($endpoint, 'book-library-reader');
     }
 }

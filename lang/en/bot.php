@@ -410,8 +410,9 @@ return [
     'admin_kie_approved_user' => '✅ Bot admin access has been granted to you.',
     'admin_kie_confirmed_admin' => '✅ adminkie request confirmed. User is now bot admin.',
     'admin_kie_rejected_admin' => '❌ adminkie request rejected.',
-    'admin_kie_confirm_usage' => "❌ Invalid command format.\n\nUsage: /adminbot_confirm [REQUEST_ID]",
+    'admin_kie_confirm_usage' => "❌ Invalid command format.\n\nUsage:\n/adminbot_confirm [REQUEST_ID]\n/adminbot_confirm [REQUEST_ID] [MAIN_BOT_ID]",
     'admin_kie_reject_usage' => "❌ Invalid command format.\n\nUsage: /adminbot_reject [REQUEST_ID]",
     'admin_kie_bot_id_missing' => 'Bot is not specified; bot_id is empty in the request.',
-    'admin_kie_bot_not_found' => "❌ Bot :id not found (Request ID: :request_id).\n\nThe bot may have been deleted or recreated.\nTo unblock:\n/adminbot_reject :request_id\n\nThen ask the user to send /adminkie from the main library bot (not the reader).",
+    'admin_kie_bot_not_registered' => "❌ Bot is not registered or the webhook bot_id is stale.\n\nPlease send /adminkie from the main library bot (not the reader), or contact support.",
+    'admin_kie_bot_not_found' => "❌ Bot :id not found (Request ID: :request_id).\n\nManual confirm:\n/adminbot_confirm :request_id [MAIN_BOT_ID]\n\nOr reject:\n/adminbot_reject :request_id",
 ];

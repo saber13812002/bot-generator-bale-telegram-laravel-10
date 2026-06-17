@@ -71,12 +71,25 @@ class BotAdminKieService
 
         $rawBotId = $this->resolveBotId($request, $origin);
         $webhookEndpoint = $request->segment(2);
-        $ownerBot = $this->resolveOwnerTargetBot($rawBotId, $webhookEndpoint);
-        $ownerBotId = $ownerBot?->id ?? $rawBotId;
-        $from = $message['from'] ?? [];
-        $botUser = $this->findBotUser($chatId, $rawBotId, $origin);
+        $webhookToken = $request->input('token') ?? $request->query('token');
+        $ownerBot = $this->resolveOwnerTargetBot($rawBotId, $webhookEndpoint, $webhookToken);
 
-        if ($ownerBot && $this->isAlreadyBotOwner($ownerBot, $chatId, $origin)) {
+        if (!$ownerBot) {
+            Log::warning('[AdminKie] Cannot resolve owner bot for request', [
+                'raw_bot_id' => $rawBotId,
+                'webhook_endpoint' => $webhookEndpoint,
+                'has_token' => (bool) $webhookToken,
+                'chat_id' => $chatId,
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_bot_not_registered'));
+            return response('', 200);
+        }
+
+        $ownerBotId = $ownerBot->id;
+        $from = $message['from'] ?? [];
+        $botUser = $this->findBotUser($chatId, $rawBotId ?? $ownerBotId, $origin);
+
+        if ($this->isAlreadyBotOwner($ownerBot, $chatId, $origin)) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
             return response('', 200);
         }
@@ -84,7 +97,6 @@ class BotAdminKieService
         $pending = BotAdminKieRequest::pending()
             ->where('chat_id', $chatId)
             ->where('origin', $origin)
-            ->when($ownerBotId, fn ($q) => $q->where('bot_id', $ownerBotId))
             ->first();
 
         if ($pending) {
@@ -104,6 +116,7 @@ class BotAdminKieService
             'email' => $botUser?->email,
             'webhook_endpoint' => $webhookEndpoint,
             'status' => 'pending',
+            'notes' => $this->buildRequestNotes($rawBotId, $webhookToken),
         ]);
 
         $this->notificationService->notifySuperAdmins($kieRequest);
@@ -112,23 +125,20 @@ class BotAdminKieService
         return response('', 200);
     }
 
-    public function confirmRequest(int $requestId, int $approvedByChatId): bool
+    public function confirmRequest(int $requestId, int $approvedByChatId, ?int $overrideMainBotId = null): bool
     {
         $kieRequest = BotAdminKieRequest::pending()->find($requestId);
         if (!$kieRequest) {
             return false;
         }
 
-        if (!$kieRequest->bot_id) {
-            throw new \RuntimeException(trans('bot.admin_kie_bot_id_missing'));
-        }
-
-        $bot = $this->resolveOwnerTargetBot($kieRequest->bot_id, $kieRequest->webhook_endpoint);
+        $bot = $this->resolveBotForConfirm($kieRequest, $overrideMainBotId);
         if (!$bot) {
             Log::error('[AdminKie] Bot not found for confirm', [
                 'request_id' => $requestId,
                 'bot_id' => $kieRequest->bot_id,
                 'webhook_endpoint' => $kieRequest->webhook_endpoint,
+                'override_main_bot_id' => $overrideMainBotId,
             ]);
 
             throw new \RuntimeException(trans('bot.admin_kie_bot_not_found', [
@@ -154,6 +164,7 @@ class BotAdminKieService
             'status' => 'confirmed',
             'approved_by' => $approvedByChatId,
             'approved_at' => now(),
+            'bot_id' => $bot->id,
         ]);
 
         $this->notifyUserApproved($bot, $kieRequest);
@@ -196,7 +207,11 @@ class BotAdminKieService
 
     private function notifyUserApproved(Bot $bot, BotAdminKieRequest $kieRequest): void
     {
-        $token = $kieRequest->origin === 'bale' ? $bot->bale_bot_token : $bot->telegram_bot_token;
+        $token = $this->getStoredWebhookToken($kieRequest);
+        if (!$token) {
+            $token = $kieRequest->origin === 'bale' ? $bot->bale_bot_token : $bot->telegram_bot_token;
+        }
+
         if (!$token) {
             return;
         }
@@ -238,20 +253,21 @@ class BotAdminKieService
 
     private function resolveBotId(Request $request, string $origin): ?int
     {
+        $token = $request->input('token') ?? $request->query('token');
+        if ($token) {
+            $column = $origin === 'bale' ? 'bale_bot_token' : 'telegram_bot_token';
+            $bot = Bot::where($column, $token)->first();
+            if ($bot) {
+                return $bot->id;
+            }
+        }
+
         $botId = $request->input('bot_id') ?? $request->query('bot_id');
-        if ($botId) {
+        if ($botId && Bot::find((int) $botId)) {
             return (int) $botId;
         }
 
-        $token = $request->input('token') ?? $request->query('token');
-        if (!$token) {
-            return null;
-        }
-
-        $column = $origin === 'bale' ? 'bale_bot_token' : 'telegram_bot_token';
-        $bot = Bot::where($column, $token)->first();
-
-        return $bot?->id;
+        return null;
     }
 
     private function findBotUser(string $chatId, ?int $botId, string $origin): ?BotUsers
@@ -282,8 +298,17 @@ class BotAdminKieService
     /**
      * مالکیت ادمین باید روی ربات اصلی (مثلاً book-library) ثبت شود، نه reader.
      */
-    private function resolveOwnerTargetBot(?int $botId, ?string $webhookEndpoint): ?Bot
+    private function resolveOwnerTargetBot(?int $botId, ?string $webhookEndpoint, ?string $webhookToken = null): ?Bot
     {
+        if ($webhookToken) {
+            $tokenBot = Bot::where('bale_bot_token', $webhookToken)
+                ->orWhere('telegram_bot_token', $webhookToken)
+                ->first();
+            if ($tokenBot) {
+                $botId = $tokenBot->id;
+            }
+        }
+
         if (!$botId) {
             return null;
         }
@@ -299,9 +324,66 @@ class BotAdminKieService
                     return $mainBot;
                 }
             }
+
+            if ($webhookToken) {
+                $mainBotId = LibraryBotConfig::query()
+                    ->whereIn('reader_bot_id', Bot::where('bale_bot_token', $webhookToken)
+                        ->orWhere('telegram_bot_token', $webhookToken)
+                        ->pluck('id'))
+                    ->value('bot_id');
+                if ($mainBotId) {
+                    return Bot::find($mainBotId);
+                }
+            }
         }
 
         return $bot;
+    }
+
+    private function resolveBotForConfirm(BotAdminKieRequest $kieRequest, ?int $overrideMainBotId = null): ?Bot
+    {
+        if ($overrideMainBotId) {
+            $forced = Bot::find($overrideMainBotId);
+            if ($forced) {
+                return $forced;
+            }
+        }
+
+        $webhookToken = $this->getStoredWebhookToken($kieRequest);
+        $bot = $this->resolveOwnerTargetBot($kieRequest->bot_id, $kieRequest->webhook_endpoint, $webhookToken);
+        if ($bot) {
+            return $bot;
+        }
+
+        if ($this->isBookLibraryReaderContext(null, $kieRequest->webhook_endpoint)) {
+            $mainBotId = LibraryBotConfig::where('reader_bot_id', $kieRequest->bot_id)->value('bot_id');
+            if ($mainBotId) {
+                return Bot::find($mainBotId);
+            }
+        }
+
+        return null;
+    }
+
+    private function buildRequestNotes(?int $rawBotId, ?string $webhookToken): ?string
+    {
+        $meta = array_filter([
+            'raw_bot_id' => $rawBotId,
+            'webhook_token' => $webhookToken,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        return $meta === [] ? null : json_encode($meta, JSON_UNESCAPED_UNICODE);
+    }
+
+    private function getStoredWebhookToken(BotAdminKieRequest $request): ?string
+    {
+        if (!$request->notes) {
+            return null;
+        }
+
+        $meta = json_decode($request->notes, true);
+
+        return is_array($meta) ? ($meta['webhook_token'] ?? null) : null;
     }
 
     private function isBookLibraryReaderContext(?Bot $bot, ?string $webhookEndpoint): bool

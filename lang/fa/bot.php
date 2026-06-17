@@ -647,8 +647,9 @@ return [
     'admin_kie_approved_user' => '✅ دسترسی ادمین ربات برای شما فعال شد.',
     'admin_kie_confirmed_admin' => '✅ درخواست adminkie تایید شد. کاربر اکنون ادمین ربات است.',
     'admin_kie_rejected_admin' => '❌ درخواست adminkie رد شد.',
-    'admin_kie_confirm_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_confirm [REQUEST_ID]",
+    'admin_kie_confirm_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده:\n/adminbot_confirm [REQUEST_ID]\n/adminbot_confirm [REQUEST_ID] [MAIN_BOT_ID]",
     'admin_kie_reject_usage' => "❌ فرمت دستور اشتباه است.\n\nاستفاده: /adminbot_reject [REQUEST_ID]",
     'admin_kie_bot_id_missing' => 'ربات مشخص نیست؛ bot_id در درخواست خالی است.',
-    'admin_kie_bot_not_found' => "❌ ربات با شناسه :id یافت نشد (Request ID: :request_id).\n\nاحتمالاً ربات حذف یا بازسازی شده.\nبرای آزاد کردن درخواست:\n/adminbot_reject :request_id\n\nسپس کاربر از ربات اصلی کتابخانه (نه reader) دوباره /adminkie بزند.",
+    'admin_kie_bot_not_registered' => "❌ ربات در سیستم ثبت نشده یا شناسه webhook منقضی شده.\n\nلطفاً از ربات اصلی کتابخانه (نه reader) /adminkie بزنید یا با پشتیبانی تماس بگیرید.",
+    'admin_kie_bot_not_found' => "❌ ربات با شناسه :id یافت نشد (Request ID: :request_id).\n\nتایید دستی:\n/adminbot_confirm :request_id [MAIN_BOT_ID]\n\nیا رد:\n/adminbot_reject :request_id",
 ];

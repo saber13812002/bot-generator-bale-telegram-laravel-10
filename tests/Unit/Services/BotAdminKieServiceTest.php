@@ -116,4 +116,30 @@ class BotAdminKieServiceTest extends TestCase
         $request->refresh();
         $this->assertEquals('confirmed', $request->status);
     }
+
+    public function test_confirm_with_override_main_bot_id(): void
+    {
+        $notify = Mockery::mock(BotAdminKieNotificationService::class);
+        $service = new BotAdminKieService($notify);
+
+        $mainBot = Bot::create([
+            'endpoint_id' => 'book-library',
+            'bale_bot_name' => 'main_library',
+            'bale_bot_token' => '333:main',
+            'bale_bot_status' => 'Active',
+        ]);
+
+        $request = BotAdminKieRequest::create([
+            'bot_id' => 53,
+            'chat_id' => 2060645916,
+            'origin' => 'bale',
+            'webhook_endpoint' => 'webhook-book-library-reader',
+            'status' => 'pending',
+        ]);
+
+        $this->assertTrue($service->confirmRequest($request->id, 485750575, $mainBot->id));
+
+        $mainBot->refresh();
+        $this->assertEquals('2060645916', (string) $mainBot->bale_owner_chat_id);
+    }
 }
