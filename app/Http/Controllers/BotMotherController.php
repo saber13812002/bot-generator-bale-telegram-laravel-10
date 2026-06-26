@@ -73,8 +73,29 @@ class BotMotherController extends Controller
                 $bot = new Telegram($token);
             }
 
+            $update = $request->json()->all() ?? $request->all();
+
+            if (isset($update['callback_query'])) {
+                $chatId = $update['callback_query']['message']['chat']['id']
+                    ?? $update['callback_query']['from']['id']
+                    ?? null;
+            } elseif (isset($update['message'])) {
+                $chatId = $update['message']['chat']['id'] ?? null;
+            } elseif (isset($update['edited_message'])) {
+                $chatId = $update['edited_message']['chat']['id'] ?? null;
+            } else {
+                Log::info('🤖 [BotMother] Ignoring unsupported update type', [
+                    'update_keys' => array_keys($update),
+                ]);
+
+                return response('ok', 200);
+            }
+
+            if (!$chatId) {
+                return response('ok', 200);
+            }
+
             // چک کردن ادمین بودن کاربر
-            $chatId = $bot->ChatID();
             Log::info('🤖 [BotMother] Checking admin status', [
                 'chat_id' => $chatId,
                 'type' => $type,
@@ -100,9 +121,6 @@ class BotMotherController extends Controller
                 Log::info($e->getMessage());
             }
 
-            // Get raw update data for callback query handling
-            $update = $request->json()->all() ?? $request->all();
-            
             // Handle callback query (for inline buttons)
             if (isset($update['callback_query'])) {
                 $callbackQuery = $update['callback_query'];

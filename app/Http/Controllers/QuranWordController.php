@@ -934,7 +934,7 @@ class QuranWordController extends Controller
                         'chat_id' => $bot->ChatID(),
                         'type' => $type
                     ]);
-                } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
+                } elseif (str_starts_with(trim($bot->Text() ?? ''), '/') && ctype_digit(substr(trim($bot->Text()), 1))) {
                     Log::info('📝 [Command] Processing word command', [
                         'chat_id' => $bot->ChatID(),
                         'type' => $type,

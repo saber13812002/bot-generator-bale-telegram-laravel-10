@@ -715,8 +715,11 @@ class QuranHelper
     public static function getQuranWordById(mixed $botText): array
     {
         $idEndAya = 0;
-        $quranWords = QuranWord::query()->whereId($botText)->get()->first();
-        $word = $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
+        $quranWords = QuranWord::query()->whereId($botText)->first();
+        if (!$quranWords) {
+            return [0, 0];
+        }
+        $word = $quranWords['text'] ?: '(' . $quranWords['aya'] . ')';
         if ($quranWords['char_type'] == "end") {
             $idEndAya = 1;
         }
