@@ -124,6 +124,9 @@ Route::post('/webhook-rating-bot', [\App\Http\Controllers\RatingBotController::c
 // psychology test bot
 Route::post('/webhook-psychology-test', [\App\Http\Controllers\PsychologyTestBotController::class, 'index']);
 
+// rss admin bot (ثبت فید RSS برای ادمین)
+Route::post('/webhook-rss-admin', [\App\Http\Controllers\RssAdminBotController::class, 'index']);
+
 // list bot (فهرست با دکمه شیشه‌ای)
 Route::post('/webhook-list-bot', [\App\Http\Controllers\ListBotController::class, 'index']);
 

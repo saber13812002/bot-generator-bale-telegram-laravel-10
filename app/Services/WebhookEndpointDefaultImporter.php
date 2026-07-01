@@ -227,6 +227,15 @@ class WebhookEndpointDefaultImporter
                 'requires_token' => true,
                 'requires_language' => false,
             ],
+            [
+                'id' => 'webhook-rss-admin',
+                'name' => 'ربات ادمین RSS',
+                'route' => '/api/webhook-rss-admin',
+                'description' => 'ثبت سریع فید RSS با انتخاب تگ — فقط ادمین',
+                'requires_bot_mother_id' => false,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
         ];
     }
 
