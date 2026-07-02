@@ -44,6 +44,7 @@ use App\Interfaces\Services\ProService;
 use App\Interfaces\Services\ReverseGeocodingService;
 use App\Interfaces\Services\WeatherAlertService;
 use App\Interfaces\Services\WeatherComparisonService;
+use App\Interfaces\Services\MawkibFinderService;
 use App\Interfaces\Services\PoemBotService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
@@ -74,6 +75,7 @@ use App\Services\BookScanMissionServiceImpl;
 use App\Services\BookStatisticsServiceImpl;
 use App\Services\ContentServiceImpl;
 use App\Services\ContentSubmissionServiceImpl;
+use App\Services\MawkibFinderServiceImpl;
 use App\Services\BookLibraryDeliveryServiceImpl;
 use App\Services\BookLibraryPlanServiceImpl;
 use App\Services\BookLibraryServiceImpl;
@@ -157,6 +159,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
         
         $this->app->bind(PoemBotService::class, PoemBotServiceImpl::class);
+        $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
         
         $this->app->bind(BookPixelService::class, BookPixelServiceImpl::class);
         $this->app->bind(BookGamificationService::class, BookGamificationServiceImpl::class);

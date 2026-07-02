@@ -140,6 +140,8 @@ Route::post('/webhook-content-submission', [ContentSubmissionController::class, 
 
 Route::post('/api/webhook-poem-bot', [PoemBotController::class, 'webhook']);
 
+Route::post('/api/webhook-mawkib-finder', [\App\Http\Controllers\MawkibFinderController::class, 'webhook']);
+
 Route::post('/webhook-book-library', [BookLibraryController::class, 'webhook']);
 Route::post('/webhook-book-library-reader', [BookLibraryReaderController::class, 'webhook']);
 Route::get('/email/unsubscribe/{token}', [PrayerBotController::class, 'unsubscribe']);
