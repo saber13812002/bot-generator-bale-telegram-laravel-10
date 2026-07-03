@@ -50,6 +50,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::post('/webhook-bot-mother', [BotMotherController::class, 'botMotherWebhook']);
+Route::post('/api/webhook-bot-mother-v2', [\App\Http\Controllers\BotMotherWorkflowController::class, 'webhook']);
 Route::post('/webhook-bot-get-id', [BotMotherController::class, 'getIdMother']);
 
 Route::post('/webhook-bot-children', [BotMotherController::class, 'childrenMessageBroadcasterWebhook']);
