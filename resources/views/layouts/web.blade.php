@@ -7,9 +7,10 @@
 
     <title>@yield('title', config('app.name', 'Bots'))</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet"/>
+    <!-- Fonts - Local only (CDN blocked on server) -->
+    <style>
+        body { font-family: Tahoma, 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    </style>
 
     <!-- Styles -->
     @stack('styles')
