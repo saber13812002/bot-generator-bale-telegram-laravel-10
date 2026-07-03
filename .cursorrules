@@ -189,4 +189,56 @@ curl "https://tapi.bale.ai/bot312190186:O9PKOyN2rCI6tyDF4Y5FkuIqijQpM9Xc-3I/setW
 
 ---
 
-**آخرین به‌روزرسانی:** 2026-06-15
+---
+
+## 🛑 قوانین بحرانی Production (CRITICAL - هرگز نقض نکن)
+
+### 🔴 قانون آهنی: تست‌ها روی Production اجرا نشوند
+
+```
+🚨 **هشدار قرمز:** هیچگاه دستورات زیر را مستقیم روی سرور Production اجرا نکن:
+   php artisan test                    ← ❌ ممنوع
+   php artisan migrate:fresh           ← ❌ ممنوع
+   php artisan db:seed (بدون指定)      ← ❌ ممنوع
+   php artisan tinker                  ← ❌ ممنوع
+   composer install/update             ← ❌ ممنوع (مگر در deploys)
+```
+
+**✅ دستورات امن روی Production:**
+```bash
+php artisan migrate                    ← ✅ فقط migration های جدید
+php artisan cache:clear                ← ✅
+php artisan route:clear                ✅
+php artisan config:clear               ← ✅
+php artisan db:seed --class=SpecificSeeder  ← ✅ فقط اگر nullable/migration دارد
+```
+
+### 🔴 قانون آهنی: معماری Side-by-Side
+
+1. **هیچ وقت کد Production رو مستقیم عوض نکن** - همیشه مسیر جدید (v2, v3) اضافه کن
+2. **Route جدید = endpoint جدید** - قدیمی untouched باقی بماند
+3. **قابلیت revert** - هر تغییر باید یک دستور برگشت داشته باشد
+4. **تست واحد = امن** - تست‌ها از `RefreshDatabase` استفاده می‌کنند و روی دیتابیس مجزا اجرا می‌شوند، به Production آسیبی نمی‌زنند
+
+### 🔴 قانون آهنی: Migration
+
+1. **همیشه `ALTER TABLE ADD COLUMN` با `nullable`** - هیچوقت NOT NULL به جدول موجود اضافه نکن
+2. **چک کن ستون وجود دارد قبل از ADD:**
+   ```php
+   if (!Schema::hasColumn('table', 'column')) {
+       $table->json('column')->nullable();
+   }
+   ```
+3. **هر migration باید `down()` داشته باشد**
+
+### 🔴 قانون آهنی: قابلیت برگشت (Rollback)
+
+هر feature جدید باید:
+- [ ] مسیر قدیمی untouched باشد
+- [ ] یک endpoint مجزا داشته باشد
+- [ ] با حذف route قابل برگشت باشد
+- [ ] مستندات rollback داشته باشد
+
+---
+
+**آخرین به‌روزرسانی:** 2026-07-03

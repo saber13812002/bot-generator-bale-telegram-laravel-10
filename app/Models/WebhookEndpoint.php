@@ -42,6 +42,7 @@ class WebhookEndpoint extends Model
         'supports_multiple_languages' => 'boolean',
         'is_active' => 'boolean',
         'features' => 'array',
+        'wizard_steps' => 'array',
     ];
 
     /**

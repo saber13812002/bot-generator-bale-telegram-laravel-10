@@ -10,11 +10,16 @@ class BotCreationWizardStepsSeeder extends Seeder
 {
     /**
      * Define wizard_steps for endpoints that require extra configuration.
+     * This seeder also creates missing endpoint records if they don't exist.
      */
     public function run(): void
     {
-        // Presenter Bot - requires content items
-        $this->updateWizardSteps('presenter-bot', [
+        // ===== Presenter Bot =====
+        $this->updateWizardStepsOrCreate('presenter-bot', [
+            'name' => 'Presenter Bot',
+            'route' => 'api/webhook-presenter-bot',
+            'description' => 'ربات ارائه محتوا به ترتیب - متن، عکس، ویدیو',
+        ], [
             [
                 'id' => 'presenter_content',
                 'type' => 'collection',
@@ -28,8 +33,12 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
-        // Rating Bot - requires rating items
-        $this->updateWizardSteps('rating-bot', [
+        // ===== Rating Bot =====
+        $this->updateWizardStepsOrCreate('rating-bot', [
+            'name' => 'Rating Bot',
+            'route' => 'api/webhook-rating-bot',
+            'description' => 'ربات امتیازدهی و نظر سنجی',
+        ], [
             [
                 'id' => 'rating_content',
                 'type' => 'collection',
@@ -43,8 +52,12 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
-        // Psychology Test Bot - requires questions and categories
-        $this->updateWizardSteps('psychology-test', [
+        // ===== Psychology Test Bot =====
+        $this->updateWizardStepsOrCreate('psychology-test', [
+            'name' => 'Psychology Test Bot',
+            'route' => 'api/webhook-psychology-test',
+            'description' => 'ربات تست روانشناسی با سوالات دسته‌بندی شده',
+        ], [
             [
                 'id' => 'psychology_questions',
                 'type' => 'complex_wizard',
@@ -76,8 +89,12 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
-        // Content Submission Bot - requires channel/group configuration
-        $this->updateWizardSteps('content-submission', [
+        // ===== Content Submission Bot =====
+        $this->updateWizardStepsOrCreate('content-submission', [
+            'name' => 'محتوای متنی / عکس / فیلم',
+            'route' => 'api/webhook-content-submission',
+            'description' => 'ربات دریافت محتوا (متن/عکس/فیلم)، تایید در گروه با ریپلای «۱»، انتشار در کانال',
+        ], [
             [
                 'id' => 'content_channel_confirm',
                 'type' => 'confirm',
@@ -138,8 +155,13 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
-        // Book Library - requires reader token (optional)
-        $this->updateWizardSteps('book-library', [
+        // ===== Book Library =====
+        $this->updateWizardStepsOrCreate('book-library', [
+            'name' => 'Smart Book Library',
+            'route' => 'api/webhook-book-library',
+            'description' => 'AI Book Coach - discover books, audio summaries, plan upgrades',
+            'supports_multiple_languages' => true,
+        ], [
             [
                 'id' => 'reader_token',
                 'type' => 'text',
@@ -152,8 +174,13 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
-        // Weather Bot - only Persian and English for language
-        $this->updateWizardSteps('weather-bot', [
+        // ===== Weather Bot =====
+        $this->updateWizardStepsOrCreate('weather-bot', [
+            'name' => 'Weather Bot',
+            'route' => 'api/webhook-weather',
+            'description' => 'پیش‌بینی آب و هوا با هشدارهای خودکار',
+            'requires_language' => true,
+        ], [
             [
                 'id' => 'language',
                 'type' => 'select',
@@ -168,24 +195,103 @@ class BotCreationWizardStepsSeeder extends Seeder
             ],
         ]);
 
+        // ===== Quran Bot =====
+        $this->updateWizardStepsOrCreate('quran-bot', [
+            'name' => 'Quran Bot',
+            'route' => 'api/webhook-quran-word',
+            'description' => 'قرآن کریم با امکانات جستجو، حفظ و ترجمه',
+            'requires_language' => true,
+            'supports_multiple_languages' => true,
+        ], []);
+
+        // ===== Hadith Bot =====
+        $this->updateWizardStepsOrCreate('hadith-bot', [
+            'name' => 'Hadith Bot',
+            'route' => 'api/webhook-hadith',
+            'description' => 'جستجو در کتب حدیث شیعه',
+        ], []);
+
+        // ===== Nahj Bot =====
+        $this->updateWizardStepsOrCreate('nahj-bot', [
+            'name' => 'Nahj al-Balagha Bot',
+            'route' => 'api/webhook-nahj',
+            'description' => 'جستجو در نهج البلاغه',
+        ], []);
+
+        // ===== Prayer Bot =====
+        $this->updateWizardStepsOrCreate('prayer-bot', [
+            'name' => 'Prayer Qadha Bot',
+            'route' => 'api/webhook-prayer-bot',
+            'description' => 'ثبت و پیگیری نماز قضا',
+            'supports_multiple_languages' => true,
+        ], []);
+
+        // ===== Mission Bot =====
+        $this->updateWizardStepsOrCreate('mission-bot', [
+            'name' => 'Mission Bot',
+            'route' => 'api/webhook-mission-bot',
+            'description' => 'مدیریت ماموریت‌ها',
+        ], []);
+
+        // ===== Personnel Registration =====
+        $this->updateWizardStepsOrCreate('personnel-registration', [
+            'name' => 'Personnel Registration Bot',
+            'route' => 'api/webhook-personnel-registration',
+            'description' => 'ثبت‌نام پرسنل',
+        ], []);
+
+        // ===== Book Library Reader =====
+        $this->updateWizardStepsOrCreate('book-library-reader', [
+            'name' => 'Book Library Reader',
+            'route' => 'api/webhook-book-library-reader',
+            'description' => 'Dedicated reader bot for book audio/PDF delivery',
+        ], []);
+
+        // ===== Poem Bot =====
+        $this->updateWizardStepsOrCreate('poem-bot', [
+            'name' => 'Poem Bot',
+            'route' => 'api/webhook-poem-bot',
+            'description' => 'ربات شعر',
+        ], []);
+
         Log::info('✅ Bot Creation Wizard Steps seeded successfully');
     }
 
     /**
-     * Update wizard_steps for an endpoint.
+     * Update wizard_steps for an endpoint. If the endpoint doesn't exist, create it first.
      */
-    private function updateWizardSteps(string $endpointId, array $extraSteps): void
+    private function updateWizardStepsOrCreate(string $endpointId, array $endpointDefaults, array $extraSteps): void
     {
         $endpoint = WebhookEndpoint::where('endpoint_id', $endpointId)->first();
 
         if (!$endpoint) {
-            Log::warning("Endpoint not found: {$endpointId}");
-            return;
+            // Create the endpoint record
+            $endpoint = WebhookEndpoint::create(array_merge([
+                'endpoint_id' => $endpointId,
+                'name' => $endpointDefaults['name'] ?? $endpointId,
+                'route' => $endpointDefaults['route'] ?? 'api/webhook-' . $endpointId,
+                'description' => $endpointDefaults['description'] ?? '',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => $endpointDefaults['requires_language'] ?? false,
+                'supports_multiple_languages' => $endpointDefaults['supports_multiple_languages'] ?? false,
+                'is_active' => true,
+            ]));
+
+            $this->command->info("🆕 Endpoint created: {$endpointId}");
         }
 
-        $endpoint->wizard_steps = $extraSteps;
-        $endpoint->save();
-
-        $this->command->info("✅ Wizard steps updated for: {$endpointId}");
+        if (!empty($extraSteps)) {
+            $endpoint->wizard_steps = $extraSteps;
+            $endpoint->save();
+            $this->command->info("✅ Wizard steps updated for: {$endpointId}");
+        } else {
+            // Ensure wizard_steps is null/empty for endpoints without extra steps
+            if ($endpoint->wizard_steps !== null) {
+                $endpoint->wizard_steps = null;
+                $endpoint->save();
+            }
+            $this->command->info("ℹ️  No wizard steps needed for: {$endpointId}");
+        }
     }
 }
