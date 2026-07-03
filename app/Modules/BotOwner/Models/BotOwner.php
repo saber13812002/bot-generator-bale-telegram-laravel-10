@@ -10,6 +10,11 @@ class BotOwner extends Model
 {
     use HasFactory;
 
+    protected static function newFactory()
+    {
+        return \Database\Factories\BotOwnerFactory::new();
+    }
+
     protected $fillable = [
         'phone',
         'name',
