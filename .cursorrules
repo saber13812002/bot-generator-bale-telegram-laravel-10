@@ -220,6 +220,17 @@ php artisan db:seed --class=SpecificSeeder  ← ✅ فقط اگر nullable/migra
 3. **قابلیت revert** - هر تغییر باید یک دستور برگشت داشته باشد
 4. **تست واحد = امن** - تست‌ها از `RefreshDatabase` استفاده می‌کنند و روی دیتابیس مجزا اجرا می‌شوند، به Production آسیبی نمی‌زنند
 
+### 🔴 قانون آهنی: تست‌ها فقط SQLite
+
+1. **همه تست‌ها روی SQLite :memory: اجرا شوند** - هرگز MySQL واقعی را لمس نکنند
+2. `phpunit.xml` همیشه این دو خط را داشته باشد:
+   ```xml
+   <env name="DB_CONNECTION" value="sqlite"/>
+   <env name="DB_DATABASE" value=":memory:"/>
+   ```
+3. **هر تست جدید** که از `RefreshDatabase` استفاده می‌کند، حتماً با `php artisan test` چک شود که روی MySQL نزند
+4. اگر دیدی `DB_CONNECTION` در `phpunit.xml` کامنت است، **بلافاصله آنکامنت کن**
+
 ### 🔴 قانون آهنی: Migration
 
 1. **همیشه `ALTER TABLE ADD COLUMN` با `nullable`** - هیچوقت NOT NULL به جدول موجود اضافه نکن
