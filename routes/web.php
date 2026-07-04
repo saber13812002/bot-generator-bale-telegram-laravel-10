@@ -65,6 +65,16 @@ Route::get('/admin/bot-owner-pro/{id}/approve', [\App\Http\Controllers\Admin\Bot
 Route::get('/admin/bot-owner-pro/{id}/reject', [\App\Http\Controllers\Admin\BotOwnerProController::class, 'reject'])
     ->name('admin.bot-owner-pro.reject');
 
-// Idea Submission
-Route::get('/idea', [\App\Http\Controllers\IdeaController::class, 'create'])->name('idea.create');
-Route::post('/idea', [\App\Http\Controllers\IdeaController::class, 'store'])->name('idea.store');
+// Idea / Ticket System
+Route::prefix('idea')->name('idea.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\IdeaController::class, 'create'])->name('create');
+    Route::post('/', [\App\Http\Controllers\IdeaController::class, 'store'])->name('store');
+    Route::get('/login', [\App\Http\Controllers\IdeaController::class, 'login'])->name('login');
+    Route::post('/otp-send', [\App\Http\Controllers\IdeaController::class, 'sendOtp'])->name('otp.send');
+    Route::post('/otp-verify', [\App\Http\Controllers\IdeaController::class, 'verifyOtp'])->name('otp.verify');
+    Route::get('/dashboard', [\App\Http\Controllers\IdeaController::class, 'dashboard'])->name('dashboard');
+    Route::post('/logout', [\App\Http\Controllers\IdeaController::class, 'logout'])->name('logout');
+    Route::get('/{trackingCode}', [\App\Http\Controllers\IdeaController::class, 'show'])->name('show');
+    Route::post('/{trackingCode}/message', [\App\Http\Controllers\IdeaController::class, 'message'])->name('message');
+    Route::get('/{trackingCode}/verify-email', [\App\Http\Controllers\IdeaController::class, 'verifyEmail'])->name('verify.email');
+});

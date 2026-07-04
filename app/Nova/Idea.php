@@ -4,11 +4,13 @@ namespace App\Nova;
 
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\Badge;
+use Laravel\Nova\Fields\Boolean;
+use Laravel\Nova\Fields\DateTime;
+use Laravel\Nova\Fields\HasMany;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Select;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Textarea;
-use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Http\Requests\NovaRequest;
 
 class Idea extends Resource
@@ -18,7 +20,7 @@ class Idea extends Resource
     public static $title = 'title';
 
     public static $search = [
-        'id', 'title', 'description', 'submitter_name',
+        'id', 'tracking_code', 'title', 'description', 'submitter_name', 'phone', 'email',
     ];
 
     public function fields(NovaRequest $request): array
@@ -26,10 +28,14 @@ class Idea extends Resource
         return [
             ID::make()->sortable(),
 
+            Text::make('Tracking Code', 'tracking_code')
+                ->sortable()
+                ->help('کد رهگیری'),
+
             Text::make('Endpoint', 'endpoint_id')
                 ->sortable()
                 ->hideFromIndex()
-                ->help('رباط مرتبط با ایده'),
+                ->help('رباط مرتبط'),
 
             Text::make('Title', 'title')
                 ->sortable()
@@ -39,13 +45,12 @@ class Idea extends Resource
                 ->alwaysShow()
                 ->rules('required'),
 
-            Text::make('Submitter', 'submitter_name')
-                ->hideFromIndex()
-                ->nullable(),
+            Text::make('Submitter', 'submitter_name')->hideFromIndex()->nullable(),
+            Text::make('Contact', 'submitter_contact')->hideFromIndex()->nullable(),
 
-            Text::make('Contact', 'submitter_contact')
-                ->hideFromIndex()
-                ->nullable(),
+            Text::make('Phone', 'phone')->sortable()->copyable()->help('شماره تماس کاربر'),
+            Text::make('Email', 'email')->copyable(),
+            Boolean::make('Email Verified', 'email_verified_at')->onlyOnDetail(),
 
             Badge::make('Status', 'status')
                 ->map([
@@ -59,11 +64,11 @@ class Idea extends Resource
 
             Select::make('Status', 'status')
                 ->options([
-                    'pending' => 'Pending',
-                    'reviewing' => 'Reviewing',
-                    'approved' => 'Approved',
-                    'rejected' => 'Rejected',
-                    'done' => 'Done',
+                    'pending' => '🟡 Pending',
+                    'reviewing' => '🔵 Reviewing',
+                    'approved' => '🟢 Approved',
+                    'rejected' => '🔴 Rejected',
+                    'done' => '✅ Done',
                 ])
                 ->onlyOnForms()
                 ->default('pending'),
@@ -71,14 +76,12 @@ class Idea extends Resource
             Textarea::make('Admin Note', 'admin_note')
                 ->alwaysShow()
                 ->nullable()
-                ->help('یادداشت داخلی ادمین'),
+                ->help('یادداشت داخلی'),
 
-            DateTime::make('Created At', 'created_at')
-                ->onlyOnDetail(),
+            HasMany::make('Messages', 'messages', IdeaMessage::class),
 
-            DateTime::make('Reviewed At', 'reviewed_at')
-                ->onlyOnDetail()
-                ->nullable(),
+            DateTime::make('Created', 'created_at')->onlyOnDetail(),
+            DateTime::make('Reviewed At', 'reviewed_at')->onlyOnDetail()->nullable(),
         ];
     }
 
