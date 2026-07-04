@@ -6,9 +6,11 @@ use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Fields\Select;
+use Laravel\Nova\Fields\Badge;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use App\Models\WebhookEndpoint;
 use App\Models\Language;
+use App\Models\BotLog;
 
 class Bot extends Resource
 {
@@ -143,6 +145,67 @@ class Bot extends Resource
             Text::make('Supported Message Template', 'supported_message_template')
                 ->sortable()
                 ->hideFromIndex(),
+
+            // ===== Activity Monitoring Fields =====
+            Text::make('Last Activity', function () {
+                return $this->last_activity_at
+                    ? $this->last_activity_at->diffForHumans()
+                    : 'No activity recorded';
+            })->sortable()->help('آخرین فعالیت ثبت شده'),
+
+            Badge::make('Health', function () {
+                $botId = $this->id;
+                $botType = $this->type ?? 'telegram';
+
+                // بر اساس bot_id + origin در bot_logs جستجو می‌کنیم
+                $latestLog = BotLog::where('bot_id', $botId)
+                    ->where('origin', $botType)
+                    ->latest()
+                    ->first();
+
+                if (!$latestLog) {
+                    return 'untested';
+                }
+
+                $hoursSinceLastActivity = $latestLog->created_at->diffInHours();
+
+                if ($hoursSinceLastActivity <= 24) {
+                    return 'healthy';
+                } elseif ($hoursSinceLastActivity <= 72) {
+                    return 'warning';
+                } else {
+                    return 'critical';
+                }
+            })->map([
+                'healthy' => 'success',
+                'warning' => 'warning',
+                'critical' => 'danger',
+                'untested' => 'info',
+            ])->sortable(),
+
+            Text::make('Last Log', function () {
+                $latestLog = BotLog::where('bot_id', $this->id)
+                    ->where('origin', $this->type ?? 'telegram')
+                    ->latest()
+                    ->first();
+
+                if (!$latestLog) {
+                    return '—';
+                }
+
+                $time = $latestLog->created_at->diffForHumans();
+                $type = $latestLog->is_command ? 'command' : 'message';
+                return "{$time} ({$type})";
+            })->hideFromIndex(),
+
+            Text::make('24h Activity', function () {
+                $count = BotLog::where('bot_id', $this->id)
+                    ->where('origin', $this->type ?? 'telegram')
+                    ->where('created_at', '>=', now()->subDay())
+                    ->count();
+
+                return $count > 0 ? "{$count} requests" : '0 requests';
+            })->sortable()->help('تعداد درخواست در ۲۴ ساعت'),
 
         ];
     }
