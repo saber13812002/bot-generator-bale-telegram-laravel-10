@@ -549,7 +549,23 @@ class BotDetailsCompleteSeeder extends Seeder
             'image_path' => 'images/bots/book-pixel-approval.png',
         ]);
 
-        Log::info('✅ All 34 bot details seeded successfully');
+        // ==========================================
+        // webhook-list-bot
+        // ==========================================
+        $this->updateDetails('webhook-list-bot', [
+            'icon_emoji' => '📋',
+            'detailed_description' => "Tree menu bot with inline buttons - unlimited depth menu with links to bots, channels, and websites.",
+            'features' => [
+                'Tree menu' => 'Unlimited depth',
+                'Inline buttons' => 'Interactive navigation',
+                'External links' => 'Bot/channel/website',
+                'Easy format' => 'Dash-based hierarchy',
+            ],
+            'usage_instructions' => "1. After creation, enter menu structure\n2. Format: - Title, then -- Sub: link\n3. User /start to see menu\n4. Click buttons to navigate",
+            'image_path' => 'images/bots/list-bot.png',
+        ]);
+
+        Log::info('✅ All 34+ bot details seeded successfully');
     }
 
     private function updateDetails(string $endpointId, array $data): void

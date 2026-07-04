@@ -64,3 +64,7 @@ Route::get('/admin/bot-owner-pro/{id}/approve', [\App\Http\Controllers\Admin\Bot
     ->name('admin.bot-owner-pro.approve');
 Route::get('/admin/bot-owner-pro/{id}/reject', [\App\Http\Controllers\Admin\BotOwnerProController::class, 'reject'])
     ->name('admin.bot-owner-pro.reject');
+
+// Idea Submission
+Route::get('/idea', [\App\Http\Controllers\IdeaController::class, 'create'])->name('idea.create');
+Route::post('/idea', [\App\Http\Controllers\IdeaController::class, 'store'])->name('idea.store');

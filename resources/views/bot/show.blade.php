@@ -147,6 +147,10 @@
                             + ساختن این ربات
                         </a>
                         @endif
+                        <a href="{{ route('idea.create', ['bot' => $bot->endpoint_id]) }}"
+                           class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
+                            💡 ارسال ایده
+                        </a>
                     </div>
                 </div>
 
