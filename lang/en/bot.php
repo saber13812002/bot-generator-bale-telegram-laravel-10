@@ -438,7 +438,11 @@ return [
 
     // Mawkib Finder Bot
     'mawkib_finder_welcome' => '🕌 Welcome to Mawkib Finder!',
-    'mawkib_finder_mobile_not_verified' => '⚠️ Your mobile number is not verified yet.\n\nPlease verify your mobile via Bale OTP first, then send /start again.',
+    'mawkib_finder_mobile_not_verified' => '⚠️ Your mobile number is not verified yet.',
+    'mawkib_finder_ask_phone' => '📱 Please enter your mobile number:\n\nExample: 09123456789',
+    'mawkib_finder_invalid_phone' => '❌ Invalid phone number. Please enter a valid 11-digit number.',
+    'mawkib_finder_otp_sent' => '✅ OTP code sent to your number.\n\nPlease enter the code:',
+    'mawkib_finder_phone_verified' => '✅ Your mobile number has been verified.',
     'mawkib_finder_ask_national_code' => 'Please enter your national ID (10 digits):',
     'mawkib_finder_invalid_national_code' => '❌ Invalid national ID. Please enter a valid 10-digit national ID.',
     'mawkib_finder_identity_not_found' => "❌ Mobile :mobile and national ID :national_code are not registered in the Hawzah system.\n\nPlease try with another mobile number and send /start again.",

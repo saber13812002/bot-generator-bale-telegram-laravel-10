@@ -675,7 +675,11 @@ return [
 
     // Mawkib Finder Bot
     'mawkib_finder_welcome' => '🕌 به ربات موکب‌یاب خوش آمدید!',
-    'mawkib_finder_mobile_not_verified' => '⚠️ شماره موبایل شما هنوز احراز هویت نشده است.\n\nلطفاً ابتدا از طریق ربات بله، شماره موبایل خود را با کد OTP تأیید کنید و سپس دوباره /start بزنید.',
+    'mawkib_finder_mobile_not_verified' => '⚠️ شماره موبایل شما هنوز احراز هویت نشده است.',
+    'mawkib_finder_ask_phone' => '📱 لطفاً شماره موبایل خود را وارد کنید:\n\nمثال: 09123456789',
+    'mawkib_finder_invalid_phone' => '❌ شماره موبایل نامعتبر است. لطفاً شماره معتبر ۱۱ رقمی وارد کنید.',
+    'mawkib_finder_otp_sent' => '✅ کد تأیید به شماره شما ارسال شد.\n\nلطفاً کد دریافتی را وارد کنید:',
+    'mawkib_finder_phone_verified' => '✅ شماره موبایل شما با موفقیت تأیید شد.',
     'mawkib_finder_ask_national_code' => 'لطفاً کد ملی خود را وارد کنید (۱۰ رقم):',
     'mawkib_finder_invalid_national_code' => '❌ کد ملی نامعتبر است. لطفاً کد ملی ۱۰ رقمی صحیح را وارد کنید.',
     'mawkib_finder_identity_not_found' => "❌ شماره موبایل :mobile و کد ملی :national_code در سامانه حوزه علمیه ثبت نشده است.\n\nلطفاً با شماره موبایل دیگری وارد شوید و دوباره /start بزنید.",

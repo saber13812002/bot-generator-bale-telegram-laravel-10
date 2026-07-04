@@ -19,6 +19,8 @@ use Telegram;
 class MawkibFinderController extends Controller
 {
     private const STEP_START = 'start';
+    private const STEP_WAITING_PHONE = 'waiting_phone';
+    private const STEP_WAITING_OTP = 'waiting_otp';
     private const STEP_WAITING_NATIONAL_CODE = 'waiting_national_code';
     private const STEP_WAITING_PROVINCE = 'waiting_province';
     private const STEP_WAITING_ENTRY_DATE = 'waiting_entry_date';
@@ -27,6 +29,7 @@ class MawkibFinderController extends Controller
     public function __construct(
         private MawkibFinderService $mawkibFinderService,
         private BotOwnerRepositoryInterface $botOwnerRepository,
+        private \App\Modules\BotOwner\Contracts\BotOwnerAuthServiceInterface $authService,
     ) {}
 
     public function webhook(Request $request)
@@ -112,6 +115,16 @@ class MawkibFinderController extends Controller
             return;
         }
 
+        if ($step === self::STEP_WAITING_PHONE) {
+            $this->handlePhoneInput($bot, $botUser, $text, $type, $chatId);
+            return;
+        }
+
+        if ($step === self::STEP_WAITING_OTP) {
+            $this->handleOtpInput($bot, $botUser, $text, $type, $chatId);
+            return;
+        }
+
         if ($step === self::STEP_WAITING_NATIONAL_CODE) {
             $this->handleNationalCode($bot, $botUser, $text, $type, $chatId);
             return;
@@ -157,7 +170,9 @@ class MawkibFinderController extends Controller
         $phone = $this->resolveVerifiedPhone($botUser, (string) $chatId, $type);
 
         if (!$phone) {
-            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_mobile_not_verified'));
+            // Ask for phone number to send OTP
+            $botUser->settings(['mawkib_step' => self::STEP_WAITING_PHONE]);
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_phone'));
             return;
         }
 
@@ -171,6 +186,56 @@ class MawkibFinderController extends Controller
         ]);
 
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_welcome'));
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_national_code'));
+    }
+
+    private function handlePhoneInput(Telegram $bot, BotUsers $botUser, string $text, string $type, int $chatId): void
+    {
+        $phone = PhoneNormalizer::normalize($text);
+        if (!$phone) {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_invalid_phone'));
+            return;
+        }
+
+        // Send OTP via BaleOtpService
+        $result = $this->authService->sendOtp($phone);
+
+        if (!$result['success']) {
+            BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
+            return;
+        }
+
+        $botUser->settings([
+            'mawkib_step' => self::STEP_WAITING_OTP,
+            'mawkib_otp_phone' => $phone,
+        ]);
+
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_otp_sent'));
+    }
+
+    private function handleOtpInput(Telegram $bot, BotUsers $botUser, string $text, string $type, int $chatId): void
+    {
+        $phone = $botUser->setting('mawkib_otp_phone');
+        if (!$phone) {
+            $botUser->settings(['mawkib_step' => self::STEP_START]);
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_error'));
+            return;
+        }
+
+        $result = $this->authService->verifyOtp($phone, trim($text));
+
+        if (!$result['success']) {
+            BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
+            return;
+        }
+
+        // OTP verified - store phone and proceed
+        $botUser->settings([
+            'mawkib_step' => self::STEP_WAITING_NATIONAL_CODE,
+            'mawkib_verified_phone' => $phone,
+        ]);
+
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_phone_verified'));
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_national_code'));
     }
 
