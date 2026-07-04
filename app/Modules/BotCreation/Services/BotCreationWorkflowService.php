@@ -377,7 +377,54 @@ class BotCreationWorkflowService implements BotCreationWorkflowInterface
         // Sort by order
         usort($merged, fn ($a, $b) => ($a['order'] ?? 999) - ($b['order'] ?? 999));
 
+        // Resolve options providers for all steps
+        $merged = array_map(fn (array $step) => $this->resolveStepOptions($step), $merged);
+
         return $merged;
+    }
+
+    /**
+     * Resolve options providers for a step definition.
+     */
+    private function resolveStepOptions(array $step): array
+    {
+        // Resolve options_provider
+        if (!empty($step['options_provider'])) {
+            $step['options'] = $this->resolveOptionsProvider($step['options_provider']);
+            unset($step['options_provider']);
+        }
+
+        return $step;
+    }
+
+    /**
+     * Resolve an options provider string to actual options array.
+     */
+    private function resolveOptionsProvider(string $provider): array
+    {
+        return match ($provider) {
+            'language_list' => [
+                ['value' => 'fa', 'label_fa' => '🇮🇷 فارسی', 'label_en' => 'Persian'],
+                ['value' => 'en', 'label_fa' => '🇬🇧 English', 'label_en' => 'English'],
+                ['value' => 'ar-IQ', 'label_fa' => '🇮🇶 العربية', 'label_en' => 'Arabic'],
+                ['value' => 'az', 'label_fa' => '🇦🇿 Azərbaycan', 'label_en' => 'Azerbaijani'],
+                ['value' => 'bs', 'label_fa' => '🇧🇦 Bosanski', 'label_en' => 'Bosnian'],
+                ['value' => 'de-DE', 'label_fa' => '🇩🇪 Deutsch', 'label_en' => 'German'],
+                ['value' => 'es', 'label_fa' => '🇪🇸 Español', 'label_en' => 'Spanish'],
+                ['value' => 'fr', 'label_fa' => '🇫🇷 Français', 'label_en' => 'French'],
+                ['value' => 'he', 'label_fa' => '🇮🇱 עברית', 'label_en' => 'Hebrew'],
+                ['value' => 'it', 'label_fa' => '🇮🇹 Italiano', 'label_en' => 'Italian'],
+                ['value' => 'id', 'label_fa' => '🇮🇩 Indonesia', 'label_en' => 'Indonesian'],
+                ['value' => 'sw', 'label_fa' => '🇰🇪 Kiswahili', 'label_en' => 'Swahili'],
+                ['value' => 'pt-BR', 'label_fa' => '🇧🇷 Português (BR)', 'label_en' => 'Portuguese (BR)'],
+                ['value' => 'pt-PT', 'label_fa' => '🇵🇹 Português (PT)', 'label_en' => 'Portuguese (PT)'],
+                ['value' => 'ru', 'label_fa' => '🇷🇺 Русский', 'label_en' => 'Russian'],
+                ['value' => 'tr', 'label_fa' => '🇹🇷 Türkçe', 'label_en' => 'Turkish'],
+                ['value' => 'ur', 'label_fa' => '🇵🇰 اردو', 'label_en' => 'Urdu'],
+                ['value' => 'zh-CN', 'label_fa' => '🇨🇳 中文', 'label_en' => 'Chinese'],
+            ],
+            default => [],
+        };
     }
 
     /**
@@ -387,6 +434,9 @@ class BotCreationWorkflowService implements BotCreationWorkflowInterface
     {
         $allSteps = $this->getStepsForEndpoint($session->endpoint_id);
         $collected = $session->collected_data ?? [];
+
+        // Resolve options providers for all steps
+        $allSteps = array_map(fn (array $step) => $this->resolveStepOptions($step), $allSteps);
 
         return array_values(array_filter($allSteps, function ($step) use ($collected) {
             $field = FieldDefinition::fromArray($step);
