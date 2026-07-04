@@ -140,8 +140,11 @@ Route::post('/webhook-book-pixel-approval', [BookPixelApprovalController::class,
 Route::post('/webhook-content-submission', [ContentSubmissionController::class, 'webhook']);
 
 Route::post('/api/webhook-poem-bot', [PoemBotController::class, 'webhook']);
+// Note: poem-bot and mawkib-finder routes have /api/ prefix which is doubled in api.php
+// but the seeder route matches this pattern. Both work as-is for existing bots.
+// Fixing the endpoint route in the database would be needed for new bots.
 
-Route::post('/api/webhook-mawkib-finder', [\App\Http\Controllers\MawkibFinderController::class, 'webhook']);
+Route::post('/webhook-mawkib-finder', [\App\Http\Controllers\MawkibFinderController::class, 'webhook']);
 
 Route::post('/webhook-book-library', [BookLibraryController::class, 'webhook']);
 Route::post('/webhook-book-library-reader', [BookLibraryReaderController::class, 'webhook']);
