@@ -7,6 +7,7 @@ use App\Helpers\FileUploadHelper;
 use App\Interfaces\Services\BookLibraryPlanService;
 use App\Interfaces\Services\BookLibraryService;
 use App\Interfaces\Services\ContentDeliveryService;
+use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\ContentItem;
 use App\Models\LibraryUserBook;
@@ -38,9 +39,12 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         BotHelper::sendMessageByChatId($bot, $chatId, trans('book_library.preparing'));
 
         $title = $item->title ?: ('#' . $item->queue_order);
+
+        // ساختن کپشن با فوتر
+        $caption = $this->buildCaptionWithFooter($title, $botId, $origin);
         BotHelper::sendMessageByChatId($bot, $chatId, '🎧 ' . $title);
 
-        $sent = $this->sendAudio($bot, $asset, $item, $botId, $origin, $chatId, $title);
+        $sent = $this->sendAudio($bot, $asset, $item, $botId, $origin, $chatId, $caption);
         if (!$sent) {
             BotHelper::sendMessageByChatId($bot, $chatId, trans('book_library.no_audio'));
             return false;
@@ -63,6 +67,32 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         BotHelper::sendMessageByChatId($bot, $chatId, $progress);
 
         return true;
+    }
+
+    /**
+     * ساختن کپشن با فوتر تنظیم شده در bot.caption_footer
+     */
+    public function buildCaptionWithFooter(string $text, int $botId, string $origin): string
+    {
+        $botModel = Bot::find($botId);
+        $footer = $botModel?->caption_footer;
+
+        if (!$footer) {
+            return $text;
+        }
+
+        // جایگزینی متغیرها
+        $footer = str_replace(
+            ['{bot_name}', '{bot_link_bale}', '{bot_link_telegram}'],
+            [
+                $botModel->bale_bot_name ?? $botModel->telegram_bot_name ?? '',
+                $botModel->bale_bot_name ? 'https://ble.ir/' . $botModel->bale_bot_name : '',
+                $botModel->telegram_bot_name ? 'https://t.me/' . $botModel->telegram_bot_name : '',
+            ],
+            $footer
+        );
+
+        return $text . "\n\n" . $footer;
     }
 
     private function sendAudio(

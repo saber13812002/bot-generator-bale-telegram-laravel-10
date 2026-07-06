@@ -35,4 +35,20 @@ class Bot extends Model
     {
         return $this->belongsTo(\App\Modules\BotOwner\Models\BotOwner::class, 'bot_owner_id');
     }
+
+    /**
+     * دسته‌بندی‌های محتوایی این ربات
+     */
+    public function contentCategories(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ContentCategory::class, 'bot_id');
+    }
+
+    /**
+     * آیتم‌های محتوایی این ربات
+     */
+    public function contentItems(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ContentItem::class, 'bot_id');
+    }
 }

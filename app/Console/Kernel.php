@@ -7,6 +7,7 @@ use App\Console\Commands\PostMediaQueueToChannels;
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
 use App\Console\Commands\ScheduleBookPublishing;
+use App\Console\Commands\ScheduleContentDelivery;
 use App\Console\Commands\SendDailyQuranSuggestionToAdmins;
 use App\Console\Commands\SendPrayerWeeklyReports;
 use App\Console\Commands\TaskReminderCommand;
@@ -91,6 +92,12 @@ class Kernel extends ConsoleKernel
         // ارسال نوبتی صف رسانه به کانال‌ها (روزانه یک بار)
         $schedule->command(PostMediaQueueToChannels::class)
             ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
+        $schedule->command(ScheduleContentDelivery::class)
+            ->hourly()
             ->withoutOverlapping()
             ->onOneServer();
     }

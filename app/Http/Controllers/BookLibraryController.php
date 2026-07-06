@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\ContentBotAdminHelper;
 use App\Interfaces\Services\BookLibraryPlanService;
@@ -13,6 +14,8 @@ use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\ContentBroadcastJob as ContentBroadcastJobModel;
 use App\Models\ContentPendingUpload;
+use App\Models\ContentCategory;
+use App\Models\ContentItem;
 use App\Services\ContentAdminService;
 use Exception;
 use Illuminate\Http\Request;
@@ -130,6 +133,12 @@ class BookLibraryController extends Controller
 
         $botModel = Bot::find($instanceBotId);
         $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+        $isSuperAdmin = AdminHelper::isAdmin($chatId);
+
+        // ===== دستورات ادمین مادر =====
+        if ($isSuperAdmin && $this->handleSuperAdminCommands($bot, $text, $botModel, $instanceBotId, $type)) {
+            return;
+        }
 
         if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
             $message = trans('book_library.main_help');
@@ -141,9 +150,9 @@ class BookLibraryController extends Controller
             return;
         }
 
+        // ===== دستورات مدیریتی ادمین ربات =====
         if ($isOwner && in_array(mb_strtolower($text), ['/manage', '/مدیریت'], true)) {
-            BotHelper::sendMessage($bot, trans('book_library.admin_manage_help'));
-            $this->showCategoryPage($bot, $instanceBotId, 1);
+            $this->showAdminPanel($bot, $instanceBotId);
             return;
         }
 
@@ -174,6 +183,12 @@ class BookLibraryController extends Controller
             return;
         }
 
+        if ($isOwner && in_array(mb_strtolower($text), ['/categories', '/tags', '/دسته‌ها'], true)) {
+            $this->showAdminCategoryList($bot, $instanceBotId, $botModel, $type);
+            return;
+        }
+
+        // ===== منوهای کاربر =====
         if ($text === trans('book_library.menu_my_books')) {
             $this->showMyProgress($bot, $botUser, $instanceBotId);
             return;
@@ -190,6 +205,90 @@ class BookLibraryController extends Controller
         }
 
         BotHelper::sendMessage($bot, trans('book_library.use_menu'));
+    }
+
+    /**
+     * دستورات ادمین مادر
+     */
+    private function handleSuperAdminCommands(Telegram $bot, string $text, ?Bot $botModel, int $botId, string $type): bool
+    {
+        // /messagetothischatid CHAT_ID MESSAGE
+        if (str_starts_with($text, '/messagetothischatid')) {
+            $parts = explode(' ', $text, 3);
+            $targetChatId = $parts[1] ?? '';
+            $messageText = $parts[2] ?? '';
+
+            if (empty($targetChatId) || empty($messageText)) {
+                BotHelper::sendMessage($bot, "❌ فرمت: /messagetothischatid CHAT_ID متن پیام");
+                return true;
+            }
+
+            $token = $botModel?->bale_bot_token ?? $botModel?->telegram_bot_token;
+            if ($token) {
+                $origin = $botModel?->bale_bot_token ? 'bale' : 'telegram';
+                $targetBot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+                BotHelper::sendMessageByChatId($targetBot, $targetChatId, "📨 پیام از ادمین:\n\n" . $messageText);
+                BotHelper::sendMessage($bot, "✅ پیام به {$targetChatId} ارسال شد.");
+            } else {
+                BotHelper::sendMessage($bot, "❌ توکن ربات یافت نشد.");
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * پنل مدیریت ادمین ربات
+     */
+    private function showAdminPanel(Telegram $bot, int $botId): void
+    {
+        $botModel = Bot::find($botId);
+        $botName = $botModel?->bale_bot_name ?? $botModel?->telegram_bot_name ?? "Bot #{$botId}";
+
+        $categories = ContentCategory::where('bot_id', $botId)->where('is_active', true)->count();
+        $items = ContentItem::where('bot_id', $botId)->where('is_active', true)->count();
+
+        $message = "🛠 پنل مدیریت ربات «{$botName}»\n\n";
+        $message .= "📊 آمار:\n";
+        $message .= "🏷 دسته‌بندی‌ها: {$categories}\n";
+        $message .= "📦 آیتم‌ها: {$items}\n\n";
+        $message .= "📋 دستورات مدیریت:\n";
+        $message .= "➖ /categories — مدیریت دسته‌بندی‌ها\n";
+        $message .= "➖ /addcategory — افزودن دسته جدید\n";
+        $message .= "➖ /broadcast — ارسال همگانی\n";
+        $message .= "➖ /manage — نمایش دوباره این پنل\n\n";
+        $message .= "برای افزودن فایل، فقط یک فایل صوتی ارسال کنید.";
+
+        $keyboard = [
+            [$bot->buildInlineKeyBoardButton('🏷 دسته‌بندی‌ها', callback_data: "bl:admin:categories")],
+            [$bot->buildInlineKeyBoardButton('➕ دسته جدید', callback_data: "bl:admin:addcat")],
+            [$bot->buildInlineKeyBoardButton('📢 ارسال همگانی', callback_data: "bl:admin:broadcast")],
+        ];
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    /**
+     * نمایش لیست دسته‌بندی‌ها برای ادمین
+     */
+    private function showAdminCategoryList(Telegram $bot, int $botId, ?Bot $botModel, string $type): void
+    {
+        $categories = ContentCategory::where('bot_id', $botId)->orderBy('sort_order')->get();
+
+        if ($categories->isEmpty()) {
+            BotHelper::sendMessage($bot, "🏷 هیچ دسته‌بندی‌ای تعریف نشده است.\nبرای افزودن: /addcategory");
+            return;
+        }
+
+        $message = "🏷 لیست دسته‌بندی‌ها:\n\n";
+        foreach ($categories as $cat) {
+            $itemCount = $cat->items()->where('is_active', true)->count();
+            $status = $cat->is_active ? '✅' : '⛔';
+            $message .= "{$status} #{$cat->id} {$cat->title} ({$itemCount} آیتم)\n";
+        }
+        $message .= "\nبرای مدیریت از Nova استفاده کنید.";
+
+        BotHelper::sendMessage($bot, $message);
     }
 
     private function handleAdminWizardText(
@@ -297,6 +396,22 @@ class BookLibraryController extends Controller
         $callbackQueryId = $callbackQuery['id'] ?? null;
         if ($callbackQueryId) {
             $bot->answerCallbackQuery(['callback_query_id' => $callbackQueryId]);
+        }
+
+        // ===== دکمه‌های پنل ادمین =====
+        if ($callbackData === 'bl:admin:categories') {
+            $this->showAdminCategoryList($bot, $instanceBotId, Bot::find($instanceBotId), $type);
+            return;
+        }
+
+        if ($callbackData === 'bl:admin:addcat') {
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt'));
+            return;
+        }
+
+        if ($callbackData === 'bl:admin:broadcast') {
+            BotHelper::sendMessage($bot, trans('book_library.broadcast_message_prompt'));
+            return;
         }
 
         if (str_starts_with($callbackData, 'bl:cat_page:')) {

@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Interfaces\Services\BookLibraryDeliveryService;
 use App\Interfaces\Services\BookLibraryService;
 use App\Models\Bot;
 use App\Models\BotUsers;
+use App\Models\ContentCategory;
+use App\Models\ContentItem;
 use App\Models\LibraryUserBook;
+use App\Services\ContentDeliveryServiceImpl;
+use App\Services\ContentQueueServiceImpl;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -58,6 +63,11 @@ class BookLibraryReaderController extends Controller
 
             if ($this->isHelpCommand($text)) {
                 $this->sendHelp($bot, $botId);
+                return 200;
+            }
+
+            // ===== دستورات ادمین مادر =====
+            if (AdminHelper::isAdmin((string) $chatId) && $this->handleAdminCommands($bot, $text, $botId, $type)) {
                 return 200;
             }
 
@@ -168,5 +178,40 @@ class BookLibraryReaderController extends Controller
         $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $readerBotId)->first();
 
         return $config?->bot_id;
+    }
+
+    /**
+     * دستورات ادمین مادر در ربات کتابخوان
+     */
+    private function handleAdminCommands(Telegram $bot, string $text, ?int $readerBotId, string $type): bool
+    {
+        // /messagetothischatid CHAT_ID MESSAGE
+        if (str_starts_with($text, '/messagetothischatid')) {
+            $parts = explode(' ', $text, 3);
+            $targetChatId = $parts[1] ?? '';
+            $messageText = $parts[2] ?? '';
+
+            if (empty($targetChatId) || empty($messageText)) {
+                BotHelper::sendMessage($bot, "❌ فرمت: /messagetothischatid CHAT_ID متن پیام");
+                return true;
+            }
+
+            $token = null;
+            if ($readerBotId) {
+                $readerModel = Bot::find($readerBotId);
+                $token = $type === 'bale' ? $readerModel?->bale_bot_token : $readerModel?->telegram_bot_token;
+            }
+
+            if ($token) {
+                $targetBot = $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+                BotHelper::sendMessageByChatId($targetBot, $targetChatId, "📨 پیام از ادمین:\n\n" . $messageText);
+                BotHelper::sendMessage($bot, "✅ پیام به {$targetChatId} ارسال شد.");
+            } else {
+                BotHelper::sendMessage($bot, "❌ توکن ربات یافت نشد.");
+            }
+            return true;
+        }
+
+        return false;
     }
 }

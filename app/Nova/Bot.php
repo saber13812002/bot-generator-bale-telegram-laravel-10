@@ -146,6 +146,16 @@ class Bot extends Resource
                 ->sortable()
                 ->hideFromIndex(),
 
+            // ===== Content Settings =====
+            \Laravel\Nova\Fields\Textarea::make('Caption Footer', 'caption_footer')
+                ->alwaysShow()
+                ->nullable()
+                ->help('متن ثابت انتهای کپشن برای همه ارسال‌های محتوا. می‌توانید از متغیرهای {bot_name}، {bot_link_bale}، {bot_link_telegram} استفاده کنید.
+                
+✅ مثال:
+📚 برای مطالعه بیشتر به ربات ما مراجعه کنید:
+🔗 @{bot_name}'),
+
             // ===== Activity Monitoring Fields =====
             Text::make('Last Activity', function () {
                 return $this->last_activity_at

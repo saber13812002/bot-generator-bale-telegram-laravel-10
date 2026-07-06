@@ -2,6 +2,7 @@
 
 namespace App\Nova;
 
+use App\Models\Bot;
 use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Boolean;
 use Laravel\Nova\Fields\HasMany;
@@ -16,23 +17,61 @@ class ContentCategory extends Resource
 
     public static $title = 'title';
 
-    public static $search = ['title'];
+    public static $search = [
+        'id', 'title',
+    ];
 
-    public static function label(): string
-    {
-        return 'Content Categories';
-    }
-
-    public function fields(NovaRequest $request)
+    public function fields(NovaRequest $request): array
     {
         return [
             ID::make()->sortable(),
-            BelongsTo::make('Bot', 'bot', Bot::class),
-            Text::make('Title', 'title')->rules('required'),
-            Number::make('Page', 'page')->min(1)->max(10),
-            Number::make('Sort Order', 'sort_order'),
-            Boolean::make('Active', 'is_active'),
+
+            BelongsTo::make('Bot', 'bot', Bot::class)
+                ->searchable()
+                ->sortable()
+                ->help('رباط مرتبط با این دسته'),
+
+            Text::make('Title', 'title')
+                ->sortable()
+                ->rules('required', 'max:255')
+                ->help('عنوان دسته/تگ (مثلاً: کتاب‌های صوتی، پادکست‌ها)'),
+
+            Number::make('Sort Order', 'sort_order')
+                ->sortable()
+                ->default(0)
+                ->help('ترتیب نمایش'),
+
+            Boolean::make('Active', 'is_active')
+                ->sortable()
+                ->default(true),
+
             HasMany::make('Items', 'items', ContentItem::class),
+
+            \Laravel\Nova\Fields\DateTime::make('Created', 'created_at')
+                ->onlyOnDetail(),
+
+            \Laravel\Nova\Fields\DateTime::make('Updated', 'updated_at')
+                ->onlyOnDetail(),
         ];
+    }
+
+    public static function label(): string
+    {
+        return '🏷 Content Categories';
+    }
+
+    public static function singularLabel(): string
+    {
+        return 'Category';
+    }
+
+    /**
+     * فقط ربات‌هایی که endpoint محتوایی دارند نمایش بده
+     */
+    public static function relatableBots(NovaRequest $request, $query)
+    {
+        $contentEndpoints = config('content_bots.content_endpoint_ids', ['book-library']);
+
+        return $query->whereIn('endpoint_id', $contentEndpoints);
     }
 }
