@@ -17,7 +17,7 @@ class Idea extends Resource
 {
     public static $model = \App\Models\Idea::class;
 
-    public static $title = 'title';
+    public static $title = 'display_title';
 
     public static $search = [
         'id', 'tracking_code', 'title', 'description', 'submitter_name', 'phone', 'email',
@@ -30,7 +30,8 @@ class Idea extends Resource
 
             Text::make('Tracking Code', 'tracking_code')
                 ->sortable()
-                ->help('کد رهگیری'),
+                ->help('کد رهگیری')
+                ->copyable(),
 
             Text::make('Endpoint', 'endpoint_id')
                 ->sortable()

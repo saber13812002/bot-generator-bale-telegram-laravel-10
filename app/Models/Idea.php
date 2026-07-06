@@ -65,6 +65,14 @@ class Idea extends Model
         return $this->email_verified_at !== null;
     }
 
+    /**
+     * عنوان ترکیبی برای نمایش در Nova (Dropdownهای BelongsTo)
+     */
+    public function getDisplayTitleAttribute(): string
+    {
+        return $this->tracking_code . ' — ' . $this->title;
+    }
+
     public static function generateTrackingCode(): string
     {
         $prefix = 'ID-' . now()->format('ym');
