@@ -523,10 +523,12 @@ class BookLibraryReaderController extends Controller
             return;
         }
         if ($callbackData === 'bl:admin:addcat') {
+            $botUser->settings(['content_wizard' => 'add_category_name']);
             BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
             return;
         }
         if ($callbackData === 'bl:admin:broadcast') {
+            $botUser->settings(['content_wizard' => 'broadcast_message']);
             BotHelper::sendMessage($bot, '📢 پیام همگانی را وارد کنید:');
             return;
         }

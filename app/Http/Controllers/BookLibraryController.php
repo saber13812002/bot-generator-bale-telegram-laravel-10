@@ -405,11 +405,13 @@ class BookLibraryController extends Controller
         }
 
         if ($callbackData === 'bl:admin:addcat') {
+            $botUser->settings(['content_wizard' => 'add_category_name']);
             BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt'));
             return;
         }
 
         if ($callbackData === 'bl:admin:broadcast') {
+            $botUser->settings(['content_wizard' => 'broadcast_message']);
             BotHelper::sendMessage($bot, trans('book_library.broadcast_message_prompt'));
             return;
         }
