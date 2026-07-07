@@ -145,6 +145,37 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== /library_plan_confirm =====
+        if (str_starts_with($text, '/library_plan_confirm')) {
+            $parts = preg_split('/\s+/', $text);
+            $requestId = (int) ($parts[1] ?? 0);
+            if ($requestId > 0) {
+                try {
+                    $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+                    $result = $planService->confirmPlanRequest($requestId, 'bot_mother_admin');
+                    if ($result['success']) {
+                        // اطلاع به کاربر
+                        $planRequest = \App\Models\LibraryPlanRequest::find($requestId);
+                        if ($planRequest && $planRequest->botUser) {
+                            $botToken = $type === 'bale' ? $botModel?->bale_bot_token : $botModel?->telegram_bot_token;
+                            if ($botToken) {
+                                $userBot = $type === 'bale' ? new Telegram($botToken, 'bale') : new Telegram($botToken);
+                                BotHelper::sendMessageByChatId($userBot, $planRequest->botUser->chat_id, "🎉 پلن شما تایید شد!\nبه کتابخانه بیشتر دسترسی دارید.");
+                            }
+                        }
+                        BotHelper::sendMessage($bot, "✅ پلن #{$requestId} تایید شد.");
+                    } else {
+                        BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ فرمت: /library_plan_confirm REQUEST_ID");
+            }
+            return;
+        }
+
         // ===== دستورات ادمین مادر =====
         if (AdminHelper::isAdmin((string) $chatId) && $this->handleSuperAdminCommands($bot, $text, $botModel, $instanceBotId, $type)) {
             return;
@@ -284,11 +315,6 @@ class BookLibraryReaderController extends Controller
     {
         if (!$instanceBotId) return false;
 
-        $botModel = Bot::find($instanceBotId);
-        if (!$botModel || !ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type)) {
-            return false;
-        }
-
         $message = $update['message'] ?? [];
         $fileId = null;
         $mimeType = null;
@@ -309,20 +335,94 @@ class BookLibraryReaderController extends Controller
 
         if (!$fileId) return false;
 
-        $wizard = $botUser->setting('content_wizard');
-        if ($wizard === 'broadcast_message') {
-            $botUser->settings([
-                'content_wizard' => 'broadcast_filter',
-                'content_broadcast_file_id' => $fileId,
-                'content_broadcast_file_type' => 'audio',
-            ]);
-            $this->showBroadcastFilterPicker($bot);
+        $botModel = Bot::find($instanceBotId);
+        $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+
+        // اگر ادمین است و در حالت ویزارد broadcast است
+        if ($isOwner) {
+            $wizard = $botUser->setting('content_wizard');
+            if ($wizard === 'broadcast_message') {
+                $botUser->settings([
+                    'content_wizard' => 'broadcast_filter',
+                    'content_broadcast_file_id' => $fileId,
+                    'content_broadcast_file_type' => 'audio',
+                ]);
+                $this->showBroadcastFilterPicker($bot);
+                return true;
+            }
+
+            // ادمین: مستقیم به صفPending
+            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, null, $mimeType);
+            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته: /addFileToCategory {$pending->id}");
             return true;
         }
 
-        $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, null, $mimeType);
-        BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته: /addFileToCategory {$pending->id}");
+        // کاربر عادی: فایل را به ادمین ارسال کن برای تایید
+        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $mimeType, $botUser);
         return true;
+    }
+
+    /**
+     * ارسال فایل کاربر به ادمین برای تایید
+     */
+    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $mimeType, BotUsers $botUser): void
+    {
+        // اطلاع به کاربر
+        BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد. پس از تایید ادمین به صف اضافه خواهد شد.");
+
+        // پیدا کردن ادمین ربات (owner)
+        $adminChatId = $type === 'bale' ? $botModel?->bale_owner_chat_id : $botModel?->telegram_owner_chat_id;
+
+        if ($adminChatId) {
+            $userName = $botUser->alias_name ?: "کاربر {$chatId}";
+            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\nبرای تایید و انتساب به دسته از Nova استفاده کنید.";
+            
+            // ارسال فایل به ادمین
+            try {
+                if ($mimeType === 'voice') {
+                    $bot->sendVoice(['chat_id' => $adminChatId, 'voice' => $fileId, 'caption' => $caption]);
+                } else {
+                    $bot->sendAudio(['chat_id' => $adminChatId, 'audio' => $fileId, 'caption' => $caption]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[BookLibrary] Forward to admin failed', ['error' => $e->getMessage()]);
+                // اگر ارسال نشد، در صف pending ثبت کن
+                $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
+                BotHelper::sendMessageByChatId($bot, $chatId, "فایل در صف تایید قرار گرفت. (ID: {$pending->id})");
+            }
+        } else {
+            // ادمین ندارد → در صف pending ثبت کن
+            $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
+            BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل در صف تایید قرار گرفت.");
+            
+            // به ادمین مادر هم اطلاع بده
+            $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
+            $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
+            $adminMessage .= "🆔 Pending ID: {$pending->id}\n";
+            $adminMessage .= "برای مدیریت به Nova بروید:\n";
+            $adminMessage .= "🔗 http://bots.pardisania.ir/nova/resources/content-items";
+            $this->notifyMotherAdmins($adminMessage);
+        }
+    }
+
+    private function notifyMotherAdmins(string $message): void
+    {
+        $configs = [
+            ['token' => env('BOT_MOTHER_TOKEN_BALE'), 'type' => 'bale'],
+            ['token' => env('BOT_MOTHER_TOKEN_TELEGRAM'), 'type' => 'telegram'],
+        ];
+        foreach (\App\Helpers\AdminHelper::getAdmins() as $adminChatId) {
+            if (empty($adminChatId)) continue;
+            foreach ($configs as $config) {
+                if (empty($config['token'])) continue;
+                try {
+                    $adminBot = $config['type'] === 'bale' ? new Telegram($config['token'], 'bale') : new Telegram($config['token']);
+                    BotHelper::sendMessageByChatId($adminBot, $adminChatId, $message);
+                } catch (\Throwable $e) {
+                    Log::warning('[BookLibrary] Admin notify failed', ['error' => $e->getMessage()]);
+                }
+            }
+        }
     }
 
     // ======================== CALLBACK QUERY ========================
