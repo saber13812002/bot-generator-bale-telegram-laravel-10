@@ -11,6 +11,11 @@ return new class extends Migration
         Schema::table('content_pending_uploads', function (Blueprint $table) {
             $table->text('file_id')->change();
         });
+
+        Schema::table('content_assets', function (Blueprint $table) {
+            $table->text('bale_file_id')->change();
+            $table->text('telegram_file_id')->change();
+        });
     }
 
     public function down(): void
