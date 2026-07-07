@@ -145,9 +145,11 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
-        // ===== /library_plan_confirm =====
+        // ===== /library_plan_confirm (پشتیبانی از هر دو فرمت با فاصله و آندرلاین) =====
         if (str_starts_with($text, '/library_plan_confirm')) {
-            $parts = preg_split('/\s+/', $text);
+            // تبدیل آندرلاین به فاصله برای یکسان سازی
+            $normalized = str_replace('_', ' ', $text);
+            $parts = preg_split('/\s+/', $normalized);
             $requestId = (int) ($parts[1] ?? 0);
             if ($requestId > 0) {
                 try {
@@ -212,12 +214,13 @@ class BookLibraryReaderController extends Controller
         }
 
         if ($isOwner && str_starts_with($text, '/addFileToCategory')) {
-            $parts = preg_split('/\s+/', $text);
+            $normalized = str_replace('_', ' ', $text);
+            $parts = preg_split('/\s+/', $normalized);
             $pendingId = (int) ($parts[1] ?? 0);
             if ($pendingId > 0) {
                 $this->adminService->showCategoryPickerForPending($bot, $instanceBotId, $pendingId);
             } else {
-                BotHelper::sendMessage($bot, "❌ فرمت: /addFileToCategory PENDING_ID");
+                BotHelper::sendMessage($bot, "❌ فرمت: /addFileToCategory_PENDING_ID\nمثال: /addFileToCategory_9");
             }
             return;
         }
@@ -265,7 +268,8 @@ class BookLibraryReaderController extends Controller
     private function handleSuperAdminCommands(Telegram $bot, string $text, ?Bot $botModel, int $botId, string $type): bool
     {
         if (str_starts_with($text, '/messagetothischatid')) {
-            $parts = explode(' ', $text, 3);
+            $normalized = str_replace('_', ' ', $text);
+            $parts = explode(' ', $normalized, 3);
             $targetChatId = $parts[1] ?? '';
             $messageText = $parts[2] ?? '';
             if (empty($targetChatId) || empty($messageText)) {
@@ -397,7 +401,7 @@ class BookLibraryReaderController extends Controller
 
         if ($adminChatId) {
             $userName = $botUser->alias_name ?: "کاربر {$chatId}";
-            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\n📌 Pending ID: {$pending->id}\n\nبرای انتساب به دسته:\n/addFileToCategory {$pending->id} CATEGORY_ID\n\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-items";
+            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\n📌 Pending ID: {$pending->id}\n\nبرای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}_CATEGORY_ID\n\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-items";
             
             // ارسال فایل به ادمین
             try {
@@ -415,7 +419,7 @@ class BookLibraryReaderController extends Controller
         $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
         $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
         $adminMessage .= "🆔 Pending ID: {$pending->id}\n";
-        $adminMessage .= "📌 برای انتساب: /addFileToCategory {$pending->id} CATEGORY_ID\n";
+        $adminMessage .= "📌 برای انتساب: /addFileToCategory_{$pending->id}_CATEGORY_ID\n";
         $adminMessage .= "🔗 http://bots.pardisania.ir/nova/resources/content-items";
         $this->notifyMotherAdmins($adminMessage);
     }
