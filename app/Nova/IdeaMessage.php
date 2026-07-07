@@ -2,7 +2,6 @@
 
 namespace App\Nova;
 
-use App\Models\Idea;
 use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\ID;
@@ -26,7 +25,7 @@ class IdeaMessage extends Resource
         return [
             ID::make()->sortable(),
 
-            BelongsTo::make('Idea', 'idea', Idea::class)
+            BelongsTo::make('Idea', 'idea', \App\Nova\Idea::class)
                 ->searchable()
                 ->sortable()
                 ->help('ایده مرتبط — هنگام ثبت از داخل صفحه جزئیات ایده، خودکار مقداردهی می‌شود'),
