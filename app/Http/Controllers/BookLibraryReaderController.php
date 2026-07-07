@@ -11,6 +11,8 @@ use App\Models\BotUsers;
 use App\Models\ContentCategory;
 use App\Models\ContentItem;
 use App\Models\LibraryUserBook;
+use App\Models\LibraryBotConfig;
+use App\Services\BotAdminKieService;
 use App\Services\ContentDeliveryServiceImpl;
 use App\Services\ContentQueueServiceImpl;
 use Exception;
@@ -22,7 +24,8 @@ class BookLibraryReaderController extends Controller
 {
     public function __construct(
         private BookLibraryService $bookLibraryService,
-        private BookLibraryDeliveryService $deliveryService
+        private BookLibraryDeliveryService $deliveryService,
+        private readonly BotAdminKieService $adminKieService,
     ) {}
 
     public function webhook(Request $request): int
@@ -68,6 +71,32 @@ class BookLibraryReaderController extends Controller
 
             // ===== دستورات ادمین مادر =====
             if (AdminHelper::isAdmin((string) $chatId) && $this->handleAdminCommands($bot, $text, $botId, $type)) {
+                return 200;
+            }
+
+            // ===== /adminkie =====
+            if ($this->adminKieService->isAdminkieCommand($text)) {
+                $result = $this->adminKieService->tryHandleFromRequest($request);
+                if ($result !== null) {
+                    return 200;
+                }
+            }
+
+            // ===== /manage برای ادمین ربات =====
+            $botModel = $botId ? Bot::find($botId) : null;
+            $isOwner = $botModel && (
+                AdminHelper::isAdmin((string) $chatId) ||
+                (string) $botModel->bale_owner_chat_id === (string) $chatId ||
+                (string) $botModel->telegram_owner_chat_id === (string) $chatId
+            );
+
+            if ($isOwner && in_array(mb_strtolower($text), ['/manage', '/مدیریت'], true)) {
+                $this->showAdminPanel($bot, $botId, $type);
+                return 200;
+            }
+
+            if ($isOwner && in_array(mb_strtolower($text), ['/categories', '/tags', '/دسته‌ها'], true)) {
+                $this->showCategoryList($bot, $botId);
                 return 200;
             }
 
@@ -213,5 +242,58 @@ class BookLibraryReaderController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * پنل مدیریت ادمین ربات
+     */
+    private function showAdminPanel(Telegram $bot, ?int $botId, string $type): void
+    {
+        $botModel = $botId ? Bot::find($botId) : null;
+        $botName = $botModel?->bale_bot_name ?? $botModel?->telegram_bot_name ?? "Bot #{$botId}";
+
+        $categories = $botId ? ContentCategory::where('bot_id', $botId)->where('is_active', true)->count() : 0;
+        $items = $botId ? ContentItem::where('bot_id', $botId)->where('is_active', true)->count() : 0;
+
+        $message = "🛠 پنل مدیریت ربات «{$botName}»\n\n";
+        $message .= "📊 آمار:\n";
+        $message .= "🏷 دسته‌بندی‌ها: {$categories}\n";
+        $message .= "📦 آیتم‌ها: {$items}\n\n";
+        $message .= "📋 دستورات:\n";
+        $message .= "➖ /categories — مدیریت دسته‌بندی‌ها\n";
+        $message .= "➖ /addcategory — افزودن دسته جدید\n";
+        $message .= "➖ /broadcast — ارسال همگانی\n\n";
+        $message .= "💡 برای مدیریت کامل از Nova استفاده کنید.";
+        $message .= "\n🔗 http://bots.pardisania.ir/nova/resources/content-categories";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * نمایش لیست دسته‌بندی‌ها
+     */
+    private function showCategoryList(Telegram $bot, ?int $botId): void
+    {
+        if (!$botId) {
+            BotHelper::sendMessage($bot, "❌ ربات یافت نشد.");
+            return;
+        }
+
+        $categories = ContentCategory::where('bot_id', $botId)->orderBy('sort_order')->get();
+
+        if ($categories->isEmpty()) {
+            BotHelper::sendMessage($bot, "🏷 هیچ دسته‌بندی‌ای تعریف نشده است.\nبرای افزودن به Nova بروید:\n🔗 http://bots.pardisania.ir/nova/resources/content-categories");
+            return;
+        }
+
+        $message = "🏷 لیست دسته‌بندی‌ها:\n\n";
+        foreach ($categories as $cat) {
+            $itemCount = $cat->items()->where('is_active', true)->count();
+            $status = $cat->is_active ? '✅' : '⛔';
+            $message .= "{$status} #{$cat->id} {$cat->title} ({$itemCount} آیتم)\n";
+        }
+        $message .= "\nبرای مدیریت به Nova بروید.";
+
+        BotHelper::sendMessage($bot, $message);
     }
 }
