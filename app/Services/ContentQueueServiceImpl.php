@@ -48,15 +48,42 @@ class ContentQueueServiceImpl implements ContentQueueService
 
     public function getNextItemForUser(BotUsers $botUser, int $categoryId, int $botId): ?ContentItem
     {
-        $lastPosition = $this->getProgress($botUser, $categoryId);
+        $progress = ContentUserProgress::where('bot_user_id', $botUser->id)
+            ->where('category_id', $categoryId)
+            ->first();
+
+        $lastPosition = $progress?->last_position ?? 0;
+        $lastItemId = $progress?->last_content_item_id;
+
+        // آیتم بعدی بر اساس آخرین position
         $nextOrder = $lastPosition + 1;
 
-        return ContentItem::where('category_id', $categoryId)
+        $item = ContentItem::where('category_id', $categoryId)
             ->where('bot_id', $botId)
             ->where('is_active', true)
             ->where('queue_order', $nextOrder)
             ->with('assets')
             ->first();
+
+        // اگر آیتمی پیدا نشد و آخرین آیتم تکراری بود، position را رد کن
+        if (!$item && $lastItemId) {
+            // شاید position جاب شده، آخرین آیتم تحویل داده شده را چک کن
+            $nextItem = ContentItem::where('category_id', $categoryId)
+                ->where('bot_id', $botId)
+                ->where('is_active', true)
+                ->where('id', '>', $lastItemId)
+                ->orderBy('queue_order')
+                ->with('assets')
+                ->first();
+
+            if ($nextItem) {
+                // پیشرفت را به روزرسانی کن
+                $progress?->update(['last_position' => $nextItem->queue_order - 1]);
+                return $nextItem;
+            }
+        }
+
+        return $item;
     }
 
     public function advanceProgress(BotUsers $botUser, int $categoryId, int $botId, ContentItem $item): ContentUserProgress

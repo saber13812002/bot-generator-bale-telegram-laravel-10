@@ -25,7 +25,12 @@ return [
             'price' => 6990000,
             'label_key' => 'book_library.plan.plan_1000',
         ],
+        'unlimited' => [
+            'limit' => 999999,
+            'price' => 0,
+            'label_key' => 'book_library.plan.unlimited',
+        ],
     ],
 
-    'paid_plans' => ['plan_100', 'plan_300', 'plan_1000'],
+    'paid_plans' => ['plan_100', 'plan_300', 'plan_1000', 'unlimited'],
 ];

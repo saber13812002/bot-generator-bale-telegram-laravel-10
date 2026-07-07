@@ -318,23 +318,39 @@ class BookLibraryReaderController extends Controller
 
         $message = $update['message'] ?? [];
         $fileId = null;
+        $fileUniqueId = null;
         $mimeType = null;
 
         if (isset($message['voice'])) {
             $fileId = $message['voice']['file_id'];
+            $fileUniqueId = $message['voice']['file_unique_id'] ?? null;
             $mimeType = 'voice';
         } elseif (isset($message['audio'])) {
             $fileId = $message['audio']['file_id'];
+            $fileUniqueId = $message['audio']['file_unique_id'] ?? null;
             $mimeType = $message['audio']['mime_type'] ?? 'audio';
         } elseif (isset($message['document'])) {
             $mime = $message['document']['mime_type'] ?? '';
             if (str_contains($mime, 'audio') || str_ends_with($message['document']['file_name'] ?? '', '.mp3')) {
                 $fileId = $message['document']['file_id'];
+                $fileUniqueId = $message['document']['file_unique_id'] ?? null;
                 $mimeType = $mime;
             }
         }
 
         if (!$fileId) return false;
+
+        // بررسی تکراری نبودن file_unique_id در صف انتظار
+        if ($fileUniqueId) {
+            $existingPending = \App\Models\ContentPendingUpload::where('file_unique_id', $fileUniqueId)
+                ->where('bot_id', $instanceBotId)
+                ->where('origin', $type)
+                ->first();
+            if ($existingPending) {
+                BotHelper::sendMessageByChatId($bot, $chatId, "✅ این فایل قبلاً ارسال شده است.\n📌 Pending ID: {$existingPending->id}\nبرای انتساب: /addFileToCategory {$existingPending->id}");
+                return true;
+            }
+        }
 
         $botModel = Bot::find($instanceBotId);
         $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
@@ -353,13 +369,13 @@ class BookLibraryReaderController extends Controller
             }
 
             // ادمین: مستقیم به صفPending
-            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, null, $mimeType);
+            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
             BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته: /addFileToCategory {$pending->id}");
             return true;
         }
 
         // کاربر عادی: فایل را به ادمین ارسال کن برای تایید
-        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $mimeType, $botUser);
+        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $fileUniqueId, $mimeType, $botUser);
         return true;
     }
 
@@ -368,10 +384,10 @@ class BookLibraryReaderController extends Controller
      * فایل هم در صف pending ثبت می‌شود (برای انتساب بعدی با /addFileToCategory)
      * و هم برای ادمین ارسال می‌شود تا گوش دهد
      */
-    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $mimeType, BotUsers $botUser): void
+    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $fileUniqueId, ?string $mimeType, BotUsers $botUser): void
     {
         //先在 صف pending ثبت کن (file_id ذخیره می‌شود برای ارسال مجدد)
-        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
+        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
         
         // اطلاع به کاربر
         BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد (کد: {$pending->id}). پس از تایید ادمین به صف اضافه خواهد شد.");

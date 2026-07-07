@@ -21,7 +21,12 @@ class LibraryPlanNotificationService
         $message .= "📦 Plan: {$planLabel} ({$request->plan})\n";
         $message .= "🆔 Request ID: {$request->id}\n";
         $message .= "📅 Created: " . $request->created_at->format('Y-m-d H:i') . "\n\n";
-        $message .= "برای تایید:\n/library_plan_confirm {$request->id}";
+        $message .= "✅ تایید در ربات:\n";
+        $message .= "/library_plan_confirm {$request->id}\n\n";
+        $message .= "✅ تایید در Nova:\n";
+        $message .= "🔗 http://bots.pardisania.ir/nova/resources/library-plan-requests/{$request->id}\n\n";
+        $message .= "❌ رد:\n";
+        $message .= "/library_plan_reject {$request->id}";
 
         try {
             EmailAdminHelper::sendToAllAdmins($message, 'bale');
