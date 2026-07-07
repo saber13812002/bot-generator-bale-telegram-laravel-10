@@ -42,8 +42,12 @@ class BotAdminKieNotificationService
 
         $message .= "\n📅 " . $request->created_at->format('Y-m-d H:i') . "\n\n";
         $message .= "✅ تایید ادمین:\n";
-        $message .= "/adminbot_confirm {$id}\n";
-        $message .= "/adminbot_confirm{$id}\n";
+        $message .= "/adminbot_confirm_{$id}\n";
+        $message .= "/adminbot_confirm_{$id}_BOT_ID\n\n";
+        $message .= "✅ تایید در Nova:\n";
+        $message .= "🔗 http://bots.pardisania.ir/nova/resources/bot-admin-kie-requests/{$id}\n\n";
+        $message .= "❌ رد:\n";
+        $message .= "/adminbot_reject_{$id}";
 
         if ($this->isBookLibraryReaderEndpoint($request->webhook_endpoint)) {
             $mainBots = Bot::where('endpoint_id', 'book-library')->orderByDesc('id')->get();

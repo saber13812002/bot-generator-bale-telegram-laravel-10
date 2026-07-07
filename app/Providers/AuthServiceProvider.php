@@ -16,6 +16,7 @@ class AuthServiceProvider extends ServiceProvider
         'App\Models\ContentCategory' => 'App\Policies\ContentCategoryPolicy',
         'App\Models\ContentItem' => 'App\Policies\ContentItemPolicy',
         'App\Models\ContentAsset' => 'App\Policies\ContentAssetPolicy',
+        'App\Models\BotAdminKieRequest' => 'App\Policies\BotAdminKieRequestPolicy',
     ];
 
     /**
