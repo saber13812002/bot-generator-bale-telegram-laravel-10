@@ -30,10 +30,17 @@ class BookLibraryReaderController extends Controller
 
     public function webhook(Request $request): int
     {
-        Log::info('📖 [BookLibraryReader] Webhook received');
+        Log::info('📖 [BookLibraryReader] Webhook received', [
+            'has_origin' => $request->has('origin'),
+            'has_bot_id' => $request->has('bot_id'),
+            'has_token' => $request->has('token'),
+            'bot_id_param' => $request->input('bot_id'),
+            'origin_param' => $request->input('origin'),
+        ]);
 
         try {
             if (!$request->has('origin')) {
+                Log::warning('📖 [BookLibraryReader] Missing origin parameter');
                 return 200;
             }
 
@@ -43,11 +50,16 @@ class BookLibraryReaderController extends Controller
 
             $bot = $this->createBotInstance($request, $type, $botId);
             if (!$bot) {
+                Log::error('📖 [BookLibraryReader] Could not create bot instance', [
+                    'type' => $type, 'bot_id' => $botId,
+                    'has_token_param' => $request->has('token'),
+                ]);
                 return 200;
             }
 
             $update = $request->json()->all() ?? $request->all();
             $chatId = $bot->ChatID();
+            Log::info('📖 [BookLibraryReader] Chat ID resolved', ['chat_id' => $chatId]);
 
             if (isset($update['callback_query'])) {
                 $this->handleCallbackQuery($bot, $update['callback_query'], $chatId, $type, $botMotherId, $botId);
@@ -55,6 +67,7 @@ class BookLibraryReaderController extends Controller
             }
 
             $text = trim($bot->Text() ?? '');
+            Log::info('📖 [BookLibraryReader] Text received', ['text' => $text, 'chat_id' => $chatId]);
             if ($text === '') {
                 return 200;
             }
@@ -69,17 +82,22 @@ class BookLibraryReaderController extends Controller
                 return 200;
             }
 
-            // ===== دستورات ادمین مادر =====
-            if (AdminHelper::isAdmin((string) $chatId) && $this->handleAdminCommands($bot, $text, $botId, $type)) {
-                return 200;
-            }
-
-            // ===== /adminkie =====
+            // ===== /adminkie (برای همه قابل استفاده) =====
             if ($this->adminKieService->isAdminkieCommand($text)) {
+                Log::info('📖 [BookLibraryReader] Handling /adminkie', ['chat_id' => $chatId]);
                 $result = $this->adminKieService->tryHandleFromRequest($request);
                 if ($result !== null) {
                     return 200;
                 }
+                Log::warning('📖 [BookLibraryReader] /adminkie not handled by middleware, handling manually');
+                BotHelper::sendMessage($bot, '❌ /adminkie قابل پردازش نیست. از Bot Mother استفاده کنید.');
+                return 200;
+            }
+
+            // ===== دستورات ادمین مادر =====
+            if (AdminHelper::isAdmin((string) $chatId) && $this->handleAdminCommands($bot, $text, $botId, $type)) {
+                Log::info('📖 [BookLibraryReader] Admin command handled', ['text' => $text, 'chat_id' => $chatId]);
+                return 200;
             }
 
             // ===== /manage برای ادمین ربات =====
@@ -97,6 +115,16 @@ class BookLibraryReaderController extends Controller
 
             if ($isOwner && in_array(mb_strtolower($text), ['/categories', '/tags', '/دسته‌ها'], true)) {
                 $this->showCategoryList($bot, $botId);
+                return 200;
+            }
+
+            if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
+                BotHelper::sendMessage($bot, "➕ برای افزودن دسته جدید به Nova بروید:\n🔗 http://bots.pardisania.ir/nova/resources/content-categories");
+                return 200;
+            }
+
+            if ($isOwner && mb_strtolower($text) === '/broadcast') {
+                BotHelper::sendMessage($bot, "📢 قابلیت Broadcast از طریق این ربات فعلاً در ربات اصلی book-library پشتیبانی می‌شود.\nبرای مدیریت کامل به Nova بروید.");
                 return 200;
             }
 

@@ -2,9 +2,9 @@
 
 namespace App\Nova;
 
-use App\Models\Bot;
 use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Boolean;
+use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\HasMany;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Number;
@@ -26,7 +26,7 @@ class ContentCategory extends Resource
         return [
             ID::make()->sortable(),
 
-            BelongsTo::make('Bot', 'bot', Bot::class)
+            BelongsTo::make('Bot', 'bot', \App\Nova\Bot::class)
                 ->searchable()
                 ->sortable()
                 ->help('رباط مرتبط با این دسته'),
@@ -47,10 +47,10 @@ class ContentCategory extends Resource
 
             HasMany::make('Items', 'items', ContentItem::class),
 
-            \Laravel\Nova\Fields\DateTime::make('Created', 'created_at')
+            DateTime::make('Created', 'created_at')
                 ->onlyOnDetail(),
 
-            \Laravel\Nova\Fields\DateTime::make('Updated', 'updated_at')
+            DateTime::make('Updated', 'updated_at')
                 ->onlyOnDetail(),
         ];
     }

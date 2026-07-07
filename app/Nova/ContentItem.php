@@ -2,14 +2,13 @@
 
 namespace App\Nova;
 
-use App\Models\Bot;
 use Laravel\Nova\Fields\BelongsTo;
 use Laravel\Nova\Fields\Boolean;
+use Laravel\Nova\Fields\DateTime;
 use Laravel\Nova\Fields\HasMany;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Number;
 use Laravel\Nova\Fields\Text;
-use Laravel\Nova\Fields\Textarea;
 use Laravel\Nova\Http\Requests\NovaRequest;
 
 class ContentItem extends Resource
@@ -27,12 +26,12 @@ class ContentItem extends Resource
         return [
             ID::make()->sortable(),
 
-            BelongsTo::make('Bot', 'bot', Bot::class)
+            BelongsTo::make('Bot', 'bot', \App\Nova\Bot::class)
                 ->searchable()
                 ->sortable()
                 ->help('رباط مرتبط'),
 
-            BelongsTo::make('Category', 'category', ContentCategory::class)
+            BelongsTo::make('Category', 'category', \App\Nova\ContentCategory::class)
                 ->searchable()
                 ->sortable()
                 ->help('دسته/تگ این آیتم'),
@@ -53,10 +52,10 @@ class ContentItem extends Resource
 
             HasMany::make('Assets', 'assets', ContentAsset::class),
 
-            \Laravel\Nova\Fields\DateTime::make('Created', 'created_at')
+            DateTime::make('Created', 'created_at')
                 ->onlyOnDetail(),
 
-            \Laravel\Nova\Fields\DateTime::make('Updated', 'updated_at')
+            DateTime::make('Updated', 'updated_at')
                 ->onlyOnDetail(),
         ];
     }
