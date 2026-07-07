@@ -53,15 +53,20 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
         $subscription->increment('books_used');
 
-        LibraryUserBook::create([
-            'bot_user_id' => $botUser->id,
-            'book_id' => $item->id,
-            'bot_id' => $botId,
-            'delivered_via' => 'main',
-            'status' => 'received',
-            'revealed_title' => true,
-            'is_random' => false,
-        ]);
+        // کتابخانه کاربر (اختیاری - ممکن است foreign key با content_items نداشته باشد)
+        try {
+            LibraryUserBook::create([
+                'bot_user_id' => $botUser->id,
+                'book_id' => $item->id,
+                'bot_id' => $botId,
+                'delivered_via' => 'main',
+                'status' => 'received',
+                'revealed_title' => true,
+                'is_random' => false,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[ContentDelivery] LibraryUserBook log skipped', ['error' => $e->getMessage()]);
+        }
 
         $progress = $this->bookLibraryService->buildProgressBar($subscription->fresh());
         BotHelper::sendMessageByChatId($bot, $chatId, $progress);
