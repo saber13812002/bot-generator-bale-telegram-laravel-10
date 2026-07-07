@@ -351,7 +351,7 @@ class BookLibraryReaderController extends Controller
                 ->where('origin', $type)
                 ->first();
             if ($existingPending) {
-                BotHelper::sendMessageByChatId($bot, $chatId, "✅ این فایل قبلاً ارسال شده است.\n📌 Pending ID: {$existingPending->id}\nبرای انتساب: /addFileToCategory {$existingPending->id}");
+                BotHelper::sendMessageByChatId($bot, $chatId, "✅ این فایل قبلاً ارسال شده است.\n📌 Pending ID: {$existingPending->id}\nبرای انتساب (کلیکی):\n/addFileToCategory_{$existingPending->id}");
                 return true;
             }
         }
@@ -374,7 +374,7 @@ class BookLibraryReaderController extends Controller
 
             // ادمین: مستقیم به صفPending
             $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
-            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته: /addFileToCategory {$pending->id}");
+            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}");
             return true;
         }
 
