@@ -324,6 +324,7 @@ class BookLibraryReaderController extends Controller
         $fileId = null;
         $fileUniqueId = null;
         $mimeType = null;
+        $caption = $message['caption'] ?? null; // کپشنی که کاربر همراه فایل فرستاده
 
         if (isset($message['voice'])) {
             $fileId = $message['voice']['file_id'];
@@ -373,13 +374,13 @@ class BookLibraryReaderController extends Controller
             }
 
             // ادمین: مستقیم به صفPending
-            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
+            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
             BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}");
             return true;
         }
 
         // کاربر عادی: فایل را به ادمین ارسال کن برای تایید
-        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $fileUniqueId, $mimeType, $botUser);
+        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $fileUniqueId, $mimeType, $botUser, $caption);
         return true;
     }
 
@@ -388,10 +389,10 @@ class BookLibraryReaderController extends Controller
      * فایل هم در صف pending ثبت می‌شود (برای انتساب بعدی با /addFileToCategory)
      * و هم برای ادمین ارسال می‌شود تا گوش دهد
      */
-    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $fileUniqueId, ?string $mimeType, BotUsers $botUser): void
+    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $fileUniqueId, ?string $mimeType, BotUsers $botUser, ?string $caption = null): void
     {
         //先在 صف pending ثبت کن (file_id ذخیره می‌شود برای ارسال مجدد)
-        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType);
+        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
         
         // اطلاع به کاربر
         BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد (کد: {$pending->id}). پس از تایید ادمین به صف اضافه خواهد شد.");

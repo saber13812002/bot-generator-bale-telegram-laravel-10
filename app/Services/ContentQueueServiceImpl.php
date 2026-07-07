@@ -110,10 +110,13 @@ class ContentQueueServiceImpl implements ContentQueueService
     {
         $nextOrder = $this->maxQueueOrder($categoryId) + 1;
 
+        // اولویت عنوان: 1. پارامتر صریح 2. title ذخیره شده در pending (از کپشن) 3. نام پیش‌فرض
+        $itemTitle = $title ?: ($pending->title ?: ('فایل ' . $nextOrder));
+
         $item = ContentItem::create([
             'bot_id' => $pending->bot_id,
             'category_id' => $categoryId,
-            'title' => $title ?: ('فایل ' . $nextOrder),
+            'title' => $itemTitle,
             'queue_order' => $nextOrder,
             'is_active' => true,
         ]);

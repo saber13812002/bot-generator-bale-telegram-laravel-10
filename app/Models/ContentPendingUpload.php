@@ -13,5 +13,6 @@ class ContentPendingUpload extends Model
         'origin',
         'uploaded_by_chat_id',
         'mime_type',
+        'title',
     ];
 }

@@ -24,7 +24,8 @@ class ContentAdminService
         string $origin,
         string $fileId,
         ?string $fileUniqueId = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?string $title = null
     ): ContentPendingUpload {
         return ContentPendingUpload::create([
             'bot_id' => $botId,
@@ -33,6 +34,7 @@ class ContentAdminService
             'origin' => $origin,
             'uploaded_by_chat_id' => $chatId,
             'mime_type' => $mimeType,
+            'title' => $title,
         ]);
     }
 
