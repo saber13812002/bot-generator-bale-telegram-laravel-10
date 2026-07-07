@@ -364,18 +364,23 @@ class BookLibraryReaderController extends Controller
 
     /**
      * ارسال فایل کاربر به ادمین برای تایید
+     * فایل هم در صف pending ثبت می‌شود (برای انتساب بعدی با /addFileToCategory)
+     * و هم برای ادمین ارسال می‌شود تا گوش دهد
      */
     private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $mimeType, BotUsers $botUser): void
     {
+        //先在 صف pending ثبت کن (file_id ذخیره می‌شود برای ارسال مجدد)
+        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
+        
         // اطلاع به کاربر
-        BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد. پس از تایید ادمین به صف اضافه خواهد شد.");
+        BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد (کد: {$pending->id}). پس از تایید ادمین به صف اضافه خواهد شد.");
 
         // پیدا کردن ادمین ربات (owner)
         $adminChatId = $type === 'bale' ? $botModel?->bale_owner_chat_id : $botModel?->telegram_owner_chat_id;
 
         if ($adminChatId) {
             $userName = $botUser->alias_name ?: "کاربر {$chatId}";
-            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\nبرای تایید و انتساب به دسته از Nova استفاده کنید.";
+            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\n📌 Pending ID: {$pending->id}\n\nبرای انتساب به دسته:\n/addFileToCategory {$pending->id} CATEGORY_ID\n\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-items";
             
             // ارسال فایل به ادمین
             try {
@@ -386,23 +391,16 @@ class BookLibraryReaderController extends Controller
                 }
             } catch (\Throwable $e) {
                 Log::warning('[BookLibrary] Forward to admin failed', ['error' => $e->getMessage()]);
-                // اگر ارسال نشد، در صف pending ثبت کن
-                $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
-                BotHelper::sendMessageByChatId($bot, $chatId, "فایل در صف تایید قرار گرفت. (ID: {$pending->id})");
             }
-        } else {
-            // ادمین ندارد → در صف pending ثبت کن
-            $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, null, $mimeType);
-            BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل در صف تایید قرار گرفت.");
-            
-            // به ادمین مادر هم اطلاع بده
-            $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
-            $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
-            $adminMessage .= "🆔 Pending ID: {$pending->id}\n";
-            $adminMessage .= "برای مدیریت به Nova بروید:\n";
-            $adminMessage .= "🔗 http://bots.pardisania.ir/nova/resources/content-items";
-            $this->notifyMotherAdmins($adminMessage);
         }
+        
+        // به ادمین مادر هم اطلاع بده
+        $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
+        $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
+        $adminMessage .= "🆔 Pending ID: {$pending->id}\n";
+        $adminMessage .= "📌 برای انتساب: /addFileToCategory {$pending->id} CATEGORY_ID\n";
+        $adminMessage .= "🔗 http://bots.pardisania.ir/nova/resources/content-items";
+        $this->notifyMotherAdmins($adminMessage);
     }
 
     private function notifyMotherAdmins(string $message): void
