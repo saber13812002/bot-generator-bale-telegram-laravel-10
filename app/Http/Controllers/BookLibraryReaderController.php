@@ -714,11 +714,14 @@ class BookLibraryReaderController extends Controller
             return;
         }
         $message = "🏷 لیست دسته‌بندی‌ها:\n\n";
+        $keyboard = [];
         foreach ($categories as $cat) {
             $itemCount = $cat->items()->where('is_active', true)->count();
             $status = $cat->is_active ? '✅' : '⛔';
-            $message .= "{$status} #{$cat->id} {$cat->title} ({$itemCount} آیتم)\n";
+            $message .= "{$status} {$cat->title} ({$itemCount} آیتم)\n";
+            $keyboard[] = [$bot->buildInlineKeyBoardButton("{$cat->title} ({$itemCount})", callback_data: "bl:cat:{$cat->id}")];
         }
-        BotHelper::sendMessage($bot, $message);
+        $message .= "\n📌 روی دکمه هر دسته کلیک کنید تا محتوا دریافت کنید.";
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
     }
 }
