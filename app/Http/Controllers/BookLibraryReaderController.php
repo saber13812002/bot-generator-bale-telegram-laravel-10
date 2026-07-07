@@ -206,7 +206,8 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
-        if ($isOwner && $this->handleAdminWizardText($bot, $text, $botUser, $instanceBotId, $type)) {
+        // ویزارد ادمین (بدون $isOwner چون ویزارد قبلاً ست شده)
+        if ($this->handleAdminWizardText($bot, $text, $botUser, $instanceBotId, $type)) {
             return;
         }
 
