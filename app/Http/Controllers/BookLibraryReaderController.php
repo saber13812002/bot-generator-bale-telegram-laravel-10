@@ -293,6 +293,13 @@ class BookLibraryReaderController extends Controller
     private function handleAdminWizardText(Telegram $bot, string $text, BotUsers $botUser, int $botId, string $type): bool
     {
         $wizard = $botUser->setting('content_wizard');
+        Log::info('📖 [BookLibrary] Wizard check', [
+            'wizard_state' => $wizard,
+            'text' => $text,
+            'chat_id' => $botUser->chat_id,
+            'bot_user_id' => $botUser->id,
+            'bot_user_origin' => $botUser->origin,
+        ]);
         if (!$wizard) return false;
 
         if ($wizard === 'add_category_name') {
