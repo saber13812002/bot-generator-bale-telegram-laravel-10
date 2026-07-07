@@ -97,12 +97,32 @@ class BotAdminKieService
         }
 
         // بررسی درخواست قبلی که تایید شده — کاربر قبلاً ادمین شده
-        $alreadyConfirmed = BotAdminKieRequest::where('status', 'confirmed')
+        $alreadyConfirmedRequest = BotAdminKieRequest::where('status', 'confirmed')
             ->where('chat_id', $chatId)
             ->where('origin', $origin)
-            ->exists();
+            ->latest()
+            ->first();
 
-        if ($alreadyConfirmed) {
+        if ($alreadyConfirmedRequest) {
+            // اطمینان از اینکه فیلد مالکیت ربات نیز ست شده (رفع مشکل تایید دستی در Nova)
+            if ($origin === 'bale' && (string) $ownerBot->bale_owner_chat_id !== $chatId) {
+                $ownerBot->bale_owner_chat_id = $chatId;
+                $ownerBot->save();
+                Log::info('[AdminKie] Fixed missing bot owner field', [
+                    'bot_id' => $ownerBot->id,
+                    'chat_id' => $chatId,
+                    'request_id' => $alreadyConfirmedRequest->id,
+                ]);
+            } elseif ($origin === 'telegram' && (string) $ownerBot->telegram_owner_chat_id !== $chatId) {
+                $ownerBot->telegram_owner_chat_id = $chatId;
+                $ownerBot->save();
+                Log::info('[AdminKie] Fixed missing bot owner field', [
+                    'bot_id' => $ownerBot->id,
+                    'chat_id' => $chatId,
+                    'request_id' => $alreadyConfirmedRequest->id,
+                ]);
+            }
+
             BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
             return response('', 200);
         }

@@ -6,6 +6,7 @@ use App\Interfaces\Services\BookLibraryService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\LibraryBotConfig;
+use App\Models\LibraryPlanRequest;
 use App\Models\LibraryUserSubscription;
 use Illuminate\Support\Facades\Log;
 
@@ -25,6 +26,34 @@ class BookLibraryServiceImpl implements BookLibraryService
                 'status' => 'active',
             ]
         );
+
+        // Safety net: اگر اشتراک هنوز روی plan_free است ولی درخواست پلن تایید شده‌ای وجود دارد،
+        // اشتراک را همگام‌سازی کن (رفع مشکل تایید دستی در Nova بدون اجرای Action)
+        if ($subscription->plan === 'free' || $subscription->plan === 'plan_free') {
+            $confirmedRequest = LibraryPlanRequest::where('bot_user_id', $botUser->id)
+                ->where('bot_id', $botId)
+                ->where('status', 'confirmed')
+                ->latest('approved_at')
+                ->first();
+
+            if ($confirmedRequest) {
+                $planConfig = config('book_library.plans.' . $confirmedRequest->plan);
+                if ($planConfig && isset($planConfig['limit'])) {
+                    $subscription->update([
+                        'plan' => $confirmedRequest->plan,
+                        'books_limit' => (int) $planConfig['limit'],
+                        'status' => 'active',
+                    ]);
+                    Log::info('[BookLibrary] Subscription auto-synced with confirmed plan request', [
+                        'subscription_id' => $subscription->id,
+                        'bot_user_id' => $botUser->id,
+                        'bot_id' => $botId,
+                        'plan' => $confirmedRequest->plan,
+                        'request_id' => $confirmedRequest->id,
+                    ]);
+                }
+            }
+        }
 
         return $subscription;
     }
