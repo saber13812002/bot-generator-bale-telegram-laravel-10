@@ -68,7 +68,7 @@ class BotUsers extends Model
     // TODO: use first or Create laravel
     public static function firstOrNew(string $chat_id, $botMotherId, $origin): Model|bool|BotUsers
     {
-        $user = BotUsers::whereChatId($chat_id)->first();
+        $user = BotUsers::whereChatId($chat_id)->where('origin', $origin)->first();
 
         if ($user === null) {
             $user = new BotUsers([
