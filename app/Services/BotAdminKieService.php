@@ -59,13 +59,15 @@ class BotAdminKieService
             return null;
         }
 
-        if (AdminHelper::isAdmin($chatId)) {
-            return response('', 200);
-        }
-
         $bot = $this->createBotFromRequest($request, $origin);
         if (!$bot) {
             Log::warning('[AdminKie] Could not create bot instance', ['origin' => $origin]);
+            return response('', 200);
+        }
+
+        // بررسی ادمین مادر (شما)
+        if (AdminHelper::isAdmin($chatId)) {
+            BotHelper::sendMessage($bot, '✅ شما ادمین مادر هستید و به تمام ربات‌ها دسترسی دارید.');
             return response('', 200);
         }
 
