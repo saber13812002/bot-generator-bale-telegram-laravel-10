@@ -10,6 +10,7 @@ use App\Models\ContentItem;
 use App\Models\ContentPendingUpload;
 use App\Models\ContentUserProgress;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class ContentQueueServiceImpl implements ContentQueueService
 {
@@ -112,6 +113,14 @@ class ContentQueueServiceImpl implements ContentQueueService
 
         // اولویت عنوان: 1. پارامتر صریح 2. title ذخیره شده در pending (از کپشن) 3. نام پیش‌فرض
         $itemTitle = $title ?: ($pending->title ?: ('فایل ' . $nextOrder));
+
+        Log::info('📖 [ContentQueue] appendPendingToCategory', [
+            'pending_id' => $pending->id,
+            'pending_title' => $pending->title,
+            'category_id' => $categoryId,
+            'resolved_title' => $itemTitle,
+            'next_order' => $nextOrder,
+        ]);
 
         $item = ContentItem::create([
             'bot_id' => $pending->bot_id,

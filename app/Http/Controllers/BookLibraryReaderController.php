@@ -77,7 +77,7 @@ class BookLibraryReaderController extends Controller
                 return 200;
             }
 
-            $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
+            $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
             $instanceBotId = $this->resolveBotId($botUser, $botId);
 
             // آپلود فایل توسط ادمین
@@ -117,6 +117,43 @@ class BookLibraryReaderController extends Controller
             return $botId;
         }
         return (int) $botUser->setting('library_bot_instance_id', 0);
+    }
+
+    /**
+     * پیدا کردن BotUsers مناسب با اولویت رکوردی که library_bot_instance_id دارد
+     * (wizard state در این رکورد ذخیره می‌شود)
+     */
+    private function resolveBotUser(string $chatId, int $botMotherId, string $origin, ?int $botId): BotUsers
+    {
+        Log::info('🔍 [BookLibrary] resolveBotUser - looking for user', [
+            'chat_id' => $chatId,
+            'origin' => $origin,
+            'botId_param' => $botId,
+        ]);
+
+        // اول: رکوردی که library_bot_instance_id دارد (wizard state اینجا ذخیره می‌شود)
+        if ($botId) {
+            $userWithInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('settings', 'like', '%"library_bot_instance_id":' . $botId . '%')
+                ->first();
+
+            Log::info('🔍 [BookLibrary] resolveBotUser - search with instance_id', [
+                'found_with_instance' => $userWithInstance ? $userWithInstance->id : null,
+            ]);
+
+            if ($userWithInstance) {
+                return $userWithInstance;
+            }
+        }
+
+        // دوم: رکورد با chat_id و origin (رفتار پیش‌فرض)
+        $fallback = BotUsers::firstOrNew($chatId, $botMotherId, $origin);
+        Log::info('🔍 [BookLibrary] resolveBotUser - fallback firstOrNew', [
+            'fallback_id' => $fallback->id,
+            'fallback_settings' => $fallback->settings,
+        ]);
+        return $fallback;
     }
 
     // ======================== TEXT HANDLING ========================
@@ -226,6 +263,12 @@ class BookLibraryReaderController extends Controller
         }
 
         if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
+            Log::info('📖 [BookLibrary] Setting add_category wizard', [
+                'bot_user_id' => $botUser->id,
+                'chat_id' => $botUser->chat_id,
+                'bot_user_origin' => $botUser->origin,
+                'instance_bot_id' => $instanceBotId,
+            ]);
             $botUser->settings(['content_wizard' => 'add_category_name']);
             BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
             return;
@@ -352,6 +395,13 @@ class BookLibraryReaderController extends Controller
 
         if (!$fileId) return false;
 
+        Log::info('📖 [BookLibrary] Media upload detected', [
+            'has_caption' => $caption !== null,
+            'caption_text' => $caption,
+            'file_unique_id' => $fileUniqueId,
+            'chat_id' => $chatId,
+        ]);
+
         // بررسی تکراری نبودن file_unique_id در صف انتظار
         if ($fileUniqueId) {
             $existingPending = \App\Models\ContentPendingUpload::where('file_unique_id', $fileUniqueId)
@@ -457,7 +507,9 @@ class BookLibraryReaderController extends Controller
     private function handleCallbackQuery(Telegram $bot, array $callbackQuery, int $chatId, string $type, int $botMotherId, ?int $botId): void
     {
         $callbackData = $callbackQuery['data'] ?? '';
-        $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
+        // استفاده از resolveBotUser به جای firstOrNew مستقیم
+        // تا رکوردی که wizard state در آن ذخیره شده پیدا شود
+        $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
         $instanceBotId = $this->resolveBotId($botUser, $botId);
 
         $callbackQueryId = $callbackQuery['id'] ?? null;

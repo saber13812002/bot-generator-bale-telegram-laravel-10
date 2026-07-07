@@ -27,7 +27,7 @@ class ContentAdminService
         ?string $mimeType = null,
         ?string $title = null
     ): ContentPendingUpload {
-        return ContentPendingUpload::create([
+        $pending = ContentPendingUpload::create([
             'bot_id' => $botId,
             'file_id' => $fileId,
             'file_unique_id' => $fileUniqueId,
@@ -36,6 +36,15 @@ class ContentAdminService
             'mime_type' => $mimeType,
             'title' => $title,
         ]);
+
+        Log::info('📖 [ContentAdmin] Pending upload stored', [
+            'pending_id' => $pending->id,
+            'title_from_caption' => $title,
+            'bot_id' => $botId,
+            'origin' => $origin,
+        ]);
+
+        return $pending;
     }
 
     public function notifyFileReceived(Telegram $bot, ContentPendingUpload $pending): void
