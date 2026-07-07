@@ -96,6 +96,17 @@ class BotAdminKieService
             return response('', 200);
         }
 
+        // بررسی درخواست قبلی که تایید شده — کاربر قبلاً ادمین شده
+        $alreadyConfirmed = BotAdminKieRequest::where('status', 'confirmed')
+            ->where('chat_id', $chatId)
+            ->where('origin', $origin)
+            ->exists();
+
+        if ($alreadyConfirmed) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
+            return response('', 200);
+        }
+
         $pending = BotAdminKieRequest::pending()
             ->where('chat_id', $chatId)
             ->where('origin', $origin)

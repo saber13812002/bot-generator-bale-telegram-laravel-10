@@ -55,4 +55,12 @@ class BotAdminKieRequest extends Resource
             DateTime::make('Created', 'created_at')->onlyOnDetail(),
         ];
     }
+
+    public function actions(NovaRequest $request)
+    {
+        return [
+            new \App\Nova\Actions\ConfirmBotAdminKieRequest(),
+            new \App\Nova\Actions\RejectBotAdminKieRequest(),
+        ];
+    }
 }
