@@ -71,6 +71,8 @@ class ContentCategory extends Resource
     public static function relatableBots(NovaRequest $request, $query)
     {
         $contentEndpoints = config('content_bots.content_endpoint_ids', ['book-library']);
+        // همچنین ربات‌های book-library-reader را هم مجاز کن
+        $contentEndpoints[] = 'book-library-reader';
 
         return $query->whereIn('endpoint_id', $contentEndpoints);
     }

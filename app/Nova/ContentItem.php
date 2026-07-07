@@ -76,6 +76,7 @@ class ContentItem extends Resource
     public static function relatableBots(NovaRequest $request, $query)
     {
         $contentEndpoints = config('content_bots.content_endpoint_ids', ['book-library']);
+        $contentEndpoints[] = 'book-library-reader';
 
         return $query->whereIn('endpoint_id', $contentEndpoints);
     }
