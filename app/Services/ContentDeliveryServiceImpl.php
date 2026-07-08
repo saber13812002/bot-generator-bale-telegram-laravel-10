@@ -40,9 +40,15 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
 
         $title = $item->title ?: ('#' . $item->queue_order);
 
+        // نمایش عنوان + توضیحات (در صورت وجود)
+        $displayText = '🎧 ' . $title;
+        if ($item->description) {
+            $displayText .= "\n\n📝 " . $item->description;
+        }
+        BotHelper::sendMessageByChatId($bot, $chatId, $displayText);
+
         // ساختن کپشن با فوتر
         $caption = $this->buildCaptionWithFooter($title, $botId, $origin);
-        BotHelper::sendMessageByChatId($bot, $chatId, '🎧 ' . $title);
 
         $sent = $this->sendAudio($bot, $asset, $item, $botId, $origin, $chatId, $caption);
         if (!$sent) {

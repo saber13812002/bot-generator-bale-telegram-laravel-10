@@ -111,19 +111,28 @@ class ContentQueueServiceImpl implements ContentQueueService
     {
         $nextOrder = $this->maxQueueOrder($categoryId) + 1;
 
-        // اولویت عنوان: 1. پارامتر صریح 2. title ذخیره شده در pending (از کپشن) 3. نام پیش‌فرض
-        $itemTitle = $title ?: ($pending->title ?: ('فایل ' . $nextOrder));
+        // عنوان: 1. پارامتر صریح 2. خط اول کپشن (title در pending) 3. نام پیش‌فرض
+        $fullCaption = $pending->title;
+        $itemTitle = $title ?: ($fullCaption ?: ('فایل ' . $nextOrder));
 
         // فقط خط اول عنوان را بگیر (کپشن‌های بلند چندخطی ممکن است شامل توضیحات و URL باشند)
         // و حداکثر 250 کاراکتر (varchar(255) در دیتابیس)
         $firstLine = explode("\n", $itemTitle)[0];
         $itemTitle = mb_substr(trim($firstLine), 0, 250);
 
+        // توضیحات: خط دوم به بعد کپشن اصلی (بدون خط اول)
+        $description = null;
+        if ($fullCaption) {
+            $lines = explode("\n", $fullCaption, 2);
+            $description = isset($lines[1]) ? trim($lines[1]) : null;
+        }
+
         Log::info('📖 [ContentQueue] appendPendingToCategory', [
             'pending_id' => $pending->id,
             'pending_title' => $pending->title,
             'category_id' => $categoryId,
             'resolved_title' => $itemTitle,
+            'has_description' => $description !== null,
             'next_order' => $nextOrder,
         ]);
 
@@ -131,6 +140,7 @@ class ContentQueueServiceImpl implements ContentQueueService
             'bot_id' => $pending->bot_id,
             'category_id' => $categoryId,
             'title' => $itemTitle,
+            'description' => $description,
             'queue_order' => $nextOrder,
             'is_active' => true,
         ]);

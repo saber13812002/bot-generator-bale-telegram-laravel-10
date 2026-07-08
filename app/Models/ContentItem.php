@@ -12,6 +12,7 @@ class ContentItem extends Model
         'bot_id',
         'category_id',
         'title',
+        'description',
         'queue_order',
         'is_active',
     ];
