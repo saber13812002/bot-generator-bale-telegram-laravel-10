@@ -51,5 +51,8 @@ class BotOwnerServiceProvider extends ServiceProvider
 
         // Admin panel user management
         $this->app->bind(BotAdminPanelUserServiceInterface::class, BotAdminPanelUserService::class);
+
+        // Bot ownership claim
+        $this->app->bind(\App\Modules\BotOwner\Contracts\BotClaimServiceInterface::class, \App\Modules\BotOwner\Services\BotClaimService::class);
     }
 }

@@ -3,6 +3,7 @@
 use App\Modules\BotOwner\Http\Controllers\BotAdminKieController;
 use App\Modules\BotOwner\Http\Controllers\BotAdminPanelUserController;
 use App\Modules\BotOwner\Http\Controllers\BotCategoryController;
+use App\Modules\BotOwner\Http\Controllers\BotClaimController;
 use App\Modules\BotOwner\Http\Controllers\BotItemsController;
 use App\Modules\BotOwner\Http\Controllers\BotLibraryController;
 use App\Modules\BotOwner\Http\Controllers\BotManageController;
@@ -29,6 +30,11 @@ Route::prefix('bots')->name('bot-owner.')->group(function () {
         Route::post('/pro/request', [ProController::class, 'request'])->name('pro.request');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
         Route::post('/create/{endpointId}', [CreateBotController::class, 'store'])->name('create.store')->middleware('bot-owner.pro');
+
+        // Bot Ownership Claim
+        Route::get('/claim', [BotClaimController::class, 'index'])->name('claim');
+        Route::post('/claim/generate', [BotClaimController::class, 'generate'])->name('claim.generate');
+        Route::get('/claim/check-status', [BotClaimController::class, 'checkStatus'])->name('claim.check-status');
 
         // Bot Library & Management
         Route::get('/library', [BotLibraryController::class, 'index'])->name('library');

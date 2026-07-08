@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BotRequest;
 use App\Modules\AdminBots\Helpers\AdminBotsStateHelper;
 use App\Modules\AdminBots\Services\AdminBotsService;
+use App\Modules\BotOwner\Contracts\BotClaimServiceInterface;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -17,6 +18,7 @@ class AdminBotsController extends Controller
 {
     public function __construct(
         private readonly AdminBotsService $adminBotsService,
+        private readonly BotClaimServiceInterface $claimService,
     ) {
     }
 
@@ -61,6 +63,8 @@ class AdminBotsController extends Controller
                 $this->handleProRequest($bot, $owner);
             } elseif ($command === '/create') {
                 $this->handleCreateStart($bot, $owner);
+            } elseif (str_starts_with($command, '/claim ')) {
+                $this->handleClaim($bot, $text, $chatId, $type);
             } elseif ($command === '/help' || $command === 'راهنما') {
                 $this->handleHelp($bot);
             } elseif ($state === AdminBotsStateHelper::STATE_WAITING_ENDPOINT) {
@@ -246,6 +250,19 @@ class AdminBotsController extends Controller
         );
 
         AdminBotsStateHelper::clearState($chatId);
+        BotHelper::sendMessage($bot, $result['message']);
+    }
+
+    private function handleClaim(Telegram $bot, string $text, string $chatId, string $origin): void
+    {
+        $code = trim(substr($text, 7)); // Remove "/claim " prefix
+
+        if (empty($code)) {
+            BotHelper::sendMessage($bot, trans('bot-owner.claim_usage'));
+            return;
+        }
+
+        $result = $this->claimService->verifyClaim($code, $chatId, $origin);
         BotHelper::sendMessage($bot, $result['message']);
     }
 

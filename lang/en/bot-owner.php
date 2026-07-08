@@ -214,6 +214,36 @@ return [
     'settings_no_config' => 'No specific settings available for this bot type.',
     'settings_fallback_message' => 'The admin settings for this bot type (:type) will be available soon.',
 
+    // Bot Ownership Claim
+    'claim_link' => 'Claim Your Bots',
+    'claim_link_hint' => 'Have bots created elsewhere? Claim them here.',
+    'claim_title' => 'Claim Your Bots',
+    'claim_info_title' => 'How to claim your bots',
+    'claim_info_text' => 'If you have bots created by the Bot Mother or other admins, you can claim ownership here. Send the verification code to your bot on Bale or Telegram to prove you are the owner or an approved admin.',
+    'claim_step_1' => 'Select a bot from the list below and choose "Claim as Owner" or "Claim as Admin".',
+    'claim_step_2' => 'A verification code will be generated (e.g., V-7XK9M2P).',
+    'claim_step_3' => 'Open the bot on Bale or Telegram and send the code as a message.',
+    'claim_step_4' => 'The system verifies your chat ID and links the bot to your account.',
+    'claim_pending_title' => 'Pending Verifications',
+    'claim_available_title' => 'Available Bots to Claim',
+    'claim_no_bots' => 'No bots available to claim.',
+    'claim_no_bots_hint' => 'All bots you have access to are already linked to your account or there are no unclaimed bots.',
+    'claim_type' => 'Claim Type',
+    'claim_as_owner' => 'Claim as Owner',
+    'claim_as_admin' => 'Claim as Admin',
+    'claim_expires' => 'Expires',
+    'claim_send_instruction' => 'Send this code to the bot on the messenger to verify your ownership:',
+    'claim_open_bot' => 'Open Bot',
+    'claim_copy_code' => 'Copy Code',
+    'claim_usage' => 'Usage: /claim VERIFICATION_CODE (e.g., /claim V-7XK9M2P)',
+
+    // Library Relation Filter
+    'filter_by_relation' => 'Access:',
+    'relation_all' => 'All',
+    'relation_owner' => 'Owner',
+    'relation_admin' => 'Admin',
+    'owned_by' => 'Owned by',
+
     // Admin Panel Users
     'section_admin_panel_users' => 'Panel Admins',
     'section_admin_panel_users_desc' => 'Manage other bot owners who can manage this bot',

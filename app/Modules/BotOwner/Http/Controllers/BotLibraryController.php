@@ -20,9 +20,10 @@ class BotLibraryController extends Controller
     {
         $owner = $this->authService->currentOwner();
         $type = $request->query('type');
+        $relation = $request->query('relation');
         $page = $request->query('page', 1);
 
-        $bots = $this->libraryService->getBots($owner, $type, 15);
+        $bots = $this->libraryService->getBots($owner, $type, $relation, 15);
         $botTypes = $this->libraryService->getOwnerBotTypes($owner);
 
         return view('bot-owner.library', [
@@ -30,6 +31,7 @@ class BotLibraryController extends Controller
             'bots' => $bots,
             'botTypes' => $botTypes,
             'currentType' => $type,
+            'currentRelation' => $relation,
         ]);
     }
 }
