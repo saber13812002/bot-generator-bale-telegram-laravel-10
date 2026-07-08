@@ -1408,4 +1408,40 @@ class BotHelper
 
         return $bot->sendMessage($content);
     }
+
+    /**
+     * Try to handle a bot ownership verification code.
+     * If the text matches a verification code pattern (V-XXXXXXXX),
+     * it verifies the claim and sends a response message.
+     *
+     * @param Telegram $bot The bot instance
+     * @param string $text The message text
+     * @param string $chatId The sender's chat ID
+     * @param string $origin 'bale' or 'telegram'
+     * @return bool True if handled, false if not a verification code
+     */
+    public static function tryHandleVerificationCode(Telegram $bot, string $text, string $chatId, string $origin): bool
+    {
+        // Check if text starts with /claim or is a verification code (V-XXXXXXXX)
+        $code = null;
+        if (str_starts_with(mb_strtolower($text), '/claim ')) {
+            $code = trim(substr($text, 7));
+        } elseif (preg_match('/^V-[A-Z0-9]{8}$/', $text)) {
+            $code = $text;
+        }
+
+        if (!$code) {
+            return false;
+        }
+
+        try {
+            $claimService = app(\App\Modules\BotOwner\Contracts\BotClaimServiceInterface::class);
+            $result = $claimService->verifyClaim($code, $chatId, $origin);
+            self::sendMessage($bot, $result['message']);
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('❌ [Verification] Error handling code', ['error' => $e->getMessage()]);
+            return false;
+        }
+    }
 }
