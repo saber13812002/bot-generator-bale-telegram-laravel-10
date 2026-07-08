@@ -165,6 +165,27 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== پردازش دستور /tome برای Claim ربات =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
+            \Illuminate\Support\Facades\Log::info('📋 [BookLibraryReader] /tome command received', [
+                'text' => $text,
+                'chat_id' => $chatId,
+                'type' => $type,
+                'instance_bot_id' => $instanceBotId,
+            ]);
+            if (\App\Helpers\BotHelper::handleTomeCommand($bot, $text, (string) $chatId, $type, $botModel ?? null)) {
+                \Illuminate\Support\Facades\Log::info('✅ [BookLibraryReader] /tome command handled successfully', [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                ]);
+                return;
+            }
+            \Illuminate\Support\Facades\Log::warning('⚠️ [BookLibraryReader] /tome command returned false', [
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]);
+        }
+
         if (!$instanceBotId) {
             BotHelper::sendMessage($bot, '❌ خطا در شناسایی ربات');
             return;
