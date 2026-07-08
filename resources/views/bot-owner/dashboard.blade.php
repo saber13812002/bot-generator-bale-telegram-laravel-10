@@ -12,6 +12,7 @@
         <div class="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-xl font-bold">{{ trans('bot-owner.dashboard_title') }}</h1>
             <div class="flex gap-4 items-center">
+                <a href="{{ route('bot-owner.library') }}" class="text-sm text-blue-600 hover:underline">{{ trans('bot-owner.bot_library_link') }}</a>
                 <span class="text-sm text-gray-500">{{ $owner->phone }}</span>
                 @if($stats['is_pro'])
                     <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Pro</span>
