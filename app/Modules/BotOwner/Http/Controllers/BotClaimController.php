@@ -24,10 +24,23 @@ class BotClaimController extends Controller
         $claimableBots = $this->claimService->getClaimableBots($owner);
         $pendingClaims = $this->claimService->getPendingClaims($owner);
 
+        // Find the Admin Bots bot for verification link
+        $adminBot = \App\Models\Bot::where('endpoint_id', 'admin-bots')->first();
+        $adminBotLink = null;
+        if ($adminBot) {
+            $adminBotName = $adminBot->bale_bot_name ?? $adminBot->telegram_bot_name;
+            $isBale = $adminBot->type === 'bale' || $adminBot->bale_bot_name;
+            $adminBotLink = $isBale
+                ? 'https://ble.ir/' . ($adminBot->bale_bot_name ?? $adminBotName)
+                : 'https://t.me/' . ($adminBot->telegram_bot_name ?? $adminBotName);
+        }
+
         return view('bot-owner.claim', [
             'owner' => $owner,
             'claimableBots' => $claimableBots,
             'pendingClaims' => $pendingClaims,
+            'adminBotLink' => $adminBotLink,
+            'adminBotName' => $adminBot?->bale_bot_name ?? $adminBot?->telegram_bot_name ?? 'Admin Bots',
         ]);
     }
 

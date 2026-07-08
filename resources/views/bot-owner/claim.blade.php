@@ -75,23 +75,25 @@
                                 </div>
                             </div>
                             <div class="mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3">
-                                {{ trans('bot-owner.claim_send_instruction') }}
-                                <div class="mt-2">
-                                    @php
-                                        $botUsername = $claim->bot->bale_bot_name ?? $claim->bot->telegram_bot_name;
-                                        $link = $claim->bot->type === 'bale' 
-                                            ? 'https://ble.ir/' . $botUsername 
-                                            : 'https://t.me/' . $botUsername;
-                                    @endphp
-                                    <a href="{{ $link }}" target="_blank" 
-                                       class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition">
-                                        {{ trans('bot-owner.claim_open_bot') }} →
-                                    </a>
-                                    <button onclick="navigator.clipboard.writeText('{{ $claim->verification_code }}')"
-                                            class="mr-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300 transition">
-                                        📋 {{ trans('bot-owner.claim_copy_code') }}
-                                    </button>
-                                </div>
+                                <div class="font-medium text-gray-700 mb-2">{{ trans('bot-owner.claim_send_instruction') }}</div>
+                                <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                                    <li>{{ trans('bot-owner.claim_step_admin_bot_open') }}
+                                        @if($adminBotLink)
+                                            <a href="{{ $adminBotLink }}" target="_blank"
+                                               class="inline-flex items-center px-2 py-0.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition mr-1">
+                                                {{ $adminBotName }} ↗
+                                            </a>
+                                        @endif
+                                    </li>
+                                    <li>
+                                        {{ trans('bot-owner.claim_step_send_code') }}
+                                        <code class="bg-gray-200 px-2 py-0.5 rounded text-sm font-mono font-bold mx-1">{{ $claim->verification_code }}</code>
+                                        <button onclick="navigator.clipboard.writeText('{{ $claim->verification_code }}')"
+                                                class="text-xs text-blue-600 hover:underline">
+                                            📋 {{ trans('bot-owner.claim_copy_code') }}
+                                        </button>
+                                    </li>
+                                </ol>
                             </div>
                         </div>
                     @endforeach

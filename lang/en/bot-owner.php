@@ -236,6 +236,8 @@ return [
     'claim_open_bot' => 'Open Bot',
     'claim_copy_code' => 'Copy Code',
     'claim_usage' => 'Usage: /claim VERIFICATION_CODE (e.g., /claim V-7XK9M2P)',
+    'claim_step_admin_bot_open' => 'Open the Admin Bots bot on your messenger:',
+    'claim_step_send_code' => 'Send this code to the bot:',
 
     // Library Relation Filter
     'filter_by_relation' => 'Access:',
