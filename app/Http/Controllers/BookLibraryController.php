@@ -429,17 +429,26 @@ class BookLibraryController extends Controller
         }
 
         if (str_starts_with($callbackData, 'bl:acf:')) {
-            $parts = explode(':', $callbackData);
-            $pendingId = (int) ($parts[2] ?? 0);
-            $categoryId = (int) ($parts[3] ?? 0);
-            $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
-            if ($item) {
-                BotHelper::sendMessage($bot, trans('book_library.admin_file_added', [
-                    'category' => $item->category->title ?? '',
-                    'order' => $item->queue_order,
-                ]));
-            } else {
-                BotHelper::sendMessage($bot, trans('book_library.admin_pending_not_found'));
+            try {
+                $parts = explode(':', $callbackData);
+                $pendingId = (int) ($parts[2] ?? 0);
+                $categoryId = (int) ($parts[3] ?? 0);
+                $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
+                if ($item) {
+                    BotHelper::sendMessage($bot, trans('book_library.admin_file_added', [
+                        'category' => $item->category->title ?? '',
+                        'order' => $item->queue_order,
+                    ]));
+                } else {
+                    BotHelper::sendMessage($bot, trans('book_library.admin_pending_not_found'));
+                }
+            } catch (\Throwable $e) {
+                Log::error('❌ [BookLibrary] Error assigning file to category', [
+                    'pending_id' => $pendingId,
+                    'category_id' => $categoryId,
+                    'error' => $e->getMessage(),
+                ]);
+                BotHelper::sendMessage($bot, '❌ خطا در انتساب فایل به دسته. لطفاً کپشن فایل را کوتاه‌تر کنید و دوباره امتحان کنید.');
             }
             return;
         }

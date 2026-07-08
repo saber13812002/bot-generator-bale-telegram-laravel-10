@@ -27,6 +27,13 @@ class ContentAdminService
         ?string $mimeType = null,
         ?string $title = null
     ): ContentPendingUpload {
+        // فقط خط اول کپشن را به عنوان عنوان ذخیره کن (کپشن‌های بلند چندخطی شامل توضیحات و URL هستند)
+        $cleanTitle = null;
+        if ($title !== null) {
+            $firstLine = explode("\n", $title)[0];
+            $cleanTitle = mb_substr(trim($firstLine), 0, 250);
+        }
+
         $pending = ContentPendingUpload::create([
             'bot_id' => $botId,
             'file_id' => $fileId,
@@ -34,12 +41,12 @@ class ContentAdminService
             'origin' => $origin,
             'uploaded_by_chat_id' => $chatId,
             'mime_type' => $mimeType,
-            'title' => $title,
+            'title' => $cleanTitle,
         ]);
 
         Log::info('📖 [ContentAdmin] Pending upload stored', [
             'pending_id' => $pending->id,
-            'title_from_caption' => $title,
+            'title_from_caption' => $cleanTitle,
             'bot_id' => $botId,
             'origin' => $origin,
         ]);

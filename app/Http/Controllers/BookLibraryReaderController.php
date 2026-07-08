@@ -549,14 +549,23 @@ class BookLibraryReaderController extends Controller
 
         // انتساب فایل به دسته
         if (str_starts_with($callbackData, 'bl:acf:')) {
-            $parts = explode(':', $callbackData);
-            $pendingId = (int) ($parts[2] ?? 0);
-            $categoryId = (int) ($parts[3] ?? 0);
-            $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
-            if ($item) {
-                BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.");
-            } else {
-                BotHelper::sendMessage($bot, '❌ فایل یافت نشد.');
+            try {
+                $parts = explode(':', $callbackData);
+                $pendingId = (int) ($parts[2] ?? 0);
+                $categoryId = (int) ($parts[3] ?? 0);
+                $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
+                if ($item) {
+                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ فایل یافت نشد.');
+                }
+            } catch (\Throwable $e) {
+                Log::error('❌ [BookLibrary] Error assigning file to category', [
+                    'pending_id' => $pendingId,
+                    'category_id' => $categoryId,
+                    'error' => $e->getMessage(),
+                ]);
+                BotHelper::sendMessage($bot, '❌ خطا در انتساب فایل به دسته. لطفاً کپشن فایل را کوتاه‌تر کنید و دوباره امتحان کنید.');
             }
             return;
         }

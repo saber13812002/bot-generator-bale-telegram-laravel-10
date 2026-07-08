@@ -114,6 +114,11 @@ class ContentQueueServiceImpl implements ContentQueueService
         // اولویت عنوان: 1. پارامتر صریح 2. title ذخیره شده در pending (از کپشن) 3. نام پیش‌فرض
         $itemTitle = $title ?: ($pending->title ?: ('فایل ' . $nextOrder));
 
+        // فقط خط اول عنوان را بگیر (کپشن‌های بلند چندخطی ممکن است شامل توضیحات و URL باشند)
+        // و حداکثر 250 کاراکتر (varchar(255) در دیتابیس)
+        $firstLine = explode("\n", $itemTitle)[0];
+        $itemTitle = mb_substr(trim($firstLine), 0, 250);
+
         Log::info('📖 [ContentQueue] appendPendingToCategory', [
             'pending_id' => $pending->id,
             'pending_title' => $pending->title,
