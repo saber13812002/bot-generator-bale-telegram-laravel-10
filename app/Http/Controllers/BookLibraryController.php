@@ -126,8 +126,8 @@ class BookLibraryController extends Controller
             return;
         }
 
-        // ===== پردازش کد تأیید مالکیت ربات (Claim) =====
-        if (\App\Helpers\BotHelper::tryHandleVerificationCode($bot, $text, (string) $chatId, $type)) {
+        // ===== پردازش دستور /tome برای Claim ربات =====
+        if (\App\Helpers\BotHelper::handleTomeCommand($bot, $text, (string) $chatId, $type, $botModel ?? null)) {
             return;
         }
 

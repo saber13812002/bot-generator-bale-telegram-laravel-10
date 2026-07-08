@@ -8,17 +8,14 @@ use App\Models\BotOwnershipClaim;
 use App\Modules\BotOwner\Contracts\BotClaimServiceInterface;
 use App\Modules\BotOwner\Models\BotAdminPanelUser;
 use App\Modules\BotOwner\Models\BotOwner;
-use Illuminate\Support\Str;
 
 class BotClaimService implements BotClaimServiceInterface
 {
     public function getClaimableBots(BotOwner $owner): \Illuminate\Support\Collection
     {
-        // Bots that don't have a bot_owner_id yet, OR are not linked to this owner
         return Bot::whereNull('bot_owner_id')
             ->orWhere('bot_owner_id', '!=', $owner->id)
             ->where(function ($q) use ($owner) {
-                // Exclude bots already claimed by this user or where they're already admin
                 $q->whereNotIn('id', function ($sub) use ($owner) {
                     $sub->select('bot_id')
                         ->from('bot_ownership_claims')
@@ -27,7 +24,6 @@ class BotClaimService implements BotClaimServiceInterface
                 });
             })
             ->where(function ($q) use ($owner) {
-                // Exclude bots where user is already a panel admin
                 $q->whereNotIn('id', function ($sub) use ($owner) {
                     $sub->select('bot_id')
                         ->from('bot_admin_panel_users')
@@ -46,10 +42,10 @@ class BotClaimService implements BotClaimServiceInterface
             return ['success' => false, 'message' => 'Bot not found.'];
         }
 
-        // Check if already claimed
+        // Check for existing pending claim
         $existing = BotOwnershipClaim::where('bot_owner_id', $owner->id)
             ->where('bot_id', $botId)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'pending_approval'])
             ->first();
 
         if ($existing) {
@@ -76,7 +72,7 @@ class BotClaimService implements BotClaimServiceInterface
 
         return [
             'success' => true,
-            'message' => 'Claim generated. Send the verification code to the bot on the messenger.',
+            'message' => 'Claim generated. Send /tome ' . $code . ' to the bot on the messenger.',
             'claim' => $claim,
         ];
     }
@@ -84,7 +80,7 @@ class BotClaimService implements BotClaimServiceInterface
     public function getPendingClaims(BotOwner $owner): \Illuminate\Support\Collection
     {
         return BotOwnershipClaim::where('bot_owner_id', $owner->id)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'pending_approval'])
             ->with('bot')
             ->get();
     }
@@ -92,86 +88,62 @@ class BotClaimService implements BotClaimServiceInterface
     public function verifyClaim(string $code, string $chatId, string $origin): array
     {
         $claim = BotOwnershipClaim::where('verification_code', $code)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'pending_approval'])
             ->first();
 
         if (!$claim) {
-            return ['success' => false, 'message' => 'Invalid or expired verification code.'];
+            return ['success' => false, 'message' => '❌ Invalid or expired verification code.'];
         }
 
         if ($claim->isExpired()) {
             $claim->update(['status' => 'expired']);
-            return ['success' => false, 'message' => 'Verification code has expired. Please generate a new one.'];
+            return ['success' => false, 'message' => '❌ Verification code has expired. Please generate a new one from the web panel.'];
         }
 
         $bot = $claim->bot;
         if (!$bot) {
-            return ['success' => false, 'message' => 'Bot not found.'];
+            return ['success' => false, 'message' => '❌ Bot not found.'];
         }
 
-        // --- Verification Logic ---
-
-        $verified = false;
-        $verifiedAs = null;
-
-        // Check 1: Is the sender the bot owner? (match chat_id)
+        // --- Check if sender already has access ---
         $ownerChatId = $origin === 'bale' ? $bot->bale_owner_chat_id : $bot->telegram_owner_chat_id;
-        if ($ownerChatId && (string)$ownerChatId === (string)$chatId) {
-            $verified = true;
-            $verifiedAs = 'owner';
-        }
+        $isOwner = $ownerChatId && (string)$ownerChatId === (string)$chatId;
 
-        // Check 2: Is the sender an approved admin?
-        if (!$verified) {
-            $isAdmin = BotAdminKieRequest::where('bot_id', $bot->id)
-                ->where('chat_id', $chatId)
-                ->where('origin', $origin)
-                ->where('status', 'approved')
-                ->exists();
+        $isApprovedAdmin = BotAdminKieRequest::where('bot_id', $bot->id)
+            ->where('chat_id', $chatId)
+            ->where('origin', $origin)
+            ->where('status', 'approved')
+            ->exists();
 
-            if ($isAdmin) {
-                $verified = true;
-                $verifiedAs = 'admin';
-            }
-        }
+        $isPanelAdmin = BotAdminPanelUser::where('bot_id', $bot->id)
+            ->where('bot_owner_id', $claim->bot_owner_id)
+            ->exists();
 
-        if (!$verified) {
+        if ($isOwner || $isApprovedAdmin || $isPanelAdmin) {
+            // Already has access — verify the code anyway
+            $claim->update(['status' => 'verified', 'verified_at' => now()]);
             return [
-                'success' => false,
-                'message' => 'Verification failed. Your chat ID does not match the bot owner or an approved admin for this bot.',
+                'success' => true,
+                'message' => '✅ You already have access to this bot! Code verified.',
             ];
         }
 
-        // --- Apply the claim ---
-        $claim->update([
-            'status' => 'verified',
-            'verified_at' => now(),
+        // --- New user: Create pending admin request ---
+        $kieRequest = BotAdminKieRequest::create([
+            'bot_id' => $bot->id,
+            'chat_id' => $chatId,
+            'origin' => $origin,
+            'status' => 'pending',
+            'notes' => 'Claim via /tome code: ' . $code,
         ]);
 
-        if ($verifiedAs === 'owner') {
-            // Set bot_owner_id (only if not already set)
-            if (!$bot->bot_owner_id) {
-                $bot->update(['bot_owner_id' => $claim->bot_owner_id]);
-            }
-        } elseif ($verifiedAs === 'admin') {
-            // Add as panel admin (if not already)
-            $alreadyAdmin = BotAdminPanelUser::where('bot_id', $bot->id)
-                ->where('bot_owner_id', $claim->bot_owner_id)
-                ->exists();
+        $claim->update(['status' => 'pending_approval']);
 
-            if (!$alreadyAdmin) {
-                BotAdminPanelUser::create([
-                    'bot_id' => $bot->id,
-                    'bot_owner_id' => $claim->bot_owner_id,
-                    'added_by_owner_id' => null, // System-verified
-                ]);
-            }
-        }
-
-        $roleText = $verifiedAs === 'owner' ? 'owner' : 'admin';
         return [
             'success' => true,
-            'message' => "✅ Bot claimed successfully as {$roleText}! You can now manage it from the web panel.",
+            'message' => '📋 Your request has been sent to the bot admin for approval. They will review it from the web panel.',
+            'needs_approval' => true,
+            'bot' => $bot,
         ];
     }
 

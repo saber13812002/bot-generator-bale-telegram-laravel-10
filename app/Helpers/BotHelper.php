@@ -1410,38 +1410,60 @@ class BotHelper
     }
 
     /**
-     * Try to handle a bot ownership verification code.
-     * If the text matches a verification code pattern (V-XXXXXXXX),
-     * it verifies the claim and sends a response message.
+     * Handle /tome command for bot ownership claim with admin approval.
+     *
+     * Flow:
+     * 1. User sends /tome V-CODE to the bot
+     * 2. If already admin/owner → "You already have access"
+     * 3. If new user → Create pending BotAdminKieRequest, notify admin
+     * 4. Admin approves from web panel
      *
      * @param Telegram $bot The bot instance
      * @param string $text The message text
      * @param string $chatId The sender's chat ID
      * @param string $origin 'bale' or 'telegram'
-     * @return bool True if handled, false if not a verification code
+     * @param \App\Models\Bot|null $botModel The bot model (if known)
+     * @return bool True if handled, false if not a /tome command
      */
-    public static function tryHandleVerificationCode(Telegram $bot, string $text, string $chatId, string $origin): bool
+    public static function handleTomeCommand(Telegram $bot, string $text, string $chatId, string $origin, ?\App\Models\Bot $botModel = null): bool
     {
-        // Check if text starts with /claim or is a verification code (V-XXXXXXXX)
-        $code = null;
-        if (str_starts_with(mb_strtolower($text), '/claim ')) {
-            $code = trim(substr($text, 7));
-        } elseif (preg_match('/^V-[A-Z0-9]{8}$/', $text)) {
-            $code = $text;
+        // Only handle /tome command (not /claim, not plain code)
+        if (!str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
+            return false;
         }
 
-        if (!$code) {
-            return false;
+        $code = trim(substr($text, 6));
+        if (empty($code)) {
+            self::sendMessage($bot, 'Usage: /tome V-CODE');
+            return true;
         }
 
         try {
             $claimService = app(\App\Modules\BotOwner\Contracts\BotClaimServiceInterface::class);
             $result = $claimService->verifyClaim($code, $chatId, $origin);
             self::sendMessage($bot, $result['message']);
+
+            // If request is pending approval, notify current owner on messenger
+            if (isset($result['needs_approval']) && $result['needs_approval'] && isset($result['bot'])) {
+                $targetBot = $result['bot'];
+                $ownerChatId = $targetBot->bale_owner_chat_id ?? $targetBot->telegram_owner_chat_id;
+                if ($ownerChatId && (string)$ownerChatId !== (string)$chatId) {
+                    $panelUrl = config('app.url') . '/bots/manage/' . $targetBot->id . '/admin-kie';
+                    $msg = "🔔 New admin request for your bot " . ($targetBot->bale_bot_name ?? $targetBot->telegram_bot_name ?? 'Bot #' . $targetBot->id) . "!\nFrom user: $chatId\nApprove here: $panelUrl";
+                    // Try to notify - use a simple HTTP call or log it
+                    \Log::info('🔔 [Tome] Admin notification needed', [
+                        'owner_chat_id' => $ownerChatId,
+                        'bot_id' => $targetBot->id,
+                        'panel_url' => $panelUrl,
+                    ]);
+                }
+            }
+
             return true;
         } catch (\Exception $e) {
-            \Log::error('❌ [Verification] Error handling code', ['error' => $e->getMessage()]);
-            return false;
+            \Log::error('❌ [Tome] Error', ['error' => $e->getMessage()]);
+            self::sendMessage($bot, '❌ An error occurred. Please try again later.');
+            return true;
         }
     }
 }

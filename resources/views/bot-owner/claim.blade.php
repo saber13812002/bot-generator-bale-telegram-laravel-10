@@ -74,26 +74,24 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-3 text-sm text-gray-600 bg-gray-50 rounded p-3">
-                                <div class="font-medium text-gray-700 mb-2">{{ trans('bot-owner.claim_send_instruction') }}</div>
-                                <ol class="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                                    <li>{{ trans('bot-owner.claim_step_admin_bot_open') }}
-                                        @if($adminBotLink)
-                                            <a href="{{ $adminBotLink }}" target="_blank"
-                                               class="inline-flex items-center px-2 py-0.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition mr-1">
-                                                {{ $adminBotName }} ↗
-                                            </a>
-                                        @endif
-                                    </li>
+                            <div class="mt-3 text-sm text-gray-600 bg-blue-50 rounded p-3 border border-blue-100">
+                                <div class="font-medium text-blue-800 mb-2">📋 {{ trans('bot-owner.claim_send_instruction') }}</div>
+                                <ol class="list-decimal list-inside space-y-2 text-sm">
+                                    <li>{{ trans('bot-owner.claim_tome_step_open') }}</li>
                                     <li>
-                                        {{ trans('bot-owner.claim_step_send_code') }}
-                                        <code class="bg-gray-200 px-2 py-0.5 rounded text-sm font-mono font-bold mx-1">{{ $claim->verification_code }}</code>
-                                        <button onclick="navigator.clipboard.writeText('{{ $claim->verification_code }}')"
-                                                class="text-xs text-blue-600 hover:underline">
+                                        <span class="font-mono font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">/tome {{ $claim->verification_code }}</span>
+                                        <button onclick="navigator.clipboard.writeText('/tome {{ $claim->verification_code }}')"
+                                                class="text-xs bg-blue-600 text-white px-2 py-0.5 rounded hover:bg-blue-700 transition mr-1">
                                             📋 {{ trans('bot-owner.claim_copy_code') }}
                                         </button>
                                     </li>
+                                    <li>{{ trans('bot-owner.claim_tome_step_wait') }}</li>
                                 </ol>
+                                @if($claim->status === 'pending_approval')
+                                    <div class="mt-2 text-yellow-700 bg-yellow-50 rounded p-2 text-xs">
+                                        ⏳ {{ trans('bot-owner.claim_pending_approval') }}
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endforeach

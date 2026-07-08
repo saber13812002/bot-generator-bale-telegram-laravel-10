@@ -235,9 +235,13 @@ return [
     'claim_send_instruction' => 'Send this code to the bot on the messenger to verify your ownership:',
     'claim_open_bot' => 'Open Bot',
     'claim_copy_code' => 'Copy Code',
-    'claim_usage' => 'Usage: /claim VERIFICATION_CODE (e.g., /claim V-7XK9M2P)',
+    'claim_usage' => 'Usage: /tome VERIFICATION_CODE (e.g., /tome V-7XK9M2P)',
     'claim_step_admin_bot_open' => 'Open the Admin Bots bot on your messenger:',
     'claim_step_send_code' => 'Send this code to the bot:',
+    'claim_tome_step_open' => 'Open the bot on Bale or Telegram',
+    'claim_tome_step_send' => 'Send this command to the bot:',
+    'claim_tome_step_wait' => 'Wait for admin approval. You will be notified when approved.',
+    'claim_pending_approval' => '⏳ Waiting for admin approval. The bot owner will review your request.',
 
     // Library Relation Filter
     'filter_by_relation' => 'Access:',

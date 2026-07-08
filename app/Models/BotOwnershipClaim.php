@@ -38,9 +38,14 @@ class BotOwnershipClaim extends Model
         return $query->where('status', 'pending');
     }
 
+    public function scopePendingApproval($query)
+    {
+        return $query->where('status', 'pending_approval');
+    }
+
     public function scopeValid($query)
     {
-        return $query->where('status', 'pending')
+        return $query->whereIn('status', ['pending', 'pending_approval'])
             ->where('expires_at', '>', now());
     }
 
