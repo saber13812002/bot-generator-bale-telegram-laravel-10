@@ -27,4 +27,8 @@ interface ContentQueueService
     public function maxQueueOrder(int $categoryId): int;
 
     public function getUserProgressList(BotUsers $botUser, int $botId, int $limit = 10): \Illuminate\Support\Collection;
+
+    public function softDeleteItem(int $itemId, int $botId): bool;
+
+    public function updateItem(int $itemId, int $botId, array $data): ?ContentItem;
 }

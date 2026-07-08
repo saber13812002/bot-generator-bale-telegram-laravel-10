@@ -438,7 +438,7 @@ class BookLibraryController extends Controller
                     BotHelper::sendMessage($bot, trans('book_library.admin_file_added', [
                         'category' => $item->category->title ?? '',
                         'order' => $item->queue_order,
-                    ]));
+                    ]) . "\n📝 برای ویرایش عنوان و توضیحات:\n/editContent_{$item->id}\n🗑 برای حذف:\n/deleteItem_{$item->id}");
                 } else {
                     BotHelper::sendMessage($bot, trans('book_library.admin_pending_not_found'));
                 }

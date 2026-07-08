@@ -107,6 +107,28 @@ class ContentQueueServiceImpl implements ContentQueueService
         return (int) ContentItem::where('category_id', $categoryId)->max('queue_order');
     }
 
+    public function softDeleteItem(int $itemId, int $botId): bool
+    {
+        $item = ContentItem::where('id', $itemId)->where('bot_id', $botId)->first();
+        if (!$item) {
+            return false;
+        }
+        $item->delete(); // soft delete
+        Log::info('📖 [ContentQueue] Item soft deleted', ['item_id' => $itemId, 'bot_id' => $botId]);
+        return true;
+    }
+
+    public function updateItem(int $itemId, int $botId, array $data): ?ContentItem
+    {
+        $item = ContentItem::where('id', $itemId)->where('bot_id', $botId)->first();
+        if (!$item) {
+            return null;
+        }
+        $item->update($data);
+        Log::info('📖 [ContentQueue] Item updated', ['item_id' => $itemId, 'bot_id' => $botId, 'data' => $data]);
+        return $item->fresh()->load('category');
+    }
+
     public function appendPendingToCategory(ContentPendingUpload $pending, int $categoryId, ?string $title = null): ContentItem
     {
         $nextOrder = $this->maxQueueOrder($categoryId) + 1;

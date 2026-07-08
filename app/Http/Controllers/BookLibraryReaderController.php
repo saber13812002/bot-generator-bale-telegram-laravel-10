@@ -262,6 +262,55 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== حذف pending upload =====
+        if ($isOwner && str_starts_with($text, '/deletePending_')) {
+            $pendingId = (int) str_replace('/deletePending_', '', $text);
+            if ($pendingId > 0) {
+                $deleted = $this->adminService->deletePending($pendingId, $instanceBotId);
+                BotHelper::sendMessage($bot, $deleted ? "🗑 فایل از صف انتظار حذف شد." : "❌ فایل یافت نشد.");
+            }
+            return;
+        }
+
+        // ===== نمایش ویرایشگر محتوا =====
+        if ($isOwner && str_starts_with($text, '/editContent_')) {
+            $itemId = (int) str_replace('/editContent_', '', $text);
+            if ($itemId > 0) {
+                $this->adminService->showContentEditor($bot, $instanceBotId, $itemId);
+            }
+            return;
+        }
+
+        // ===== ویرایش عنوان (با ویزارد) =====
+        if ($isOwner && str_starts_with($text, '/editTitle_')) {
+            $itemId = (int) str_replace('/editTitle_', '', $text);
+            if ($itemId > 0) {
+                $botUser->settings(['content_wizard' => 'edit_title', 'content_edit_item_id' => $itemId]);
+                BotHelper::sendMessage($bot, "📝 عنوان جدید را وارد کنید:");
+            }
+            return;
+        }
+
+        // ===== ویرایش توضیحات (با ویزارد) =====
+        if ($isOwner && str_starts_with($text, '/editDesc_')) {
+            $itemId = (int) str_replace('/editDesc_', '', $text);
+            if ($itemId > 0) {
+                $botUser->settings(['content_wizard' => 'edit_desc', 'content_edit_item_id' => $itemId]);
+                BotHelper::sendMessage($bot, "📝 توضیحات جدید را وارد کنید:");
+            }
+            return;
+        }
+
+        // ===== حذف نرم آیتم =====
+        if ($isOwner && str_starts_with($text, '/deleteItem_')) {
+            $itemId = (int) str_replace('/deleteItem_', '', $text);
+            if ($itemId > 0) {
+                $deleted = $this->adminService->deleteContentItem($itemId, $instanceBotId);
+                BotHelper::sendMessage($bot, $deleted ? "🗑 آیتم حذف شد." : "❌ آیتم یافت نشد.");
+            }
+            return;
+        }
+
         if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
             Log::info('📖 [BookLibrary] Setting add_category wizard', [
                 'bot_user_id' => $botUser->id,
@@ -361,6 +410,36 @@ class BookLibraryReaderController extends Controller
             return true;
         }
 
+        // ===== ویزارد ویرایش عنوان =====
+        if ($wizard === 'edit_title') {
+            $itemId = (int) $botUser->setting('content_edit_item_id', 0);
+            if ($itemId > 0) {
+                $updated = $this->adminService->updateContentItem($itemId, $botId, ['title' => $text]);
+                if ($updated) {
+                    BotHelper::sendMessage($bot, "✅ عنوان با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی عنوان.');
+                }
+            }
+            $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
+        // ===== ویزارد ویرایش توضیحات =====
+        if ($wizard === 'edit_desc') {
+            $itemId = (int) $botUser->setting('content_edit_item_id', 0);
+            if ($itemId > 0) {
+                $updated = $this->adminService->updateContentItem($itemId, $botId, ['description' => $text]);
+                if ($updated) {
+                    BotHelper::sendMessage($bot, "✅ توضیحات با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی توضیحات.');
+                }
+            }
+            $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
         return false;
     }
 
@@ -432,7 +511,7 @@ class BookLibraryReaderController extends Controller
 
             // ادمین: مستقیم به صفPending
             $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
-            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}");
+            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}\n\n🗑 برای حذف:\n/deletePending_{$pending->id}");
             return true;
         }
 
@@ -555,7 +634,7 @@ class BookLibraryReaderController extends Controller
                 $categoryId = (int) ($parts[3] ?? 0);
                 $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
                 if ($item) {
-                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.");
+                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.\n📝 برای ویرایش عنوان و توضیحات:\n/editContent_{$item->id}\n🗑 برای حذف:\n/deleteItem_{$item->id}");
                 } else {
                     BotHelper::sendMessage($bot, '❌ فایل یافت نشد.');
                 }

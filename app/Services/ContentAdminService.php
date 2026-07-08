@@ -51,6 +51,7 @@ class ContentAdminService
     {
         $message = trans('book_library.admin_file_received', ['id' => $pending->id]);
         $message .= "\n\n" . trans('book_library.admin_add_to_category_cmd', ['id' => $pending->id]);
+        $message .= "\n\n🗑 برای حذف:\n/deletePending_{$pending->id}";
         BotHelper::sendMessage($bot, $message);
     }
 
@@ -115,5 +116,59 @@ class ContentAdminService
     {
         NotifyNewCategoryJob::dispatch($category->id, $bot->id, $origin);
         Log::info('📢 [ContentAdmin] New category notify job dispatched', ['category_id' => $category->id]);
+    }
+
+    /**
+     * حذف pending upload
+     */
+    public function deletePending(int $pendingId, int $botId): bool
+    {
+        $pending = ContentPendingUpload::where('id', $pendingId)->where('bot_id', $botId)->first();
+        if (!$pending) {
+            return false;
+        }
+        $pending->delete();
+        Log::info('📖 [ContentAdmin] Pending upload deleted', ['pending_id' => $pendingId, 'bot_id' => $botId]);
+        return true;
+    }
+
+    /**
+     * حذف نرم آیتم محتوا
+     */
+    public function deleteContentItem(int $itemId, int $botId): bool
+    {
+        return $this->queueService->softDeleteItem($itemId, $botId);
+    }
+
+    /**
+     * نمایش ویرایشگر عنوان و توضیحات برای یک آیتم
+     */
+    public function showContentEditor(Telegram $bot, int $botId, int $itemId): void
+    {
+        $item = ContentItem::where('id', $itemId)->where('bot_id', $botId)->first();
+        if (!$item) {
+            BotHelper::sendMessage($bot, '❌ آیتم یافت نشد.');
+            return;
+        }
+
+        $message = "📝 ویرایش محتوا #{$item->id}\n\n";
+        $message .= "📌 عنوان فعلی:\n{$item->title}\n\n";
+        if ($item->description) {
+            $message .= "📌 توضیحات فعلی:\n{$item->description}\n\n";
+        }
+        $message .= "برای ویرایش، از دستورات زیر استفاده کنید:\n";
+        $message .= "/editTitle_{$item->id} — ویرایش عنوان\n";
+        $message .= "/editDesc_{$item->id} — ویرایش توضیحات\n";
+        $message .= "/deleteItem_{$item->id} — حذف آیتم";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * به‌روزرسانی عنوان یا توضیحات آیتم
+     */
+    public function updateContentItem(int $itemId, int $botId, array $data): ?ContentItem
+    {
+        return $this->queueService->updateItem($itemId, $botId, $data);
     }
 }
