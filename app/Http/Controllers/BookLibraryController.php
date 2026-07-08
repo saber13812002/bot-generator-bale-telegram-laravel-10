@@ -126,6 +126,11 @@ class BookLibraryController extends Controller
             return;
         }
 
+        // ===== پردازش کد تأیید مالکیت ربات (Claim) =====
+        if (\App\Helpers\BotHelper::tryHandleVerificationCode($bot, $text, (string) $chatId, $type)) {
+            return;
+        }
+
         if (!$instanceBotId) {
             BotHelper::sendMessage($bot, trans('book_library.delivery_error'));
             return;
