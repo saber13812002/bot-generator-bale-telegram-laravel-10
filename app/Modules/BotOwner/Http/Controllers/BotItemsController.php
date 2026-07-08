@@ -21,7 +21,7 @@ class BotItemsController extends Controller
     public function index(Request $request, Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $categoryId = $request->query('category_id');
         $items = $this->itemsService->getItems($bot, $categoryId);
@@ -37,7 +37,7 @@ class BotItemsController extends Controller
     public function reorder(Request $request, Bot $bot): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $validated = $request->validate([
             'order' => 'required|array',

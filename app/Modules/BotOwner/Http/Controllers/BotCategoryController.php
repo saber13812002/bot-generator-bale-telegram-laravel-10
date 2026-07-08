@@ -22,7 +22,7 @@ class BotCategoryController extends Controller
     public function index(Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $categories = $this->categoryService->getCategories($bot);
 
@@ -36,7 +36,7 @@ class BotCategoryController extends Controller
     public function store(Request $request, Bot $bot): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -53,7 +53,7 @@ class BotCategoryController extends Controller
     public function update(Request $request, Bot $bot, ContentCategory $category): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
         abort_if($category->bot_id !== $bot->id, 404);
 
         $validated = $request->validate([
@@ -71,7 +71,7 @@ class BotCategoryController extends Controller
     public function destroy(Bot $bot, ContentCategory $category): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
         abort_if($category->bot_id !== $bot->id, 404);
 
         $result = $this->categoryService->delete($category);
@@ -84,7 +84,7 @@ class BotCategoryController extends Controller
     public function reorder(Request $request, Bot $bot): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $validated = $request->validate([
             'order' => 'required|array',

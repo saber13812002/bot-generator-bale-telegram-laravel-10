@@ -20,8 +20,8 @@ class BotManageController extends Controller
     {
         $owner = $this->authService->currentOwner();
 
-        // Permission check: only bot owner can manage
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        // Permission check: owner or approved admin panel user
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $data = $this->manageService->getManageData($bot, $owner);
 
@@ -36,7 +36,7 @@ class BotManageController extends Controller
     public function stats(Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $stats = $this->manageService->getBotStats($bot);
 

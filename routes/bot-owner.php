@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\BotOwner\Http\Controllers\BotAdminKieController;
+use App\Modules\BotOwner\Http\Controllers\BotAdminPanelUserController;
 use App\Modules\BotOwner\Http\Controllers\BotCategoryController;
 use App\Modules\BotOwner\Http\Controllers\BotItemsController;
 use App\Modules\BotOwner\Http\Controllers\BotLibraryController;
@@ -34,6 +35,11 @@ Route::prefix('bots')->name('bot-owner.')->group(function () {
         Route::get('/manage/{bot}', [BotManageController::class, 'index'])->name('manage');
         Route::get('/manage/{bot}/stats', [BotManageController::class, 'stats'])->name('manage.stats');
 
+        // Admin Panel Users (who can manage this bot in web panel)
+        Route::get('/manage/{bot}/admin-panel-users', [BotAdminPanelUserController::class, 'index'])->name('manage.admin-panel-users');
+        Route::post('/manage/{bot}/admin-panel-users', [BotAdminPanelUserController::class, 'store'])->name('manage.admin-panel-users.store');
+        Route::delete('/manage/{bot}/admin-panel-users/{admin}', [BotAdminPanelUserController::class, 'destroy'])->name('manage.admin-panel-users.destroy');
+
         // Admin Kie (Admin Requests) Management
         Route::get('/manage/{bot}/admin-kie', [BotAdminKieController::class, 'index'])->name('manage.admin-kie');
         Route::post('/manage/{bot}/admin-kie/{request}/approve', [BotAdminKieController::class, 'approve'])->name('manage.admin-kie.approve');
@@ -63,4 +69,9 @@ Route::prefix('bots')->name('bot-owner.')->group(function () {
         // Bot-Specific Settings (type-based routing)
         Route::get('/manage/{bot}/settings', [BotSettingsController::class, 'index'])->name('manage.settings');
     });
+});
+
+// Bot Admin Panel User Search (JSON endpoint, no bot context needed)
+Route::middleware('bot-owner')->prefix('bots')->name('bot-owner.')->group(function () {
+    Route::get('/admin-panel-users/search', [BotAdminPanelUserController::class, 'search'])->name('admin-panel-users.search');
 });

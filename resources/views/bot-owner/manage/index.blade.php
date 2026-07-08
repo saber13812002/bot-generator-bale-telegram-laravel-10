@@ -86,6 +86,10 @@
                         <div class="text-xs text-gray-500 mt-1">{{ trans('bot-owner.pending_admin_requests') }}</div>
                     </div>
                     <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-900">{{ $stats['panel_admins_count'] ?? 0 }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ trans('bot-owner.section_admin_panel_users') }}</div>
+                    </div>
+                    <div class="text-center">
                         <div class="text-2xl font-bold {{ $stats['pending_plan_requests'] > 0 ? 'text-yellow-600' : 'text-gray-900' }}">
                             {{ $stats['pending_plan_requests'] }}
                         </div>

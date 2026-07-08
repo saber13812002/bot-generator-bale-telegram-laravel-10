@@ -21,7 +21,7 @@ class BotUploadsController extends Controller
     public function index(Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $uploads = $this->uploadsService->getPendingUploads($bot);
         $categories = $this->uploadsService->getCategories($bot);
@@ -37,7 +37,7 @@ class BotUploadsController extends Controller
     public function approve(Request $request, Bot $bot, int $upload): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $validated = $request->validate([
             'category_id' => 'required|integer|exists:content_categories,id',
@@ -53,7 +53,7 @@ class BotUploadsController extends Controller
     public function reject(Bot $bot, int $upload): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $result = $this->uploadsService->reject($bot, $upload, $owner);
 

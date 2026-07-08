@@ -3,6 +3,7 @@
 namespace App\Modules\BotOwner\Providers;
 
 use App\Modules\BotOwner\Contracts\BotAdminKieServiceInterface;
+use App\Modules\BotOwner\Contracts\BotAdminPanelUserServiceInterface;
 use App\Modules\BotOwner\Contracts\BotCategoryServiceInterface;
 use App\Modules\BotOwner\Contracts\BotItemsServiceInterface;
 use App\Modules\BotOwner\Contracts\BotLibraryServiceInterface;
@@ -17,6 +18,7 @@ use App\Modules\BotOwner\Contracts\BotUploadsServiceInterface;
 use App\Modules\BotOwner\Repositories\BotOwnerOtpSessionRepository;
 use App\Modules\BotOwner\Repositories\BotOwnerRepository;
 use App\Modules\BotOwner\Services\BotAdminKieService;
+use App\Modules\BotOwner\Services\BotAdminPanelUserService;
 use App\Modules\BotOwner\Services\BotCategoryService;
 use App\Modules\BotOwner\Services\BotItemsService;
 use App\Modules\BotOwner\Services\BotLibraryService;
@@ -38,7 +40,7 @@ class BotOwnerServiceProvider extends ServiceProvider
         $this->app->bind(BotOwnerDashboardServiceInterface::class, BotOwnerDashboardService::class);
         $this->app->bind(BotOwnerProServiceInterface::class, BotOwnerProService::class);
 
-        // New management service bindings
+        // Management service bindings
         $this->app->bind(BotLibraryServiceInterface::class, BotLibraryService::class);
         $this->app->bind(BotManageServiceInterface::class, BotManageService::class);
         $this->app->bind(BotAdminKieServiceInterface::class, BotAdminKieService::class);
@@ -46,5 +48,8 @@ class BotOwnerServiceProvider extends ServiceProvider
         $this->app->bind(BotCategoryServiceInterface::class, BotCategoryService::class);
         $this->app->bind(BotItemsServiceInterface::class, BotItemsService::class);
         $this->app->bind(BotUploadsServiceInterface::class, BotUploadsService::class);
+
+        // Admin panel user management
+        $this->app->bind(BotAdminPanelUserServiceInterface::class, BotAdminPanelUserService::class);
     }
 }

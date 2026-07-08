@@ -35,6 +35,7 @@ class BotManageService implements BotManageServiceInterface
         $pendingUploads = ContentPendingUpload::where('bot_id', $bot->id)->count();
         $categoriesCount = ContentCategory::where('bot_id', $bot->id)->count();
         $itemsCount = ContentItem::where('bot_id', $bot->id)->count();
+        $panelAdminsCount = \App\Modules\BotOwner\Models\BotAdminPanelUser::where('bot_id', $bot->id)->count();
 
         return [
             'total_users' => $totalUsers,
@@ -43,12 +44,21 @@ class BotManageService implements BotManageServiceInterface
             'pending_uploads' => $pendingUploads,
             'categories_count' => $categoriesCount,
             'items_count' => $itemsCount,
+            'panel_admins_count' => $panelAdminsCount,
         ];
     }
 
     private function getAvailableSections(Bot $bot): array
     {
         $sections = [];
+
+        // Panel Admins (available for all bots - manage who can access panel)
+        $sections[] = [
+            'id' => 'admin-panel-users',
+            'route' => route('bot-owner.manage.admin-panel-users', $bot->id),
+            'title_key' => 'section_admin_panel_users',
+            'description_key' => 'section_admin_panel_users_desc',
+        ];
 
         // Admin Kie is available for all bots
         $sections[] = [

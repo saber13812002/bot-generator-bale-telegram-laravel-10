@@ -21,7 +21,7 @@ class BotPlanController extends Controller
     public function index(Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $requests = $this->planService->getPendingRequests($bot);
 
@@ -35,7 +35,7 @@ class BotPlanController extends Controller
     public function approve(Bot $bot, LibraryPlanRequest $planRequest): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $result = $this->planService->approve($planRequest, $owner);
 
@@ -47,7 +47,7 @@ class BotPlanController extends Controller
     public function reject(Bot $bot, LibraryPlanRequest $planRequest): RedirectResponse
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $result = $this->planService->reject($planRequest, $owner);
 

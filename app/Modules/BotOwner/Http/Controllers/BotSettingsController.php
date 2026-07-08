@@ -17,7 +17,7 @@ class BotSettingsController extends Controller
     public function index(Bot $bot): View
     {
         $owner = $this->authService->currentOwner();
-        abort_if($bot->bot_owner_id !== $owner->id, 403);
+        abort_if(!$bot->canBeManagedBy($owner), 403);
 
         $bot->load('webhookEndpoint');
 
