@@ -1463,11 +1463,28 @@ class BotHelper
                 $ownerChatId = $targetBot->bale_owner_chat_id ?? $targetBot->telegram_owner_chat_id;
                 if ($ownerChatId && (string)$ownerChatId !== (string)$chatId) {
                     $panelUrl = config('app.url') . '/bots/manage/' . $targetBot->id . '/admin-kie';
-                    \Log::info('🔔 [Tome] Admin notification needed', [
+                    $botName = $targetBot->bale_bot_name ?? $targetBot->telegram_bot_name ?? 'Bot #' . $targetBot->id;
+                    
+                    \Log::info('🔔 [Tome] Sending notification to owner', [
                         'owner_chat_id' => $ownerChatId,
                         'bot_id' => $targetBot->id,
-                        'panel_url' => $panelUrl,
+                        'bot_name' => $botName,
                     ]);
+
+                    // Send notification message through the SAME bot that received /tome
+                    try {
+                        self::sendMessageByChatId($bot, $ownerChatId,
+                            "🔔 New admin request for your bot **{$botName}**!\n" .
+                            "User chat ID: {$chatId}\n" .
+                            "Approve from web panel: {$panelUrl}"
+                        );
+                        \Log::info('✅ [Tome] Notification sent to owner');
+                    } catch (\Exception $notifyErr) {
+                        \Log::warning('⚠️ [Tome] Could not notify owner via bot', [
+                            'error' => $notifyErr->getMessage(),
+                            'owner_chat_id' => $ownerChatId,
+                        ]);
+                    }
                 }
             }
 
