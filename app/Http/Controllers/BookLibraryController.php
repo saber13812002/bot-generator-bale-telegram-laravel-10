@@ -127,8 +127,24 @@ class BookLibraryController extends Controller
         }
 
         // ===== پردازش دستور /tome برای Claim ربات =====
-        if (\App\Helpers\BotHelper::handleTomeCommand($bot, $text, (string) $chatId, $type, $botModel ?? null)) {
-            return;
+        if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
+            \Illuminate\Support\Facades\Log::info('📋 [BookLibrary] /tome command received', [
+                'text' => $text,
+                'chat_id' => $chatId,
+                'type' => $type,
+                'instance_bot_id' => $instanceBotId,
+            ]);
+            if (\App\Helpers\BotHelper::handleTomeCommand($bot, $text, (string) $chatId, $type, $botModel ?? null)) {
+                \Illuminate\Support\Facades\Log::info('✅ [BookLibrary] /tome command handled successfully', [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                ]);
+                return;
+            }
+            \Illuminate\Support\Facades\Log::warning('⚠️ [BookLibrary] /tome command returned false', [
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]);
         }
 
         if (!$instanceBotId) {

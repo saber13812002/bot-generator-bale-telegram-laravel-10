@@ -1433,6 +1433,13 @@ class BotHelper
         }
 
         $code = trim(substr($text, 6));
+        \Log::info('🔍 [Tome] Command received', [
+            'code' => $code,
+            'chat_id' => $chatId,
+            'origin' => $origin,
+            'has_bot_model' => $botModel !== null,
+        ]);
+
         if (empty($code)) {
             self::sendMessage($bot, 'Usage: /tome V-CODE');
             return true;
@@ -1441,6 +1448,13 @@ class BotHelper
         try {
             $claimService = app(\App\Modules\BotOwner\Contracts\BotClaimServiceInterface::class);
             $result = $claimService->verifyClaim($code, $chatId, $origin);
+            
+            \Log::info('✅ [Tome] Verification result', [
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? 'no message',
+                'needs_approval' => $result['needs_approval'] ?? false,
+            ]);
+
             self::sendMessage($bot, $result['message']);
 
             // If request is pending approval, notify current owner on messenger
@@ -1449,8 +1463,6 @@ class BotHelper
                 $ownerChatId = $targetBot->bale_owner_chat_id ?? $targetBot->telegram_owner_chat_id;
                 if ($ownerChatId && (string)$ownerChatId !== (string)$chatId) {
                     $panelUrl = config('app.url') . '/bots/manage/' . $targetBot->id . '/admin-kie';
-                    $msg = "🔔 New admin request for your bot " . ($targetBot->bale_bot_name ?? $targetBot->telegram_bot_name ?? 'Bot #' . $targetBot->id) . "!\nFrom user: $chatId\nApprove here: $panelUrl";
-                    // Try to notify - use a simple HTTP call or log it
                     \Log::info('🔔 [Tome] Admin notification needed', [
                         'owner_chat_id' => $ownerChatId,
                         'bot_id' => $targetBot->id,
@@ -1461,7 +1473,7 @@ class BotHelper
 
             return true;
         } catch (\Exception $e) {
-            \Log::error('❌ [Tome] Error', ['error' => $e->getMessage()]);
+            \Log::error('❌ [Tome] Error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             self::sendMessage($bot, '❌ An error occurred. Please try again later.');
             return true;
         }
