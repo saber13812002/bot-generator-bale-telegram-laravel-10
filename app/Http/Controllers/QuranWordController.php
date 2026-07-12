@@ -1618,7 +1618,19 @@ class QuranWordController extends Controller
                         'type' => $type
                     ]);
                     
-                    if ($command == "fehrest") {
+                    if (\App\Helpers\AdminHelper::isHelpAdminCommand($bot->Text())) {
+                        Log::info('📝 [Command] Processing /helpadmin command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        
+                        if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                            $helpText = \App\Helpers\AdminHelper::getHelpAdminText();
+                            \App\Helpers\BotHelper::sendMessage($bot, $helpText);
+                        } else {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                        }
+                    } elseif ($command == "fehrest") {
                         Log::info('📝 [Command] Processing /fehrest command', [
                             'chat_id' => $bot->ChatID(),
                             'type' => $type
