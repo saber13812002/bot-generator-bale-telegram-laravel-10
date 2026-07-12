@@ -1363,8 +1363,188 @@ class QuranWordController extends Controller
                             'type' => $type
                         ]);
                     }
+                // =============================================
+                // دستورات جدید ادمین
+                // =============================================
+                
+                // ///stats - آمار کامل همه زبان‌ها
+                } elseif (\App\Helpers\AdminHelper::isStatsCommand($bot->Text())) {
+                    Log::info('📊 [Command] Processing ///stats command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $stats = $service->getStats($botMotherId);
+                        $message = $service->formatStatsMessage($stats);
+                        \App\Helpers\BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [Command] ///stats command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type,
+                            'stats_count' => count($stats)
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // ///stats xx - آمار یک زبان خاص
+                } elseif (\App\Helpers\AdminHelper::isStatsLanguageCommand($bot->Text())) {
+                    Log::info('📊 [Command] Processing ///stats language command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $language = \App\Helpers\AdminHelper::parseLanguageFromCommand($bot->Text());
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $stats = $service->getStatsByLanguage($language, $type, $botMotherId);
+                        
+                        $message = "📊 *آمار زبان {$stats['language_name']}*\n";
+                        $message .= "────────────────\n";
+                        $message .= "📱 پلتفرم: {$stats['platform']}\n";
+                        $message .= "👥 مجموع کاربران: {$stats['total_users']}\n";
+                        $message .= "📨 مجموع درخواست‌ها: {$stats['total_requests']}\n\n";
+                        
+                        if (!empty($stats['bots'])) {
+                            $message .= "📋 *تفکیک ربات‌ها:*\n";
+                            foreach ($stats['bots'] as $botStat) {
+                                $message .= "└ {$botStat['bot_name']}: {$botStat['unique_users']} کاربر | {$botStat['total_requests']} درخواست\n";
+                            }
+                        }
+                        
+                        $message .= "\n💡 برای ارسال: `////{$language} [متن]`\n";
+                        
+                        \App\Helpers\BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [Command] ///stats language command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'language' => $language,
+                            'type' => $type
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // /////all ... - ارسال به همه زبان‌ها (نیاز به تأیید)
+                } elseif (\App\Helpers\AdminHelper::isBroadcastAllCommand($bot->Text())) {
+                    Log::info('📢 [Command] Processing /////all command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        if ($type == 'telegram') {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⚠️ لطفا از ربات پیام‌رسان بله، این پیام را ارسال کنید.");
+                        } else {
+                            $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
+                            $service = app(\App\Services\AdminBroadcastService::class);
+                            $result = $service->prepareBroadcastToAll($messageText, $type, $botMotherId, $bot->ChatID());
+                            
+                            $confirmation = "📋 *تأیید ارسال پیام همگانی به همه زبان‌ها*\n";
+                            $confirmation .= "─────────────────────────────\n";
+                            $confirmation .= "👥 مجموع کاربران: {$result['total_users']}\n";
+                            $confirmation .= "📱 پلتفرم: {$type}\n\n";
+                            $confirmation .= "📝 *متن پیام:*\n```\n{$messageText}\n```\n\n";
+                            $confirmation .= "✅ `/confirm` برای تأیید\n";
+                            $confirmation .= "⏰ اعتبار: ۵ دقیقه\n";
+                            
+                            \App\Helpers\BotHelper::sendMessage($bot, $confirmation);
+                        }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // ////xx ... - ارسال به زبان خاص (نیاز به تأیید)
+                } elseif (\App\Helpers\AdminHelper::isBroadcastLanguageCommand($bot->Text())) {
+                    Log::info('📢 [Command] Processing ////language command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        if ($type == 'telegram') {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⚠️ لطفا از ربات پیام‌رسان بله، این پیام را ارسال کنید.");
+                        } else {
+                            $language = \App\Helpers\AdminHelper::parseLanguageFromCommand($bot->Text());
+                            $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
+                            
+                            $service = app(\App\Services\AdminBroadcastService::class);
+                            $stats = $service->prepareBroadcast($language, $messageText, $type, $botMotherId, $bot->ChatID());
+                            
+                            $confirmation = $service->formatConfirmationMessage($stats, $messageText, $type, $stats['total_users']);
+                            \App\Helpers\BotHelper::sendMessage($bot, $confirmation);
+                        }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // /confirm - تأیید ارسال
+                } elseif (\App\Helpers\AdminHelper::isConfirmCommand($bot->Text())) {
+                    Log::info('✅ [Command] Processing /confirm command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $result = $service->confirmAndSend($bot->ChatID());
+                        
+                        if ($result['success']) {
+                            $report = "✅ *ارسال همگانی انجام شد*\n";
+                            $report .= "─────────────────────\n";
+                            $report .= "👥 ارسال به: {$result['sent_count']} کاربر\n";
+                            if (!empty($result['error_count'])) {
+                                $report .= "❌ خطا: {$result['error_count']}\n";
+                            }
+                            
+                            if (!empty($result['bots_report'])) {
+                                $report .= "\n📋 *تفکیک ربات‌ها:*\n";
+                                foreach ($result['bots_report'] as $botReport) {
+                                    $report .= "└ {$botReport['bot_name']}: ✅{$botReport['sent']}";
+                                    if ($botReport['errors'] > 0) {
+                                        $report .= " ❌{$botReport['errors']}";
+                                    }
+                                    $report .= "\n";
+                                }
+                            }
+                            
+                            if (!empty($result['languages_report'])) {
+                                $report .= "\n📋 *تفکیک زبان‌ها:*\n";
+                                foreach ($result['languages_report'] as $langReport) {
+                                    $report .= "└ {$langReport['language_name']}: ✅{$langReport['sent']}";
+                                    if ($langReport['errors'] > 0) {
+                                        $report .= " ❌{$langReport['errors']}";
+                                    }
+                                    $report .= "\n";
+                                    foreach ($langReport['bots'] as $botRep) {
+                                        $report .= "  └ {$botRep['bot_name']}: ✅{$botRep['sent']}\n";
+                                    }
+                                }
+                            }
+                            
+                            \App\Helpers\BotHelper::sendMessage($bot, $report);
+                        } else {
+                            \App\Helpers\BotHelper::sendMessage($bot, $result['message']);
+                        }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // =============================================
+                // دستورات قدیمی (برای backward compatibility)
+                // =============================================
+                
                 } elseif ((substr($bot->Text(), 0, 4)) == "////") {
-                    Log::info('📝 [Command] Processing //// command (message to all admins)', [
+                    Log::info('📝 [Command] Processing //// command (message to all admins, legacy)', [
                         'chat_id' => $bot->ChatID(),
                         'type' => $type,
                         'timestamp' => now()->toDateTimeString()
@@ -1381,7 +1561,7 @@ class QuranWordController extends Controller
                         'type' => $type
                     ]);
                 } elseif ((substr($bot->Text(), 0, 3)) == "///") {
-                    Log::info('📝 [Command] Processing /// command (message to all users)', [
+                    Log::info('📝 [Command] Processing /// command (message to all users, legacy)', [
                         'chat_id' => $bot->ChatID(),
                         'type' => $type,
                         'timestamp' => now()->toDateTimeString()
@@ -2358,10 +2538,13 @@ class QuranWordController extends Controller
                         $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                         $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
+                        // استفاده از زبان داینامیک (از request یا language_code ربات)
+                        $broadcastLanguage = $lang ?: 'fa';
+
                         if ($request->request->get('to_admins') == "false") {
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
                                 ->whereWebhookEndpointUri('webhook-quran-word')
-                                ->whereLanguage('fa')
+                                ->whereLanguage($broadcastLanguage)
                                 ->select('chat_id', 'type')
                                 ->distinct('chat_id')
                                 ->get();
@@ -2369,7 +2552,7 @@ class QuranWordController extends Controller
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
                                 ->whereWebhookEndpointUri('webhook-quran-word')
                                 ->whereIn('chat_id', AdminHelper::getAdmins())
-                                ->whereLanguage('fa')
+                                ->whereLanguage($broadcastLanguage)
                                 ->select('chat_id', 'type')
                                 ->distinct('chat_id')
                                 ->get();

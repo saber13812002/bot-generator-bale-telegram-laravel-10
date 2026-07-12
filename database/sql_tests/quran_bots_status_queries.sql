@@ -280,3 +280,25 @@ LEFT JOIN (
 ) log_stats ON log_stats.language = b.language_code AND log_stats.type = b.type
 WHERE b.bot_mother_id = 1
 ORDER BY COALESCE(log_stats.unique_users, 0) DESC;
+
+-- =============================================
+-- 🔟 تفکیک دقیق ربات‌ها بر اساس bot_id (نام ربات واقعی)
+-- =============================================
+-- این کوئری نشان می‌دهد هر bot_id در لاگ‌ها به کدام ربات تعلق دارد
+SELECT
+    bl.language,
+    bl.type AS platform,
+    bl.bot_id,
+    COALESCE(b.telegram_bot_name, b.bale_bot_name, '⚠️ ربات حذف شده') AS bot_username,
+    b.telegram_bot_status,
+    b.bale_bot_status,
+    COUNT(DISTINCT bl.chat_id) AS unique_users,
+    COUNT(*) AS total_requests,
+    MAX(bl.created_at) AS last_activity
+FROM bot_logs bl
+LEFT JOIN bots b ON b.id = bl.bot_id
+WHERE bl.webhook_endpoint_uri = 'webhook-quran-word'
+  AND bl.bot_mother_id = 1
+  AND bl.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+GROUP BY bl.language, bl.type, bl.bot_id, b.telegram_bot_name, b.bale_bot_name, b.telegram_bot_status, b.bale_bot_status
+ORDER BY bl.language, bl.type, unique_users DESC;
