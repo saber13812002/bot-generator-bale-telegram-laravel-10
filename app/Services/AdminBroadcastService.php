@@ -18,17 +18,14 @@ class AdminBroadcastService
 
     /**
      * دریافت آمار کامل گروه‌بندی شده بر اساس زبان و پلتفرم
-     * برای webhook-quran-word
      */
     public function getStats(int $botMotherId = 1, int $days = 30): array
     {
         $stats = BotLog::getQuranStatsGrouped($botMotherId, $days);
         
-        // اضافه کردن نام ربات به هر ردیف
         $result = [];
         foreach ($stats as $stat) {
             $botName = null;
-            // پیدا کردن نام ربات از bots table
             $botInfo = Bot::where('bot_mother_id', $botMotherId)
                 ->where('language_code', $stat['language'])
                 ->where('type', $stat['type'])
@@ -40,7 +37,6 @@ class AdminBroadcastService
                     : $botInfo->bale_bot_name;
             }
             
-            // fallback به config
             if (!$botName) {
                 $botName = AdminHelper::getBotNameByLanguage($stat['language'], $stat['type']);
             }
@@ -60,27 +56,31 @@ class AdminBroadcastService
     }
 
     /**
-     * دریافت آمار یک زبان خاص به تفکیک ربات‌ها
+     * دریافت آمار یک زبان خاص در تمام پلتفرم‌ها
      */
-    public function getStatsByLanguage(string $language, string $platform, int $botMotherId = 1, int $days = 30): array
+    public function getStatsByLanguage(string $language, int $botMotherId = 1, int $days = 30): array
     {
-        $botsStats = BotLog::getStatsByLanguageWithBots($language, $platform, $botMotherId, $days);
-        
+        // آمار در تمام پلتفرم‌ها (حذف فیلتر platform)
+        $allPlatforms = ['telegram', 'bale'];
+        $allBotsStats = [];
         $totalUsers = 0;
         $totalRequests = 0;
         
-        foreach ($botsStats as &$stat) {
-            $totalUsers += $stat['unique_users'];
-            $totalRequests += $stat['total_requests'];
+        foreach ($allPlatforms as $platform) {
+            $botsStats = BotLog::getStatsByLanguageWithBots($language, $platform, $botMotherId, $days);
+            foreach ($botsStats as $stat) {
+                $allBotsStats[] = $stat;
+                $totalUsers += $stat['unique_users'];
+                $totalRequests += $stat['total_requests'];
+            }
         }
         
         return [
             'language' => $language,
             'language_name' => AdminHelper::getLanguageName($language),
-            'platform' => $platform,
             'total_users' => $totalUsers,
             'total_requests' => $totalRequests,
-            'bots' => $botsStats,
+            'bots' => $allBotsStats,
         ];
     }
 
@@ -90,19 +90,15 @@ class AdminBroadcastService
     public function prepareBroadcast(
         string $language,
         string $message,
-        string $platform,
         int $botMotherId,
         string $adminChatId
     ): array {
-        // دریافت آمار
-        $stats = $this->getStatsByLanguage($language, $platform, $botMotherId);
+        $stats = $this->getStatsByLanguage($language, $botMotherId);
         
-        // ذخیره در cache
         $cacheKey = self::CACHE_PREFIX . $adminChatId;
         Cache::put($cacheKey, [
             'language' => $language,
             'message' => $message,
-            'platform' => $platform,
             'bot_mother_id' => $botMotherId,
             'total_users' => $stats['total_users'],
             'created_at' => now(),
@@ -116,23 +112,27 @@ class AdminBroadcastService
      */
     public function prepareBroadcastToAll(
         string $message,
-        string $platform,
         int $botMotherId,
         string $adminChatId
     ): array {
-        // دریافت آمار همه زبان‌ها
         $allStats = $this->getStats($botMotherId);
         $totalUsers = 0;
+        
+        // محاسبه مجموع کاربران (بدون در نظر گرفتن پلتفرم)
+        $languageTotals = [];
         foreach ($allStats as $stat) {
+            $lang = $stat['language'];
+            if (!isset($languageTotals[$lang])) {
+                $languageTotals[$lang] = 0;
+            }
+            $languageTotals[$lang] += $stat['unique_users'];
             $totalUsers += $stat['unique_users'];
         }
         
-        // ذخیره در cache با language = '*'
         $cacheKey = self::CACHE_PREFIX . $adminChatId;
         Cache::put($cacheKey, [
             'language' => '*',
             'message' => $message,
-            'platform' => $platform,
             'bot_mother_id' => $botMotherId,
             'total_users' => $totalUsers,
             'created_at' => now(),
@@ -161,105 +161,106 @@ class AdminBroadcastService
             ];
         }
         
-        // حذف از cache
         Cache::forget($cacheKey);
         
         $language = $pending['language'];
         $message = $pending['message'];
-        $platform = $pending['platform'];
         $botMotherId = $pending['bot_mother_id'];
         
         if ($language === '*') {
-            return $this->sendBroadcastToAll($message, $platform, $botMotherId, $adminChatId);
+            return $this->sendBroadcastToAll($message, $botMotherId, $adminChatId);
         }
         
-        return $this->sendBroadcast($language, $message, $platform, $botMotherId);
+        return $this->sendBroadcast($language, $message, $botMotherId);
     }
 
     /**
-     * ارسال مستقیم broadcast (بدون تأیید)
+     * ارسال به کاربران یک زبان در تمام پلتفرم‌ها
      */
     public function sendBroadcast(
         string $language,
         string $message,
-        string $platform,
         int $botMotherId
     ): array {
-        // دریافت chat_id ها به تفکیک bot_id
-        $chatIdsByBot = BotLog::getChatIdsByLanguageAndBot($language, $platform, $botMotherId);
-        
-        // دریافت توکن ربات مادر
-        $token = $platform == 'bale' 
-            ? env('BOT_MOTHER_TOKEN_BALE') 
-            : env('BOT_MOTHER_TOKEN_TELEGRAM');
-        
-        if (!$token) {
-            throw new Exception("Token not found for platform: {$platform}");
-        }
-        
-        $bot = new Telegram($token, $platform);
-        
+        $allPlatforms = ['telegram', 'bale'];
         $totalSent = 0;
         $totalErrors = 0;
-        $botsReport = [];
+        $allBotsReport = [];
         
-        foreach ($chatIdsByBot as $botId => $chatIds) {
-            $botName = 'ناشناخته';
-            $botModel = Bot::find($botId);
-            if ($botModel) {
-                $botName = $platform == 'telegram' 
-                    ? ($botModel->telegram_bot_name ?? $botModel->bale_bot_name ?? 'ناشناخته')
-                    : ($botModel->bale_bot_name ?? $botModel->telegram_bot_name ?? 'ناشناخته');
+        foreach ($allPlatforms as $platform) {
+            $chatIdsByBot = BotLog::getChatIdsByLanguageAndBot($language, $platform, $botMotherId);
+            
+            if (empty($chatIdsByBot)) {
+                continue;
             }
             
-            $botSent = 0;
-            $botErrors = 0;
+            $token = $platform == 'bale' 
+                ? env('BOT_MOTHER_TOKEN_BALE') 
+                : env('BOT_MOTHER_TOKEN_TELEGRAM');
             
-            foreach ($chatIds as $chatId) {
-                try {
-                    BotHelper::sendMessageByChatId($bot, $chatId, $message);
-                    $botSent++;
-                    $totalSent++;
-                    usleep(100000); // Rate limiting
-                } catch (Exception $e) {
-                    $botErrors++;
-                    $totalErrors++;
-                    Log::error('Broadcast error', [
-                        'chat_id' => $chatId,
-                        'bot_id' => $botId,
-                        'error' => $e->getMessage(),
-                    ]);
+            if (!$token) {
+                Log::warning("Token not found for platform: {$platform}");
+                continue;
+            }
+            
+            $bot = new Telegram($token, $platform);
+            
+            foreach ($chatIdsByBot as $botId => $chatIds) {
+                $botName = 'ناشناخته';
+                $botModel = Bot::find($botId);
+                if ($botModel) {
+                    $botName = $botModel->telegram_bot_name ?? $botModel->bale_bot_name ?? 'ناشناخته';
                 }
+                
+                $botSent = 0;
+                $botErrors = 0;
+                
+                foreach ($chatIds as $chatId) {
+                    try {
+                        BotHelper::sendMessageByChatId($bot, $chatId, $message);
+                        $botSent++;
+                        $totalSent++;
+                        usleep(100000);
+                    } catch (Exception $e) {
+                        $botErrors++;
+                        $totalErrors++;
+                        Log::error('Broadcast error', [
+                            'chat_id' => $chatId,
+                            'bot_id' => $botId,
+                            'platform' => $platform,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+                
+                $allBotsReport[] = [
+                    'bot_id' => $botId,
+                    'bot_name' => '@' . $botName,
+                    'platform' => $platform,
+                    'sent' => $botSent,
+                    'errors' => $botErrors,
+                    'total' => count($chatIds),
+                ];
             }
-            
-            $botsReport[] = [
-                'bot_id' => $botId,
-                'bot_name' => '@' . $botName,
-                'sent' => $botSent,
-                'errors' => $botErrors,
-                'total' => count($chatIds),
-            ];
         }
         
-        // ارسال گزارش به ادمین
-        $this->sendReportToAdmin($message, $language, $platform, $totalSent, $totalErrors, $botsReport);
+        // ارسال گزارش به سوپرمین
+        $this->sendReportToAdmin($message, $language, $totalSent, $totalErrors, $allBotsReport);
         
         return [
             'success' => true,
             'language' => $language,
-            'platform' => $platform,
             'sent_count' => $totalSent,
             'error_count' => $totalErrors,
-            'bots_report' => $botsReport,
+            'bots_report' => $allBotsReport,
         ];
     }
 
     /**
-     * ارسال به همه زبان‌ها
+     * ارسال به همه زبان‌ها در تمام پلتفرم‌ها
      */
     public function sendBroadcastToAll(
         string $message,
-        string $platform,
         int $botMotherId,
         ?string $adminChatId = null
     ): array {
@@ -271,28 +272,27 @@ class AdminBroadcastService
             'languages_report' => [],
         ];
         
+        // گروه‌بندی آمار بر اساس زبان
+        $languages = [];
         foreach ($allStats as $stat) {
-            if ($stat['platform'] !== $platform) continue;
-            
+            $languages[$stat['language']] = $stat['language_name'];
+        }
+        
+        foreach ($languages as $langCode => $langName) {
             try {
-                $result = $this->sendBroadcast(
-                    $stat['language'],
-                    $message,
-                    $platform,
-                    $botMotherId
-                );
+                $result = $this->sendBroadcast($langCode, $message, $botMotherId);
                 
                 $combinedResult['sent_count'] += $result['sent_count'];
                 $combinedResult['error_count'] += $result['error_count'];
                 $combinedResult['languages_report'][] = [
-                    'language' => $stat['language'],
-                    'language_name' => $stat['language_name'],
+                    'language' => $langCode,
+                    'language_name' => $langName,
                     'sent' => $result['sent_count'],
                     'errors' => $result['error_count'],
                     'bots' => $result['bots_report'],
                 ];
             } catch (Exception $e) {
-                Log::error("Error broadcasting to language {$stat['language']}", [
+                Log::error("Error broadcasting to language {$langCode}", [
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -302,12 +302,11 @@ class AdminBroadcastService
     }
 
     /**
-     * ارسال گزارش به ادمین
+     * ارسال گزارش به سوپرمین
      */
     private function sendReportToAdmin(
         string $message,
         string $language,
-        string $platform,
         int $totalSent,
         int $totalErrors,
         array $botsReport
@@ -315,14 +314,14 @@ class AdminBroadcastService
         $report = "📊 *گزارش ارسال پیام همگانی*\n";
         $report .= "─────────────────────\n";
         $report .= "🌍 زبان: " . AdminHelper::getLanguageName($language) . "\n";
-        $report .= "📱 پلتفرم: {$platform}\n";
         $report .= "✅ ارسال موفق: {$totalSent}\n";
         $report .= "❌ خطا: {$totalErrors}\n\n";
         
         if (!empty($botsReport)) {
             $report .= "📋 *تفکیک ربات‌ها:*\n";
             foreach ($botsReport as $botReport) {
-                $report .= "└ {$botReport['bot_name']}: ";
+                $platformIcon = $botReport['platform'] == 'bale' ? '💬' : '📱';
+                $report .= "└ {$platformIcon} {$botReport['bot_name']}: ";
                 $report .= "✅{$botReport['sent']} ";
                 if ($botReport['errors'] > 0) {
                     $report .= "❌{$botReport['errors']} ";
@@ -331,32 +330,54 @@ class AdminBroadcastService
             }
         }
         
-        BotHelper::sendMessageToSuperAdmin($report, $platform);
+        // گزارش به سوپرمین در بله (چون ادمین از بله مدیریت می‌کند)
+        BotHelper::sendMessageToSuperAdmin($report, 'bale');
     }
 
     /**
-     * ساخت متن پیام آمار برای ارسال به ادمین
+     * ساخت متن پیام آمار
      */
     public function formatStatsMessage(array $stats): string
     {
         $message = "📊 *آمار کاربران ربات‌های قرآنی (۳۰ روز اخیر)*\n";
         $message .= "─────────────────────────────\n";
         
+        // گروه‌بندی بر اساس زبان
+        $languages = [];
+        foreach ($stats as $stat) {
+            $lang = $stat['language'];
+            if (!isset($languages[$lang])) {
+                $languages[$lang] = [
+                    'name' => $stat['language_name'],
+                    'total_users' => 0,
+                    'total_requests' => 0,
+                    'platforms' => [],
+                ];
+            }
+            $languages[$lang]['total_users'] += $stat['unique_users'];
+            $languages[$lang]['total_requests'] += $stat['total_requests'];
+            $languages[$lang]['platforms'][] = $stat;
+        }
+        
         $totalUsers = 0;
         $totalRequests = 0;
         
-        foreach ($stats as $stat) {
-            $botInfo = $stat['bot_name'] ? " @{$stat['bot_name']}" : '';
-            $platformIcon = $stat['platform'] == 'bale' ? '💬' : '📱';
+        foreach ($languages as $lang => $data) {
+            $users = number_format($data['total_users']);
+            $requests = number_format($data['total_requests']);
             
-            $users = number_format($stat['unique_users']);
-            $requests = number_format($stat['total_requests']);
+            $platforms = [];
+            foreach ($data['platforms'] as $p) {
+                $icon = $p['platform'] == 'bale' ? '💬' : '📱';
+                $botInfo = $p['bot_name'] ? " @{$p['bot_name']}" : '';
+                $platforms[] = "{$icon}{$botInfo}(" . number_format($p['unique_users']) . ")";
+            }
             
-            $message .= "{$stat['language_name']} {$platformIcon}{$botInfo}:\n";
-            $message .= "  └ 👥 {$users} کاربر | 📨 {$requests} درخواست\n";
+            $message .= "{$data['name']}: 👥 {$users} | 📨 {$requests}\n";
+            $message .= "  └ " . implode(' | ', $platforms) . "\n";
             
-            $totalUsers += $stat['unique_users'];
-            $totalRequests += $stat['total_requests'];
+            $totalUsers += $data['total_users'];
+            $totalRequests += $data['total_requests'];
         }
         
         $message .= "─────────────────────────────\n";
@@ -375,17 +396,17 @@ class AdminBroadcastService
     /**
      * ساخت متن تأیید ارسال
      */
-    public function formatConfirmationMessage(array $stats, string $message, string $platform, int $totalUsers): string
+    public function formatConfirmationMessage(array $stats, string $message, int $totalUsers): string
     {
         $text = "📋 *تأیید ارسال پیام همگانی*\n";
         $text .= "────────────────────────\n";
         $text .= "🌍 زبان: {$stats['language_name']}\n";
-        $text .= "👥 تعداد: {$totalUsers} کاربر\n";
-        $text .= "📱 پلتفرم: {$platform}\n\n";
+        $text .= "👥 تعداد: {$totalUsers} کاربر\n\n";
         
         if (!empty($stats['bots'])) {
             $text .= "📋 *تفکیک ربات‌ها:*\n";
             foreach ($stats['bots'] as $bot) {
+                $platformIcon = $bot['bot_name'] && strpos($bot['bot_name'], 'telegram') ? '📱' : '💬';
                 $text .= "└ {$bot['bot_name']}: {$bot['unique_users']} کاربر\n";
             }
             $text .= "\n";

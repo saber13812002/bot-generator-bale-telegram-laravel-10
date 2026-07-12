@@ -1402,18 +1402,18 @@ class QuranWordController extends Controller
                     if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
                         $language = \App\Helpers\AdminHelper::parseLanguageFromCommand($bot->Text());
                         $service = app(\App\Services\AdminBroadcastService::class);
-                        $stats = $service->getStatsByLanguage($language, $type, $botMotherId);
+                        $stats = $service->getStatsByLanguage($language, $botMotherId);
                         
                         $message = "📊 *آمار زبان {$stats['language_name']}*\n";
                         $message .= "────────────────\n";
-                        $message .= "📱 پلتفرم: {$stats['platform']}\n";
                         $message .= "👥 مجموع کاربران: {$stats['total_users']}\n";
                         $message .= "📨 مجموع درخواست‌ها: {$stats['total_requests']}\n\n";
                         
                         if (!empty($stats['bots'])) {
                             $message .= "📋 *تفکیک ربات‌ها:*\n";
                             foreach ($stats['bots'] as $botStat) {
-                                $message .= "└ {$botStat['bot_name']}: {$botStat['unique_users']} کاربر | {$botStat['total_requests']} درخواست\n";
+                                $platformIcon = $botStat['bot_name'] && strpos($botStat['bot_name'], '_') !== false ? '📱' : '💬';
+                                $message .= "└ {$platformIcon} {$botStat['bot_name']}: {$botStat['unique_users']} کاربر | {$botStat['total_requests']} درخواست\n";
                             }
                         }
                         
@@ -1444,12 +1444,11 @@ class QuranWordController extends Controller
                         } else {
                             $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
                             $service = app(\App\Services\AdminBroadcastService::class);
-                            $result = $service->prepareBroadcastToAll($messageText, $type, $botMotherId, $bot->ChatID());
+                            $result = $service->prepareBroadcastToAll($messageText, $botMotherId, $bot->ChatID());
                             
                             $confirmation = "📋 *تأیید ارسال پیام همگانی به همه زبان‌ها*\n";
                             $confirmation .= "─────────────────────────────\n";
-                            $confirmation .= "👥 مجموع کاربران: {$result['total_users']}\n";
-                            $confirmation .= "📱 پلتفرم: {$type}\n\n";
+                            $confirmation .= "👥 مجموع کاربران: {$result['total_users']}\n\n";
                             $confirmation .= "📝 *متن پیام:*\n```\n{$messageText}\n```\n\n";
                             $confirmation .= "✅ `/confirm` برای تأیید\n";
                             $confirmation .= "⏰ اعتبار: ۵ دقیقه\n";
@@ -1477,9 +1476,9 @@ class QuranWordController extends Controller
                             $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
                             
                             $service = app(\App\Services\AdminBroadcastService::class);
-                            $stats = $service->prepareBroadcast($language, $messageText, $type, $botMotherId, $bot->ChatID());
+                            $stats = $service->prepareBroadcast($language, $messageText, $botMotherId, $bot->ChatID());
                             
-                            $confirmation = $service->formatConfirmationMessage($stats, $messageText, $type, $stats['total_users']);
+                            $confirmation = $service->formatConfirmationMessage($stats, $messageText, $stats['total_users']);
                             \App\Helpers\BotHelper::sendMessage($bot, $confirmation);
                         }
                     } else {
