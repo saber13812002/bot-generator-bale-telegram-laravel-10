@@ -9,9 +9,10 @@ use App\Interfaces\Services\MawkibFinderService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Modules\BaleOtp\Support\PhoneNormalizer;
-use App\Modules\BotOwner\Contracts\BotOwnerRepositoryInterface;
+use App\Services\MawkibFinderOtpService;
 use Carbon\Carbon;
 use Exception;
+use Hekmatinasser\Verta\Verta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Telegram;
@@ -25,11 +26,11 @@ class MawkibFinderController extends Controller
     private const STEP_WAITING_PROVINCE = 'waiting_province';
     private const STEP_WAITING_ENTRY_DATE = 'waiting_entry_date';
     private const STEP_WAITING_STAY_DAYS = 'waiting_stay_days';
+    private const STEP_WAITING_CONFIRM = 'waiting_confirm';
 
     public function __construct(
         private MawkibFinderService $mawkibFinderService,
-        private BotOwnerRepositoryInterface $botOwnerRepository,
-        private \App\Modules\BotOwner\Contracts\BotOwnerAuthServiceInterface $authService,
+        private MawkibFinderOtpService $mawkibFinderOtpService,
     ) {}
 
     public function webhook(Request $request)
@@ -53,19 +54,28 @@ class MawkibFinderController extends Controller
             $update = $request->json()->all() ?? $request->all();
 
             if (isset($update['callback_query'])) {
-                $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botId, $botMotherId);
+                $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botId);
                 return response()->json(['status' => 'ok'], 200);
             }
 
-            $chatId = $bot->ChatID();
-            $text = trim($bot->Text() ?? '');
+            $message = $update['message'] ?? $update['edited_message'] ?? null;
+            if (!$message) {
+                return response()->json(['status' => 'ok'], 200);
+            }
 
+            $chatId = (int) ($message['chat']['id'] ?? $bot->ChatID());
             if ($chatId < 0) {
                 return response()->json(['status' => 'ok'], 200);
             }
 
+            if (isset($message['contact'])) {
+                $this->handleContactMessage($bot, $message, $chatId, $type, $botId);
+                return response()->json(['status' => 'ok'], 200);
+            }
+
+            $text = trim($message['text'] ?? $bot->Text() ?? '');
             if ($text !== '') {
-                $this->handleTextMessage($bot, $text, $chatId, $type, $botId, $botMotherId);
+                $this->handleTextMessage($bot, $text, $chatId, $type, $botId);
             }
 
             return response()->json(['status' => 'ok'], 200);
@@ -105,7 +115,6 @@ class MawkibFinderController extends Controller
         int $chatId,
         string $type,
         int $botId,
-        int $botMotherId,
     ): void {
         $botUser = $this->getOrCreateBotUser($chatId, $botId, $type);
         $step = $botUser->setting('mawkib_step', self::STEP_START);
@@ -115,22 +124,34 @@ class MawkibFinderController extends Controller
             return;
         }
 
-        if ($step === self::STEP_WAITING_PHONE) {
-            $this->handlePhoneInput($bot, $botUser, $text, $type, $chatId);
+        match ($step) {
+            self::STEP_WAITING_PHONE => $this->handlePhoneInput($bot, $botUser, $text, $type, $chatId),
+            self::STEP_WAITING_OTP => $this->handleOtpInput($bot, $botUser, $text, $chatId),
+            self::STEP_WAITING_NATIONAL_CODE => $this->handleNationalCode($bot, $botUser, $text, $chatId),
+            default => BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_use_start')),
+        };
+    }
+
+    private function handleContactMessage(
+        Telegram $bot,
+        array $message,
+        int $chatId,
+        string $type,
+        int $botId,
+    ): void {
+        $botUser = $this->getOrCreateBotUser($chatId, $botId, $type);
+
+        if ($botUser->setting('mawkib_step') !== self::STEP_WAITING_PHONE) {
             return;
         }
 
-        if ($step === self::STEP_WAITING_OTP) {
-            $this->handleOtpInput($bot, $botUser, $text, $type, $chatId);
+        $phone = $message['contact']['phone_number'] ?? null;
+        if (!$phone) {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_invalid_phone'));
             return;
         }
 
-        if ($step === self::STEP_WAITING_NATIONAL_CODE) {
-            $this->handleNationalCode($bot, $botUser, $text, $type, $chatId);
-            return;
-        }
-
-        BotHelper::sendMessage($bot, trans('bot.mawkib_finder_use_start'));
+        $this->processPhoneAndSendOtp($bot, $botUser, $phone, $type, $chatId);
     }
 
     private function handleCallbackQuery(
@@ -138,7 +159,6 @@ class MawkibFinderController extends Controller
         array $callbackQuery,
         string $type,
         int $botId,
-        int $botMotherId,
     ): void {
         $chatId = (int) ($callbackQuery['message']['chat']['id'] ?? 0);
         $data = (string) ($callbackQuery['data'] ?? '');
@@ -146,6 +166,16 @@ class MawkibFinderController extends Controller
         $bot->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
 
         $botUser = $this->getOrCreateBotUser($chatId, $botId, $type);
+
+        if ($data === 'mawkib_restart') {
+            $this->handleStart($bot, $botUser, $type, $chatId);
+            return;
+        }
+
+        if ($data === 'mawkib_confirm') {
+            $this->handleConfirmSearch($bot, $botUser, $chatId);
+            return;
+        }
 
         if (str_starts_with($data, 'mawkib_province_')) {
             $index = (int) str_replace('mawkib_province_', '', $data);
@@ -167,79 +197,85 @@ class MawkibFinderController extends Controller
 
     private function handleStart(Telegram $bot, BotUsers $botUser, string $type, int $chatId): void
     {
-        $phone = $this->resolveVerifiedPhone($botUser, (string) $chatId, $type);
-
-        if (!$phone) {
-            // Ask for phone number to send OTP
-            $botUser->settings(['mawkib_step' => self::STEP_WAITING_PHONE]);
-            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_phone'));
-            return;
-        }
+        $this->mawkibFinderOtpService->clearOtpSession($botUser);
 
         $botUser->settings([
-            'mawkib_step' => self::STEP_WAITING_NATIONAL_CODE,
-            'mawkib_verified_phone' => $phone,
+            'mawkib_step' => self::STEP_WAITING_PHONE,
+            'mawkib_verified_phone' => null,
             'mawkib_national_code' => null,
             'mawkib_province' => null,
             'mawkib_entry_date' => null,
             'mawkib_stay_days' => null,
+            'mawkib_from_date' => null,
+            'mawkib_to_date' => null,
         ]);
 
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_welcome'));
-        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_national_code'));
+        $this->sendPhoneRequestKeyboard($bot, $chatId, $type);
     }
 
     private function handlePhoneInput(Telegram $bot, BotUsers $botUser, string $text, string $type, int $chatId): void
     {
-        $phone = PhoneNormalizer::normalize($text);
-        if (!$phone) {
-            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_invalid_phone'));
-            return;
-        }
-
-        // Send OTP via BaleOtpService
-        $result = $this->authService->sendOtp($phone);
-
-        if (!$result['success']) {
-            BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
-            return;
-        }
-
-        $botUser->settings([
-            'mawkib_step' => self::STEP_WAITING_OTP,
-            'mawkib_otp_phone' => $phone,
-        ]);
-
-        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_otp_sent'));
+        $this->processPhoneAndSendOtp($bot, $botUser, $text, $type, $chatId);
     }
 
-    private function handleOtpInput(Telegram $bot, BotUsers $botUser, string $text, string $type, int $chatId): void
-    {
-        $phone = $botUser->setting('mawkib_otp_phone');
-        if (!$phone) {
-            $botUser->settings(['mawkib_step' => self::STEP_START]);
-            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_error'));
+    private function processPhoneAndSendOtp(
+        Telegram $bot,
+        BotUsers $botUser,
+        string $phone,
+        string $type,
+        int $chatId,
+    ): void {
+        if ($type !== 'bale') {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_bale_only'));
             return;
         }
 
-        $result = $this->authService->verifyOtp($phone, trim($text));
+        $normalized = PhoneNormalizer::normalize($phone);
+        if ($normalized === null) {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_invalid_phone'));
+            $this->sendPhoneRequestKeyboard($bot, $chatId, $type);
+            return;
+        }
 
+        $this->removeReplyKeyboard($bot, $chatId);
+
+        $result = $this->mawkibFinderOtpService->sendOtp($botUser, $phone);
+        if (!$result['success']) {
+            BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
+            $this->sendPhoneRequestKeyboard($bot, $chatId, $type);
+            return;
+        }
+
+        $botUser->settings(['mawkib_step' => self::STEP_WAITING_OTP]);
+        BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_otp'));
+    }
+
+    private function handleOtpInput(Telegram $bot, BotUsers $botUser, string $text, int $chatId): void
+    {
+        $otp = preg_replace('/\D+/', '', $text) ?? '';
+        if ($otp === '') {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_otp_invalid'));
+            return;
+        }
+
+        $result = $this->mawkibFinderOtpService->verifyOtp($botUser, $otp);
         if (!$result['success']) {
             BotHelper::sendMessageByChatId($bot, $chatId, $result['message']);
             return;
         }
 
-        // OTP verified - store phone and proceed
         $botUser->settings([
             'mawkib_step' => self::STEP_WAITING_NATIONAL_CODE,
-            'mawkib_verified_phone' => $phone,
+            'mawkib_verified_phone' => $result['phone'],
         ]);
 
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_phone_verified'));
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_national_code'));
     }
 
-    private function handleNationalCode(Telegram $bot, BotUsers $botUser, string $text, string $type, int $chatId): void
+    private function handleNationalCode(Telegram $bot, BotUsers $botUser, string $text, int $chatId): void
     {
         $nationalCode = $this->normalizeNationalCode($text);
 
@@ -248,9 +284,10 @@ class MawkibFinderController extends Controller
             return;
         }
 
-        $phone = $botUser->setting('mawkib_verified_phone') ?? $this->resolveVerifiedPhone($botUser, (string) $chatId, $type);
+        $phone = $botUser->setting('mawkib_verified_phone');
         if (!$phone) {
-            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_mobile_not_verified'));
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_error'));
+            $this->handleStart($bot, $botUser, 'bale', $chatId);
             return;
         }
 
@@ -261,7 +298,7 @@ class MawkibFinderController extends Controller
                 'mobile' => $this->formatPhoneForDisplay($phone),
                 'national_code' => $nationalCode,
             ]));
-            $botUser->settings(['mawkib_step' => self::STEP_START]);
+            $botUser->settings(['mawkib_step' => self::STEP_WAITING_NATIONAL_CODE]);
             return;
         }
 
@@ -288,10 +325,16 @@ class MawkibFinderController extends Controller
         ]);
 
         $results = $this->mawkibFinderService->getAvailability($province);
-        $this->sendAvailabilityResults($bot, $chatId, $province, $results, false);
+        $this->sendAvailabilityResults($bot, $chatId, $province, $results, null, null);
 
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_province_availability_intro', [
+            'province' => $province,
+        ]));
+
+        $this->sendRegistrationLink($bot, $chatId);
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_today_result_hint'));
         $this->sendEntryDateKeyboard($bot, $chatId);
+        $this->sendRestartInlineButton($bot, $chatId);
     }
 
     private function handleEntryDateSelection(Telegram $bot, BotUsers $botUser, string $date, int $chatId): void
@@ -306,7 +349,7 @@ class MawkibFinderController extends Controller
             'mawkib_entry_date' => $date,
         ]);
 
-        $displayDate = DateHelper::toShamsi($date, 'd F Y');
+        $displayDate = $this->formatShamsiDateLabel(Carbon::parse($date), 0);
         BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_select_stay_days', [
             'date' => $displayDate,
         ]));
@@ -321,26 +364,93 @@ class MawkibFinderController extends Controller
             return;
         }
 
-        $province = $botUser->setting('mawkib_province');
         $entryDate = $botUser->setting('mawkib_entry_date');
-
-        if (!$province || !$entryDate) {
+        if (!$entryDate) {
             BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_error'));
             return;
         }
 
+        $from = Carbon::parse($entryDate);
+        $to = $from->copy()->addDays($days);
+        $fromFormatted = $from->format('Y/m/d');
+        $toFormatted = $to->format('Y/m/d');
+
         $botUser->settings([
-            'mawkib_step' => self::STEP_START,
+            'mawkib_step' => self::STEP_WAITING_CONFIRM,
             'mawkib_stay_days' => $days,
+            'mawkib_from_date' => $fromFormatted,
+            'mawkib_to_date' => $toFormatted,
         ]);
 
-        $results = $this->mawkibFinderService->getAvailability($province, $entryDate, $days);
-        $this->sendAvailabilityResults($bot, $chatId, $province, $results, true);
+        $message = trans('bot.mawkib_finder_confirm_summary', [
+            'from' => DateHelper::toShamsi($from, 'd F Y'),
+            'to' => DateHelper::toShamsi($to, 'd F Y'),
+            'days' => $days,
+        ]);
 
-        $registrationUrl = config('mawkib_finder.registration_url');
-        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_registration_link', [
-            'url' => $registrationUrl,
-        ]));
+        $keyboard = $bot->buildInlineKeyBoard([
+            [
+                $bot->buildInlineKeyBoardButton(trans('bot.mawkib_finder_confirm_button'), callback_data: 'mawkib_confirm'),
+                $bot->buildInlineKeyBoardButton(trans('bot.mawkib_finder_restart_button'), callback_data: 'mawkib_restart'),
+            ],
+        ]);
+
+        BotHelper::sendKeyboardMessageToChatId($bot, $message, $keyboard, $chatId);
+    }
+
+    private function handleConfirmSearch(Telegram $bot, BotUsers $botUser, int $chatId): void
+    {
+        $province = $botUser->setting('mawkib_province');
+        $fromDate = $botUser->setting('mawkib_from_date');
+        $toDate = $botUser->setting('mawkib_to_date');
+
+        if (!$province || !$fromDate || !$toDate) {
+            BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_error'));
+            return;
+        }
+
+        $results = $this->mawkibFinderService->getAvailability($province, $fromDate, $toDate);
+
+        $fromShamsi = DateHelper::toShamsi(Carbon::createFromFormat('Y/m/d', $fromDate), 'd F Y');
+        $toShamsi = DateHelper::toShamsi(Carbon::createFromFormat('Y/m/d', $toDate), 'd F Y');
+
+        $this->sendAvailabilityResults($bot, $chatId, $province, $results, $fromShamsi, $toShamsi);
+
+        $this->sendRegistrationLink($bot, $chatId);
+
+        $botUser->settings(['mawkib_step' => self::STEP_START]);
+        $this->sendRestartInlineButton($bot, $chatId);
+    }
+
+    private function sendPhoneRequestKeyboard(Telegram $bot, int $chatId, string $type): void
+    {
+        if ($type === 'bale') {
+            $keyboard = json_encode([
+                'keyboard' => [
+                    [
+                        ['text' => trans('bot.mawkib_finder_send_phone_button'), 'request_contact' => true],
+                    ],
+                ],
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true,
+            ], JSON_UNESCAPED_UNICODE);
+
+            BotHelper::sendKeyboardMessageToChatId(
+                $bot,
+                trans('bot.mawkib_finder_ask_phone'),
+                $keyboard,
+                $chatId,
+            );
+            return;
+        }
+
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_ask_phone_type'));
+    }
+
+    private function removeReplyKeyboard(Telegram $bot, int $chatId): void
+    {
+        $keyboard = json_encode(['remove_keyboard' => true]);
+        BotHelper::sendKeyboardMessageToChatId($bot, ' ', $keyboard, $chatId);
     }
 
     private function sendProvinceKeyboard(Telegram $bot, int $chatId): void
@@ -374,9 +484,9 @@ class MawkibFinderController extends Controller
         $buttons = [];
         $row = [];
 
-        for ($i = 1; $i <= 14; $i++) {
+        for ($i = 0; $i < 14; $i++) {
             $date = Carbon::today()->addDays($i);
-            $label = DateHelper::toShamsi($date, 'd F');
+            $label = $this->formatShamsiDateLabel($date, $i);
             $row[] = $bot->buildInlineKeyBoardButton($label, callback_data: 'mawkib_date_' . $date->format('Y-m-d'));
 
             if (count($row) === 2) {
@@ -428,6 +538,27 @@ class MawkibFinderController extends Controller
         );
     }
 
+    private function sendRestartInlineButton(Telegram $bot, int $chatId): void
+    {
+        $keyboard = $bot->buildInlineKeyBoard([
+            [$bot->buildInlineKeyBoardButton(trans('bot.mawkib_finder_restart_button'), callback_data: 'mawkib_restart')],
+        ]);
+        BotHelper::sendKeyboardMessageToChatId(
+            $bot,
+            trans('bot.mawkib_finder_restart_hint'),
+            $keyboard,
+            $chatId,
+        );
+    }
+
+    private function sendRegistrationLink(Telegram $bot, int $chatId): void
+    {
+        $registrationUrl = config('mawkib_finder.registration_url');
+        BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_register_urgency', [
+            'url' => $registrationUrl,
+        ]));
+    }
+
     /**
      * @param array<int, array{city: string, vacant_count: int}> $results
      */
@@ -436,15 +567,23 @@ class MawkibFinderController extends Controller
         int $chatId,
         string $province,
         array $results,
-        bool $isFinal,
+        ?string $fromShamsi,
+        ?string $toShamsi,
     ): void {
         if ($results === []) {
             BotHelper::sendMessageByChatId($bot, $chatId, trans('bot.mawkib_finder_no_availability'));
             return;
         }
 
-        $headerKey = $isFinal ? 'bot.mawkib_finder_final_results' : 'bot.mawkib_finder_results_header';
-        $message = trans($headerKey, ['province' => $province]) . "\n\n";
+        if ($fromShamsi && $toShamsi) {
+            $message = trans('bot.mawkib_finder_final_with_dates', [
+                'province' => $province,
+                'from' => $fromShamsi,
+                'to' => $toShamsi,
+            ]) . "\n\n";
+        } else {
+            $message = trans('bot.mawkib_finder_results_header', ['province' => $province]) . "\n\n";
+        }
 
         foreach ($results as $item) {
             $message .= trans('bot.mawkib_finder_city_line', [
@@ -454,6 +593,20 @@ class MawkibFinderController extends Controller
         }
 
         BotHelper::sendMessageByChatId($bot, $chatId, trim($message));
+    }
+
+    private function formatShamsiDateLabel(Carbon $date, int $offsetFromToday): string
+    {
+        $verta = Verta::instance($date);
+        $dayName = $verta->format('l');
+        $datePart = $verta->format('d F');
+
+        return match ($offsetFromToday) {
+            0 => trans('bot.mawkib_finder_today_label', ['day' => $dayName, 'date' => $datePart]),
+            1 => trans('bot.mawkib_finder_tomorrow_label', ['day' => $dayName, 'date' => $datePart]),
+            2 => trans('bot.mawkib_finder_day_after_label', ['day' => $dayName, 'date' => $datePart]),
+            default => trans('bot.mawkib_finder_day_label', ['day' => $dayName, 'date' => $datePart]),
+        };
     }
 
     private function getOrCreateBotUser(int $chatId, int $botId, string $type): BotUsers
@@ -473,23 +626,6 @@ class MawkibFinderController extends Controller
             'origin' => $type,
             'status' => 'active',
         ]);
-    }
-
-    private function resolveVerifiedPhone(BotUsers $botUser, string $chatId, string $type): ?string
-    {
-        $stored = $botUser->setting('verified_phone') ?? $botUser->setting('mawkib_verified_phone');
-        if ($stored) {
-            return PhoneNormalizer::normalize($stored);
-        }
-
-        if ($type === 'bale') {
-            $owner = $this->botOwnerRepository->findByBaleChatId($chatId);
-            if ($owner?->phone) {
-                return PhoneNormalizer::normalize($owner->phone);
-            }
-        }
-
-        return null;
     }
 
     private function normalizeNationalCode(string $text): string

@@ -160,6 +160,7 @@ class AppServiceProvider extends ServiceProvider
         
         $this->app->bind(PoemBotService::class, PoemBotServiceImpl::class);
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
+        $this->app->singleton(\App\Services\MawkibFinderOtpService::class);
         
         $this->app->bind(BookPixelService::class, BookPixelServiceImpl::class);
         $this->app->bind(BookGamificationService::class, BookGamificationServiceImpl::class);

@@ -45,7 +45,7 @@ class MawkibFinderServiceImpl implements MawkibFinderService
         }
     }
 
-    public function getAvailability(string $province, ?string $entryDate = null, ?int $stayDays = null): array
+    public function getAvailability(string $province, ?string $fromDate = null, ?string $toDate = null): array
     {
         $url = config('mawkib_finder.availability_url');
 
@@ -53,23 +53,26 @@ class MawkibFinderServiceImpl implements MawkibFinderService
             return $this->mockAvailability($province);
         }
 
-        $payload = ['province' => $province];
-        if ($entryDate !== null) {
-            $payload['entry_date'] = $entryDate;
-        }
-        if ($stayDays !== null) {
-            $payload['stay_days'] = $stayDays;
+        $requestUrl = $url;
+        if ($fromDate !== null && $toDate !== null) {
+            $requestUrl .= (str_contains($url, '?') ? '&' : '?') . http_build_query([
+                'from' => $fromDate,
+                'to' => $toDate,
+            ]);
         }
 
         try {
             $response = Http::timeout(config('mawkib_finder.timeout', 30))
                 ->when(!config('mawkib_finder.verify_ssl', true), fn ($client) => $client->withoutVerifying())
-                ->post($url, $payload);
+                ->post($requestUrl, [
+                    'province' => $province,
+                ]);
 
             Log::info('[MawkibFinder] getAvailability response', [
+                'url' => $requestUrl,
                 'province' => $province,
-                'entry_date' => $entryDate,
-                'stay_days' => $stayDays,
+                'from' => $fromDate,
+                'to' => $toDate,
                 'status' => $response->status(),
                 'body' => $response->json() ?? $response->body(),
             ]);
@@ -110,8 +113,6 @@ class MawkibFinderServiceImpl implements MawkibFinderService
     }
 
     /**
-     * Mock data for Qom province cities.
-     *
      * @return array<int, array{city: string, vacant_count: int}>
      */
     private function mockAvailability(string $province): array
