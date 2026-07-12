@@ -107,6 +107,14 @@ class AdminHelper
     }
 
     /**
+     * تشخیص فرمان تاریخچه ارسال‌ها: ///broadcast-history
+     */
+    public static function isBroadcastHistoryCommand(string $text): bool
+    {
+        return trim($text) === '///broadcast-history';
+    }
+
+    /**
      * تشخیص فرمان راهنمای ادمین: /helpadmin
      */
     public static function isHelpAdminCommand(string $text): bool
@@ -133,6 +141,9 @@ class AdminHelper
         $help .= "✅ *تأیید:*\n";
         $help .= "└ `/confirm` ← تأیید ارسال پیام همگانی\n\n";
         
+        $help .= "📋 *تاریخچه:*\n";
+        $help .= "└ `///broadcast-history` ← مشاهده تاریخچه ارسال‌ها\n\n";
+        
         $help .= "📋 *کدهای زبان:*\n";
         $help .= "└ `fa` فارسی | `en` انگلیسی | `ar-IQ` عربی\n";
         $help .= "└ `ru` روسی | `ur` اردو | `tr` ترکی\n";
@@ -144,6 +155,7 @@ class AdminHelper
         $help .= "└ بعد از `////xx` باید `/confirm` بزنید\n";
         $help .= "└ درخواست تأیید ۵ دقیقه اعتبار دارد\n";
         $help .= "└ پس از ارسال، گزارش کامل به سوپرمین ارسال می‌شود\n";
+        $help .= "└ تاریخچه ارسال‌ها در جدول `broadcast_logs` ذخیره می‌شود\n";
         
         return $help;
     }

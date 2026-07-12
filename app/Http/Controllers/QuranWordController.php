@@ -1367,6 +1367,27 @@ class QuranWordController extends Controller
                 // دستورات جدید ادمین
                 // =============================================
                 
+                // ///broadcast-history - تاریخچه ارسال‌های همگانی
+                } elseif (\App\Helpers\AdminHelper::isBroadcastHistoryCommand($bot->Text())) {
+                    Log::info('📋 [Command] Processing ///broadcast-history command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $historyMessage = $service->formatHistoryMessage();
+                        \App\Helpers\BotHelper::sendMessage($bot, $historyMessage);
+                        
+                        Log::info('✅ [Command] ///broadcast-history command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
                 // ///stats - آمار کامل همه زبان‌ها
                 } elseif (\App\Helpers\AdminHelper::isStatsCommand($bot->Text())) {
                     Log::info('📊 [Command] Processing ///stats command', [

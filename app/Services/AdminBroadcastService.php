@@ -6,6 +6,7 @@ use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Models\Bot;
 use App\Models\BotLog;
+use App\Models\BroadcastLog;
 use Exception;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -60,7 +61,6 @@ class AdminBroadcastService
      */
     public function getStatsByLanguage(string $language, int $botMotherId = 1, int $days = 30): array
     {
-        // آمار در تمام پلتفرم‌ها (حذف فیلتر platform)
         $allPlatforms = ['telegram', 'bale'];
         $allBotsStats = [];
         $totalUsers = 0;
@@ -118,7 +118,6 @@ class AdminBroadcastService
         $allStats = $this->getStats($botMotherId);
         $totalUsers = 0;
         
-        // محاسبه مجموع کاربران (بدون در نظر گرفتن پلتفرم)
         $languageTotals = [];
         foreach ($allStats as $stat) {
             $lang = $stat['language'];
@@ -146,6 +145,7 @@ class AdminBroadcastService
 
     /**
      * تأیید و ارسال broadcast ذخیره شده
+     * ابتدا پیام شروع و تخمین زمان می‌دهد، سپس ارسال می‌کند
      */
     public function confirmAndSend(string $adminChatId): array
     {
@@ -171,21 +171,75 @@ class AdminBroadcastService
             return $this->sendBroadcastToAll($message, $botMotherId, $adminChatId);
         }
         
-        return $this->sendBroadcast($language, $message, $botMotherId);
+        return $this->sendBroadcast($language, $message, $botMotherId, $adminChatId);
     }
 
     /**
      * ارسال به کاربران یک زبان در تمام پلتفرم‌ها
+     * با تخمین زمان و ذخیره در تاریخچه
      */
     public function sendBroadcast(
         string $language,
         string $message,
-        int $botMotherId
+        int $botMotherId,
+        ?string $adminChatId = null
     ): array {
+        // ========== مرحله ۱: تخمین زمان ==========
+        $stats = $this->getStatsByLanguage($language, $botMotherId);
+        $estimatedSeconds = BroadcastLog::estimateDuration($stats['total_users']);
+        $estimatedMinutes = (int) ceil($estimatedSeconds / 60);
+        
+        // ثبت شروع در دیتابیس
+        $broadcastLog = BroadcastLog::create([
+            'language' => $language,
+            'message' => $message,
+            'admin_chat_id' => $adminChatId ?? 'unknown',
+            'total_users' => $stats['total_users'],
+            'sent_count' => 0,
+            'error_count' => 0,
+            'status' => 'sending',
+            'started_at' => now(),
+        ]);
+        
+        // ========== مرحله ۲: ارسال پیام شروع و تخمین ==========
+        if ($adminChatId) {
+            $startMessage = "🚀 *ارسال همگانی آغاز شد*\n";
+            $startMessage .= "─────────────────────\n";
+            $startMessage .= "🌍 زبان: {$stats['language_name']}\n";
+            $startMessage .= "👥 کاربران: {$stats['total_users']}\n";
+            $startMessage .= "⏱ زمان تخمینی: ";
+            
+            if ($estimatedMinutes < 1) {
+                $startMessage .= "کمتر از یک دقیقه";
+            } elseif ($estimatedMinutes < 60) {
+                $startMessage .= "حدود {$estimatedMinutes} دقیقه";
+            } else {
+                $hours = floor($estimatedMinutes / 60);
+                $mins = $estimatedMinutes % 60;
+                $startMessage .= "حدود {$hours} ساعت و {$mins} دقیقه";
+            }
+            $startMessage .= "\n\n⏳ در حال ارسال... لطفاً صبر کنید.\n";
+            $startMessage .= "📊 پس از اتمام، گزارش کامل ارسال خواهد شد.";
+            
+            // ارسال پیام شروع به ادمین (از طریق بله)
+            try {
+                $botBale = new Telegram(env('BOT_MOTHER_TOKEN_BALE'), 'bale');
+                BotHelper::sendMessageByChatId($botBale, $adminChatId, $startMessage);
+            } catch (Exception $e) {
+                Log::error('Failed to send start message to admin', [
+                    'admin_chat_id' => $adminChatId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+        
+        // ========== مرحله ۳: ارسال واقعی ==========
         $allPlatforms = ['telegram', 'bale'];
         $totalSent = 0;
         $totalErrors = 0;
         $allBotsReport = [];
+        
+        $startTime = time();
         
         foreach ($allPlatforms as $platform) {
             $chatIdsByBot = BotLog::getChatIdsByLanguageAndBot($language, $platform, $botMotherId);
@@ -244,14 +298,27 @@ class AdminBroadcastService
             }
         }
         
-        // ارسال گزارش به سوپرمین
-        $this->sendReportToAdmin($message, $language, $totalSent, $totalErrors, $allBotsReport);
+        $durationSeconds = time() - $startTime;
+        
+        // ========== مرحله ۴: به‌روزرسانی لاگ ==========
+        $broadcastLog->update([
+            'sent_count' => $totalSent,
+            'error_count' => $totalErrors,
+            'bots_report' => $allBotsReport,
+            'completed_at' => now(),
+            'duration_seconds' => $durationSeconds,
+            'status' => $totalErrors > 0 && $totalSent == 0 ? 'failed' : 'completed',
+        ]);
+        
+        // ========== مرحله ۵: ارسال گزارش به سوپرمین ==========
+        $this->sendReportToAdmin($message, $language, $totalSent, $totalErrors, $allBotsReport, $durationSeconds);
         
         return [
             'success' => true,
             'language' => $language,
             'sent_count' => $totalSent,
             'error_count' => $totalErrors,
+            'duration_seconds' => $durationSeconds,
             'bots_report' => $allBotsReport,
         ];
     }
@@ -265,22 +332,59 @@ class AdminBroadcastService
         ?string $adminChatId = null
     ): array {
         $allStats = $this->getStats($botMotherId);
+        
+        // محاسبه مجموع کاربران
+        $totalAllUsers = 0;
+        $languages = [];
+        foreach ($allStats as $stat) {
+            $languages[$stat['language']] = $stat['language_name'];
+            $totalAllUsers += $stat['unique_users'];
+        }
+        
+        // تخمین زمان
+        $estimatedSeconds = BroadcastLog::estimateDuration($totalAllUsers);
+        $estimatedMinutes = (int) ceil($estimatedSeconds / 60);
+        
+        // پیام شروع
+        if ($adminChatId) {
+            $startMessage = "🚀 *ارسال همگانی به همه زبان‌ها آغاز شد*\n";
+            $startMessage .= "─────────────────────────────\n";
+            $startMessage .= "👥 مجموع کاربران: {$totalAllUsers}\n";
+            $startMessage .= "🌍 تعداد زبان‌ها: " . count($languages) . "\n";
+            $startMessage .= "⏱ زمان تخمینی: ";
+            
+            if ($estimatedMinutes < 1) {
+                $startMessage .= "کمتر از یک دقیقه";
+            } elseif ($estimatedMinutes < 60) {
+                $startMessage .= "حدود {$estimatedMinutes} دقیقه";
+            } else {
+                $hours = floor($estimatedMinutes / 60);
+                $mins = $estimatedMinutes % 60;
+                $startMessage .= "حدود {$hours} ساعت و {$mins} دقیقه";
+            }
+            $startMessage .= "\n\n⏳ در حال ارسال... لطفاً صبر کنید.";
+            
+            try {
+                $botBale = new Telegram(env('BOT_MOTHER_TOKEN_BALE'), 'bale');
+                BotHelper::sendMessageByChatId($botBale, $adminChatId, $startMessage);
+            } catch (Exception $e) {
+                Log::error('Failed to send start message', ['error' => $e->getMessage()]);
+            }
+        }
+        
         $combinedResult = [
             'success' => true,
             'sent_count' => 0,
             'error_count' => 0,
+            'duration_seconds' => 0,
             'languages_report' => [],
         ];
         
-        // گروه‌بندی آمار بر اساس زبان
-        $languages = [];
-        foreach ($allStats as $stat) {
-            $languages[$stat['language']] = $stat['language_name'];
-        }
+        $startTime = time();
         
         foreach ($languages as $langCode => $langName) {
             try {
-                $result = $this->sendBroadcast($langCode, $message, $botMotherId);
+                $result = $this->sendBroadcast($langCode, $message, $botMotherId, null);
                 
                 $combinedResult['sent_count'] += $result['sent_count'];
                 $combinedResult['error_count'] += $result['error_count'];
@@ -289,6 +393,7 @@ class AdminBroadcastService
                     'language_name' => $langName,
                     'sent' => $result['sent_count'],
                     'errors' => $result['error_count'],
+                    'duration_seconds' => $result['duration_seconds'] ?? 0,
                     'bots' => $result['bots_report'],
                 ];
             } catch (Exception $e) {
@@ -298,7 +403,66 @@ class AdminBroadcastService
             }
         }
         
+        $combinedResult['duration_seconds'] = time() - $startTime;
+        
         return $combinedResult;
+    }
+
+    /**
+     * دریافت تاریخچه ارسال‌های همگانی
+     */
+    public function getHistory(int $limit = 15): array
+    {
+        return BroadcastLog::where('status', 'completed')
+            ->latest()
+            ->limit($limit)
+            ->get()
+            ->toArray();
+    }
+
+    /**
+     * فرمت تاریخچه برای نمایش
+     */
+    public function formatHistoryMessage(): string
+    {
+        $history = $this->getHistory();
+        
+        if (empty($history)) {
+            return "📭 هیچ ارسال همگانی‌ای ثبت نشده است.";
+        }
+        
+        $message = "📋 *تاریخچه ارسال‌های همگانی*\n";
+        $message .= "────────────────────────\n\n";
+        
+        $index = 1;
+        foreach ($history as $log) {
+            $date = \Carbon\Carbon::parse($log['created_at'])->format('Y-m-d H:i');
+            $langName = AdminHelper::getLanguageName($log['language']);
+            $duration = $log['duration_seconds'] ?? 0;
+            
+            if ($duration < 60) {
+                $timeStr = "{$duration} ثانیه";
+            } else {
+                $mins = floor($duration / 60);
+                $secs = $duration % 60;
+                $timeStr = "{$mins} دقیقه و {$secs} ثانیه";
+            }
+            
+            $message .= "{$index}. {$langName}\n";
+            $message .= "   📅 {$date}\n";
+            $message .= "   👥 {$log['total_users']} هدف | ✅{$log['sent_count']} ارسال";
+            if ($log['error_count'] > 0) {
+                $message .= " | ❌{$log['error_count']} خطا";
+            }
+            $message .= "\n   ⏱ {$timeStr}\n\n";
+            
+            $index++;
+        }
+        
+        $message .= "💡 میانگین سرعت: " . BroadcastLog::getAverageSpeed() . " کاربر/ثانیه\n";
+        $message .= "📊 مجموع: " . array_sum(array_column($history, 'sent_count')) . " ارسال موفق";
+        
+        return $message;
     }
 
     /**
@@ -309,16 +473,29 @@ class AdminBroadcastService
         string $language,
         int $totalSent,
         int $totalErrors,
-        array $botsReport
+        array $botsReport,
+        int $durationSeconds = 0
     ): void {
         $report = "📊 *گزارش ارسال پیام همگانی*\n";
         $report .= "─────────────────────\n";
         $report .= "🌍 زبان: " . AdminHelper::getLanguageName($language) . "\n";
         $report .= "✅ ارسال موفق: {$totalSent}\n";
-        $report .= "❌ خطا: {$totalErrors}\n\n";
+        $report .= "❌ خطا: {$totalErrors}\n";
+        
+        if ($durationSeconds > 0) {
+            $report .= "⏱ مدت زمان: ";
+            if ($durationSeconds < 60) {
+                $report .= "{$durationSeconds} ثانیه";
+            } else {
+                $mins = floor($durationSeconds / 60);
+                $secs = $durationSeconds % 60;
+                $report .= "{$mins} دقیقه و {$secs} ثانیه";
+            }
+            $report .= "\n";
+        }
         
         if (!empty($botsReport)) {
-            $report .= "📋 *تفکیک ربات‌ها:*\n";
+            $report .= "\n📋 *تفکیک ربات‌ها:*\n";
             foreach ($botsReport as $botReport) {
                 $platformIcon = $botReport['platform'] == 'bale' ? '💬' : '📱';
                 $report .= "└ {$platformIcon} {$botReport['bot_name']}: ";
@@ -330,7 +507,6 @@ class AdminBroadcastService
             }
         }
         
-        // گزارش به سوپرمین در بله (چون ادمین از بله مدیریت می‌کند)
         BotHelper::sendMessageToSuperAdmin($report, 'bale');
     }
 
@@ -342,7 +518,6 @@ class AdminBroadcastService
         $message = "📊 *آمار کاربران ربات‌های قرآنی (۳۰ روز اخیر)*\n";
         $message .= "─────────────────────────────\n";
         
-        // گروه‌بندی بر اساس زبان
         $languages = [];
         foreach ($stats as $stat) {
             $lang = $stat['language'];
@@ -389,15 +564,19 @@ class AdminBroadcastService
         $message .= "└ `////ru متن` ← ارسال به روسی\n";
         $message .= "└ `/////all متن` ← ارسال به همه\n";
         $message .= "└ `/confirm` ← تأیید ارسال\n";
+        $message .= "└ `///broadcast-history` ← تاریخچه ارسال‌ها\n";
         
         return $message;
     }
 
     /**
-     * ساخت متن تأیید ارسال
+     * ساخت متن تأیید ارسال با تخمین زمان
      */
     public function formatConfirmationMessage(array $stats, string $message, int $totalUsers): string
     {
+        $estimatedSeconds = BroadcastLog::estimateDuration($totalUsers);
+        $estimatedMinutes = (int) ceil($estimatedSeconds / 60);
+        
         $text = "📋 *تأیید ارسال پیام همگانی*\n";
         $text .= "────────────────────────\n";
         $text .= "🌍 زبان: {$stats['language_name']}\n";
@@ -406,13 +585,23 @@ class AdminBroadcastService
         if (!empty($stats['bots'])) {
             $text .= "📋 *تفکیک ربات‌ها:*\n";
             foreach ($stats['bots'] as $bot) {
-                $platformIcon = $bot['bot_name'] && strpos($bot['bot_name'], 'telegram') ? '📱' : '💬';
                 $text .= "└ {$bot['bot_name']}: {$bot['unique_users']} کاربر\n";
             }
             $text .= "\n";
         }
         
-        $text .= "📝 *متن پیام:*\n";
+        $text .= "⏱ *تخمین زمان:* ";
+        if ($estimatedMinutes < 1) {
+            $text .= "کمتر از یک دقیقه\n";
+        } elseif ($estimatedMinutes < 60) {
+            $text .= "حدود {$estimatedMinutes} دقیقه\n";
+        } else {
+            $hours = floor($estimatedMinutes / 60);
+            $mins = $estimatedMinutes % 60;
+            $text .= "حدود {$hours} ساعت و {$mins} دقیقه\n";
+        }
+        
+        $text .= "\n📝 *متن پیام:*\n";
         $text .= "```\n{$message}\n```\n\n";
         $text .= "✅ برای تأیید: `/confirm`\n";
         $text .= "❌ برای لغو: هر دستور دیگری\n";
