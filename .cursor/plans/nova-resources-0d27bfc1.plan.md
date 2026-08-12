@@ -1,4 +1,10 @@
-<!-- 0d27bfc1-9668-4002-9093-028a93cf2faa 9f38d982-7747-4b22-99fe-aaf0bb561cb9 -->
+---
+name: ساخت Nova Resources برای مدل‌های جدید
+overview: ""
+todos: []
+isProject: false
+---
+
 # ساخت Nova Resources برای مدل‌های جدید
 
 ## بررسی وضعیت فعلی

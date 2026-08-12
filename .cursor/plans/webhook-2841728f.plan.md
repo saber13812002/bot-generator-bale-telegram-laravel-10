@@ -1,4 +1,28 @@
-<!-- 2841728f-29ff-484a-9318-07f6021c9274 f98d389e-f60c-4cc9-848d-88c6ba7294c2 -->
+---
+name: ایجاد ابزارهای تست و توسعه webhook
+overview: ""
+todos:
+  - id: aff203c6-7cc8-4a1a-8398-2a540bac77f0
+    content: استخراج تست‌های واقعی از فایل Insomnia و تبدیل به curl commands
+    status: pending
+  - id: 637a9586-f542-4a69-a7e7-825cdd83bd8e
+    content: ایجاد فایل sample-webhooks.json با نمونه‌های واقعی از Insomnia
+    status: pending
+  - id: f3ecc1d2-877a-49b5-8079-c011892e0be5
+    content: ایجاد WebhookMockHelper بر اساس ساختار واقعی update های Insomnia
+    status: pending
+  - id: bcaf2c49-03f8-43cf-a632-23c06238ba04
+    content: ایجاد WebhookDevHelper برای شبیه‌سازی و لاگ کردن
+    status: pending
+  - id: 35bcf231-6004-4d09-8bcc-3ec2ce76dd2d
+    content: نوشتن تست‌های Laravel Feature با داده‌های واقعی
+    status: pending
+  - id: 58d230d7-0414-46ca-8ca8-bae74994ed35
+    content: ایجاد README برای راهنمای استفاده
+    status: pending
+isProject: false
+---
+
 # ایجاد ابزارهای تست و توسعه webhook
 
 ## اهداف
@@ -128,12 +152,3 @@ $response = WebhookDevHelper::simulateWebhook(
 - Token ها باید در `.env` یا به صورت query parameter ارسال شوند
 - در حالت development، لاگ‌ها در console نمایش داده می‌شوند
 - Mock Helper ها ساختار کامل Telegram/Bale update را می‌سازند
-
-### To-dos
-
-- [ ] استخراج تست‌های واقعی از فایل Insomnia و تبدیل به curl commands
-- [ ] ایجاد فایل sample-webhooks.json با نمونه‌های واقعی از Insomnia
-- [ ] ایجاد WebhookMockHelper بر اساس ساختار واقعی update های Insomnia
-- [ ] ایجاد WebhookDevHelper برای شبیه‌سازی و لاگ کردن
-- [ ] نوشتن تست‌های Laravel Feature با داده‌های واقعی
-- [ ] ایجاد README برای راهنمای استفاده

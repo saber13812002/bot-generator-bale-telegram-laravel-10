@@ -1,4 +1,40 @@
-<!-- fc69bbcf-9668-40fc-8182-6ab0c6401bf1 a1e1798f-e40d-425c-b617-a67273c92f88 -->
+---
+name: پیاده‌سازی سیستم انتخاب و ثبت هوش مصنوعی برای ماموریت‌ها
+overview: ""
+todos:
+  - id: 477b1b44-0fc5-4b90-a460-ac60eddc921c
+    content: ساخت جدول ai_llms با migration و model
+    status: pending
+  - id: 9e22f446-b7f5-4fd3-b937-e597f97c50ef
+    content: اضافه کردن فیلد ai_id به جدول missions
+    status: pending
+  - id: ef7de35b-9d6f-4799-8a5a-3a43c5ebfcf0
+    content: اضافه کردن فیلد selected_ai_id به جدول mission_personnel
+    status: pending
+  - id: b47d8e65-424d-4146-b49f-a97746879c74
+    content: به‌روزرسانی Model Mission برای relationship با AiLlm
+    status: pending
+  - id: 2cda4645-beaf-4c79-8850-e4293ffc83f5
+    content: به‌روزرسانی Model MissionPersonnel برای relationship با AiLlm
+    status: pending
+  - id: af1368eb-2d87-4bdd-967c-3bb7dc5bc150
+    content: تغییر روش ارسال Prompt و Content به صورت خالص در MissionBotController
+    status: pending
+  - id: 6334be7f-0f2c-4ebd-800e-3f5881890527
+    content: اضافه کردن UI انتخاب AI در MissionBotController
+    status: pending
+  - id: 4c0fabfc-e86b-4bd6-af54-4613749870f7
+    content: اضافه کردن دستورات مدیریت AI در PersonnelAdminBotController
+    status: pending
+  - id: 2f252656-0e75-4eb6-b8d8-3ba869d92425
+    content: به‌روزرسانی SendMissionMediaJob برای ارسال خالص Prompt و Content
+    status: pending
+  - id: 328ccca2-a860-49f3-aa0e-89dd72ecd888
+    content: ساخت Seeder برای داده‌های اولیه AI
+    status: pending
+isProject: false
+---
+
 # پیاده‌سازی سیستم انتخاب و ثبت هوش مصنوعی برای ماموریت‌ها
 
 ## بررسی وضعیت فعلی
@@ -181,16 +217,3 @@
 1. آیا کاربر باید AI را در زمان دریافت ماموریت انتخاب کند یا هنگام ارسال نتیجه؟ اگر ما فیلد را خالی بگذاریم هنگام نتیجه پس از ارسال لینک اگر این فیلد خالی است میتوانیم بپرسیم 
 2. آیا می‌خواهیم AI پیشنهادی (از `mission.ai_id`) را به صورت پیش‌فرض انتخاب کنیم؟ خیر
 3. آیا می‌خواهیم امکان تغییر AI را بعد از انتخاب بدهیم؟ بله
-
-### To-dos
-
-- [ ] ساخت جدول ai_llms با migration و model
-- [ ] اضافه کردن فیلد ai_id به جدول missions
-- [ ] اضافه کردن فیلد selected_ai_id به جدول mission_personnel
-- [ ] به‌روزرسانی Model Mission برای relationship با AiLlm
-- [ ] به‌روزرسانی Model MissionPersonnel برای relationship با AiLlm
-- [ ] تغییر روش ارسال Prompt و Content به صورت خالص در MissionBotController
-- [ ] اضافه کردن UI انتخاب AI در MissionBotController
-- [ ] اضافه کردن دستورات مدیریت AI در PersonnelAdminBotController
-- [ ] به‌روزرسانی SendMissionMediaJob برای ارسال خالص Prompt و Content
-- [ ] ساخت Seeder برای داده‌های اولیه AI
