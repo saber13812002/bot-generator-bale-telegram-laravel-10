@@ -27,7 +27,6 @@ use App\Services\ContentDeliveryServiceImpl;
 use App\Services\ContentQueueServiceImpl;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Telegram;
 
 /**
