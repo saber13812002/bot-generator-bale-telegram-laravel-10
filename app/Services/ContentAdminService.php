@@ -49,10 +49,26 @@ class ContentAdminService
 
     public function notifyFileReceived(Telegram $bot, ContentPendingUpload $pending): void
     {
+        $categories = ContentCategory::where('bot_id', $pending->bot_id)
+            ->where('is_active', true)
+            ->orderBy('page')
+            ->orderBy('sort_order')
+            ->get();
+
         $message = trans('book_library.admin_file_received', ['id' => $pending->id]);
-        $message .= "\n\n" . trans('book_library.admin_add_to_category_cmd', ['id' => $pending->id]);
-        $message .= "\n\n🗑 برای حذف:\n/deletePending_{$pending->id}";
-        BotHelper::sendMessage($bot, $message);
+
+        if ($categories->isNotEmpty()) {
+            $message .= "\n\n" . trans('book_library.admin_pick_category');
+            $keyboard = [];
+            foreach ($categories as $cat) {
+                $keyboard[] = [$bot->buildInlineKeyBoardButton($cat->title, callback_data: "bl:acf:{$pending->id}:{$cat->id}")];
+            }
+            BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+        } else {
+            $message .= "\n\n" . trans('book_library.admin_add_to_category_cmd', ['id' => $pending->id]);
+            $message .= "\n\n🗑 برای حذف:\n/deletePending_{$pending->id}";
+            BotHelper::sendMessage($bot, $message);
+        }
     }
 
     public function showCategoryPickerForPending(Telegram $bot, int $botId, int $pendingId): void

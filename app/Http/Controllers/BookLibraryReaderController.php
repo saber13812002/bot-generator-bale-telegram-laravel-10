@@ -530,9 +530,9 @@ class BookLibraryReaderController extends Controller
                 return true;
             }
 
-            // ادمین: مستقیم به صفPending
+            // ادمین: مستقیم به صف Pending + نمایش دکمه‌های دسته‌بندی
             $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
-            BotHelper::sendMessage($bot, "✅ فایل دریافت شد.\n📌 برای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}\n\n🗑 برای حذف:\n/deletePending_{$pending->id}");
+            $this->adminService->notifyFileReceived($bot, $pending);
             return true;
         }
 

@@ -182,12 +182,13 @@ class BookLibraryController extends Controller
         }
 
         if ($isOwner && str_starts_with($text, '/addFileToCategory')) {
-            $parts = preg_split('/\s+/', $text);
+            $normalized = str_replace('_', ' ', $text);
+            $parts = preg_split('/\s+/', $normalized);
             $pendingId = (int) ($parts[1] ?? 0);
             if ($pendingId > 0) {
                 $this->adminService->showCategoryPickerForPending($bot, $instanceBotId, $pendingId);
             } else {
-                BotHelper::sendMessage($bot, trans('book_library.admin_add_to_category_usage'));
+                BotHelper::sendMessage($bot, "❌ فرمت: /addFileToCategory_PENDING_ID\nمثال: /addFileToCategory_9");
             }
             return;
         }

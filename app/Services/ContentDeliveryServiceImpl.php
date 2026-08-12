@@ -74,8 +74,16 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
             Log::warning('[ContentDelivery] LibraryUserBook log skipped', ['error' => $e->getMessage()]);
         }
 
+        // نمایش progress bar + دکمه «بعدی از همین دسته»
         $progress = $this->bookLibraryService->buildProgressBar($subscription->fresh());
-        BotHelper::sendMessageByChatId($bot, $chatId, $progress);
+        $categoryId = $item->category_id;
+        $categoryTitle = $item->category->title ?? '';
+        $nextLabel = "▶️ بعدی از «{$categoryTitle}»";
+
+        $keyboard = [
+            [$bot->buildInlineKeyBoardButton($nextLabel, callback_data: "bl:cat:{$categoryId}")],
+        ];
+        BotHelper::sendKeyboardMessage($bot, $progress, $bot->buildInlineKeyBoard($keyboard));
 
         return true;
     }

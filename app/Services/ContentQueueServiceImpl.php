@@ -10,6 +10,7 @@ use App\Models\ContentItem;
 use App\Models\ContentPendingUpload;
 use App\Models\ContentUserProgress;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ContentQueueServiceImpl implements ContentQueueService
@@ -131,55 +132,62 @@ class ContentQueueServiceImpl implements ContentQueueService
 
     public function appendPendingToCategory(ContentPendingUpload $pending, int $categoryId, ?string $title = null): ContentItem
     {
-        $nextOrder = $this->maxQueueOrder($categoryId) + 1;
+        return DB::transaction(function () use ($pending, $categoryId, $title) {
+            // Pessimistic lock: قفل روی آیتم‌های این دسته برای جلوگیری از race condition
+            // هنگام assign همزمان چند فایل
+            $maxOrder = (int) ContentItem::where('category_id', $categoryId)
+                ->lockForUpdate()
+                ->max('queue_order');
+            $nextOrder = $maxOrder + 1;
 
-        // عنوان: 1. پارامتر صریح 2. خط اول کپشن (title در pending) 3. نام پیش‌فرض
-        $fullCaption = $pending->title;
-        $itemTitle = $title ?: ($fullCaption ?: ('فایل ' . $nextOrder));
+            // عنوان: 1. پارامتر صریح 2. خط اول کپشن (title در pending) 3. نام پیش‌فرض
+            $fullCaption = $pending->title;
+            $itemTitle = $title ?: ($fullCaption ?: ('فایل ' . $nextOrder));
 
-        // فقط خط اول عنوان را بگیر (کپشن‌های بلند چندخطی ممکن است شامل توضیحات و URL باشند)
-        // و حداکثر 250 کاراکتر (varchar(255) در دیتابیس)
-        $firstLine = explode("\n", $itemTitle)[0];
-        $itemTitle = mb_substr(trim($firstLine), 0, 250);
+            // فقط خط اول عنوان را بگیر (کپشن‌های بلند چندخطی ممکن است شامل توضیحات و URL باشند)
+            // و حداکثر 250 کاراکتر (varchar(255) در دیتابیس)
+            $firstLine = explode("\n", $itemTitle)[0];
+            $itemTitle = mb_substr(trim($firstLine), 0, 250);
 
-        // توضیحات: خط دوم به بعد کپشن اصلی (بدون خط اول)
-        $description = null;
-        if ($fullCaption) {
-            $lines = explode("\n", $fullCaption, 2);
-            $description = isset($lines[1]) ? trim($lines[1]) : null;
-        }
+            // توضیحات: خط دوم به بعد کپشن اصلی (بدون خط اول)
+            $description = null;
+            if ($fullCaption) {
+                $lines = explode("\n", $fullCaption, 2);
+                $description = isset($lines[1]) ? trim($lines[1]) : null;
+            }
 
-        Log::info('📖 [ContentQueue] appendPendingToCategory', [
-            'pending_id' => $pending->id,
-            'pending_title' => $pending->title,
-            'category_id' => $categoryId,
-            'resolved_title' => $itemTitle,
-            'has_description' => $description !== null,
-            'next_order' => $nextOrder,
-        ]);
+            Log::info('📖 [ContentQueue] appendPendingToCategory', [
+                'pending_id' => $pending->id,
+                'pending_title' => $pending->title,
+                'category_id' => $categoryId,
+                'resolved_title' => $itemTitle,
+                'has_description' => $description !== null,
+                'next_order' => $nextOrder,
+            ]);
 
-        $item = ContentItem::create([
-            'bot_id' => $pending->bot_id,
-            'category_id' => $categoryId,
-            'title' => $itemTitle,
-            'description' => $description,
-            'queue_order' => $nextOrder,
-            'is_active' => true,
-        ]);
+            $item = ContentItem::create([
+                'bot_id' => $pending->bot_id,
+                'category_id' => $categoryId,
+                'title' => $itemTitle,
+                'description' => $description,
+                'queue_order' => $nextOrder,
+                'is_active' => true,
+            ]);
 
-        $asset = new ContentAsset([
-            'type' => 'audio',
-        ]);
-        if ($pending->origin === 'bale') {
-            $asset->bale_file_id = $pending->file_id;
-        } else {
-            $asset->telegram_file_id = $pending->file_id;
-        }
-        $item->assets()->save($asset);
+            $asset = new ContentAsset([
+                'type' => 'audio',
+            ]);
+            if ($pending->origin === 'bale') {
+                $asset->bale_file_id = $pending->file_id;
+            } else {
+                $asset->telegram_file_id = $pending->file_id;
+            }
+            $item->assets()->save($asset);
 
-        $pending->delete();
+            $pending->delete();
 
-        return $item->load('category');
+            return $item->load('category');
+        });
     }
 
     public function getUserProgressList(BotUsers $botUser, int $botId, int $limit = 10): Collection
