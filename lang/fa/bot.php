@@ -716,4 +716,112 @@ return [
     'mawkib_finder_error' => '❌ خطایی رخ داد. لطفاً دوباره /start بزنید.',
     'mawkib_finder_no_availability' => 'ℹ️ در حال حاضر جای خالی در این استان یافت نشد.',
     'mawkib_finder_use_start' => 'لطفاً /start بزنید تا فرآیند را از ابتدا شروع کنید.',
+
+    // MP Contact Bot
+    'mp_contact_welcome' => 'به ربات «ارتباط با نماینده مجلس تست» خوش آمدید.
+از منوی زیر گزینه مورد نظر را انتخاب کنید.',
+    'mp_contact_welcome_admin' => 'پنل مدیریت ربات «ارتباط با نماینده مجلس»
+از منوی زیر گزینه مورد نظر را انتخاب کنید.',
+    'mp_contact_btn_send_ticket' => '📨 ارسال پیام به نماینده',
+    'mp_contact_btn_track_ticket' => '🔎 پیگیری وضعیت تیکت',
+    'mp_contact_btn_polls' => '📊 شرکت در نظرسنجی‌های فعال',
+    'mp_contact_btn_admin_tickets' => '📬 پیام‌های دریافتی',
+    'mp_contact_btn_admin_polls' => '🗳 مدیریت نظرسنجی‌ها',
+    'mp_contact_btn_admin_manage' => '👥 مدیریت ادمین‌ها',
+    'mp_contact_btn_home' => '🏠 منوی اصلی',
+    'mp_contact_btn_back' => '⬅️ بازگشت',
+    'mp_contact_btn_next' => 'بعدی ▶️',
+    'mp_contact_btn_prev' => '◀️ قبلی',
+    'mp_contact_btn_cancel' => '❌ انصراف',
+    'mp_contact_btn_agree' => '👍 موافق',
+    'mp_contact_btn_disagree' => '👎 مخالف',
+    'mp_contact_btn_comment' => '✍️ ثبت نظر توصیفی',
+    'mp_contact_btn_create_poll' => '➕ ایجاد نظرسنجی جدید',
+    'mp_contact_btn_edit' => '✏️ ویرایش',
+    'mp_contact_btn_activate' => '✅ فعال کردن',
+    'mp_contact_btn_deactivate' => '⏸ غیرفعال کردن',
+    'mp_contact_btn_results' => '📈 نتایج',
+    'mp_contact_btn_publish' => '✅ انتشار',
+    'mp_contact_btn_approve' => '✅ تأیید',
+    'mp_contact_btn_reject' => '❌ رد',
+    'mp_contact_btn_yes' => 'بله',
+    'mp_contact_btn_no' => 'خیر',
+    'mp_contact_ask_ticket' => 'لطفاً پیام متنی خود را برای نماینده ارسال کنید:',
+    'mp_contact_ask_tracking_code' => 'کد پیگیری تیکت را وارد کنید:',
+    'mp_contact_ask_comment' => 'نظر توصیفی خود را درباره این نظرسنجی بنویسید:',
+    'mp_contact_ask_poll_body' => 'متن نظرسنجی را ارسال کنید (مثلاً ۱ یا ۲ خط):',
+    'mp_contact_ask_poll_edit' => 'متن جدید نظرسنجی را ارسال کنید:',
+    'mp_contact_ticket_created' => '✅ پیام شما ثبت شد.
+کد پیگیری: <b>:code</b>
+با دکمه «پیگیری وضعیت تیکت» می‌توانید وضعیت را ببینید.',
+    'mp_contact_ticket_not_found' => '❌ تیکتی با این کد برای شما یافت نشد.',
+    'mp_contact_ticket_status' => '📋 کد: <b>:code</b>
+وضعیت: :status
+متن: :body',
+    'mp_contact_ticket_detail' => '📋 کد: <b>:code</b>
+وضعیت: :status
+از: :chat_id
+
+:body',
+    'mp_contact_ticket_status_updated' => '✅ وضعیت تیکت به‌روز شد.',
+    'mp_contact_comment_created' => '✅ نظر شما ثبت شد.
+کد رسید: <b>:code</b>',
+    'mp_contact_poll_confirm' => 'آیا این نظرسنجی منتشر شود؟
+
+:body',
+    'mp_contact_poll_published' => '✅ نظرسنجی منتشر شد.',
+    'mp_contact_poll_updated' => '✅ متن نظرسنجی به‌روز شد.',
+    'mp_contact_poll_activated' => '✅ نظرسنجی فعال شد.',
+    'mp_contact_poll_deactivated' => '⏸ نظرسنجی غیرفعال شد.',
+    'mp_contact_poll_unavailable' => '❌ این نظرسنجی در دسترس نیست.',
+    'mp_contact_polls_list' => 'نظرسنجی‌های فعال (صفحه :page از :total):',
+    'mp_contact_admin_polls_list' => 'مدیریت نظرسنجی‌ها (صفحه :page از :total):',
+    'mp_contact_tickets_list' => 'پیام‌های دریافتی (صفحه :page از :total):',
+    'mp_contact_no_active_polls' => 'در حال حاضر نظرسنجی فعالی وجود ندارد.',
+    'mp_contact_no_tickets' => 'هنوز پیامی ثبت نشده است.',
+    'mp_contact_no_polls_admin' => 'هنوز نظرسنجی‌ای ساخته نشده است.',
+    'mp_contact_already_voted' => 'شما قبلاً در این نظرسنجی رای داده‌اید.',
+    'mp_contact_vote_ok' => '✅ رای شما ثبت شد.',
+    'mp_contact_your_vote' => 'رای شما: :choice',
+    'mp_contact_poll_results' => '📈 نتایج نظرسنجی
+
+:body
+
+کل شرکت‌کنندگان: :total
+موافق: :agree
+مخالف: :disagree
+نظرات توصیفی: :comments',
+    'mp_contact_status_pending' => 'در انتظار',
+    'mp_contact_status_reviewing' => 'در حال بررسی',
+    'mp_contact_status_closed' => 'بسته شده',
+    'mp_contact_use_start' => 'لطفاً /start را بزنید.',
+    'mp_contact_not_admin' => 'شما ادمین این ربات نیستید.',
+    'mp_contact_already_admin' => 'شما هم‌اکنون ادمین هستید.',
+    'mp_contact_admin_request_pending' => 'درخواست ادمین شما در انتظار تأیید است.',
+    'mp_contact_admin_request_sent' => '✅ درخواست ادمین شدن شما ارسال شد.',
+    'mp_contact_admin_request_notify' => 'درخواست ادمین جدید
+Chat ID: :chat_id
+شناسه درخواست: #:id',
+    'mp_contact_admin_manage_help' => 'مدیریت ادمین‌ها
+
+برای افزودن یا حذف ادمین، پیام یک کاربر را از چت خصوصی به این ربات فوروارد کنید.
+
+درخواست‌های در انتظار را هم می‌توانید از دکمه‌های زیر تأیید/رد کنید.',
+    'mp_contact_pending_request_btn' => 'درخواست #:id — :chat_id',
+    'mp_contact_primary_only' => 'فقط ادمین اصلی می‌تواند این کار را انجام دهد.',
+    'mp_contact_admin_approved' => '✅ درخواست تأیید شد و کاربر ادمین شد.',
+    'mp_contact_admin_rejected' => 'درخواست رد شد.',
+    'mp_contact_you_are_admin' => '✅ شما به‌عنوان ادمین ربات منصوب شدید. /start را بزنید.',
+    'mp_contact_admin_request_rejected_user' => 'درخواست ادمین شدن شما رد شد.',
+    'mp_contact_admin_added' => '✅ کاربر به‌عنوان ادمین اضافه شد.',
+    'mp_contact_admin_removed' => '✅ دسترسی ادمین حذف شد.',
+    'mp_contact_you_removed_admin' => 'دسترسی ادمین شما لغو شد.',
+    'mp_contact_cannot_remove_primary' => 'نمی‌توان ادمین اصلی را حذف کرد.',
+    'mp_contact_cannot_self' => 'نمی‌توانید پیام خودتان را برای این کار فوروارد کنید.',
+    'mp_contact_confirm_add_admin' => 'آیا می‌خواهید این شخص ادمین باشد؟
+:name
+Chat ID: :chat_id',
+    'mp_contact_confirm_remove_admin' => 'این شخص هم‌اکنون ادمین است. آیا می‌خواهید از ادمینی حذف شود؟
+:name
+Chat ID: :chat_id',
 ];

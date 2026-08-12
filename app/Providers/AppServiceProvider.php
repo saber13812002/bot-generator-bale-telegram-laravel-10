@@ -46,6 +46,7 @@ use App\Interfaces\Services\WeatherAlertService;
 use App\Interfaces\Services\WeatherComparisonService;
 use App\Interfaces\Services\MawkibFinderService;
 use App\Interfaces\Services\PoemBotService;
+use App\Interfaces\Services\MpContactBotService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
 use App\Repositories\BookRepositoryImpl;
@@ -92,6 +93,7 @@ use App\Services\ProServiceImpl;
 use App\Services\ReverseGeocodingServiceImpl;
 use App\Services\WeatherAlertServiceImpl;
 use App\Services\WeatherComparisonServiceImpl;
+use App\Services\MpContactBotServiceImpl;
 use App\Services\PoemBotServiceImpl;
 use App\Services\WeatherOpenWeatherMapApiServiceImpl;
 use App\Services\WeatherTomorrowApiServiceImpl;
@@ -159,6 +161,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
         
         $this->app->bind(PoemBotService::class, PoemBotServiceImpl::class);
+        $this->app->bind(MpContactBotService::class, MpContactBotServiceImpl::class);
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
         $this->app->singleton(\App\Services\MawkibFinderOtpService::class);
         

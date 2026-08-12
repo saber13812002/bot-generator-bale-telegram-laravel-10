@@ -131,6 +131,9 @@ Route::post('/webhook-rss-admin', [\App\Http\Controllers\RssAdminBotController::
 // list bot (فهرست با دکمه شیشه‌ای)
 Route::post('/webhook-list-bot', [\App\Http\Controllers\ListBotController::class, 'index']);
 
+// mp-contact bot (ارتباط با نماینده مجلس)
+Route::post('/webhook-mp-contact', [\App\Http\Controllers\MpContactBotController::class, 'index']);
+
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 

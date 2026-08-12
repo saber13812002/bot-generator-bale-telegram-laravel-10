@@ -277,4 +277,112 @@ return [
     'mawkib_finder_error' => '❌ An error occurred. Send /start again.',
     'mawkib_finder_no_availability' => 'ℹ️ No vacant spots in this province.',
     'mawkib_finder_use_start' => 'Please send /start to begin.',
+
+    // MP Contact Bot
+    'mp_contact_welcome' => 'Welcome to the “Contact MP (Test)” bot.
+Choose an option from the menu below.',
+    'mp_contact_welcome_admin' => 'Admin panel — Contact MP bot
+Choose an option from the menu below.',
+    'mp_contact_btn_send_ticket' => '📨 Send message to MP',
+    'mp_contact_btn_track_ticket' => '🔎 Track ticket status',
+    'mp_contact_btn_polls' => '📊 Active polls',
+    'mp_contact_btn_admin_tickets' => '📬 Incoming messages',
+    'mp_contact_btn_admin_polls' => '🗳 Manage polls',
+    'mp_contact_btn_admin_manage' => '👥 Manage admins',
+    'mp_contact_btn_home' => '🏠 Main menu',
+    'mp_contact_btn_back' => '⬅️ Back',
+    'mp_contact_btn_next' => 'Next ▶️',
+    'mp_contact_btn_prev' => '◀️ Prev',
+    'mp_contact_btn_cancel' => '❌ Cancel',
+    'mp_contact_btn_agree' => '👍 Agree',
+    'mp_contact_btn_disagree' => '👎 Disagree',
+    'mp_contact_btn_comment' => '✍️ Add comment',
+    'mp_contact_btn_create_poll' => '➕ Create poll',
+    'mp_contact_btn_edit' => '✏️ Edit',
+    'mp_contact_btn_activate' => '✅ Activate',
+    'mp_contact_btn_deactivate' => '⏸ Deactivate',
+    'mp_contact_btn_results' => '📈 Results',
+    'mp_contact_btn_publish' => '✅ Publish',
+    'mp_contact_btn_approve' => '✅ Approve',
+    'mp_contact_btn_reject' => '❌ Reject',
+    'mp_contact_btn_yes' => 'Yes',
+    'mp_contact_btn_no' => 'No',
+    'mp_contact_ask_ticket' => 'Please send your text message for the MP:',
+    'mp_contact_ask_tracking_code' => 'Enter the ticket tracking code:',
+    'mp_contact_ask_comment' => 'Write your descriptive comment about this poll:',
+    'mp_contact_ask_poll_body' => 'Send the poll text (1–2 lines):',
+    'mp_contact_ask_poll_edit' => 'Send the new poll text:',
+    'mp_contact_ticket_created' => '✅ Your message was saved.
+Tracking code: <b>:code</b>
+Use “Track ticket status” to check later.',
+    'mp_contact_ticket_not_found' => '❌ No ticket found with this code for you.',
+    'mp_contact_ticket_status' => '📋 Code: <b>:code</b>
+Status: :status
+Text: :body',
+    'mp_contact_ticket_detail' => '📋 Code: <b>:code</b>
+Status: :status
+From: :chat_id
+
+:body',
+    'mp_contact_ticket_status_updated' => '✅ Ticket status updated.',
+    'mp_contact_comment_created' => '✅ Your comment was saved.
+Receipt code: <b>:code</b>',
+    'mp_contact_poll_confirm' => 'Publish this poll?
+
+:body',
+    'mp_contact_poll_published' => '✅ Poll published.',
+    'mp_contact_poll_updated' => '✅ Poll text updated.',
+    'mp_contact_poll_activated' => '✅ Poll activated.',
+    'mp_contact_poll_deactivated' => '⏸ Poll deactivated.',
+    'mp_contact_poll_unavailable' => '❌ This poll is unavailable.',
+    'mp_contact_polls_list' => 'Active polls (page :page of :total):',
+    'mp_contact_admin_polls_list' => 'Manage polls (page :page of :total):',
+    'mp_contact_tickets_list' => 'Incoming messages (page :page of :total):',
+    'mp_contact_no_active_polls' => 'There are no active polls right now.',
+    'mp_contact_no_tickets' => 'No messages yet.',
+    'mp_contact_no_polls_admin' => 'No polls created yet.',
+    'mp_contact_already_voted' => 'You have already voted in this poll.',
+    'mp_contact_vote_ok' => '✅ Your vote was recorded.',
+    'mp_contact_your_vote' => 'Your vote: :choice',
+    'mp_contact_poll_results' => '📈 Poll results
+
+:body
+
+Total voters: :total
+Agree: :agree
+Disagree: :disagree
+Comments: :comments',
+    'mp_contact_status_pending' => 'Pending',
+    'mp_contact_status_reviewing' => 'Reviewing',
+    'mp_contact_status_closed' => 'Closed',
+    'mp_contact_use_start' => 'Please send /start.',
+    'mp_contact_not_admin' => 'You are not an admin of this bot.',
+    'mp_contact_already_admin' => 'You are already an admin.',
+    'mp_contact_admin_request_pending' => 'Your admin request is pending.',
+    'mp_contact_admin_request_sent' => '✅ Your admin request was sent.',
+    'mp_contact_admin_request_notify' => 'New admin request
+Chat ID: :chat_id
+Request ID: #:id',
+    'mp_contact_admin_manage_help' => 'Admin management
+
+To add/remove an admin, forward a user’s private message to this bot.
+
+You can also approve/reject pending /admin_kiye requests below.',
+    'mp_contact_pending_request_btn' => 'Request #:id — :chat_id',
+    'mp_contact_primary_only' => 'Only the primary admin can do this.',
+    'mp_contact_admin_approved' => '✅ Request approved; user is now an admin.',
+    'mp_contact_admin_rejected' => 'Request rejected.',
+    'mp_contact_you_are_admin' => '✅ You were appointed as a bot admin. Send /start.',
+    'mp_contact_admin_request_rejected_user' => 'Your admin request was rejected.',
+    'mp_contact_admin_added' => '✅ User added as admin.',
+    'mp_contact_admin_removed' => '✅ Admin access removed.',
+    'mp_contact_you_removed_admin' => 'Your admin access was revoked.',
+    'mp_contact_cannot_remove_primary' => 'Cannot remove the primary admin.',
+    'mp_contact_cannot_self' => 'You cannot forward your own message for this.',
+    'mp_contact_confirm_add_admin' => 'Make this person an admin?
+:name
+Chat ID: :chat_id',
+    'mp_contact_confirm_remove_admin' => 'This person is already an admin. Remove them?
+:name
+Chat ID: :chat_id',
 ];

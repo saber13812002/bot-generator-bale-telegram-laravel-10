@@ -228,6 +228,15 @@ class WebhookEndpointDefaultImporter
                 'requires_language' => false,
             ],
             [
+                'id' => 'webhook-mp-contact',
+                'name' => 'ارتباط با نماینده مجلس',
+                'route' => '/api/webhook-mp-contact',
+                'description' => 'تیکتینگ مردمی، نظرسنجی موافق/مخالف و پنل ادمین داخل چت با دکمه‌های شیشه‌ای',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-rss-admin',
                 'name' => 'ربات ادمین RSS',
                 'route' => '/api/webhook-rss-admin',
