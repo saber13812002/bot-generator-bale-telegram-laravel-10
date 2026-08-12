@@ -81,7 +81,14 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         $nextLabel = "▶️ بعدی از «{$categoryTitle}»";
 
         $keyboard = [
+            // Next in category button
             [$bot->buildInlineKeyBoardButton($nextLabel, callback_data: "bl:cat:{$categoryId}")],
+            // Add note button
+            [$bot->buildInlineKeyBoardButton('📝 یادداشت', callback_data: "bl:note:{$item->id}")],
+            // Add question button
+            [$bot->buildInlineKeyBoardButton('❓ سؤال', callback_data: "bl:question:{$item->id}")],
+            // Show all notes button
+            [$bot->buildInlineKeyBoardButton('📄 همهٔ یادداشت‌ها', callback_data: "bl:show_notes:{$item->id}")],
         ];
         BotHelper::sendKeyboardMessage($bot, $progress, $bot->buildInlineKeyBoard($keyboard));
 
