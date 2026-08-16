@@ -12,6 +12,6 @@ class TelegramChannelPosterPublisherFactory implements ChannelPosterPublisherFac
     {
         $bot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
 
-        return new TelegramChannelPosterPublisher($bot);
+        return new TelegramChannelPosterPublisher($bot, $origin);
     }
 }

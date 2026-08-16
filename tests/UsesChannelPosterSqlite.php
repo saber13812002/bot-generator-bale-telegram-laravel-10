@@ -69,11 +69,12 @@ trait UsesChannelPosterSqlite
             $table->string('platform', 20);
             $table->string('channel_chat_id', 64);
             $table->string('channel_title')->nullable();
+            $table->string('tag', 64)->nullable();
             $table->string('bot_token')->nullable();
             $table->timestamp('verified_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->unique(['bot_id', 'platform']);
+            $table->unique(['bot_id', 'platform', 'channel_chat_id'], 'cp_dest_bot_plat_chat_unique');
         });
     }
 }

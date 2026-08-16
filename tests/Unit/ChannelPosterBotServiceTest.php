@@ -170,4 +170,29 @@ class ChannelPosterBotServiceTest extends TestCase
         $all = $this->service->resolveDestinations($bot->id, 'all');
         $this->assertCount(2, $all);
     }
+
+    public function test_untagged_group_and_assign_tag(): void
+    {
+        $bot = Bot::create([
+            'endpoint_id' => 'webhook-channel-poster',
+            'bale_bot_token' => '1:token',
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '4476004639',
+            'channel_title' => 'شراب بهشتی',
+            'is_active' => true,
+        ]);
+
+        $this->assertTrue($this->service->hasUntagged($bot->id));
+        $groups = $this->service->listTagGroups($bot->id);
+        $this->assertCount(1, $groups);
+        $this->assertSame('', $groups[0]['key']);
+        $this->assertSame('شراب بهشتی', $groups[0]['label']);
+
+        $this->service->assignTagToUntagged($bot->id, 'شراب بهشتی');
+        $this->assertFalse($this->service->hasUntagged($bot->id));
+        $this->assertCount(1, $this->service->resolveByTag($bot->id, 'شراب بهشتی'));
+    }
 }

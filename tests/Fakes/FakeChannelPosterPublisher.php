@@ -22,23 +22,33 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ];
     }
 
-    public function sendTestMessage(string $channelChatId, string $text): bool
+    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool
     {
         $this->testMessages[] = [
             'channel_chat_id' => $channelChatId,
             'text' => $text,
+            'platform' => $platform,
+            'bot_token' => $botToken,
         ];
 
         return $this->testSendSucceeds;
     }
 
-    public function publish(string $channelChatId, string $contentType, ?string $text, ?string $fileId): bool
-    {
+    public function publish(
+        string $channelChatId,
+        string $contentType,
+        ?string $text,
+        ?string $fileId,
+        string $platform = 'bale',
+        ?string $botToken = null
+    ): bool {
         $this->publishes[] = [
             'channel_chat_id' => $channelChatId,
             'content_type' => $contentType,
             'text' => $text,
             'file_id' => $fileId,
+            'platform' => $platform,
+            'bot_token' => $botToken,
         ];
 
         return $this->publishSucceeds;

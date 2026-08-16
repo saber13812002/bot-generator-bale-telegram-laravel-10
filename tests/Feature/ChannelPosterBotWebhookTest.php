@@ -99,7 +99,7 @@ class ChannelPosterBotWebhookTest extends TestCase
         $this->assertSame('News', $destination->channel_title);
 
         $botUser = BotUsers::where('chat_id', $this->ownerChatId)->where('bot_id', $bot->id)->first();
-        $this->assertSame(0, BotUserState::where('bot_user_id', $botUser->id)->count());
+        $this->assertSame(ChannelPosterBotController::STATE_AWAITING_UNTAGGED_NAME, BotUserState::where('bot_user_id', $botUser->id)->value('state'));
     }
 
     public function test_private_user_forward_is_rejected(): void
@@ -229,33 +229,131 @@ class ChannelPosterBotWebhookTest extends TestCase
             $this->privateTextUpdate($this->ownerChatId, 'hello channel')
         );
 
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame('-100555', $this->publisher->publishes[0]['channel_chat_id']);
+        $this->assertSame('text', $this->publisher->publishes[0]['content_type']);
+        $this->assertSame('hello channel', $this->publisher->publishes[0]['text']);
         $this->assertStringContainsString(
-            trans('bot.channel_poster_ask_destination'),
+            trans('bot.channel_poster_published', ['tag' => 'News']),
             (string) $this->publisher->lastPrivateText()
         );
+    }
 
-        $response = $this->postJson(
+    public function test_untagged_destination_can_be_named(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '4476004639',
+            'channel_title' => 'شراب بهشتی',
+            'tag' => null,
+            'is_active' => true,
+            'verified_at' => now(),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/start')
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, 'شراب بهشتی')
+        );
+
+        $this->assertSame('شراب بهشتی', ChannelPosterDestination::where('bot_id', $bot->id)->value('tag'));
+    }
+
+    public function test_telegram_token_and_chat_id_save_under_tag(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '4476004639',
+            'channel_title' => 'شراب بهشتی',
+            'tag' => 'شراب بهشتی',
+            'is_active' => true,
+            'verified_at' => now(),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/add')
+        );
+        $this->postJson(
             '/api/webhook-channel-poster?origin=bale&token='.$this->token,
             [
-                'update_id' => 3,
+                'update_id' => 8,
                 'callback_query' => [
-                    'id' => 'cb1',
+                    'id' => 'cb-add',
                     'from' => ['id' => (int) $this->ownerChatId],
-                    'data' => 'cp:to:bale',
+                    'data' => 'cp:addtag:0',
                     'message' => [
                         'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
                     ],
                 ],
             ]
         );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 9,
+                'callback_query' => [
+                    'id' => 'cb-tg',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:plat:telegram',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '-1001824391829')
+        );
 
-        $response->assertOk();
-        $this->assertCount(1, $this->publisher->publishes);
-        $this->assertSame('-100555', $this->publisher->publishes[0]['channel_chat_id']);
-        $this->assertSame('text', $this->publisher->publishes[0]['content_type']);
-        $this->assertSame('hello channel', $this->publisher->publishes[0]['text']);
+        $telegram = ChannelPosterDestination::where('bot_id', $bot->id)->where('platform', 'telegram')->first();
+        $this->assertNotNull($telegram);
+        $this->assertSame('-1001824391829', $telegram->channel_chat_id);
+        $this->assertSame('شراب بهشتی', $telegram->tag);
+        $this->assertCount(1, $this->publisher->testMessages);
+        $this->assertSame('telegram', $this->publisher->testMessages[0]['platform']);
+    }
+
+    public function test_two_tags_asks_which_tag(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '1',
+            'tag' => 'شراب بهشتی',
+            'is_active' => true,
+            'verified_at' => now(),
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '2',
+            'tag' => 'پدر ژپتو',
+            'is_active' => true,
+            'verified_at' => now(),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, 'hello both')
+        );
+
+        $this->assertSame([], $this->publisher->publishes);
         $this->assertStringContainsString(
-            trans('bot.channel_poster_published'),
+            trans('bot.channel_poster_ask_which_tag'),
             (string) $this->publisher->lastPrivateText()
         );
     }

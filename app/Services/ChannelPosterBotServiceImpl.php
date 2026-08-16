@@ -206,21 +206,76 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             ->first();
     }
 
-    public function saveBaleDestination(int $botId, string $channelChatId, ?string $title): ChannelPosterDestination
+    public function hasAnyDestination(int $botId): bool
     {
+        return ChannelPosterDestination::where('bot_id', $botId)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function saveBaleDestination(int $botId, string $channelChatId, ?string $title, ?string $tag = null): ChannelPosterDestination
+    {
+        return $this->saveDestination(
+            $botId,
+            ChannelPosterDestination::PLATFORM_BALE,
+            $channelChatId,
+            $title,
+            $tag,
+            null
+        );
+    }
+
+    public function saveDestination(
+        int $botId,
+        string $platform,
+        string $channelChatId,
+        ?string $title,
+        ?string $tag,
+        ?string $botToken
+    ): ChannelPosterDestination {
+        $tag = $tag !== null ? trim($tag) : null;
+        if ($tag === '') {
+            $tag = null;
+        }
+
         return ChannelPosterDestination::updateOrCreate(
             [
                 'bot_id' => $botId,
-                'platform' => ChannelPosterDestination::PLATFORM_BALE,
+                'platform' => $platform,
+                'channel_chat_id' => $channelChatId,
             ],
             [
-                'channel_chat_id' => $channelChatId,
                 'channel_title' => $title,
-                'bot_token' => null,
+                'tag' => $tag,
+                'bot_token' => $botToken,
                 'verified_at' => now(),
                 'is_active' => true,
             ]
         );
+    }
+
+    public function assignTagToUntagged(int $botId, string $tag): int
+    {
+        $tag = trim($tag);
+        if ($tag === '') {
+            return 0;
+        }
+
+        return ChannelPosterDestination::where('bot_id', $botId)
+            ->where(function ($query) {
+                $query->whereNull('tag')->orWhere('tag', '');
+            })
+            ->update(['tag' => $tag]);
+    }
+
+    public function hasUntagged(int $botId): bool
+    {
+        return ChannelPosterDestination::where('bot_id', $botId)
+            ->where('is_active', true)
+            ->where(function ($query) {
+                $query->whereNull('tag')->orWhere('tag', '');
+            })
+            ->exists();
     }
 
     public function resolveDestinations(int $botId, string $target): Collection
@@ -233,5 +288,57 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         }
 
         return $query->get();
+    }
+
+    public function resolveByTag(int $botId, string $tagKey): Collection
+    {
+        $query = ChannelPosterDestination::where('bot_id', $botId)
+            ->where('is_active', true);
+
+        if ($tagKey === '') {
+            $query->where(function ($inner) {
+                $inner->whereNull('tag')->orWhere('tag', '');
+            });
+        } else {
+            $query->where('tag', $tagKey);
+        }
+
+        return $query->get();
+    }
+
+    public function listTagGroups(int $botId): array
+    {
+        $destinations = ChannelPosterDestination::where('bot_id', $botId)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+
+        $groups = [];
+        foreach ($destinations as $destination) {
+            $key = trim((string) $destination->tag);
+            if (!isset($groups[$key])) {
+                $groups[$key] = [
+                    'key' => $key,
+                    'label' => $this->displayTagLabel($destination->tag, $destination->channel_title),
+                ];
+            }
+        }
+
+        return array_values($groups);
+    }
+
+    public function displayTagLabel(?string $tag, ?string $fallbackTitle = null): string
+    {
+        $tag = trim((string) $tag);
+        if ($tag !== '') {
+            return $tag;
+        }
+
+        $fallbackTitle = trim((string) $fallbackTitle);
+        if ($fallbackTitle !== '') {
+            return $fallbackTitle;
+        }
+
+        return trans('bot.channel_poster_untagged');
     }
 }
