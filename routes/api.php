@@ -134,6 +134,9 @@ Route::post('/webhook-list-bot', [\App\Http\Controllers\ListBotController::class
 // mp-contact bot (ارتباط با نماینده مجلس)
 Route::post('/webhook-mp-contact', [\App\Http\Controllers\MpContactBotController::class, 'index']);
 
+// channel poster bot (ارسال به کانال‌ها)
+Route::post('/webhook-channel-poster', [\App\Http\Controllers\ChannelPosterBotController::class, 'webhook']);
+
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 

@@ -1,0 +1,382 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Interfaces\Services\ChannelPosterBotService;
+use App\Interfaces\Services\ChannelPosterPublisher;
+use App\Interfaces\Services\ChannelPosterPublisherFactory;
+use App\Models\Bot;
+use App\Models\BotUserState;
+use App\Models\BotUsers;
+use App\Models\ChannelPosterDestination;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
+class ChannelPosterBotController extends Controller
+{
+    public const ENDPOINT_ID = 'webhook-channel-poster';
+
+    public const STATE_AWAITING_BALE_FORWARD = 'cp_awaiting_bale_forward';
+    public const STATE_AWAITING_DESTINATION = 'cp_awaiting_destination';
+
+    public function __construct(
+        private ChannelPosterBotService $service,
+        private ChannelPosterPublisherFactory $publisherFactory
+    ) {
+    }
+
+    public function webhook(Request $request): JsonResponse
+    {
+        Log::info('[ChannelPoster] Webhook received', [
+            'origin' => $request->input('origin'),
+            'has_token' => $request->has('token'),
+            'has_bot_id' => $request->has('bot_id'),
+        ]);
+
+        try {
+            $type = $request->input('origin', 'bale');
+            $resolved = $this->resolveBotAndToken($request, $type);
+            if (!$resolved) {
+                Log::warning('[ChannelPoster] Bot or token missing');
+                return response()->json(['status' => 'error'], 200);
+            }
+
+            [$botItem, $token] = $resolved;
+            if ($botItem->endpoint_id !== self::ENDPOINT_ID) {
+                Log::warning('[ChannelPoster] Wrong endpoint', [
+                    'bot_id' => $botItem->id,
+                    'endpoint_id' => $botItem->endpoint_id,
+                ]);
+                return response()->json(['status' => 'error'], 200);
+            }
+
+            if ($botItem->language_code) {
+                app()->setLocale($botItem->language_code);
+            }
+
+            $publisher = $this->publisherFactory->make($token, $type);
+            $update = $request->json()->all() ?: $request->all();
+
+            if (isset($update['callback_query'])) {
+                $this->handleCallbackQuery($publisher, $update['callback_query'], $botItem, $type);
+                return response()->json(['status' => 'ok'], 200);
+            }
+
+            $message = $update['message'] ?? $update['edited_message'] ?? null;
+            if (!$message) {
+                return response()->json(['status' => 'ok'], 200);
+            }
+
+            $chatType = $message['chat']['type'] ?? '';
+            if ($chatType !== 'private') {
+                return response()->json(['status' => 'ok'], 200);
+            }
+
+            $chatId = (string) ($message['chat']['id'] ?? '');
+            if ($chatId === '') {
+                return response()->json(['status' => 'ok'], 200);
+            }
+
+            $this->handlePrivateMessage($publisher, $message, $botItem, $type, $chatId);
+
+            return response()->json(['status' => 'ok'], 200);
+        } catch (Exception $e) {
+            Log::error('[ChannelPoster] Webhook error', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json(['status' => 'error'], 200);
+        }
+    }
+
+    private function resolveBotAndToken(Request $request, string $type): ?array
+    {
+        $token = $request->input('token');
+        $botId = $request->input('bot_id');
+
+        if ($token) {
+            $botItem = $type === 'bale'
+                ? Bot::where('bale_bot_token', $token)->first()
+                : Bot::where('telegram_bot_token', $token)->first();
+
+            if ($botItem) {
+                return [$botItem, $token];
+            }
+        }
+
+        if ($botId) {
+            $botItem = Bot::find($botId);
+            if (!$botItem) {
+                return null;
+            }
+            $dbToken = $type === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            if (!$dbToken) {
+                return null;
+            }
+
+            return [$botItem, $dbToken];
+        }
+
+        return null;
+    }
+
+    private function handlePrivateMessage(
+        ChannelPosterPublisher $publisher,
+        array $message,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        if (!$this->service->isOwner($botItem, $chatId, $type)) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
+            return;
+        }
+
+        $text = $message['text'] ?? null;
+
+        if (is_string($text) && ($text === '/start' || str_starts_with($text, '/start '))) {
+            $this->clearState($botItem, $chatId, $type);
+            $this->handleStart($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && ($text === '/cancel' || str_starts_with($text, '/cancel '))) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_cancelled'));
+            return;
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+
+        if ($state && $state->state === self::STATE_AWAITING_BALE_FORWARD) {
+            $this->handleBaleForward($publisher, $message, $botItem, $type, $chatId);
+            return;
+        }
+
+        $media = $this->service->extractMedia($message);
+        if (!$media) {
+            if (is_string($text) && str_starts_with($text, '/')) {
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_unsupported'));
+            return;
+        }
+
+        if (!$this->service->getActiveBaleDestination($botItem->id)) {
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_BALE_FORWARD);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_bale_forward'));
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, [
+            'content_type' => $media['type'],
+            'text' => $media['text'],
+            'file_id' => $media['file_id'],
+        ]);
+        $this->sendDestinationKeyboard($publisher, $chatId);
+    }
+
+    private function handleStart(ChannelPosterPublisher $publisher, Bot $botItem, string $type, string $chatId): void
+    {
+        $destination = $this->service->getActiveBaleDestination($botItem->id);
+        if (!$destination) {
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_BALE_FORWARD);
+            $publisher->sendPrivateMessage(
+                $chatId,
+                trans('bot.channel_poster_welcome')."\n\n".trans('bot.channel_poster_ask_bale_forward')
+            );
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_welcome_ready'));
+    }
+
+    private function handleBaleForward(
+        ChannelPosterPublisher $publisher,
+        array $message,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $forward = $this->service->parseChannelForward($message);
+        if (!$forward) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_need_channel_forward'));
+            return;
+        }
+
+        $ok = $publisher->sendTestMessage(
+            $forward['id'],
+            trans('bot.channel_poster_test_message')
+        );
+
+        if (!$ok) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_admin'));
+            return;
+        }
+
+        $this->service->saveBaleDestination($botItem->id, $forward['id'], $forward['title'] ?? null);
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_bale_connected'));
+    }
+
+    private function handleCallbackQuery(
+        ChannelPosterPublisher $publisher,
+        array $callbackQuery,
+        Bot $botItem,
+        string $type
+    ): void {
+        $chatId = (string) ($callbackQuery['message']['chat']['id'] ?? $callbackQuery['from']['id'] ?? '');
+        $data = (string) ($callbackQuery['data'] ?? '');
+        $callbackId = $callbackQuery['id'] ?? null;
+
+        if ($chatId === '') {
+            return;
+        }
+
+        if (!$this->service->isOwner($botItem, $chatId, $type)) {
+            $publisher->answerCallback($callbackId, trans('bot.channel_poster_not_owner'));
+            return;
+        }
+
+        if ($data === 'cp:add') {
+            $publisher->answerCallback($callbackId);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_coming_soon'));
+            return;
+        }
+
+        $target = null;
+        if ($data === 'cp:to:bale') {
+            $target = ChannelPosterDestination::PLATFORM_BALE;
+        } elseif ($data === 'cp:to:all') {
+            $target = 'all';
+        }
+
+        if ($target === null) {
+            $publisher->answerCallback($callbackId);
+            return;
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+            $publisher->answerCallback($callbackId, trans('bot.channel_poster_no_pending'));
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_no_pending'));
+            return;
+        }
+
+        $contentType = (string) $state->getData('content_type', 'text');
+        $text = $state->getData('text');
+        $fileId = $state->getData('file_id');
+
+        $destinations = $this->service->resolveDestinations($botItem->id, $target);
+        if ($destinations->isEmpty()) {
+            $publisher->answerCallback($callbackId);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_no_destination'));
+            return;
+        }
+
+        $allOk = true;
+        foreach ($destinations as $destination) {
+            $ok = $publisher->publish(
+                $destination->channel_chat_id,
+                $contentType,
+                is_string($text) ? $text : null,
+                is_string($fileId) ? $fileId : null
+            );
+            if (!$ok) {
+                $allOk = false;
+            }
+        }
+
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->answerCallback($callbackId);
+        $publisher->sendPrivateMessage(
+            $chatId,
+            $allOk ? trans('bot.channel_poster_published') : trans('bot.channel_poster_publish_failed')
+        );
+    }
+
+    private function sendDestinationKeyboard(ChannelPosterPublisher $publisher, string $chatId): void
+    {
+        $rows = [
+            [[
+                'text' => trans('bot.channel_poster_btn_bale'),
+                'callback_data' => 'cp:to:bale',
+            ]],
+            [[
+                'text' => trans('bot.channel_poster_btn_all'),
+                'callback_data' => 'cp:to:all',
+            ]],
+            [[
+                'text' => trans('bot.channel_poster_btn_add'),
+                'callback_data' => 'cp:add',
+            ]],
+        ];
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_destination'), $rows);
+    }
+
+    private function resolveBotUser(Bot $botItem, string $chatId, string $type): BotUsers
+    {
+        $botUser = BotUsers::where('chat_id', $chatId)
+            ->where('origin', $type)
+            ->where('bot_id', $botItem->id)
+            ->first();
+
+        if (!$botUser) {
+            $botUser = BotUsers::create([
+                'chat_id' => $chatId,
+                'bot_id' => $botItem->id,
+                'origin' => $type,
+                'status' => 'active',
+            ]);
+        }
+
+        return $botUser;
+    }
+
+    private function motherId(Bot $botItem): int
+    {
+        return (int) ($botItem->bot_mother_id ?? $botItem->id);
+    }
+
+    private function getState(Bot $botItem, string $chatId, string $type): ?BotUserState
+    {
+        $botUser = $this->resolveBotUser($botItem, $chatId, $type);
+
+        return BotUserState::where('bot_user_id', $botUser->id)
+            ->where('bot_mother_id', $this->motherId($botItem))
+            ->active()
+            ->latest('id')
+            ->first();
+    }
+
+    private function setState(Bot $botItem, string $chatId, string $type, string $state, array $data = []): void
+    {
+        $botUser = $this->resolveBotUser($botItem, $chatId, $type);
+        $motherId = $this->motherId($botItem);
+
+        BotUserState::where('bot_user_id', $botUser->id)
+            ->where('bot_mother_id', $motherId)
+            ->delete();
+
+        BotUserState::create([
+            'bot_user_id' => $botUser->id,
+            'bot_mother_id' => $motherId,
+            'state' => $state,
+            'data' => $data,
+            'expires_at' => now()->addHours(6),
+        ]);
+    }
+
+    private function clearState(Bot $botItem, string $chatId, string $type): void
+    {
+        $botUser = $this->resolveBotUser($botItem, $chatId, $type);
+        BotUserState::where('bot_user_id', $botUser->id)
+            ->where('bot_mother_id', $this->motherId($botItem))
+            ->delete();
+    }
+}

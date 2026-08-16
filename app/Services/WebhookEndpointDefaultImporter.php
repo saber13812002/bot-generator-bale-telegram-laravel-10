@@ -237,6 +237,16 @@ class WebhookEndpointDefaultImporter
                 'requires_language' => false,
             ],
             [
+                'id' => 'webhook-channel-poster',
+                'name' => 'ارسال به کانال‌ها',
+                'route' => '/api/webhook-channel-poster',
+                'description' => 'ارسال متن، عکس، صوت و ویدیو از خصوصی به کانال بله (تلگرام و ایتا در فازهای بعد)',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+                'supports_multiple_languages' => true,
+            ],
+            [
                 'id' => 'webhook-rss-admin',
                 'name' => 'ربات ادمین RSS',
                 'route' => '/api/webhook-rss-admin',
