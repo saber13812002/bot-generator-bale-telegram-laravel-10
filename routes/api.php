@@ -215,6 +215,12 @@ Route::prefix('v1/quran')->group(function () {
     });
 });
 
+$logViewerSecret = (string) config('observability.viewer_secret', '');
+if ($logViewerSecret !== '') {
+    Route::get('/'.$logViewerSecret, [\App\Http\Controllers\LogViewerController::class, 'index'])
+        ->withoutMiddleware('throttle:api');
+}
+
 // use App\Services\RssService;
 
 

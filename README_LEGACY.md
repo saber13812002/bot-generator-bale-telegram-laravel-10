@@ -631,6 +631,7 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر روز ۰۸:۰۰ | SendDailyQuranSuggestionToAdmins |
 | هر روز ۰۰:۰۰، ۰۶:۰۰، ۱۲:۰۰، ۱۸:۰۰ | PostDailyVerseToChannels (با --slot=1 تا ۴؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند) |
 | هر روز ۱۰:۰۰ | PostMediaQueueToChannels |
+| روزانه | observability:prune (سقف app_log_entries و سلامت ۳۰ روزه) |
 
 #### ارسال به کانال (تک‌آیه / حدیث / نهج / شراب / ترکیبی / صف رسانه)
 

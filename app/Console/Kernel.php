@@ -95,6 +95,11 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        $schedule->command('observability:prune')
+            ->daily()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
         $schedule->command(ScheduleContentDelivery::class)
             ->hourly()

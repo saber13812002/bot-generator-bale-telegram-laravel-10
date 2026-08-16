@@ -14,6 +14,7 @@ use App\Models\RssChannel;
 use App\Models\RssItem;
 use App\Models\RssPostItem;
 use App\Models\RssPostItemTranslationQueue;
+use App\Services\BotHealthRecorder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -194,8 +195,39 @@ class RssPostItemTranslationToMessengerJob implements ShouldQueue
 
                             Log::info('SharabeBeheshti audio send response', ['data' => $data]);
 
+                            $platform = in_array($mediumSlug, ['bale', 'telegram', 'eitaa', 'gap'], true)
+                                ? $mediumSlug
+                                : 'messenger';
+                            $ok = BotHealthRecorder::isMessengerOk($data);
+                            BotHealthRecorder::record([
+                                'bot_id' => BotHealthRecorder::findBotIdByToken($rssChannel->token ?? null),
+                                'feature_key' => 'sharabe_beheshti',
+                                'platform' => $platform,
+                                'event_type' => 'channel_post',
+                                'status' => $ok ? 'ok' : 'fail',
+                                'message' => $ok ? null : 'audio send response not ok',
+                                'meta' => [
+                                    'rss_channel_id' => $rssChannel->id,
+                                    'mp3_id' => $id ?? null,
+                                ],
+                            ]);
+
                         } catch (\Exception $e) {
                             \Log::error('Error in sending audio: ' . $e->getMessage());
+                            $platform = in_array($mediumSlug, ['bale', 'telegram', 'eitaa', 'gap'], true)
+                                ? $mediumSlug
+                                : 'messenger';
+                            BotHealthRecorder::record([
+                                'bot_id' => BotHealthRecorder::findBotIdByToken($rssChannel->token ?? null),
+                                'feature_key' => 'sharabe_beheshti',
+                                'platform' => $platform,
+                                'event_type' => 'channel_post',
+                                'status' => 'fail',
+                                'message' => $e->getMessage(),
+                                'meta' => [
+                                    'rss_channel_id' => $rssChannel->id ?? null,
+                                ],
+                            ]);
                         }
                     }
                 }

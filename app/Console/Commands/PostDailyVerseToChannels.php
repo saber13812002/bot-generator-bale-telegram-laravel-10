@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Helpers\BotHelper;
 use App\Helpers\ProductLinkMessageHelper;
 use App\Models\AdminDailyChannelConfig;
+use App\Services\BotHealthRecorder;
 use App\Services\DailyChannelContentService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -65,47 +66,35 @@ class PostDailyVerseToChannels extends Command
             }
 
             if ($config->hasBale() && $baleToken) {
-                try {
+                $this->sendAndRecordHealth($config, $effectiveType, 'bale', function () use ($config, $effectiveType, $baleToken) {
                     $baleText = $this->getTextForConfig($config, $effectiveType, 'bale');
                     $bot = new Telegram($baleToken, 'bale');
-                    BotHelper::sendMessageByChatId($bot, (string) $config->bale_channel_chat_id, $baleText);
-                } catch (\Throwable $e) {
-                    Log::warning('[PostDailyVerseToChannels] Bale send failed', [
-                        'config_id' => $config->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+
+                    return BotHelper::sendMessageByChatId($bot, (string) $config->bale_channel_chat_id, $baleText);
+                });
             }
 
             if ($config->hasTelegram() && $telegramToken) {
-                try {
+                $this->sendAndRecordHealth($config, $effectiveType, 'telegram', function () use ($config, $effectiveType, $telegramToken) {
                     $telegramText = $this->getTextForConfig($config, $effectiveType, 'telegram');
                     $bot = new Telegram($telegramToken);
-                    BotHelper::sendMessageByChatId($bot, (string) $config->telegram_channel_chat_id, $telegramText);
-                } catch (\Throwable $e) {
-                    Log::warning('[PostDailyVerseToChannels] Telegram send failed', [
-                        'config_id' => $config->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+
+                    return BotHelper::sendMessageByChatId($bot, (string) $config->telegram_channel_chat_id, $telegramText);
+                });
             }
 
             if ($config->hasEitaa() && $eitaaToken) {
-                try {
+                $this->sendAndRecordHealth($config, $effectiveType, 'eitaa', function () use ($config, $effectiveType, $eitaaToken) {
                     $eitaaText = $this->getTextForConfig($config, $effectiveType, 'eitaa');
-                    BotHelper::sendMessageEitaaSupport(
+
+                    return BotHelper::sendMessageEitaaSupport(
                         $eitaaText,
                         $eitaaToken,
                         $config->eitaa_channel_chat_id,
                         'eitaa',
                         ProductLinkMessageHelper::parseModeForPlatform('eitaa')
                     );
-                } catch (\Throwable $e) {
-                    Log::warning('[PostDailyVerseToChannels] Eitaa send failed', [
-                        'config_id' => $config->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                });
             }
 
             if ($contentType === 'sequential') {
@@ -169,5 +158,47 @@ class PostDailyVerseToChannels extends Command
         }
 
         return $this->contentService->getTextForContentType($effectiveType);
+    }
+
+    private function sendAndRecordHealth(AdminDailyChannelConfig $config, string $featureKey, string $platform, callable $sender): void
+    {
+        try {
+            $response = $sender();
+            $ok = BotHealthRecorder::isMessengerOk($response);
+            BotHealthRecorder::record([
+                'feature_key' => $featureKey,
+                'platform' => $platform,
+                'event_type' => 'channel_post',
+                'status' => $ok ? 'ok' : 'fail',
+                'message' => $ok ? null : 'messenger response not ok',
+                'meta' => [
+                    'config_id' => $config->id,
+                    'content_type' => $config->content_type,
+                ],
+            ]);
+            if (!$ok) {
+                Log::warning("[PostDailyVerseToChannels] {$platform} send not ok", [
+                    'config_id' => $config->id,
+                    'feature_key' => $featureKey,
+                    'bot_id' => null,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            BotHealthRecorder::record([
+                'feature_key' => $featureKey,
+                'platform' => $platform,
+                'event_type' => 'channel_post',
+                'status' => 'fail',
+                'message' => $e->getMessage(),
+                'meta' => [
+                    'config_id' => $config->id,
+                    'content_type' => $config->content_type,
+                ],
+            ]);
+            Log::warning("[PostDailyVerseToChannels] {$platform} send failed", [
+                'config_id' => $config->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
