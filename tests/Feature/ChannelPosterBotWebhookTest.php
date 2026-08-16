@@ -102,7 +102,7 @@ class ChannelPosterBotWebhookTest extends TestCase
         $this->assertSame(0, BotUserState::where('bot_user_id', $botUser->id)->count());
     }
 
-    public function test_group_forward_is_rejected(): void
+    public function test_private_user_forward_is_rejected(): void
     {
         $this->createBot();
         $this->postJson(
@@ -112,7 +112,7 @@ class ChannelPosterBotWebhookTest extends TestCase
 
         $this->postJson(
             '/api/webhook-channel-poster?origin=bale&token='.$this->token,
-            $this->privateForwardUpdate($this->ownerChatId, -100777, 'supergroup', 'Group')
+            $this->privateForwardUpdate($this->ownerChatId, 111, 'private', 'User')
         );
 
         $this->assertSame([], $this->publisher->testMessages);
@@ -121,6 +121,52 @@ class ChannelPosterBotWebhookTest extends TestCase
             (string) $this->publisher->lastPrivateText()
         );
         $this->assertSame(0, ChannelPosterDestination::count());
+    }
+
+    public function test_bale_forward_without_type_saves_destination(): void
+    {
+        $bot = $this->createBot();
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/start')
+        );
+
+        $response = $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 4,
+                'message' => [
+                    'message_id' => 12,
+                    'from' => ['id' => (int) $this->ownerChatId, 'is_bot' => false],
+                    'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    'date' => time(),
+                    'text' => 'channel post',
+                    'forward_from_chat' => [
+                        'id' => 234,
+                    ],
+                ],
+            ]
+        );
+
+        $response->assertOk();
+        $this->assertSame('234', ChannelPosterDestination::where('bot_id', $bot->id)->value('channel_chat_id'));
+    }
+
+    public function test_numeric_chat_id_connects_bale_channel(): void
+    {
+        $bot = $this->createBot();
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/start')
+        );
+
+        $response = $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '-100555')
+        );
+
+        $response->assertOk();
+        $this->assertSame('-100555', ChannelPosterDestination::where('bot_id', $bot->id)->value('channel_chat_id'));
     }
 
     public function test_owner_content_then_bale_callback_publishes(): void

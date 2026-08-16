@@ -34,7 +34,7 @@ class ChannelPosterBotServiceTest extends TestCase
         $this->assertFalse($this->service->isOwner($bot, '111', 'telegram'));
     }
 
-    public function test_parse_channel_forward_requires_channel_type(): void
+    public function test_parse_channel_forward_accepts_bale_id_without_type(): void
     {
         $this->assertNull($this->service->parseChannelForward([
             'text' => 'hello',
@@ -42,11 +42,26 @@ class ChannelPosterBotServiceTest extends TestCase
 
         $this->assertNull($this->service->parseChannelForward([
             'forward_from_chat' => [
+                'id' => 111,
+                'type' => 'private',
+            ],
+        ]));
+
+        $withoutType = $this->service->parseChannelForward([
+            'forward_from_chat' => [
+                'id' => 234,
+            ],
+        ]);
+        $this->assertSame('234', $withoutType['id']);
+
+        $group = $this->service->parseChannelForward([
+            'forward_from_chat' => [
                 'id' => -1001,
                 'type' => 'supergroup',
                 'title' => 'Group',
             ],
-        ]));
+        ]);
+        $this->assertSame('-1001', $group['id']);
 
         $parsed = $this->service->parseChannelForward([
             'forward_from_chat' => [
@@ -59,6 +74,16 @@ class ChannelPosterBotServiceTest extends TestCase
         $this->assertSame('-100123', $parsed['id']);
         $this->assertSame('News', $parsed['title']);
         $this->assertSame('channel', $parsed['type']);
+    }
+
+    public function test_parse_channel_target_accepts_numeric_id(): void
+    {
+        $this->assertSame('-100555', $this->service->parseChannelTarget([
+            'text' => '-100555',
+        ])['id']);
+        $this->assertNull($this->service->parseChannelTarget([
+            'text' => 'hello',
+        ]));
     }
 
     public function test_extract_media_types(): void

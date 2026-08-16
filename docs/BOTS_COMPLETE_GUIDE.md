@@ -488,6 +488,22 @@
 صف رسانه پویا برای ارسال محتوا در زمان‌بندی مشخص.
 
 ---
+
+## 30. 🏛️ MP Contact Bot
+**endpoint_id:** `webhook-mp-contact`
+
+### توضیحات
+تیکتینگ مردمی، نظرسنجی و پنل ادمین داخل چت. مستندات: [`docs/features/MP_CONTACT_BOT.md`](./features/MP_CONTACT_BOT.md)
+
+---
+
+## 31. 📤 Channel Poster Bot (ارسال به کانال‌ها)
+**endpoint_id:** `webhook-channel-poster`
+
+### توضیحات
+مالک در خصوصی بله متن/عکس/صوت/ویدیو می‌فرستد و ربات به کانال بله منتشر می‌کند. مستندات: [`docs/features/CHANNEL_POSTER_BOT.md`](./features/CHANNEL_POSTER_BOT.md)
+
+---
 ---
 
 ## 📸 راهنمای تصاویر

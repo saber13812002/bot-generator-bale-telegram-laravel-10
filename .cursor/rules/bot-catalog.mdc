@@ -1,0 +1,18 @@
+---
+description: وقتی ربات جدید ساخته می‌شود باید در کاتالوگ انواع ربات هم ثبت شود
+alwaysApply: true
+---
+
+# کاتالوگ انواع ربات
+
+هر نوع ربات جدید (endpoint جدید در Bot Mother) باید در **همه** این صفحات دیده شود، نه فقط در seeder و `docs/features/`:
+
+1. [README.md](README.md) — بخش «Complete Bot Catalog / کاتالوگ کامل ربات‌ها» (شماره ردیف + شمارندهٔ «۳۴ نوع ربات» در مقدمه و نمودار)
+2. [docs/BOT_TYPES_GUIDE.md](docs/BOT_TYPES_GUIDE.md) — لیست endpointها
+3. [docs/BOTS_COMPLETE_GUIDE.md](docs/BOTS_COMPLETE_GUIDE.md) — راهنمای کامل انواع
+4. [README_LEGACY.md](README_LEGACY.md) — بخش «انواع ربات‌های قابل ساخت»
+5. [docs/README.md](docs/README.md) — لینک فیچر
+6. [.agents/AGENTS.md](.agents/AGENTS.md) — جدول کاتالوگ ربات‌ها
+7. [docs/BOT_CREATION_GUIDE.md](docs/BOT_CREATION_GUIDE.md) — چک‌لیست مستندات
+
+بدون این به‌روزرسانی‌ها ربات در ربات مادر (جدول `webhook_endpoints`) هست ولی در صفحهٔ اول انواع ربات دیده نمی‌شود.

@@ -45,7 +45,7 @@ This project isn't just another bot framework. It's a **complete bot-generation 
 |-----------|-------------|
 | 🤖 **ربات مادر هوشمند** - رباتی که خودش ربات می‌سازد! | 🤖 **Intelligent Mother Bot** - A bot that builds bots! |
 | 🌐 **چهار پیام‌رسان** - تلگرام، بله، گپ، ایتا با یک کد | 🌐 **Four Messengers** - Telegram, Bale, Gap, Eitaa in one codebase |
-| 🎨 **۳۴ نوع ربات** - از قرآن تا هواشناسی و موکب‌یاب | 🎨 **34 Bot Types** - From Quran to Weather to Mawkib Finder |
+| 🎨 **۳۶ نوع ربات** - از قرآن تا هواشناسی و ارسال به کانال | 🎨 **36 Bot Types** - From Quran to Weather to Channel Poster |
 | 🔐 **احراز هویت OTP** - امنیت با کد یکبارمصرف بله | 🔐 **OTP Authentication** - Secure Bale OTP verification |
 | 🌍 **۱۸ زبان زنده** - پشتیبانی از ۱۸ زبان دنیا | 🌍 **18 Languages** - Multi-language support |
 | 🆓 **Pro System** - رایگان با قابلیت ارتقا | 🆓 **Pro System** - Free with upgrade options |
@@ -76,7 +76,7 @@ The heart of this platform is **Bot Mother** — a bot that creates, configures,
 ```mermaid
 graph LR
     A[User] -->|/start| B[Bot Mother]
-    B -->|Select Type| C{34 Bot Types}
+    B -->|Select Type| C{36 Bot Types}
     C -->|Enter Token| D[Create Bot]
     D -->|Set Webhook| E[✅ Bot Ready!]
 ```
@@ -114,40 +114,42 @@ graph LR
 | 13 | **📰 RSS Feed Bot** | Auto-publish RSS feeds with translation | انتشار خودکار فیدهای RSS با ترجمه |
 | 14 | **📖 Blog Bot** | Connect CMS to messenger | اتصال سیستم مدیریت محتوا به پیام‌رسان |
 | 15 | **📖 Get Chat ID** | Show chat/channel/group IDs | نمایش شناسه چت، کانال و گروه |
+| 16 | **🏛️ MP Contact** | Tickets and polls for an MP office | ارتباط مردمی با نماینده مجلس |
+| 17 | **📤 Channel Poster** | Post text/photo/audio/video from Bale private chat to a channel | ارسال مطلب از خصوصی بله به کانال |
 
 ### 📚 Books & Media | کتاب و رسانه
 
 | # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
 |---|----------|-----------------|------------|
-| 16 | **📚 Smart Book Library** | AI Book Coach, audio summaries, plans | کتابخانه هوشمند با خلاصه صوتی |
-| 17 | **📖 Book Library Reader** | Dedicated reader bot for book delivery | ربات کتابخوان اختصاصی |
-| 18 | **📖 Book Pixel** | Share book pages one by one | اشتراک‌گذاری صفحه به صفحه کتاب |
-| 19 | **📖 Poem Bot** | Poetry & music management | مدیریت شعر و موسیقی |
-| 20 | **📖 Audio Book Bot** | Audio book management | مدیریت کتاب‌های صوتی |
-| 21 | **🎵 Song Sara Bot** | Music & playlist management | مدیریت موسیقی و پلی‌لیست |
+| 18 | **📚 Smart Book Library** | AI Book Coach, audio summaries, plans | کتابخانه هوشمند با خلاصه صوتی |
+| 19 | **📖 Book Library Reader** | Dedicated reader bot for book delivery | ربات کتابخوان اختصاصی |
+| 20 | **📖 Book Pixel** | Share book pages one by one | اشتراک‌گذاری صفحه به صفحه کتاب |
+| 21 | **📖 Poem Bot** | Poetry & music management | مدیریت شعر و موسیقی |
+| 22 | **📖 Audio Book Bot** | Audio book management | مدیریت کتاب‌های صوتی |
+| 23 | **🎵 Song Sara Bot** | Music & playlist management | مدیریت موسیقی و پلی‌لیست |
 
 ### 👔 Business & Admin | کسب و کار و مدیریت
 
 | # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
 |---|----------|-----------------|------------|
-| 22 | **👔 Personnel Registration** | Register personnel via bot | ثبت‌نام پرسنل از طریق ربات |
-| 23 | **👨‍💼 Personnel Admin** | View & manage registrations | مدیریت ثبت‌نام پرسنل |
-| 24 | **🎯 Mission Bot** | Task & mission management | مدیریت ماموریت‌ها و وظایف |
-| 25 | **🎬 Mission Media** | Educational media upload | آپلود مدیاهای آموزشی |
-| 26 | **✅ Task Approval** | Approve/reject tasks | تایید و رد وظایف |
-| 27 | **🤖 Admin Bots** | Personal bot management | مدیریت ربات‌های شخصی |
-| 28 | **📢 Admin Daily Channel** | Auto-post verse/hadith/nahj daily | ارسال خودکار محتوای دینی روزانه |
-| 29 | **📺 Admin Channel Media Queue** | Dynamic media queue scheduling | صف رسانه پویا |
+| 24 | **👔 Personnel Registration** | Register personnel via bot | ثبت‌نام پرسنل از طریق ربات |
+| 25 | **👨‍💼 Personnel Admin** | View & manage registrations | مدیریت ثبت‌نام پرسنل |
+| 26 | **🎯 Mission Bot** | Task & mission management | مدیریت ماموریت‌ها و وظایف |
+| 27 | **🎬 Mission Media** | Educational media upload | آپلود مدیاهای آموزشی |
+| 28 | **✅ Task Approval** | Approve/reject tasks | تایید و رد وظایف |
+| 29 | **🤖 Admin Bots** | Personal bot management | مدیریت ربات‌های شخصی |
+| 30 | **📢 Admin Daily Channel** | Auto-post verse/hadith/nahj daily | ارسال خودکار محتوای دینی روزانه |
+| 31 | **📺 Admin Channel Media Queue** | Dynamic media queue scheduling | صف رسانه پویا |
 
 ### 🛠️ Advanced | پیشرفته
 
 | # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
 |---|----------|-----------------|------------|
-| 30 | **🌐 Social Bot** | Cross-platform social media posting | انتشار در شبکه‌های اجتماعی |
-| 31 | **🤖 Bot Kids** | Child bot management | مدیریت ربات‌های فرزند |
-| 32 | **📢 Admin Bot** | Multi-messenger admin panel | پنل مدیریت چندپیام‌رسانه |
-| 33 | **✅ RSS Admin Bot** | RSS feed management for admins | مدیریت فید RSS ادمین |
-| 34 | **📱 Social Publish** | Chrome Extension integration | یکپارچه‌سازی با افزونه کروم |
+| 32 | **🌐 Social Bot** | Cross-platform social media posting | انتشار در شبکه‌های اجتماعی |
+| 33 | **🤖 Bot Kids** | Child bot management | مدیریت ربات‌های فرزند |
+| 34 | **📢 Admin Bot** | Multi-messenger admin panel | پنل مدیریت چندپیام‌رسانه |
+| 35 | **✅ RSS Admin Bot** | RSS feed management for admins | مدیریت فید RSS ادمین |
+| 36 | **📱 Social Publish** | Chrome Extension integration | یکپارچه‌سازی با افزونه کروم |
 
 ---
 
@@ -228,7 +230,7 @@ Looking for the original README? [Click here](README_LEGACY.md)
 |----------|-------------|
 | [📖 Bot Creation Guide](docs/BOT_CREATION_GUIDE.md) | Step-by-step guide to create new bots |
 | [📖 Bot Types Guide](docs/BOT_TYPES_GUIDE.md) | Complete list of bot endpoints |
-| [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 34 bots |
+| [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 36 bots |
 | [📖 Architecture](plans/BOT_GENERATOR_ARCHITECTURE.md) | System architecture documentation |
 | [📖 Get Started](docs/GETTING-STARTED.md) | Development setup guide |
 | [📖 API Docs](docs/API_README.md) | API documentation |
@@ -249,7 +251,7 @@ Looking for the original README? [Click here](README_LEGACY.md)
 ```mermaid
 pie title Bot Types by Category
     "Quran & Religious" : 6
-    "Utilities" : 9
+    "Utilities" : 11
     "Books & Media" : 6
     "Business & Admin" : 8
     "Advanced" : 5

@@ -136,7 +136,7 @@ BotHelper::sendMessage() → Messenger API
 | 5 | **🍷 Sharabe Beheshti** | (RSS-based) | `SharabeBeheshtiMp3Controller` | `SharabeBeheshtiRssMessageBuilder` |
 | 6 | **🕋 Mawkib Finder** | `/webhook-mawkib-finder` | `MawkibFinderController` (23KB) | `MawkibFinderServiceImpl`, `MawkibFinderOtpService` |
 
-### 🌤️ ابزارهای کاربردی (9 ربات)
+### 🌤️ ابزارهای کاربردی (11 ربات)
 
 | # | نام ربات | Webhook Route | Controller | فایل‌های کلیدی |
 |---|----------|--------------|------------|---------------|
@@ -149,40 +149,42 @@ BotHelper::sendMessage() → Messenger API
 | 13 | **📰 RSS Feed Bot** | `/webhook-rss` | `RssPostItemTranslationController` | `RssService`, `RssItemService` |
 | 14 | **📖 Blog Bot** | `/webhook-blog` | `BlogController` | `BlogMessengerBroadcastService`, `BlogHelper` |
 | 15 | **📖 Get Chat ID** | `/webhook-bot-get-id` | `BotMotherController::getIdMother` | — |
+| 16 | **🏛️ MP Contact** | `/webhook-mp-contact` | `MpContactBotController` | `MpContactBotServiceImpl` |
+| 17 | **📤 Channel Poster** | `/webhook-channel-poster` | `ChannelPosterBotController` | `ChannelPosterBotServiceImpl` |
 
 ### 📚 کتاب و رسانه (6 ربات)
 
 | # | نام ربات | Webhook Route | Controller | فایل‌های کلیدی |
 |---|----------|--------------|------------|---------------|
-| 16 | **📚 Smart Book Library** | `/webhook-book-library` | `BookLibraryController` (28KB) | `BookLibraryServiceImpl`, `BookLibraryDeliveryServiceImpl` |
-| 17 | **📖 Book Library Reader** | `/webhook-book-library-reader` | `BookLibraryReaderController` (44KB) | Library models |
-| 18 | **📖 Book Pixel** | `/webhook-book-pixel` | `BookPixelController` (37KB) | `BookPixelServiceImpl`, `BookPixelApprovalController` |
-| 19 | **📖 Poem Bot** | `/api/webhook-poem-bot` | `PoemBotController` (21KB) | `PoemBotServiceImpl`, Poem models |
-| 20 | **📖 Audio Book** | (API endpoint) | `AudioBookController` | `AudioBookService` |
-| 21 | **🎵 Song Sara** | (Data import) | `SongSaraPostController` | `SongSaraService`, Songsara models |
+| 18 | **📚 Smart Book Library** | `/webhook-book-library` | `BookLibraryController` (28KB) | `BookLibraryServiceImpl`, `BookLibraryDeliveryServiceImpl` |
+| 19 | **📖 Book Library Reader** | `/webhook-book-library-reader` | `BookLibraryReaderController` (44KB) | Library models |
+| 20 | **📖 Book Pixel** | `/webhook-book-pixel` | `BookPixelController` (37KB) | `BookPixelServiceImpl`, `BookPixelApprovalController` |
+| 21 | **📖 Poem Bot** | `/api/webhook-poem-bot` | `PoemBotController` (21KB) | `PoemBotServiceImpl`, Poem models |
+| 22 | **📖 Audio Book** | (API endpoint) | `AudioBookController` | `AudioBookService` |
+| 23 | **🎵 Song Sara** | (Data import) | `SongSaraPostController` | `SongSaraService`, Songsara models |
 
 ### 👔 کسب‌وکار و مدیریت (8 ربات)
 
 | # | نام ربات | Webhook Route | Controller | فایل‌های کلیدی |
 |---|----------|--------------|------------|---------------|
-| 22 | **👔 Personnel Registration** | `/webhook-personnel-registration` | `PersonnelRegistrationController` (17KB) | Models: `Personnel`, `Tenant` |
-| 23 | **👨‍💼 Personnel Admin** | `/webhook-personnel-admin` | `PersonnelAdminBotController` (15KB) | `PersonnelMessageQueue` |
-| 24 | **🎯 Mission Bot** | `/webhook-mission-bot` | `MissionBotController` (82KB) | `MissionServiceImpl`, Mission models |
-| 25 | **🎬 Mission Media** | `/webhook-mission-media` | `MissionMediaBotController` (21KB) | `SendMissionMediaJob` |
-| 26 | **✅ Task Approval** | `/webhook-task-approval` | `TaskApprovalController` (68KB) | Models: `Task`, `MissionPersonnel` |
-| 27 | **🤖 Admin Bots** | `/webhook-admin-bots` | `AdminBotsController` (Module) | Module: `Modules/AdminBots/` |
-| 28 | **📢 Admin Daily Channel** | (Scheduled) | — | `DailyChannelContentService`, `AdminDailyChannelConfig` |
-| 29 | **📺 Admin Channel Media Queue** | (Scheduled) | — | `AdminChannelMediaQueueConfig`, `MediaQueue` models |
+| 24 | **👔 Personnel Registration** | `/webhook-personnel-registration` | `PersonnelRegistrationController` (17KB) | Models: `Personnel`, `Tenant` |
+| 25 | **👨‍💼 Personnel Admin** | `/webhook-personnel-admin` | `PersonnelAdminBotController` (15KB) | `PersonnelMessageQueue` |
+| 26 | **🎯 Mission Bot** | `/webhook-mission-bot` | `MissionBotController` (82KB) | `MissionServiceImpl`, Mission models |
+| 27 | **🎬 Mission Media** | `/webhook-mission-media` | `MissionMediaBotController` (21KB) | `SendMissionMediaJob` |
+| 28 | **✅ Task Approval** | `/webhook-task-approval` | `TaskApprovalController` (68KB) | Models: `Task`, `MissionPersonnel` |
+| 29 | **🤖 Admin Bots** | `/webhook-admin-bots` | `AdminBotsController` (Module) | Module: `Modules/AdminBots/` |
+| 30 | **📢 Admin Daily Channel** | (Scheduled) | — | `DailyChannelContentService`, `AdminDailyChannelConfig` |
+| 31 | **📺 Admin Channel Media Queue** | (Scheduled) | — | `AdminChannelMediaQueueConfig`, `MediaQueue` models |
 
 ### 🛠️ پیشرفته (5 ربات)
 
 | # | نام ربات | Webhook Route | Controller | فایل‌های کلیدی |
 |---|----------|--------------|------------|---------------|
-| 30 | **🌐 Social Bot** | (Chrome Extension) | `SocialPublishController` | `SocialTools` |
-| 31 | **🤖 Bot Kids** | — | `BotKidController` | Model: `BotKid` |
-| 32 | **📢 Admin Bot** | `/webhook-bot-mother` | `BotMotherController` (199KB) | `BotHelper`, `BotMotherStateHelper` |
-| 33 | **✅ RSS Admin Bot** | `/webhook-rss-admin` | `RssAdminBotController` (9KB) | `RssFeedRegistrationService`, `RssAdminStateHelper` |
-| 34 | **📱 Social Publish** | `/chrome_extension_resend` | `SocialPublishController` | Model: `SocialPublish` |
+| 32 | **🌐 Social Bot** | (Chrome Extension) | `SocialPublishController` | `SocialTools` |
+| 33 | **🤖 Bot Kids** | — | `BotKidController` | Model: `BotKid` |
+| 34 | **📢 Admin Bot** | `/webhook-bot-mother` | `BotMotherController` (199KB) | `BotHelper`, `BotMotherStateHelper` |
+| 35 | **✅ RSS Admin Bot** | `/webhook-rss-admin` | `RssAdminBotController` (9KB) | `RssFeedRegistrationService`, `RssAdminStateHelper` |
+| 36 | **📱 Social Publish** | `/chrome_extension_resend` | `SocialPublishController` | Model: `SocialPublish` |
 
 ---
 
@@ -191,7 +193,7 @@ BotHelper::sendMessage() → Messenger API
 ### مفهوم
 ربات مادر (`BotMotherController`) مرکز کنترل کل پلتفرم است:
 1. کاربر `/start` را ارسال می‌کند
-2. نوع ربات را از لیست 34 نوع انتخاب می‌کند
+2. نوع ربات را از لیست انواع انتخاب می‌کند
 3. توکن BotFather را وارد می‌کند
 4. ربات مادر وب‌هوک را تنظیم و ربات جدید را فعال می‌کند
 
@@ -399,7 +401,7 @@ ONE_API_API_TOKEN=...
 |------|--------|
 | `docs/BOT_CREATION_GUIDE.md` | راهنمای ساخت ربات جدید |
 | `docs/BOT_TYPES_GUIDE.md` | لیست انواع ربات و endpoint‌ها |
-| `docs/BOTS_COMPLETE_GUIDE.md` | راهنمای کامل 34 ربات |
+| `docs/BOTS_COMPLETE_GUIDE.md` | راهنمای کامل انواع ربات |
 | `docs/API_README.md` | مستندات API |
 | `docs/GETTING-STARTED.md` | راهنمای شروع توسعه |
 | `docs/PRAYER_BOT_QUICK_START.md` | شروع سریع ربات نماز |

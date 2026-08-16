@@ -28,20 +28,65 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             return null;
         }
 
-        $forwardFromChat = $message['forward_from_chat'] ?? null;
-        if (!is_array($forwardFromChat) || !isset($forwardFromChat['id'])) {
+        $candidates = [];
+
+        if (is_array($message['forward_from_chat'] ?? null)) {
+            $candidates[] = $message['forward_from_chat'];
+        }
+
+        $originChat = $message['forward_origin']['chat'] ?? null;
+        if (is_array($originChat)) {
+            $candidates[] = $originChat;
+        }
+
+        if (is_array($message['sender_chat'] ?? null)) {
+            $candidates[] = $message['sender_chat'];
+        }
+
+        foreach ($candidates as $chat) {
+            $parsed = $this->chatToChannelTarget($chat);
+            if ($parsed) {
+                return $parsed;
+            }
+        }
+
+        return null;
+    }
+
+    public function parseChannelTarget(?array $message): ?array
+    {
+        $fromForward = $this->parseChannelForward($message);
+        if ($fromForward) {
+            return $fromForward;
+        }
+
+        $text = trim((string) ($message['text'] ?? ''));
+        if (preg_match('/^-?\d{3,}$/', $text)) {
+            return [
+                'id' => $text,
+                'title' => null,
+                'type' => 'id',
+            ];
+        }
+
+        return null;
+    }
+
+    private function chatToChannelTarget(array $chat): ?array
+    {
+        if (!isset($chat['id'])) {
             return null;
         }
 
-        $type = $forwardFromChat['type'] ?? '';
-        if ($type !== 'channel') {
+        $type = $chat['type'] ?? '';
+        if ($type === 'private') {
             return null;
         }
 
         return [
-            'id' => (string) $forwardFromChat['id'],
-            'title' => $forwardFromChat['title'] ?? null,
-            'type' => 'channel',
+            'id' => (string) $chat['id'],
+            'title' => $chat['title'] ?? $chat['username'] ?? null,
+            'type' => $type !== '' ? $type : 'channel',
         ];
     }
 

@@ -57,7 +57,7 @@ class ChannelPosterBotController extends Controller
             }
 
             $publisher = $this->publisherFactory->make($token, $type);
-            $update = $request->json()->all() ?: $request->all();
+            $update = $this->extractUpdate($request);
 
             if (isset($update['callback_query'])) {
                 $this->handleCallbackQuery($publisher, $update['callback_query'], $botItem, $type);
@@ -70,11 +70,12 @@ class ChannelPosterBotController extends Controller
             }
 
             $chatType = $message['chat']['type'] ?? '';
-            if ($chatType !== 'private') {
+            $chatId = (string) ($message['chat']['id'] ?? '');
+            $isPrivate = $chatType === 'private' || ($chatType === '' && $chatId !== '' && (int) $chatId > 0);
+            if (!$isPrivate) {
                 return response()->json(['status' => 'ok'], 200);
             }
 
-            $chatId = (string) ($message['chat']['id'] ?? '');
             if ($chatId === '') {
                 return response()->json(['status' => 'ok'], 200);
             }
@@ -122,6 +123,19 @@ class ChannelPosterBotController extends Controller
         }
 
         return null;
+    }
+
+    private function extractUpdate(Request $request): array
+    {
+        $json = $request->json()->all();
+        if (is_array($json) && (isset($json['message']) || isset($json['callback_query']) || isset($json['edited_message']))) {
+            return $json;
+        }
+
+        $all = $request->all();
+        unset($all['origin'], $all['token'], $all['bot_id'], $all['bot_mother_id'], $all['language']);
+
+        return is_array($all) ? $all : [];
     }
 
     private function handlePrivateMessage(
@@ -202,8 +216,16 @@ class ChannelPosterBotController extends Controller
         string $type,
         string $chatId
     ): void {
-        $forward = $this->service->parseChannelForward($message);
+        $forward = $this->service->parseChannelTarget($message);
         if (!$forward) {
+            Log::info('[ChannelPoster] Channel target not parsed', [
+                'chat_id' => $chatId,
+                'message_keys' => array_keys($message),
+                'forward_from_chat' => $message['forward_from_chat'] ?? null,
+                'has_forward_date' => isset($message['forward_date']),
+                'has_forward_from' => isset($message['forward_from']),
+                'text' => isset($message['text']) ? mb_substr((string) $message['text'], 0, 80) : null,
+            ]);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_need_channel_forward'));
             return;
         }

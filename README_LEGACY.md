@@ -295,6 +295,20 @@ list of Bot Types that you can clone it, is in next block of this document
 مدیریت موسیقی و پلی‌لیست‌ها
 </p>
 
+11- MP Contact bot
+
+<p dir="rtl">
+11- روبات ارتباط با نماینده مجلس
+تیکتینگ مردمی و نظرسنجی داخل چت
+</p>
+
+12- Channel Poster bot
+
+<p dir="rtl">
+12- روبات ارسال به کانال‌ها
+ارسال متن، عکس، صوت و ویدیو از چت خصوصی بله به کانال بله (تلگرام و ایتا در فازهای بعد)
+</p>
+
 مشاهده لیست کامل انواع روبات هایی که میتوانید برای خودتان هم بسازید در لینک زیر است
 
 [http://bots.pardisania.ir](http://bots.pardisania.ir)
@@ -319,6 +333,7 @@ list of Bot Types that you can clone it, is in next block of this document
 - [ایمپورت ترجمه‌های قرآن](./docs/features/QURAN_TRANSLATION_IMPORT.md) - راهنمای کامل ایمپورت ترجمه‌های قرآن از فایل‌های SQL dump (شامل دستورات و مثال‌ها)
 - [ردیابی bot_id و bot_mother_id در لاگ‌ها](./docs/features/BOT_LOGS_BOT_ID_TRACKING.md) - ردیابی کامل bot_id و bot_mother_id در تمام لاگ‌های سیستم و امکان به‌روزرسانی لاگ‌های قدیمی
 - [سیستم مدیریت فایل‌های آپلود شده](./docs/features/BOT_FILE_UPLOAD_MANAGEMENT.md) - مدیریت فایل‌های آپلود شده برای جلوگیری از آپلود مجدد و بهینه‌سازی سرعت
+- [ارسال به کانال‌ها](./docs/features/CHANNEL_POSTER_BOT.md) - ارسال متن/عکس/صوت/ویدیو از خصوصی بله به کانال
 
 هر فیچر دارای مستندات جداگانه است که شامل توضیحات، نحوه استفاده، ساختار فایل‌ها و ... می‌شود.
 

@@ -210,6 +210,38 @@ CREATE TABLE webhook_endpoints (
 
 ---
 
+### 14. 🏛️ MP Contact (ارتباط با نماینده مجلس)
+```json
+{
+  "endpoint_id": "webhook-mp-contact",
+  "name": "ارتباط با نماینده مجلس",
+  "route": "api/webhook-mp-contact",
+  "description": "تیکتینگ مردمی و نظرسنجی داخل چت",
+  "requires_bot_mother_id": true,
+  "requires_token": true
+}
+```
+**Controller:** `MpContactBotController.php`  
+**Docs:** [`docs/features/MP_CONTACT_BOT.md`](./features/MP_CONTACT_BOT.md)
+
+---
+
+### 15. 📤 Channel Poster (ارسال به کانال‌ها)
+```json
+{
+  "endpoint_id": "webhook-channel-poster",
+  "name": "ارسال به کانال‌ها",
+  "route": "api/webhook-channel-poster",
+  "description": "ارسال متن/عکس/صوت/ویدیو از خصوصی بله به کانال",
+  "requires_bot_mother_id": true,
+  "requires_token": true
+}
+```
+**Controller:** `ChannelPosterBotController.php`  
+**Docs:** [`docs/features/CHANNEL_POSTER_BOT.md`](./features/CHANNEL_POSTER_BOT.md)
+
+---
+
 ## 🔧 نحوه افزودن ربات جدید
 
 ### مرحله 1: ایجاد Controller

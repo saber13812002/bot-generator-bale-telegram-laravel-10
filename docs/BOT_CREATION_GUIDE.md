@@ -602,7 +602,11 @@ private function createBotInstance(Request $request, string $type, ?int $botId):
 
 ### مستندات:
 - [ ] فایل `docs/features/MY_BOT.md` ایجاد شده
-- [ ] لینک در `README.md` اضافه شده
+- [ ] لینک در `docs/README.md` اضافه شده
+- [ ] ردیف در کاتالوگ صفحه اول [`README.md`](../README.md) (بخش Complete Bot Catalog) اضافه شده و شمارندهٔ انواع ربات به‌روز شده
+- [ ] ردیف در [`docs/BOT_TYPES_GUIDE.md`](./BOT_TYPES_GUIDE.md) و [`docs/BOTS_COMPLETE_GUIDE.md`](./BOTS_COMPLETE_GUIDE.md)
+- [ ] در صورت وجود، بخش «انواع ربات‌های قابل ساخت» در [`README_LEGACY.md`](../README_LEGACY.md)
+- [ ] جدول کاتالوگ در [`.agents/AGENTS.md`](../.agents/AGENTS.md)
 
 ### تست:
 - [ ] Migration اجرا شده: `php artisan migrate`

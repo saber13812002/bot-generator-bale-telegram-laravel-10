@@ -12,6 +12,11 @@ interface ChannelPosterBotService
 
     public function parseChannelForward(?array $message): ?array;
 
+    /**
+     * Forwarded channel/group chat, or a pasted numeric chat id.
+     */
+    public function parseChannelTarget(?array $message): ?array;
+
     public function extractMedia(?array $message): ?array;
 
     public function getActiveBaleDestination(int $botId): ?ChannelPosterDestination;

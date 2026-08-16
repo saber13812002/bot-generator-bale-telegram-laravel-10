@@ -119,6 +119,7 @@ lang/*/bot.php                              # Translations (همه زبان‌ه
 - [ ] Seeder اجرا شده
 - [ ] Cache پاک شده
 - [ ] مستندات نوشته شده
+- [ ] ربات جدید در کاتالوگ `README.md` و `docs/BOT_TYPES_GUIDE.md` و `docs/BOTS_COMPLETE_GUIDE.md` آمده
 - [ ] Migrationها بدون FK به `bots`/`bot_users` (مگر تست شده روی MariaDB) — ر.ک. `.cursor/rules/database-migrations.mdc`
 
 ---
@@ -159,6 +160,7 @@ lang/*/bot.php                              # Translations (همه زبان‌ه
 6. از LogHelper با Request معمولی استفاده نکنید
 7. توکن را از دیتابیس بگیرید
 8. ترجمه‌ها را برای همه 15 زبان اضافه کنید
+9. ربات را به کاتالوگ صفحه اول README.md و docs/BOT_TYPES_GUIDE.md و docs/BOTS_COMPLETE_GUIDE.md اضافه کنید
 ```
 
 ---
