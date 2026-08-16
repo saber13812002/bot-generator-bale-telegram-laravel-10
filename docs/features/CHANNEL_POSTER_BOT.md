@@ -94,8 +94,13 @@ State مکالمه در `bot_user_states`:
 
 اگر باز هم فوروارد تشخیص داده نشد:
 
-1. شناسه عددی کانال را بفرست (از ربات Get Chat ID یا از فوروارد به آن ربات).
-2. در لاگ دنبال `[ChannelPoster] Channel target not parsed` بگرد؛ `message_keys` نشان می‌دهد بله چه فیلدهایی فرستاده.
+1. شناسه عددی **کانال** را بفرست (نه آی‌دی ربات). از ربات Get Chat ID یا از خود فوروارد بعد از دیپلوی.
+2. در لاگ به‌ترتیب این‌ها را ببین:
+   - `[ChannelPoster] Bot resolved` — اگر نباشد، webhook به این ربات نرسیده.
+   - `[ChannelPoster] No private message in update` — بدنه آپدیت بله `message` ندارد.
+   - `[ChannelPoster] Not owner` — `bale_owner_chat_id` با چت تو یکی نیست.
+   - `[ChannelPoster] Channel target not parsed` — فوروارد کانال در payload نیست.
+   - `[ChannelPoster] Test send failed` — ربات نتوانسته در کانال پست تست بگذارد (`description` را بخوان).
 
 ## Rollback
 

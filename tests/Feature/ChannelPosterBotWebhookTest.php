@@ -169,6 +169,49 @@ class ChannelPosterBotWebhookTest extends TestCase
         $this->assertSame('-100555', ChannelPosterDestination::where('bot_id', $bot->id)->value('channel_chat_id'));
     }
 
+    public function test_forward_without_start_connects_channel(): void
+    {
+        $bot = $this->createBot();
+
+        $response = $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateForwardUpdate($this->ownerChatId, 234, '', 'شراب بهشتی')
+        );
+
+        $response->assertOk();
+        $this->assertSame('234', ChannelPosterDestination::where('bot_id', $bot->id)->value('channel_chat_id'));
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_bale_connected'),
+            (string) $this->publisher->lastPrivateText()
+        );
+    }
+
+    public function test_empty_owner_is_claimed_on_start(): void
+    {
+        Bot::create([
+            'endpoint_id' => ChannelPosterBotController::ENDPOINT_ID,
+            'bot_mother_id' => 1,
+            'language_code' => 'fa',
+            'bale_bot_token' => $this->token,
+            'bale_bot_name' => 'channel_poster_bot',
+            'bale_bot_status' => 'Active',
+            'bale_owner_chat_id' => null,
+            'bale_webhook_is_set' => true,
+        ]);
+
+        $response = $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate('5137394817', '/start')
+        );
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_ask_bale_forward'),
+            (string) $this->publisher->lastPrivateText()
+        );
+        $this->assertSame('5137394817', (string) Bot::first()->bale_owner_chat_id);
+    }
+
     public function test_owner_content_then_bale_callback_publishes(): void
     {
         $bot = $this->createBot();

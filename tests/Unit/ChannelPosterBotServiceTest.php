@@ -86,6 +86,40 @@ class ChannelPosterBotServiceTest extends TestCase
         ]));
     }
 
+    public function test_parse_channel_forward_accepts_origin_chat_id(): void
+    {
+        $parsed = $this->service->parseChannelForward([
+            'forward_origin' => [
+                'type' => 'channel',
+                'chat_id' => 4805465850,
+            ],
+        ]);
+        $this->assertSame('4805465850', $parsed['id']);
+    }
+
+    public function test_parse_channel_forward_accepts_forward_from_without_name(): void
+    {
+        $parsed = $this->service->parseChannelForward([
+            'forward_from' => [
+                'id' => 234,
+            ],
+        ]);
+        $this->assertSame('234', $parsed['id']);
+    }
+
+    public function test_claim_owner_if_empty(): void
+    {
+        $bot = Bot::create([
+            'endpoint_id' => 'webhook-channel-poster',
+            'bale_bot_token' => '1:token',
+            'bale_owner_chat_id' => null,
+        ]);
+
+        $this->assertTrue($this->service->claimOwnerIfEmpty($bot, '5137394817', 'bale'));
+        $this->assertSame('5137394817', (string) $bot->fresh()->bale_owner_chat_id);
+        $this->assertFalse($this->service->claimOwnerIfEmpty($bot->fresh(), '999', 'bale'));
+    }
+
     public function test_extract_media_types(): void
     {
         $this->assertSame('text', $this->service->extractMedia(['text' => 'hello'])['type']);

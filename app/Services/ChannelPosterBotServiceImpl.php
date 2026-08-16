@@ -22,6 +22,20 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         return (string) $ownerChatId === (string) $chatId;
     }
 
+    public function claimOwnerIfEmpty(Bot $bot, string $chatId, string $origin): bool
+    {
+        $field = $origin === 'bale' ? 'bale_owner_chat_id' : 'telegram_owner_chat_id';
+        $current = $bot->{$field};
+        if ($current !== null && $current !== '') {
+            return false;
+        }
+
+        $bot->{$field} = $chatId;
+        $bot->save();
+
+        return true;
+    }
+
     public function parseChannelForward(?array $message): ?array
     {
         if (!$message) {
@@ -34,13 +48,50 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             $candidates[] = $message['forward_from_chat'];
         }
 
-        $originChat = $message['forward_origin']['chat'] ?? null;
-        if (is_array($originChat)) {
-            $candidates[] = $originChat;
+        $origin = $message['forward_origin'] ?? null;
+        if (is_array($origin)) {
+            if (is_array($origin['chat'] ?? null)) {
+                $candidates[] = $origin['chat'];
+            }
+            if (isset($origin['chat_id'])) {
+                $candidates[] = [
+                    'id' => $origin['chat_id'],
+                    'title' => $origin['author_signature'] ?? null,
+                    'type' => ($origin['type'] ?? '') === 'channel' ? 'channel' : ($origin['type'] ?? ''),
+                ];
+            }
+        }
+
+        $externalOrigin = $message['external_reply']['origin'] ?? null;
+        if (is_array($externalOrigin)) {
+            if (is_array($externalOrigin['chat'] ?? null)) {
+                $candidates[] = $externalOrigin['chat'];
+            }
+            if (isset($externalOrigin['chat_id'])) {
+                $candidates[] = [
+                    'id' => $externalOrigin['chat_id'],
+                    'title' => $externalOrigin['author_signature'] ?? null,
+                    'type' => $externalOrigin['type'] ?? '',
+                ];
+            }
         }
 
         if (is_array($message['sender_chat'] ?? null)) {
             $candidates[] = $message['sender_chat'];
+        }
+
+        $replyForward = $message['reply_to_message']['forward_from_chat'] ?? null;
+        if (is_array($replyForward)) {
+            $candidates[] = $replyForward;
+        }
+
+        $forwardFrom = $message['forward_from'] ?? null;
+        if (is_array($forwardFrom) && isset($forwardFrom['id'])) {
+            $looksLikeUser = isset($forwardFrom['first_name']) || isset($forwardFrom['is_bot']);
+            $looksLikeChat = isset($forwardFrom['title']) || ($forwardFrom['type'] ?? '') === 'channel';
+            if ($looksLikeChat || !$looksLikeUser) {
+                $candidates[] = $forwardFrom;
+            }
         }
 
         foreach ($candidates as $chat) {

@@ -26,7 +26,13 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             ], JSON_UNESCAPED_UNICODE);
         }
 
-        $this->bot->sendMessage($content);
+        $result = $this->bot->sendMessage($content);
+        if (!$this->isOk($result)) {
+            Log::warning('[ChannelPoster] Private send failed', [
+                'chat_id' => $chatId,
+                'result' => $this->resultSummary($result),
+            ]);
+        }
     }
 
     public function sendTestMessage(string $channelChatId, string $text): bool
@@ -37,7 +43,16 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'text' => $text,
             ]);
 
-            return $this->isOk($result);
+            if (!$this->isOk($result)) {
+                Log::warning('[ChannelPoster] Test send failed', [
+                    'channel_chat_id' => $channelChatId,
+                    'result' => $this->resultSummary($result),
+                ]);
+
+                return false;
+            }
+
+            return true;
         } catch (Exception $e) {
             Log::warning('[ChannelPoster] Test send failed', [
                 'channel_chat_id' => $channelChatId,
@@ -124,10 +139,49 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 
     private function isOk(mixed $result): bool
     {
+        $result = $this->normalizeResult($result);
+
         if (is_array($result) && array_key_exists('ok', $result)) {
             return (bool) $result['ok'];
         }
 
         return (bool) $result;
+    }
+
+    private function normalizeResult(mixed $result): mixed
+    {
+        if (is_string($result) && $result !== '') {
+            $decoded = json_decode($result, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        if (is_object($result)) {
+            $encoded = json_decode(json_encode($result), true);
+            if (is_array($encoded)) {
+                return $encoded;
+            }
+        }
+
+        return $result;
+    }
+
+    private function resultSummary(mixed $result): mixed
+    {
+        $normalized = $this->normalizeResult($result);
+        if (is_array($normalized)) {
+            return [
+                'ok' => $normalized['ok'] ?? null,
+                'description' => $normalized['description'] ?? null,
+                'error_code' => $normalized['error_code'] ?? null,
+            ];
+        }
+
+        if (is_string($result)) {
+            return mb_substr($result, 0, 200);
+        }
+
+        return $result;
     }
 }

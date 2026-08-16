@@ -10,6 +10,11 @@ interface ChannelPosterBotService
 {
     public function isOwner(Bot $bot, string $chatId, string $origin): bool;
 
+    /**
+     * If owner chat id is empty, store this user as owner and return true.
+     */
+    public function claimOwnerIfEmpty(Bot $bot, string $chatId, string $origin): bool;
+
     public function parseChannelForward(?array $message): ?array;
 
     /**

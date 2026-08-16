@@ -9,10 +9,10 @@ use App\Models\Bot;
 use App\Models\BotUserState;
 use App\Models\BotUsers;
 use App\Models\ChannelPosterDestination;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ChannelPosterBotController extends Controller
 {
@@ -59,31 +59,51 @@ class ChannelPosterBotController extends Controller
             $publisher = $this->publisherFactory->make($token, $type);
             $update = $this->extractUpdate($request);
 
+            Log::info('[ChannelPoster] Bot resolved', [
+                'bot_id' => $botItem->id,
+                'endpoint_id' => $botItem->endpoint_id,
+                'owner' => $type === 'bale' ? $botItem->bale_owner_chat_id : $botItem->telegram_owner_chat_id,
+                'update_keys' => array_keys($update),
+            ]);
+
             if (isset($update['callback_query'])) {
                 $this->handleCallbackQuery($publisher, $update['callback_query'], $botItem, $type);
                 return response()->json(['status' => 'ok'], 200);
             }
 
             $message = $update['message'] ?? $update['edited_message'] ?? null;
-            if (!$message) {
+            if (!is_array($message)) {
+                Log::info('[ChannelPoster] No private message in update', [
+                    'update_keys' => array_keys($update),
+                ]);
                 return response()->json(['status' => 'ok'], 200);
             }
 
-            $chatType = $message['chat']['type'] ?? '';
-            $chatId = (string) ($message['chat']['id'] ?? '');
-            $isPrivate = $chatType === 'private' || ($chatType === '' && $chatId !== '' && (int) $chatId > 0);
+            $chatType = strtolower((string) ($message['chat']['type'] ?? ''));
+            $chatId = (string) ($message['chat']['id'] ?? $message['from']['id'] ?? '');
+            $isChannelChat = in_array($chatType, ['channel', 'group', 'supergroup', 'groups'], true);
+            $isPrivate = !$isChannelChat && (
+                in_array($chatType, ['private', 'pv', 'user'], true)
+                || ($chatId !== '' && (int) $chatId > 0)
+            );
             if (!$isPrivate) {
+                Log::info('[ChannelPoster] Ignored non-private chat', [
+                    'chat_id' => $chatId,
+                    'chat_type' => $chatType,
+                    'message_keys' => array_keys($message),
+                ]);
                 return response()->json(['status' => 'ok'], 200);
             }
 
             if ($chatId === '') {
+                Log::warning('[ChannelPoster] Empty chat id');
                 return response()->json(['status' => 'ok'], 200);
             }
 
             $this->handlePrivateMessage($publisher, $message, $botItem, $type, $chatId);
 
             return response()->json(['status' => 'ok'], 200);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             Log::error('[ChannelPoster] Webhook error', [
                 'error' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -127,15 +147,40 @@ class ChannelPosterBotController extends Controller
 
     private function extractUpdate(Request $request): array
     {
+        $candidates = [];
+
+        $raw = $request->getContent();
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $candidates[] = $decoded;
+            }
+        }
+
         $json = $request->json()->all();
-        if (is_array($json) && (isset($json['message']) || isset($json['callback_query']) || isset($json['edited_message']))) {
-            return $json;
+        if (is_array($json) && $json !== []) {
+            $candidates[] = $json;
         }
 
         $all = $request->all();
-        unset($all['origin'], $all['token'], $all['bot_id'], $all['bot_mother_id'], $all['language']);
+        if (is_array($all) && $all !== []) {
+            $candidates[] = $all;
+        }
 
-        return is_array($all) ? $all : [];
+        foreach ($candidates as $data) {
+            unset($data['origin'], $data['token'], $data['bot_id'], $data['bot_mother_id'], $data['language']);
+            if (isset($data['message']) || isset($data['callback_query']) || isset($data['edited_message'])) {
+                return $data;
+            }
+            if (isset($data['chat']) && (isset($data['message_id']) || isset($data['from']))) {
+                return ['message' => $data];
+            }
+        }
+
+        $fallback = $candidates[0] ?? [];
+        unset($fallback['origin'], $fallback['token'], $fallback['bot_id'], $fallback['bot_mother_id'], $fallback['language']);
+
+        return is_array($fallback) ? $fallback : [];
     }
 
     private function handlePrivateMessage(
@@ -146,8 +191,20 @@ class ChannelPosterBotController extends Controller
         string $chatId
     ): void {
         if (!$this->service->isOwner($botItem, $chatId, $type)) {
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
-            return;
+            if ($this->service->claimOwnerIfEmpty($botItem, $chatId, $type)) {
+                Log::info('[ChannelPoster] Claimed empty owner', [
+                    'bot_id' => $botItem->id,
+                    'chat_id' => $chatId,
+                ]);
+            } else {
+                Log::warning('[ChannelPoster] Not owner', [
+                    'bot_id' => $botItem->id,
+                    'chat_id' => $chatId,
+                    'owner' => $type === 'bale' ? $botItem->bale_owner_chat_id : $botItem->telegram_owner_chat_id,
+                ]);
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
+                return;
+            }
         }
 
         $text = $message['text'] ?? null;
@@ -165,6 +222,13 @@ class ChannelPosterBotController extends Controller
         }
 
         $state = $this->getState($botItem, $chatId, $type);
+        $forward = $this->service->parseChannelTarget($message);
+        $hasDestination = (bool) $this->service->getActiveBaleDestination($botItem->id);
+
+        if ($forward && (!$hasDestination || ($state && $state->state === self::STATE_AWAITING_BALE_FORWARD))) {
+            $this->handleBaleForward($publisher, $message, $botItem, $type, $chatId);
+            return;
+        }
 
         if ($state && $state->state === self::STATE_AWAITING_BALE_FORWARD) {
             $this->handleBaleForward($publisher, $message, $botItem, $type, $chatId);
@@ -224,6 +288,8 @@ class ChannelPosterBotController extends Controller
                 'forward_from_chat' => $message['forward_from_chat'] ?? null,
                 'has_forward_date' => isset($message['forward_date']),
                 'has_forward_from' => isset($message['forward_from']),
+                'forward_origin' => $message['forward_origin'] ?? null,
+                'sender_chat' => $message['sender_chat'] ?? null,
                 'text' => isset($message['text']) ? mb_substr((string) $message['text'], 0, 80) : null,
             ]);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_need_channel_forward'));
@@ -239,6 +305,12 @@ class ChannelPosterBotController extends Controller
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_admin'));
             return;
         }
+
+        Log::info('[ChannelPoster] Bale channel connected', [
+            'bot_id' => $botItem->id,
+            'channel_chat_id' => $forward['id'],
+            'title' => $forward['title'] ?? null,
+        ]);
 
         $this->service->saveBaleDestination($botItem->id, $forward['id'], $forward['title'] ?? null);
         $this->clearState($botItem, $chatId, $type);
