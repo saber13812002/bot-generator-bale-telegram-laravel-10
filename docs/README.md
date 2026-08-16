@@ -31,6 +31,13 @@
   - امکان به‌روزرسانی لاگ‌های قدیمی
   - Command برای به‌روزرسانی دسته‌ای لاگ‌ها
 
+- [📋 نمایشگر لاگ و سلامت ارسال](features/LOG_VIEWER_AND_BOT_HEALTH.md)
+  - صفحهٔ سری لاگ با فیلتر bot_id و کارت سلامت کانال
+- [📈 متریک پرومته ربات‌ها](features/PROMETHEUS_METRICS.md)
+  - اندپوینت `/api/metrics` با لیبل endpoint_id و bot_id
+- [🩺 هلث جیسون ربات‌ها](features/BOT_HEALTH_JSON.md)
+  - اندپوینت `/api/health` و دستور `observability:health-report`
+
 - [📁 سیستم مدیریت فایل‌های آپلود شده (Bot File Upload Management)](features/BOT_FILE_UPLOAD_MANAGEMENT.md)
   - مدیریت فایل‌های آپلود شده برای جلوگیری از آپلود مجدد
   - بهینه‌سازی سرعت با استفاده از file_id موجود

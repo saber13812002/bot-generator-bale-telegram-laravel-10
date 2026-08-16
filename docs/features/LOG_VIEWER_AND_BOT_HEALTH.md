@@ -4,7 +4,7 @@
 
 صفحهٔ داخلی برای دیدن آخرین لاگ‌های سرور (با فیلتر `bot_id`) و وضعیت سلامت ارسال کانال‌ها. لاگ فایل `storage/logs/laravel.log` مثل قبل نوشته می‌شود؛ همزمان آخرین رکوردها در دیتابیس هم ذخیره می‌شوند تا بشود همان لحظه کپی کرد و به Cursor داد.
 
-`/health` و `/metrics` (Prometheus/Grafana) در این فاز نیستند.
+`/health` و `/metrics` در فاز جدا هستند: [`PROMETHEUS_METRICS.md`](PROMETHEUS_METRICS.md) و [`BOT_HEALTH_JSON.md`](BOT_HEALTH_JSON.md).
 
 ## اهداف
 

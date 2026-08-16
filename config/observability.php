@@ -14,6 +14,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Secret for Prometheus /api/metrics
+    |--------------------------------------------------------------------------
+    |
+    | Leave empty to disable the route. Scrape with ?token= or /api/metrics/{secret}
+    | or Authorization: Bearer.
+    |
+    */
+    'metrics_secret' => env('METRICS_SECRET', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Secret for JSON /api/health
+    |--------------------------------------------------------------------------
+    |
+    | Leave empty to disable the route. Same token styles as metrics.
+    |
+    */
+    'health_secret' => env('HEALTH_SECRET', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Max rows kept in app_log_entries
     |--------------------------------------------------------------------------
     */

@@ -23,6 +23,9 @@ trait UsesObservabilitySqlite
     {
         Schema::dropIfExists('bot_health_events');
         Schema::dropIfExists('app_log_entries');
+        Schema::dropIfExists('bot_logs');
+        Schema::dropIfExists('bot_users');
+        Schema::dropIfExists('webhook_endpoints');
         Schema::dropIfExists('bots');
 
         Schema::create('app_log_entries', function (Blueprint $table) {
@@ -49,11 +52,43 @@ trait UsesObservabilitySqlite
 
         Schema::create('bots', function (Blueprint $table) {
             $table->id();
+            $table->string('endpoint_id')->nullable();
             $table->string('bale_bot_name')->nullable();
             $table->string('bale_bot_token')->nullable();
             $table->string('bale_bot_status')->nullable();
+            $table->boolean('bale_webhook_is_set')->default(false);
+            $table->string('telegram_bot_name')->nullable();
             $table->string('telegram_bot_token')->nullable();
+            $table->string('telegram_bot_status')->nullable();
+            $table->boolean('telegram_webhook_is_set')->default(false);
             $table->timestamp('last_activity_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('webhook_endpoints', function (Blueprint $table) {
+            $table->id();
+            $table->string('endpoint_id');
+            $table->string('name');
+            $table->string('route')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('bot_users', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('chat_id');
+            $table->unsignedBigInteger('bot_id');
+            $table->string('status')->default('active');
+            $table->string('origin');
+            $table->timestamps();
+        });
+
+        Schema::create('bot_logs', function (Blueprint $table) {
+            $table->id();
+            $table->string('webhook_endpoint_uri')->nullable();
+            $table->unsignedBigInteger('bot_id')->nullable();
+            $table->string('type')->nullable();
+            $table->string('text')->nullable();
+            $table->bigInteger('chat_id')->nullable();
             $table->timestamps();
         });
     }

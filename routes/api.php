@@ -221,6 +221,22 @@ if ($logViewerSecret !== '') {
         ->withoutMiddleware('throttle:api');
 }
 
+$metricsSecret = (string) config('observability.metrics_secret', '');
+if ($metricsSecret !== '') {
+    Route::get('/metrics', [\App\Http\Controllers\MetricsController::class, 'index'])
+        ->withoutMiddleware('throttle:api');
+    Route::get('/metrics/{secret}', [\App\Http\Controllers\MetricsController::class, 'index'])
+        ->withoutMiddleware('throttle:api');
+}
+
+$healthSecret = (string) config('observability.health_secret', '');
+if ($healthSecret !== '') {
+    Route::get('/health', [\App\Http\Controllers\HealthController::class, 'index'])
+        ->withoutMiddleware('throttle:api');
+    Route::get('/health/{secret}', [\App\Http\Controllers\HealthController::class, 'index'])
+        ->withoutMiddleware('throttle:api');
+}
+
 // use App\Services\RssService;
 
 

@@ -633,6 +633,8 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر روز ۱۰:۰۰ | PostMediaQueueToChannels |
 | روزانه | observability:prune (سقف app_log_entries و سلامت ۳۰ روزه) |
 
+دستور `observability:health-report` زمان‌بندی نشده است؛ JSON سلامت را دستی چاپ می‌کند (`docs/features/BOT_HEALTH_JSON.md`).
+
 #### ارسال به کانال (تک‌آیه / حدیث / نهج / شراب / ترکیبی / صف رسانه)
 
 این قابلیت خودکار اجرا نمی‌شود مگر اینکه روی سرور **کران‌جاب** تنظیم کنید.
