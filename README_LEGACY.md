@@ -309,6 +309,13 @@ list of Bot Types that you can clone it, is in next block of this document
 ارسال متن، عکس، صوت و ویدیو از چت خصوصی بله به کانال بله (تلگرام و ایتا در فازهای بعد)
 </p>
 
+13- Growth Companion bot
+
+<p dir="rtl">
+13- روبات رشدیار
+موتور رشد شخصی: سؤال روزانه و برنامه جدا برای هر حوزه زندگی
+</p>
+
 مشاهده لیست کامل انواع روبات هایی که میتوانید برای خودتان هم بسازید در لینک زیر است
 
 [http://bots.pardisania.ir](http://bots.pardisania.ir)
@@ -647,6 +654,7 @@ rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -
 | هر روز ۰۰:۰۰، ۰۶:۰۰، ۱۲:۰۰، ۱۸:۰۰ | PostDailyVerseToChannels (با --slot=1 تا ۴؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند) |
 | هر روز ۱۰:۰۰ | PostMediaQueueToChannels |
 | روزانه | observability:prune (سقف app_log_entries و سلامت ۳۰ روزه) |
+| هر ۵ دقیقه | growth:dispatch-due (سؤال‌های سررسید رشدیار) |
 
 دستور `observability:health-report` زمان‌بندی نشده است؛ JSON سلامت را دستی چاپ می‌کند (`docs/features/BOT_HEALTH_JSON.md`).
 

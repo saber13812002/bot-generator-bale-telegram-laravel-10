@@ -504,6 +504,14 @@
 مالک در خصوصی بله متن/عکس/صوت/ویدیو می‌فرستد و ربات به کانال بله منتشر می‌کند. مستندات: [`docs/features/CHANNEL_POSTER_BOT.md`](./features/CHANNEL_POSTER_BOT.md)
 
 ---
+
+## 32. 🌱 Growth Companion (رشدیار)
+**endpoint_id:** `webhook-growth-companion`
+
+### توضیحات
+موتور رشد شخصی قابل‌تنظیم: سؤال روزانه، تأمل، و برنامه جدا برای هر حوزه زندگی. معنویت فقط یکی از قالب‌هاست. مستندات: [`docs/features/GROWTH_COMPANION.md`](./features/GROWTH_COMPANION.md)
+
+---
 ---
 
 ## 📸 راهنمای تصاویر

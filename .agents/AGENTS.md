@@ -185,6 +185,7 @@ BotHelper::sendMessage() → Messenger API
 | 34 | **📢 Admin Bot** | `/webhook-bot-mother` | `BotMotherController` (199KB) | `BotHelper`, `BotMotherStateHelper` |
 | 35 | **✅ RSS Admin Bot** | `/webhook-rss-admin` | `RssAdminBotController` (9KB) | `RssFeedRegistrationService`, `RssAdminStateHelper` |
 | 36 | **📱 Social Publish** | `/chrome_extension_resend` | `SocialPublishController` | Model: `SocialPublish` |
+| 37 | **🌱 Growth Companion** | `/webhook-growth-companion` | `GrowthCompanionController` | `GrowthCompanionServiceImpl`, `GrowthQuestionSelector` |
 
 ---
 

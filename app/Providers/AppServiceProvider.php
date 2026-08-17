@@ -48,6 +48,8 @@ use App\Interfaces\Services\MawkibFinderService;
 use App\Interfaces\Services\PoemBotService;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
+use App\Interfaces\Services\GrowthCompanionService;
+use App\Interfaces\Services\GrowthMessengerFactory;
 use App\Interfaces\Services\MpContactBotService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
 use App\Interfaces\Services\WeatherTomorrowApiService;
@@ -98,6 +100,8 @@ use App\Services\WeatherComparisonServiceImpl;
 use App\Services\ChannelPosterBotServiceImpl;
 use App\Services\MpContactBotServiceImpl;
 use App\Services\TelegramChannelPosterPublisherFactory;
+use App\Services\GrowthCompanionServiceImpl;
+use App\Services\TelegramGrowthMessengerFactory;
 use App\Services\PoemBotServiceImpl;
 use App\Services\WeatherOpenWeatherMapApiServiceImpl;
 use App\Services\WeatherTomorrowApiServiceImpl;
@@ -168,6 +172,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MpContactBotService::class, MpContactBotServiceImpl::class);
         $this->app->bind(ChannelPosterBotService::class, ChannelPosterBotServiceImpl::class);
         $this->app->bind(ChannelPosterPublisherFactory::class, TelegramChannelPosterPublisherFactory::class);
+        $this->app->bind(GrowthCompanionService::class, GrowthCompanionServiceImpl::class);
+        $this->app->bind(GrowthMessengerFactory::class, TelegramGrowthMessengerFactory::class);
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
         $this->app->singleton(\App\Services\MawkibFinderOtpService::class);
         

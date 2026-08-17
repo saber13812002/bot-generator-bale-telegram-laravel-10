@@ -242,6 +242,22 @@ CREATE TABLE webhook_endpoints (
 
 ---
 
+### 16. 🌱 Growth Companion (رشدیار)
+```json
+{
+  "endpoint_id": "webhook-growth-companion",
+  "name": "رشدیار",
+  "route": "api/webhook-growth-companion",
+  "description": "موتور رشد شخصی: سؤال روزانه و برنامه جدا برای هر حوزه زندگی",
+  "requires_bot_mother_id": true,
+  "requires_token": true
+}
+```
+**Controller:** `GrowthCompanionController.php`  
+**Docs:** [`docs/features/GROWTH_COMPANION.md`](./features/GROWTH_COMPANION.md)
+
+---
+
 ## 🔧 نحوه افزودن ربات جدید
 
 ### مرحله 1: ایجاد Controller

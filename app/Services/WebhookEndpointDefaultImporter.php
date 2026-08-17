@@ -255,6 +255,16 @@ class WebhookEndpointDefaultImporter
                 'requires_token' => true,
                 'requires_language' => false,
             ],
+            [
+                'id' => 'webhook-growth-companion',
+                'name' => 'رشدیار',
+                'route' => '/api/webhook-growth-companion',
+                'description' => 'موتور رشد شخصی قابل‌تنظیم: سؤال روزانه و برنامه جدا برای هر حوزه زندگی',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+                'supports_multiple_languages' => true,
+            ],
         ];
     }
 

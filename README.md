@@ -45,7 +45,7 @@ This project isn't just another bot framework. It's a **complete bot-generation 
 |-----------|-------------|
 | 🤖 **ربات مادر هوشمند** - رباتی که خودش ربات می‌سازد! | 🤖 **Intelligent Mother Bot** - A bot that builds bots! |
 | 🌐 **چهار پیام‌رسان** - تلگرام، بله، گپ، ایتا با یک کد | 🌐 **Four Messengers** - Telegram, Bale, Gap, Eitaa in one codebase |
-| 🎨 **۳۶ نوع ربات** - از قرآن تا هواشناسی و ارسال به کانال | 🎨 **36 Bot Types** - From Quran to Weather to Channel Poster |
+| 🎨 **۳۷ نوع ربات** - از قرآن تا هواشناسی، ارسال به کانال و رشدیار | 🎨 **37 Bot Types** - From Quran to Weather, Channel Poster and Growth Companion |
 | 🔐 **احراز هویت OTP** - امنیت با کد یکبارمصرف بله | 🔐 **OTP Authentication** - Secure Bale OTP verification |
 | 🌍 **۱۸ زبان زنده** - پشتیبانی از ۱۸ زبان دنیا | 🌍 **18 Languages** - Multi-language support |
 | 🆓 **Pro System** - رایگان با قابلیت ارتقا | 🆓 **Pro System** - Free with upgrade options |
@@ -76,7 +76,7 @@ The heart of this platform is **Bot Mother** — a bot that creates, configures,
 ```mermaid
 graph LR
     A[User] -->|/start| B[Bot Mother]
-    B -->|Select Type| C{36 Bot Types}
+    B -->|Select Type| C{37 Bot Types}
     C -->|Enter Token| D[Create Bot]
     D -->|Set Webhook| E[✅ Bot Ready!]
 ```
@@ -150,6 +150,7 @@ graph LR
 | 34 | **📢 Admin Bot** | Multi-messenger admin panel | پنل مدیریت چندپیام‌رسانه |
 | 35 | **✅ RSS Admin Bot** | RSS feed management for admins | مدیریت فید RSS ادمین |
 | 36 | **📱 Social Publish** | Chrome Extension integration | یکپارچه‌سازی با افزونه کروم |
+| 37 | **🌱 Growth Companion** | Personal growth engine: daily reflection, programs per life area | رشدیار: سؤال روزانه و برنامه جدا برای هر حوزه زندگی |
 
 ---
 
@@ -230,7 +231,7 @@ Looking for the original README? [Click here](README_LEGACY.md)
 |----------|-------------|
 | [📖 Bot Creation Guide](docs/BOT_CREATION_GUIDE.md) | Step-by-step guide to create new bots |
 | [📖 Bot Types Guide](docs/BOT_TYPES_GUIDE.md) | Complete list of bot endpoints |
-| [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 36 bots |
+| [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 37 bots |
 | [📖 Architecture](plans/BOT_GENERATOR_ARCHITECTURE.md) | System architecture documentation |
 | [📖 Get Started](docs/GETTING-STARTED.md) | Development setup guide |
 | [📖 API Docs](docs/API_README.md) | API documentation |

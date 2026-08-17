@@ -137,6 +137,9 @@ Route::post('/webhook-mp-contact', [\App\Http\Controllers\MpContactBotController
 // channel poster bot (ارسال به کانال‌ها)
 Route::post('/webhook-channel-poster', [\App\Http\Controllers\ChannelPosterBotController::class, 'webhook']);
 
+// growth companion bot (رشدیار)
+Route::post('/webhook-growth-companion', [\App\Http\Controllers\GrowthCompanionController::class, 'webhook']);
+
 // prayer bot (ربات نماز قضا)
 Route::post('/webhook-prayer-bot', [PrayerBotController::class, 'webhook']);
 

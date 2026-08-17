@@ -39,6 +39,7 @@
   - اندپوینت `/api/health` و دستور `observability:health-report`
 
 - [📤 ارسال به کانال‌ها](features/CHANNEL_POSTER_BOT.md)
+- [🌱 رشدیار (Growth Companion)](features/GROWTH_COMPANION.md)
   - ربات مالک‌محور برای ارسال متن/عکس/صوت/ویدیو از خصوصی بله به کانال بله
 
 - [📁 سیستم مدیریت فایل‌های آپلود شده (Bot File Upload Management)](features/BOT_FILE_UPLOAD_MANAGEMENT.md)
