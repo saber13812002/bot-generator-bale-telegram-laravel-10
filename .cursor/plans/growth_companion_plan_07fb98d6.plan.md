@@ -4,10 +4,10 @@ overview: پلن سه‌لایه است — محصول، معماری، و با�
 todos:
   - id: archaeology
     content: "Layer 3: Codebase Discovery — map repo, trace 3 bot call graphs, classify ACTIVE/LEGACY/DEAD, produce Codebase Evidence Report. Do not trust first-pass hypotheses."
-    status: pending
+    status: completed
   - id: write-plan-md
-    content: "Write IMPLEMENTATION_PLAN.md with 3 layers (Product, Architecture, Evidence) plus original 31 sections. Hypotheses updated if code contradicts them. No production code."
-    status: pending
+    content: Write IMPLEMENTATION_PLAN.md with 3 layers (Product, Architecture, Evidence) plus original 31 sections. Hypotheses updated if code contradicts them. No production code.
+    status: completed
 isProject: false
 ---
 
