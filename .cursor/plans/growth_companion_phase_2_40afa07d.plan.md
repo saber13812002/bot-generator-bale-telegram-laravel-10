@@ -4,22 +4,22 @@ overview: "فاز ۲ رشدیار: اول تختهٔ روزانهٔ دسته‌�
 todos:
   - id: p2a-schema-board
     content: "Migration: day_reset_hour + growth_profile_topics (or multi active programs); keep template seeder"
-    status: in_progress
+    status: completed
   - id: p2a-board-ux
     content: Home board with empty/green check; done-today toast; no resend same question; add/remove category; /start shows board
-    status: pending
+    status: completed
   - id: p2a-messenger-edit
     content: GrowthMessenger editReplyMarkup + Telegram/Bale fallback resend keyboard
-    status: pending
+    status: completed
   - id: p2b-intensity
     content: Intensity = daily open-topic budget; per-topic daily vs weekly; dispatcher skip done-today
-    status: pending
+    status: completed
   - id: p2c-rest
     content: Weekly review, custom weekdays, LlmProvider variants, export, Advanced Mode
-    status: pending
+    status: completed
   - id: p2-i18n-docs-tests
     content: 15 locales, GROWTH_COMPANION.md + IMPLEMENTATION_PLAN phase ticks, SQLite feature tests
-    status: pending
+    status: completed
 isProject: false
 ---
 

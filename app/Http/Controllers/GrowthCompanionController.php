@@ -8,6 +8,8 @@ use App\Interfaces\Services\GrowthMessengerFactory;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\BotUserState;
+use App\Models\GrowthProfile;
+use App\Models\GrowthProfileTopic;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +25,8 @@ class GrowthCompanionController extends Controller
     public const STATE_CUSTOM_FOCUS = 'gc_onboarding_custom_focus';
     public const STATE_AWAITING_ANSWER = 'gc_awaiting_answer';
     public const STATE_CUSTOM_QUESTION = 'gc_awaiting_custom_question';
+    public const STATE_ADD_CUSTOM = 'gc_add_custom_topic';
+    public const STATE_WEEKLY_REVIEW = 'gc_weekly_review';
 
     public const FOCUSES = [
         'health',
@@ -145,6 +149,24 @@ class GrowthCompanionController extends Controller
             return;
         }
 
+        if ($state && $state->state === self::STATE_ADD_CUSTOM && $text !== '') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->service->addCustomTopic($profile, $text);
+            $this->clearState($botItem, $chatId, $type);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.topic_added'));
+
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_WEEKLY_REVIEW && $text !== '') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->service->saveWeeklyReview($profile, $text);
+            $this->clearState($botItem, $chatId, $type);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.weekly_review_saved'));
+
+            return;
+        }
+
         if ($state && $state->state === self::STATE_CUSTOM_QUESTION && $text !== '') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $question = $this->service->addCustomQuestion($profile, $text);
@@ -167,14 +189,15 @@ class GrowthCompanionController extends Controller
                 $this->service->recordResponse($question, $botUser, $botItem->id, $text, $variantId);
             }
             $this->clearState($botItem, $chatId, $type);
-            $messenger->send($chatId, trans('growth_companion.ack'), $this->simpleAfterAnswerKeyboard());
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.ack'));
 
             return;
         }
 
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
         if ($profile->onboarding_completed_at) {
-            $messenger->send($chatId, trans('growth_companion.use_buttons'), $this->simpleHomeKeyboard());
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.use_buttons'));
 
             return;
         }
@@ -191,14 +214,22 @@ class GrowthCompanionController extends Controller
         $chatId = (string) ($callbackQuery['message']['chat']['id'] ?? $callbackQuery['from']['id'] ?? '');
         $data = (string) ($callbackQuery['data'] ?? '');
         $callbackId = $callbackQuery['id'] ?? null;
+        $messageId = $callbackQuery['message']['message_id'] ?? null;
 
         if ($chatId === '' || !str_starts_with($data, 'gc:')) {
             return;
         }
 
-        $messenger->answerCallback($callbackId);
         $botUser = $this->resolveBotUser($botItem, $chatId, $type);
         $payload = substr($data, 3);
+
+        if (str_starts_with($payload, 'b:')) {
+            $this->handleBoardTap($messenger, $botItem, $type, $chatId, $botUser, substr($payload, 2), $callbackId, $messageId);
+
+            return;
+        }
+
+        $messenger->answerCallback($callbackId);
 
         if (str_starts_with($payload, 'f:')) {
             $focus = substr($payload, 2);
@@ -217,12 +248,20 @@ class GrowthCompanionController extends Controller
             return;
         }
 
-        if (str_starts_with($payload, 'i:')) {
-            $intensity = match (substr($payload, 2)) {
+        if (str_starts_with($payload, 'i:') || str_starts_with($payload, 'int:')) {
+            $code = str_starts_with($payload, 'int:') ? substr($payload, 4) : substr($payload, 2);
+            $intensity = match ($code) {
                 'min' => 'minimal',
                 'act' => 'active',
                 default => 'balanced',
             };
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            if ($profile->onboarding_completed_at) {
+                $this->service->setIntensity($profile, $intensity);
+                $this->sendSettings($messenger, $botItem, $chatId, $botUser, trans('growth_companion.intensity_updated'));
+
+                return;
+            }
             $state = $this->getState($botItem, $chatId, $type);
             $this->setState($botItem, $chatId, $type, self::STATE_TIME, [
                 'focus' => $state?->getData('focus', 'self'),
@@ -240,9 +279,22 @@ class GrowthCompanionController extends Controller
             return;
         }
 
+        if ($payload === 'home' || $payload === 'ask') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            if (!$profile->onboarding_completed_at) {
+                $this->handleStart($messenger, $botItem, $type, $chatId, $botUser);
+
+                return;
+            }
+            $this->sendBoard($messenger, $profile, $chatId);
+
+            return;
+        }
+
         if ($payload === 'later') {
             $this->clearState($botItem, $chatId, $type);
-            $messenger->send($chatId, trans('growth_companion.later_ack'), $this->simpleHomeKeyboard());
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.later_ack'));
 
             return;
         }
@@ -262,7 +314,7 @@ class GrowthCompanionController extends Controller
         if ($payload === 'p') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $this->service->pauseActiveQuestion($profile);
-            $messenger->send($chatId, trans('growth_companion.paused'), $this->simpleHomeKeyboard());
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.paused'));
 
             return;
         }
@@ -270,7 +322,7 @@ class GrowthCompanionController extends Controller
         if ($payload === 'u') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $this->service->unpauseActiveQuestion($profile);
-            $messenger->send($chatId, trans('growth_companion.unpaused'), $this->simpleHomeKeyboard());
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.unpaused'));
 
             return;
         }
@@ -278,7 +330,92 @@ class GrowthCompanionController extends Controller
         if ($payload === 'freq:d' || $payload === 'freq:w') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $this->service->setFrequency($profile, $payload === 'freq:d' ? 'daily' : 'weekly');
-            $messenger->send($chatId, trans('growth_companion.frequency_updated'), $this->simpleHomeKeyboard());
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.frequency_updated'));
+
+            return;
+        }
+
+        if (str_starts_with($payload, 'c:')) {
+            $slug = substr($payload, 2);
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $topic = $this->topicBySlug($profile, $slug);
+            if ($topic) {
+                $next = $topic->cadence === 'weekly' ? 'daily' : 'weekly';
+                $this->service->setTopicCadence($profile, $slug, $next);
+            }
+            $this->sendCadenceMenu($messenger, $profile, $chatId, trans('growth_companion.cadence_updated'));
+
+            return;
+        }
+
+        if ($payload === 'cad') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendCadenceMenu($messenger, $profile, $chatId);
+
+            return;
+        }
+
+        if ($payload === 'wdm') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendWeekdayTopicMenu($messenger, $profile, $chatId);
+
+            return;
+        }
+
+        if (str_starts_with($payload, 'w:')) {
+            $slug = substr($payload, 2);
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendWeekdayPicker($messenger, $profile, $chatId, $slug);
+
+            return;
+        }
+
+        if (str_starts_with($payload, 'k:')) {
+            $rest = substr($payload, 2);
+            $parts = explode(':', $rest);
+            $slug = $parts[0] ?? '';
+            $day = isset($parts[1]) ? (int) $parts[1] : -1;
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->service->toggleTopicWeekday($profile, $slug, $day);
+            $this->sendWeekdayPicker($messenger, $profile, $chatId, $slug, trans('growth_companion.weekday_updated'));
+
+            return;
+        }
+
+        if ($payload === 'add') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendAddTopicMenu($messenger, $profile, $chatId);
+
+            return;
+        }
+
+        if (str_starts_with($payload, 'a:')) {
+            $slug = substr($payload, 2);
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            if ($slug === 'custom') {
+                $this->setState($botItem, $chatId, $type, self::STATE_ADD_CUSTOM);
+                $messenger->send($chatId, trans('growth_companion.ask_custom_topic'));
+
+                return;
+            }
+            $this->service->enableTopic($profile, $slug);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.topic_added'));
+
+            return;
+        }
+
+        if ($payload === 'del') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->sendRemoveTopicMenu($messenger, $profile, $chatId);
+
+            return;
+        }
+
+        if (str_starts_with($payload, 'x:')) {
+            $slug = substr($payload, 2);
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->service->disableTopic($profile, $slug);
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.topic_removed'));
 
             return;
         }
@@ -307,15 +444,143 @@ class GrowthCompanionController extends Controller
             return;
         }
 
-        if ($payload === 'ask') {
+        if ($payload === 'rev') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-            if (!$this->service->activeQuestion($profile, true)) {
-                $this->handleStart($messenger, $botItem, $type, $chatId, $botUser);
+            $messenger->send($chatId, $this->service->weeklyReviewText($profile), [
+                [['text' => trans('growth_companion.btn_save_review'), 'callback_data' => 'gc:revw']],
+                [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']],
+            ]);
+
+            return;
+        }
+
+        if ($payload === 'revw') {
+            $this->setState($botItem, $chatId, $type, self::STATE_WEEKLY_REVIEW);
+            $messenger->send($chatId, trans('growth_companion.weekly_review_ask'));
+
+            return;
+        }
+
+        if ($payload === 'exp') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $json = json_encode($this->service->exportData($profile), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            if (!is_string($json)) {
+                $json = '{}';
+            }
+            if (strlen($json) > 3500) {
+                $json = substr($json, 0, 3500).'…';
+            }
+            $messenger->send($chatId, trans('growth_companion.export_title')."\n".$json, [
+                [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']],
+            ]);
+
+            return;
+        }
+
+        if ($payload === 'adv') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $next = $profile->isAdvanced() ? 'simple' : 'advanced';
+            $this->service->setMode($profile, $next);
+            $note = $next === 'advanced'
+                ? trans('growth_companion.advanced_on')
+                : trans('growth_companion.advanced_off');
+            $this->sendSettings($messenger, $botItem, $chatId, $botUser, $note);
+
+            return;
+        }
+
+        if ($payload === 'aic') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            $this->service->setAiConsent($profile, true);
+            $this->sendSettings($messenger, $botItem, $chatId, $botUser, trans('growth_companion.ai_consent_on'));
+
+            return;
+        }
+
+        if ($payload === 'ai') {
+            $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            if (!$profile->ai_consent) {
+                $messenger->send($chatId, trans('growth_companion.ai_consent_needed'), [
+                    [['text' => trans('growth_companion.btn_ai_consent'), 'callback_data' => 'gc:aic']],
+                    [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']],
+                ]);
 
                 return;
             }
-            $this->sendCurrentQuestion($messenger, $botItem, $type, $chatId, $botUser);
+            $added = 0;
+            $locale = $botItem->language_code ?: app()->getLocale();
+            foreach ($this->service->enabledTopics($profile) as $topic) {
+                $question = $this->service->questionForTopic($profile, $topic->template_slug, true);
+                if ($question) {
+                    $added += $this->service->generateAiVariants($question, $locale);
+                }
+            }
+            $note = $added > 0
+                ? trans('growth_companion.ai_variants_added', ['count' => $added])
+                : trans('growth_companion.ai_unavailable');
+            $this->sendSettings($messenger, $botItem, $chatId, $botUser, $note);
         }
+    }
+
+    private function handleBoardTap(
+        GrowthMessenger $messenger,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        BotUsers $botUser,
+        string $slug,
+        ?string $callbackId,
+        mixed $messageId
+    ): void {
+        $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+        $topic = $this->topicBySlug($profile, $slug);
+        if (!$topic || !$topic->enabled) {
+            $messenger->answerCallback($callbackId);
+
+            return;
+        }
+
+        $status = $this->service->canOpenTopic($profile, $topic);
+        if ($status !== 'ask') {
+            $toast = match ($status) {
+                'done_week' => trans('growth_companion.already_reviewed_week'),
+                'budget' => trans('growth_companion.budget_full'),
+                default => trans('growth_companion.already_reviewed_today'),
+            };
+            $messenger->answerCallback($callbackId, $toast);
+            $rows = $this->boardKeyboard($profile);
+            if ($messageId && $messenger->editReplyMarkup($chatId, $messageId, $rows)) {
+                return;
+            }
+            $this->sendBoard($messenger, $profile, $chatId);
+
+            return;
+        }
+
+        $messenger->answerCallback($callbackId);
+        $question = $this->service->questionForTopic($profile, $slug);
+        if (!$question) {
+            $this->sendBoard($messenger, $profile, $chatId, trans('growth_companion.no_active_question'));
+
+            return;
+        }
+
+        $variant = $this->service->pickVariant($question, $botUser->id, $botItem->language_code);
+        if (!$variant) {
+            $messenger->send($chatId, trans('growth_companion.error'), $this->boardKeyboard($profile));
+
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_ANSWER, [
+            'question_id' => $question->id,
+            'variant_id' => $variant->id,
+            'topic' => $slug,
+        ]);
+        if ($question->schedule) {
+            $this->service->markSent($question->schedule, $profile);
+        }
+        $this->sendQuestion($messenger, $chatId, $variant->body);
     }
 
     private function handleStart(
@@ -326,8 +591,11 @@ class GrowthCompanionController extends Controller
         BotUsers $botUser
     ): void {
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-        if ($profile->onboarding_completed_at && $this->service->activeQuestion($profile, true)) {
-            $this->sendCurrentQuestion($messenger, $botItem, $type, $chatId, $botUser);
+        if ($profile->onboarding_completed_at) {
+            if ($profile->topics()->doesntExist()) {
+                $this->service->ensureDefaultBoard($profile);
+            }
+            $this->sendBoard($messenger, $profile, $chatId);
 
             return;
         }
@@ -356,51 +624,49 @@ class GrowthCompanionController extends Controller
         };
 
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-        $program = $this->service->completeOnboarding($profile, $focus, $intensity, $notifyTime, $customFocus);
-        $question = $program->questions->first();
-        $variant = $question
-            ? $this->service->pickVariant($question, $botUser->id, $botItem->language_code)
-            : null;
-
-        if ($question && $variant) {
-            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_ANSWER, [
-                'question_id' => $question->id,
-                'variant_id' => $variant->id,
-            ]);
-            $this->sendQuestion($messenger, $chatId, $variant->body);
-        } else {
-            $this->clearState($botItem, $chatId, $type);
-            $messenger->send($chatId, trans('growth_companion.error'), $this->simpleHomeKeyboard());
-        }
+        $this->service->completeOnboarding($profile, $focus, $intensity, $notifyTime, $customFocus);
+        $this->clearState($botItem, $chatId, $type);
+        $profile->refresh();
+        $this->sendBoard($messenger, $profile, $chatId);
     }
 
-    private function sendCurrentQuestion(
-        GrowthMessenger $messenger,
-        Bot $botItem,
-        string $type,
-        string $chatId,
-        BotUsers $botUser
-    ): void {
-        $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-        $question = $this->service->activeQuestion($profile);
-        if (!$question) {
-            $messenger->send($chatId, trans('growth_companion.no_active_question'), $this->simpleHomeKeyboard());
+    private function sendBoard(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId, ?string $preamble = null): void
+    {
+        $text = trans('growth_companion.board_title');
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
+        $messenger->send($chatId, $text, $this->boardKeyboard($profile));
+    }
 
-            return;
+    private function boardKeyboard(GrowthProfile $profile): array
+    {
+        $rows = [];
+        $row = [];
+        foreach ($this->service->enabledTopics($profile) as $topic) {
+            $done = $this->service->isTopicDone($profile, $topic);
+            $row[] = [
+                'text' => ($done ? '✅ ' : '☐ ').$topic->displayLabel(),
+                'callback_data' => 'gc:b:'.$topic->template_slug,
+            ];
+            if (count($row) === 2) {
+                $rows[] = $row;
+                $row = [];
+            }
+        }
+        if ($row !== []) {
+            $rows[] = $row;
         }
 
-        $variant = $this->service->pickVariant($question, $botUser->id, $botItem->language_code);
-        if (!$variant) {
-            $messenger->send($chatId, trans('growth_companion.error'), $this->simpleHomeKeyboard());
+        $rows[] = [
+            ['text' => trans('growth_companion.btn_add_topic'), 'callback_data' => 'gc:add'],
+            ['text' => trans('growth_companion.btn_remove_topic'), 'callback_data' => 'gc:del'],
+        ];
+        $rows[] = [
+            ['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set'],
+        ];
 
-            return;
-        }
-
-        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_ANSWER, [
-            'question_id' => $question->id,
-            'variant_id' => $variant->id,
-        ]);
-        $this->sendQuestion($messenger, $chatId, $variant->body);
+        return $rows;
     }
 
     private function sendQuestion(GrowthMessenger $messenger, string $chatId, string $body): void
@@ -436,27 +702,177 @@ class GrowthCompanionController extends Controller
         ]);
     }
 
-    private function sendSettings(GrowthMessenger $messenger, Bot $botItem, string $chatId, BotUsers $botUser): void
-    {
+    private function sendSettings(
+        GrowthMessenger $messenger,
+        Bot $botItem,
+        string $chatId,
+        BotUsers $botUser,
+        ?string $preamble = null
+    ): void {
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-        $question = $this->service->activeQuestion($profile, true);
-        $paused = $question?->paused_at !== null;
+        $current = $profile->intensity ?: 'balanced';
+        $text = trans('growth_companion.settings_title');
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
 
         $rows = [
-            [[
-                'text' => $paused ? trans('growth_companion.btn_unpause') : trans('growth_companion.btn_pause'),
-                'callback_data' => $paused ? 'gc:u' : 'gc:p',
-            ]],
+            [
+                $this->intensityBtn('min', 'minimal', $current),
+                $this->intensityBtn('bal', 'balanced', $current),
+                $this->intensityBtn('act', 'active', $current),
+            ],
             [
                 ['text' => trans('growth_companion.btn_daily'), 'callback_data' => 'gc:freq:d'],
                 ['text' => trans('growth_companion.btn_weekly'), 'callback_data' => 'gc:freq:w'],
             ],
+            [
+                ['text' => trans('growth_companion.btn_pause'), 'callback_data' => 'gc:p'],
+                ['text' => trans('growth_companion.btn_unpause'), 'callback_data' => 'gc:u'],
+            ],
+            [['text' => trans('growth_companion.btn_cadence'), 'callback_data' => 'gc:cad']],
+            [['text' => trans('growth_companion.btn_weekly_review'), 'callback_data' => 'gc:rev']],
+            [['text' => trans('growth_companion.btn_export'), 'callback_data' => 'gc:exp']],
             [['text' => trans('growth_companion.btn_custom_question'), 'callback_data' => 'gc:cq']],
             [['text' => trans('growth_companion.btn_privacy'), 'callback_data' => 'gc:priv']],
-            [['text' => trans('growth_companion.btn_ask'), 'callback_data' => 'gc:ask']],
+            [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']],
         ];
 
-        $messenger->send($chatId, trans('growth_companion.settings_title'), $rows);
+        if ($profile->isAdvanced()) {
+            $rows[] = [['text' => trans('growth_companion.btn_weekdays'), 'callback_data' => 'gc:wdm']];
+            $rows[] = [['text' => trans('growth_companion.btn_ai_variants'), 'callback_data' => 'gc:ai']];
+            $rows[] = [['text' => trans('growth_companion.btn_simple_mode'), 'callback_data' => 'gc:adv']];
+        } else {
+            $rows[] = [['text' => trans('growth_companion.btn_advanced'), 'callback_data' => 'gc:adv']];
+        }
+
+        $messenger->send($chatId, $text, $rows);
+    }
+
+    private function intensityBtn(string $code, string $intensity, string $current): array
+    {
+        $label = trans('growth_companion.intensity.'.$intensity);
+        if ($current === $intensity) {
+            $label = '✓ '.$label;
+        }
+
+        return ['text' => $label, 'callback_data' => 'gc:int:'.$code];
+    }
+
+    private function sendAddTopicMenu(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId): void
+    {
+        $slugs = $this->service->addableSlugs($profile);
+        if ($slugs === []) {
+            $messenger->send($chatId, trans('growth_companion.no_topics_to_add'), $this->boardKeyboard($profile));
+
+            return;
+        }
+
+        $rows = [];
+        $row = [];
+        foreach ($slugs as $slug) {
+            $row[] = [
+                'text' => trans('growth_companion.focus.'.$slug) === 'growth_companion.focus.'.$slug
+                    ? $slug
+                    : trans('growth_companion.focus.'.$slug),
+                'callback_data' => 'gc:a:'.$slug,
+            ];
+            if (count($row) === 2) {
+                $rows[] = $row;
+                $row = [];
+            }
+        }
+        if ($row !== []) {
+            $rows[] = $row;
+        }
+        $rows[] = [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']];
+        $messenger->send($chatId, trans('growth_companion.pick_add_topic'), $rows);
+    }
+
+    private function sendRemoveTopicMenu(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId): void
+    {
+        $topics = $this->service->enabledTopics($profile);
+        if ($topics->isEmpty()) {
+            $messenger->send($chatId, trans('growth_companion.no_topics_to_remove'), $this->boardKeyboard($profile));
+
+            return;
+        }
+
+        $rows = [];
+        foreach ($topics as $topic) {
+            $rows[] = [[
+                'text' => $topic->displayLabel(),
+                'callback_data' => 'gc:x:'.$topic->template_slug,
+            ]];
+        }
+        $rows[] = [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']];
+        $messenger->send($chatId, trans('growth_companion.pick_remove_topic'), $rows);
+    }
+
+    private function sendCadenceMenu(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId, ?string $preamble = null): void
+    {
+        $text = trans('growth_companion.cadence_menu');
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
+        $rows = [];
+        foreach ($this->service->enabledTopics($profile) as $topic) {
+            $mark = $topic->cadence === 'weekly'
+                ? trans('growth_companion.btn_weekly')
+                : trans('growth_companion.btn_daily');
+            $rows[] = [[
+                'text' => $mark.' · '.$topic->displayLabel(),
+                'callback_data' => 'gc:c:'.$topic->template_slug,
+            ]];
+        }
+        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $messenger->send($chatId, $text, $rows);
+    }
+
+    private function sendWeekdayTopicMenu(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId): void
+    {
+        $rows = [];
+        foreach ($this->service->enabledTopics($profile) as $topic) {
+            $rows[] = [[
+                'text' => $topic->displayLabel(),
+                'callback_data' => 'gc:w:'.$topic->template_slug,
+            ]];
+        }
+        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $messenger->send($chatId, trans('growth_companion.weekday_menu'), $rows);
+    }
+
+    private function sendWeekdayPicker(
+        GrowthMessenger $messenger,
+        GrowthProfile $profile,
+        string $chatId,
+        string $slug,
+        ?string $preamble = null
+    ): void {
+        $topic = $this->topicBySlug($profile, $slug, true);
+        $selected = array_map('intval', $topic?->weekdays ?? []);
+        $text = trans('growth_companion.weekday_menu');
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
+        $rows = [];
+        $row = [];
+        for ($day = 0; $day <= 6; $day++) {
+            $label = trans('growth_companion.weekdays.'.$day);
+            if (in_array($day, $selected, true)) {
+                $label = '✓ '.$label;
+            }
+            $row[] = ['text' => $label, 'callback_data' => 'gc:k:'.$slug.':'.$day];
+            if (count($row) === 4) {
+                $rows[] = $row;
+                $row = [];
+            }
+        }
+        if ($row !== []) {
+            $rows[] = $row;
+        }
+        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $messenger->send($chatId, $text, $rows);
     }
 
     private function sendPrivacy(GrowthMessenger $messenger, string $chatId): void
@@ -489,28 +905,21 @@ class GrowthCompanionController extends Controller
         return $rows;
     }
 
-    private function simpleHomeKeyboard(): array
-    {
-        return [
-            [
-                ['text' => trans('growth_companion.btn_ask'), 'callback_data' => 'gc:ask'],
-                ['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set'],
-            ],
-        ];
-    }
-
-    private function simpleAfterAnswerKeyboard(): array
-    {
-        return [
-            [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']],
-        ];
-    }
-
     private function restartKeyboard(): array
     {
         return [
             [['text' => trans('growth_companion.btn_restart'), 'callback_data' => 'gc:ask']],
         ];
+    }
+
+    private function topicBySlug(GrowthProfile $profile, string $slug, bool $includeDisabled = false): ?GrowthProfileTopic
+    {
+        $query = $profile->topics()->where('template_slug', $slug);
+        if (!$includeDisabled) {
+            $query->where('enabled', true);
+        }
+
+        return $query->first();
     }
 
     private function resolveBotAndToken(Request $request, string $type): ?array

@@ -509,7 +509,7 @@
 **endpoint_id:** `webhook-growth-companion`
 
 ### توضیحات
-موتور رشد شخصی قابل‌تنظیم: سؤال روزانه، تأمل، و برنامه جدا برای هر حوزه زندگی. معنویت فقط یکی از قالب‌هاست. مستندات: [`docs/features/GROWTH_COMPANION.md`](./features/GROWTH_COMPANION.md)
+موتور رشد شخصی قابل‌تنظیم: تختهٔ روزانه با چک‌باکس، شدت سؤال واقعی، مرور هفته، و برنامه جدا برای هر حوزه. معنویت فقط یکی از قالب‌هاست. مستندات: [`docs/features/GROWTH_COMPANION.md`](./features/GROWTH_COMPANION.md)
 
 ---
 ---

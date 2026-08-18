@@ -42,15 +42,15 @@ class GrowthDispatchDueCommand extends Command
                     continue;
                 }
 
-                if ($this->service->inQuietHours($profile)) {
+                $reason = $this->service->dispatchSkipReason($schedule, $profile);
+                if ($reason === 'quiet') {
                     $skipped++;
                     continue;
                 }
-
-                if ($this->service->budgetExhaustedToday($profile)) {
+                if ($reason !== null) {
                     $schedule->next_due_at = $this->service->computeNextDueAt($profile, $question->frequency);
                     $schedule->save();
-                    Log::info('[GrowthCompanion] dispatch_skipped_budget', [
+                    Log::info('[GrowthCompanion] dispatch_skipped_'.$reason, [
                         'bot_id' => $profile->bot_id,
                         'schedule_id' => $schedule->id,
                     ]);

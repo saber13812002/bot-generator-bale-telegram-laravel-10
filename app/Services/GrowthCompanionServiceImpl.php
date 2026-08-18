@@ -3,13 +3,16 @@
 namespace App\Services;
 
 use App\Interfaces\Services\GrowthCompanionService;
+use App\Interfaces\Services\GrowthLlmProvider;
 use App\Models\BotUsers;
 use App\Models\GrowthProfile;
+use App\Models\GrowthProfileTopic;
 use App\Models\GrowthProgram;
 use App\Models\GrowthQuestion;
 use App\Models\GrowthQuestionSchedule;
 use App\Models\GrowthQuestionVariant;
 use App\Models\GrowthResponse;
+use App\Models\GrowthReview;
 use App\Models\GrowthTemplate;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -17,8 +20,15 @@ use Illuminate\Support\Facades\Log;
 
 class GrowthCompanionServiceImpl implements GrowthCompanionService
 {
-    public function __construct(private GrowthQuestionSelector $selector)
+    public function __construct(
+        private GrowthQuestionSelector $selector,
+        private GrowthLlmProvider $llm
+    ) {
+    }
+
+    public static function budgetForIntensity(string $intensity): int
     {
+        return $intensity === 'active' ? 2 : 1;
     }
 
     public function getOrCreateProfile(BotUsers $botUser, int $botId): GrowthProfile
@@ -35,6 +45,8 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
                 'depth' => 'quick',
                 'intensity' => 'balanced',
                 'interaction_budget_per_day' => 1,
+                'day_reset_hour' => 3,
+                'ai_consent' => false,
             ]
         );
     }
@@ -46,37 +58,30 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
         string $notifyTime,
         ?string $customFocus = null
     ): GrowthProgram {
-        $frequency = $intensity === 'minimal' ? 'weekly' : 'daily';
-        $budget = $intensity === 'active' ? 2 : 1;
-
         $profile->intensity = $intensity;
         $profile->notify_time = $notifyTime;
-        $profile->interaction_budget_per_day = $budget;
+        $profile->interaction_budget_per_day = self::budgetForIntensity($intensity);
+        $profile->day_reset_hour = $profile->day_reset_hour ?: 3;
         $profile->onboarding_completed_at = now();
         $profile->save();
 
-        $profile->programs()->where('status', 'active')->update(['status' => 'paused']);
+        $this->ensureDefaultBoard($profile, $focusSlug, $customFocus);
 
-        $template = GrowthTemplate::where('slug', $focusSlug)->with('questions')->first();
-        $programName = $customFocus
-            ?: ($template?->name ?? trans('growth_companion.focus.'.$focusSlug, [], app()->getLocale()));
+        $primarySlug = $focusSlug === 'custom'
+            ? $this->customSlugForLabel($customFocus ?: trans('growth_companion.focus.custom'))
+            : $focusSlug;
+        $primary = $profile->programs()
+            ->where('status', 'active')
+            ->where('template_slug', $primarySlug)
+            ->latest('id')
+            ->first();
 
-        $program = GrowthProgram::create([
-            'growth_profile_id' => $profile->id,
-            'bot_id' => $profile->bot_id,
-            'bot_user_id' => $profile->bot_user_id,
-            'name' => $programName,
-            'template_slug' => $focusSlug,
-            'status' => 'active',
-            'settings' => ['frequency' => $frequency],
-        ]);
-
-        if ($template && $template->questions->isNotEmpty()) {
-            foreach ($template->questions as $templateQuestion) {
-                $this->instantiateTemplateQuestion($program, $templateQuestion, $frequency, $profile);
-            }
-        } else {
-            $this->createGenericQuestion($program, $profile, $frequency, $customFocus ?: $focusSlug);
+        if (!$primary) {
+            $primary = $profile->activeProgram();
+        }
+        if (!$primary) {
+            $fallback = $this->enableTopic($profile, 'self');
+            $primary = $this->programForSlug($profile, $fallback->template_slug, true);
         }
 
         Log::info('[GrowthCompanion] Onboarding completed', [
@@ -85,7 +90,442 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
             'focus' => $focusSlug,
         ]);
 
-        return $program->fresh(['questions.variants', 'questions.schedule']);
+        return $primary->fresh(['questions.variants', 'questions.schedule']);
+    }
+
+    public function ensureDefaultBoard(GrowthProfile $profile, ?string $primarySlug = null, ?string $customLabel = null): void
+    {
+        $slugs = GrowthProfile::DEFAULT_BOARD_SLUGS;
+        if ($primarySlug && $primarySlug !== 'custom' && !in_array($primarySlug, $slugs, true)) {
+            $slugs[] = $primarySlug;
+        }
+
+        foreach ($slugs as $index => $slug) {
+            $topic = $this->enableTopic($profile, $slug);
+            if ($topic->sort_order !== $index) {
+                $topic->sort_order = $index;
+                $topic->save();
+            }
+        }
+
+        if ($primarySlug === 'custom') {
+            $this->addCustomTopic(
+                $profile,
+                $customLabel ?: trans('growth_companion.focus.custom')
+            );
+        }
+    }
+
+    public function enableTopic(GrowthProfile $profile, string $slug, ?string $customLabel = null): GrowthProfileTopic
+    {
+        $max = (int) $profile->topics()->max('sort_order');
+        $topic = GrowthProfileTopic::firstOrNew([
+            'growth_profile_id' => $profile->id,
+            'template_slug' => $slug,
+        ]);
+        $creating = !$topic->exists;
+        $topic->enabled = true;
+        $topic->cadence = $topic->cadence ?: 'daily';
+        if ($customLabel) {
+            $topic->custom_label = $customLabel;
+        }
+        if ($creating) {
+            $topic->sort_order = $max + 1;
+        }
+        $topic->save();
+
+        $this->ensureProgramForTopic($profile, $topic);
+
+        return $topic;
+    }
+
+    public function addCustomTopic(GrowthProfile $profile, string $label): GrowthProfileTopic
+    {
+        return $this->enableTopic($profile, $this->customSlugForLabel($label), $label);
+    }
+
+    public function disableTopic(GrowthProfile $profile, string $slug): bool
+    {
+        $topic = GrowthProfileTopic::where('growth_profile_id', $profile->id)
+            ->where('template_slug', $slug)
+            ->first();
+        if (!$topic) {
+            return false;
+        }
+
+        $topic->enabled = false;
+        $topic->save();
+
+        $program = $this->programForSlug($profile, $slug);
+        if ($program) {
+            $program->status = 'paused';
+            $program->save();
+            $program->questions()->update(['paused_at' => now()]);
+        }
+
+        return true;
+    }
+
+    public function enabledTopics(GrowthProfile $profile): Collection
+    {
+        return $profile->topics()
+            ->where('enabled', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function setTopicCadence(GrowthProfile $profile, string $slug, string $cadence): bool
+    {
+        if (!in_array($cadence, ['daily', 'weekly'], true)) {
+            return false;
+        }
+
+        $topic = GrowthProfileTopic::where('growth_profile_id', $profile->id)
+            ->where('template_slug', $slug)
+            ->first();
+        if (!$topic) {
+            return false;
+        }
+
+        $topic->cadence = $cadence;
+        $topic->save();
+        $this->syncQuestionCadence($profile, $slug, $cadence);
+
+        return true;
+    }
+
+    public function toggleTopicWeekday(GrowthProfile $profile, string $slug, int $weekday): bool
+    {
+        if ($weekday < 0 || $weekday > 6) {
+            return false;
+        }
+
+        $topic = GrowthProfileTopic::where('growth_profile_id', $profile->id)
+            ->where('template_slug', $slug)
+            ->first();
+        if (!$topic) {
+            return false;
+        }
+
+        $days = array_values(array_map('intval', $topic->weekdays ?? []));
+        if (in_array($weekday, $days, true)) {
+            $days = array_values(array_filter($days, fn ($day) => $day !== $weekday));
+        } else {
+            $days[] = $weekday;
+            sort($days);
+        }
+        $topic->weekdays = $days === [] ? null : $days;
+        $topic->save();
+
+        $question = $this->questionForTopic($profile, $slug, true);
+        $schedule = $question?->schedule;
+        if ($schedule) {
+            $schedule->days_of_week = $topic->weekdays;
+            $schedule->save();
+        }
+
+        return true;
+    }
+
+    public function setIntensity(GrowthProfile $profile, string $intensity): void
+    {
+        if (!in_array($intensity, ['minimal', 'balanced', 'active'], true)) {
+            return;
+        }
+
+        $profile->intensity = $intensity;
+        $profile->interaction_budget_per_day = self::budgetForIntensity($intensity);
+        $profile->save();
+    }
+
+    public function dayWindowStart(GrowthProfile $profile, ?Carbon $now = null): Carbon
+    {
+        $tz = $profile->timezone ?: 'Asia/Tehran';
+        $hour = (int) ($profile->day_reset_hour ?: 3);
+        $now = ($now ?: Carbon::now($tz))->copy()->timezone($tz);
+        $boundary = $now->copy()->startOfDay()->addHours($hour);
+        if ($now->lt($boundary)) {
+            $boundary->subDay();
+        }
+
+        return $boundary->utc();
+    }
+
+    public function weekWindowStart(GrowthProfile $profile, ?Carbon $now = null): Carbon
+    {
+        $tz = $profile->timezone ?: 'Asia/Tehran';
+        $hour = (int) ($profile->day_reset_hour ?: 3);
+        $now = ($now ?: Carbon::now($tz))->copy()->timezone($tz);
+        $monday = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay()->addHours($hour);
+        if ($now->lt($monday)) {
+            $monday->subWeek();
+        }
+
+        return $monday->utc();
+    }
+
+    public function isTopicDone(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): bool
+    {
+        $question = $this->questionForTopic($profile, $topic->template_slug, true);
+        if (!$question) {
+            return false;
+        }
+
+        $start = $topic->isWeekly()
+            ? $this->weekWindowStart($profile, $now)
+            : $this->dayWindowStart($profile, $now);
+
+        return $question->responses()
+            ->where('answered_at', '>=', $start)
+            ->exists();
+    }
+
+    public function canOpenTopic(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): string
+    {
+        if ($this->isTopicDone($profile, $topic, $now)) {
+            return $topic->isWeekly() ? 'done_week' : 'done_today';
+        }
+
+        if ($this->topicSentInDayWindow($profile, $topic, $now)) {
+            return 'ask';
+        }
+
+        if ($this->usedBudgetToday($profile, $now) >= $profile->dailyBudget()) {
+            return 'budget';
+        }
+
+        return 'ask';
+    }
+
+    public function questionForTopic(GrowthProfile $profile, string $slug, bool $includePaused = false): ?GrowthQuestion
+    {
+        $program = $this->programForSlug($profile, $slug, $includePaused);
+        if (!$program) {
+            return null;
+        }
+
+        $query = $program->questions()->with(['variants', 'schedule']);
+        if (!$includePaused) {
+            $query->where('active', true)->whereNull('paused_at');
+        }
+
+        return $query->latest('id')->first();
+    }
+
+    public function usedBudgetToday(GrowthProfile $profile, ?Carbon $now = null): int
+    {
+        $start = $this->dayWindowStart($profile, $now);
+        $programIds = $profile->programs()->where('status', 'active')->pluck('id');
+        $used = [];
+
+        $answeredQuestionIds = GrowthResponse::query()
+            ->whereIn(
+                'growth_question_id',
+                GrowthQuestion::whereIn('growth_program_id', $programIds)->pluck('id')
+            )
+            ->where('answered_at', '>=', $start)
+            ->pluck('growth_question_id');
+
+        foreach (GrowthQuestion::whereIn('id', $answeredQuestionIds)->pluck('growth_program_id') as $programId) {
+            $used[(int) $programId] = true;
+        }
+
+        $sentQuestionIds = GrowthQuestionSchedule::query()
+            ->whereIn(
+                'growth_question_id',
+                GrowthQuestion::whereIn('growth_program_id', $programIds)->pluck('id')
+            )
+            ->where('last_sent_at', '>=', $start)
+            ->pluck('growth_question_id');
+
+        foreach (GrowthQuestion::whereIn('id', $sentQuestionIds)->pluck('growth_program_id') as $programId) {
+            $used[(int) $programId] = true;
+        }
+
+        return count($used);
+    }
+
+    private function topicSentInDayWindow(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): bool
+    {
+        $question = $this->questionForTopic($profile, $topic->template_slug, true);
+        $schedule = $question?->schedule;
+        if (!$schedule?->last_sent_at) {
+            return false;
+        }
+
+        return $schedule->last_sent_at->gte($this->dayWindowStart($profile, $now));
+    }
+
+    public function weeklyReviewText(GrowthProfile $profile): string
+    {
+        $start = $this->weekWindowStart($profile);
+        $topics = $this->enabledTopics($profile);
+        $lines = [trans('growth_companion.weekly_review_title')];
+        $answered = 0;
+
+        foreach ($topics as $topic) {
+            $question = $this->questionForTopic($profile, $topic->template_slug, true);
+            $count = 0;
+            if ($question) {
+                $count = $question->responses()->where('answered_at', '>=', $start)->count();
+            }
+            $answered += $count;
+            $lines[] = $topic->displayLabel().': '.$count;
+        }
+
+        if ($answered === 0) {
+            $lines[] = trans('growth_companion.weekly_review_empty');
+        }
+
+        return implode("\n", $lines);
+    }
+
+    public function saveWeeklyReview(GrowthProfile $profile, string $body): GrowthReview
+    {
+        return GrowthReview::create([
+            'growth_profile_id' => $profile->id,
+            'period_start' => $this->weekWindowStart($profile),
+            'period_end' => now(),
+            'body' => $body,
+            'stats' => ['answered' => $this->usedBudgetToday($profile)],
+        ]);
+    }
+
+    public function exportData(GrowthProfile $profile): array
+    {
+        $topics = [];
+        foreach ($this->enabledTopics($profile) as $topic) {
+            $topics[] = [
+                'slug' => $topic->template_slug,
+                'label' => $topic->displayLabel(),
+                'cadence' => $topic->cadence,
+            ];
+        }
+
+        $responses = [];
+        $programIds = $profile->programs()->pluck('id');
+        $questions = GrowthQuestion::whereIn('growth_program_id', $programIds)->get();
+        foreach ($questions as $question) {
+            foreach ($question->responses()->orderBy('answered_at')->get() as $response) {
+                $responses[] = [
+                    'question_key' => $question->question_key,
+                    'answered_at' => optional($response->answered_at)?->toIso8601String(),
+                    'body' => $response->body,
+                ];
+            }
+        }
+
+        return [
+            'exported_at' => now()->toIso8601String(),
+            'intensity' => $profile->intensity,
+            'timezone' => $profile->timezone,
+            'topics' => $topics,
+            'responses' => $responses,
+        ];
+    }
+
+    public function generateAiVariants(GrowthQuestion $question, string $locale, int $count = 3): int
+    {
+        $bodies = $this->llm->generateVariants(
+            (string) ($question->intent ?: $question->question_key),
+            (string) ($question->domain ?: 'self'),
+            (int) ($question->difficulty ?: 1),
+            $locale,
+            $count
+        );
+
+        $added = 0;
+        foreach ($bodies as $body) {
+            $exists = $question->variants()
+                ->where('locale', $locale)
+                ->where('body', $body)
+                ->exists();
+            if ($exists) {
+                continue;
+            }
+            GrowthQuestionVariant::create([
+                'growth_question_id' => $question->id,
+                'body' => $body,
+                'locale' => $locale,
+                'difficulty' => $question->difficulty ?: 1,
+            ]);
+            $added++;
+        }
+
+        return $added;
+    }
+
+    public function setAiConsent(GrowthProfile $profile, bool $consent): void
+    {
+        $profile->ai_consent = $consent;
+        $profile->save();
+    }
+
+    public function setMode(GrowthProfile $profile, string $mode): void
+    {
+        $profile->mode = $mode === 'advanced' ? 'advanced' : 'simple';
+        $profile->save();
+    }
+
+    public function addableSlugs(GrowthProfile $profile): array
+    {
+        $enabled = $profile->topics()->where('enabled', true)->pluck('template_slug')->all();
+        $catalog = array_values(array_unique(array_merge(
+            GrowthProfile::CATALOG_SLUGS,
+            GrowthTemplate::query()->pluck('slug')->all()
+        )));
+
+        return array_values(array_filter(
+            $catalog,
+            fn (string $slug) => !in_array($slug, $enabled, true)
+        ));
+    }
+
+    public function dispatchSkipReason(GrowthQuestionSchedule $schedule, GrowthProfile $profile): ?string
+    {
+        if ($this->inQuietHours($profile)) {
+            return 'quiet';
+        }
+
+        $question = $schedule->question;
+        $program = $question?->program;
+        if (!$question || !$program) {
+            return 'missing';
+        }
+
+        $topic = GrowthProfileTopic::where('growth_profile_id', $profile->id)
+            ->where('template_slug', $program->template_slug)
+            ->first();
+
+        if ($topic && !$topic->enabled) {
+            return 'disabled';
+        }
+
+        if ($topic && $this->isTopicDone($profile, $topic)) {
+            return 'done';
+        }
+
+        $start = $this->dayWindowStart($profile);
+        if ($schedule->last_sent_at && $schedule->last_sent_at->gte($start)) {
+            return 'already_sent';
+        }
+
+        if ($this->budgetExhaustedToday($profile)) {
+            return 'budget';
+        }
+
+        $days = $schedule->days_of_week ?: ($topic->weekdays ?? null);
+        if (is_array($days) && $days !== []) {
+            $tz = $profile->timezone ?: 'Asia/Tehran';
+            $dow = Carbon::now($tz)->dayOfWeek;
+            $days = array_map('intval', $days);
+            if (!in_array($dow, $days, true)) {
+                return 'weekday';
+            }
+        }
+
+        return null;
     }
 
     public function recordResponse(
@@ -114,35 +554,33 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
 
     public function pauseActiveQuestion(GrowthProfile $profile): bool
     {
-        $question = $this->activeQuestion($profile);
-        if (!$question) {
-            return false;
+        $updated = 0;
+        foreach ($profile->activePrograms()->get() as $program) {
+            $updated += $program->questions()->update(['paused_at' => now()]);
         }
 
-        $question->paused_at = now();
-        $question->save();
-
-        return true;
+        return $updated > 0;
     }
 
     public function unpauseActiveQuestion(GrowthProfile $profile): bool
     {
-        $question = $this->activeQuestion($profile, includePaused: true);
-        if (!$question) {
-            return false;
+        $updated = 0;
+        foreach ($profile->activePrograms()->get() as $program) {
+            $questions = $program->questions()->get();
+            foreach ($questions as $question) {
+                $question->paused_at = null;
+                $question->active = true;
+                $question->save();
+                $schedule = $question->schedule;
+                if ($schedule) {
+                    $schedule->next_due_at = $this->computeNextDueAt($profile, $question->frequency);
+                    $schedule->save();
+                }
+                $updated++;
+            }
         }
 
-        $question->paused_at = null;
-        $question->active = true;
-        $question->save();
-
-        $schedule = $question->schedule;
-        if ($schedule) {
-            $schedule->next_due_at = $this->computeNextDueAt($profile, $question->frequency);
-            $schedule->save();
-        }
-
-        return true;
+        return $updated > 0;
     }
 
     public function setFrequency(GrowthProfile $profile, string $frequency): bool
@@ -151,42 +589,22 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
             return false;
         }
 
-        $question = $this->activeQuestion($profile, includePaused: true);
-        if (!$question) {
-            return false;
+        $ok = false;
+        foreach ($this->enabledTopics($profile) as $topic) {
+            if ($this->setTopicCadence($profile, $topic->template_slug, $frequency)) {
+                $ok = true;
+            }
         }
 
-        $question->frequency = $frequency;
-        $question->save();
-
-        $schedule = $question->schedule;
-        if ($schedule) {
-            $schedule->cadence_type = $frequency;
-            $schedule->next_due_at = $this->computeNextDueAt($profile, $frequency);
-            $schedule->save();
-        }
-
-        $program = $question->program;
-        $settings = $program->settings ?? [];
-        $settings['frequency'] = $frequency;
-        $program->settings = $settings;
-        $program->save();
-
-        return true;
+        return $ok;
     }
 
     public function addCustomQuestion(GrowthProfile $profile, string $text): GrowthQuestion
     {
         $program = $profile->activeProgram();
         if (!$program) {
-            $program = GrowthProgram::create([
-                'growth_profile_id' => $profile->id,
-                'bot_id' => $profile->bot_id,
-                'bot_user_id' => $profile->bot_user_id,
-                'name' => trans('growth_companion.custom_program'),
-                'template_slug' => 'custom',
-                'status' => 'active',
-            ]);
+            $topic = $this->addCustomTopic($profile, trans('growth_companion.custom_program'));
+            $program = $this->programForSlug($profile, $topic->template_slug, true);
         }
 
         $question = GrowthQuestion::create([
@@ -219,22 +637,24 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
 
     public function deleteProgram(GrowthProfile $profile): bool
     {
-        $program = $profile->activeProgram();
-        if (!$program) {
-            return false;
+        $had = false;
+        foreach ($profile->programs as $program) {
+            $had = true;
+            $program->status = 'deleted';
+            $program->save();
+            $program->questions()->update(['active' => false, 'paused_at' => now()]);
         }
+        $profile->topics()->update(['enabled' => false]);
 
-        $program->status = 'deleted';
-        $program->save();
-        $program->questions()->update(['active' => false, 'paused_at' => now()]);
-
-        return true;
+        return $had;
     }
 
     public function deleteAllGrowthData(BotUsers $botUser, int $botId): void
     {
         $profiles = GrowthProfile::where('bot_user_id', $botUser->id)->where('bot_id', $botId)->get();
         foreach ($profiles as $profile) {
+            $profile->reviews()->delete();
+            $profile->topics()->delete();
             foreach ($profile->programs as $program) {
                 foreach ($program->questions as $question) {
                     $question->responses()->delete();
@@ -295,19 +715,7 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
 
     public function budgetExhaustedToday(GrowthProfile $profile): bool
     {
-        $tz = $profile->timezone ?: 'Asia/Tehran';
-        $start = Carbon::now($tz)->startOfDay()->utc();
-        $end = Carbon::now($tz)->endOfDay()->utc();
-        $budget = max(1, (int) $profile->interaction_budget_per_day);
-
-        $sent = GrowthQuestionSchedule::query()
-            ->whereHas('question.program', function ($query) use ($profile) {
-                $query->where('growth_profile_id', $profile->id);
-            })
-            ->whereBetween('last_sent_at', [$start, $end])
-            ->count();
-
-        return $sent >= $budget;
+        return $this->usedBudgetToday($profile) >= $profile->dailyBudget();
     }
 
     public function inQuietHours(GrowthProfile $profile): bool
@@ -349,6 +757,87 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
         }
 
         return $query->latest('id')->first();
+    }
+
+    private function ensureProgramForTopic(GrowthProfile $profile, GrowthProfileTopic $topic): GrowthProgram
+    {
+        $program = $this->programForSlug($profile, $topic->template_slug, true);
+        if ($program) {
+            $program->status = 'active';
+            if ($topic->custom_label) {
+                $program->name = $topic->custom_label;
+            }
+            $program->save();
+            $program->questions()->update(['active' => true, 'paused_at' => null]);
+
+            return $program;
+        }
+
+        $template = GrowthTemplate::where('slug', $topic->template_slug)->with('questions')->first();
+        $name = $topic->custom_label
+            ?: ($template?->name ?? $topic->displayLabel());
+
+        $program = GrowthProgram::create([
+            'growth_profile_id' => $profile->id,
+            'bot_id' => $profile->bot_id,
+            'bot_user_id' => $profile->bot_user_id,
+            'name' => $name,
+            'template_slug' => $topic->template_slug,
+            'status' => 'active',
+            'settings' => ['frequency' => $topic->cadence ?: 'daily'],
+        ]);
+
+        $frequency = $topic->cadence ?: 'daily';
+        if ($template && $template->questions->isNotEmpty()) {
+            foreach ($template->questions as $templateQuestion) {
+                $this->instantiateTemplateQuestion($program, $templateQuestion, $frequency, $profile);
+            }
+        } else {
+            $this->createGenericQuestion($program, $profile, $frequency, $topic->template_slug);
+        }
+
+        return $program;
+    }
+
+    private function programForSlug(GrowthProfile $profile, string $slug, bool $includeInactive = false): ?GrowthProgram
+    {
+        $query = $profile->programs()->where('template_slug', $slug);
+        if (!$includeInactive) {
+            $query->where('status', 'active');
+        }
+
+        return $query->latest('id')->first();
+    }
+
+    private function syncQuestionCadence(GrowthProfile $profile, string $slug, string $cadence): void
+    {
+        $program = $this->programForSlug($profile, $slug, true);
+        if (!$program) {
+            return;
+        }
+
+        $settings = $program->settings ?? [];
+        $settings['frequency'] = $cadence;
+        $program->settings = $settings;
+        $program->save();
+
+        foreach ($program->questions as $question) {
+            $question->frequency = $cadence;
+            $question->save();
+            $schedule = $question->schedule;
+            if ($schedule) {
+                $schedule->cadence_type = $cadence;
+                $schedule->next_due_at = $this->computeNextDueAt($profile, $cadence);
+                $schedule->save();
+            }
+        }
+    }
+
+    private function customSlugForLabel(?string $label): string
+    {
+        $seed = $label ?: (string) microtime(true);
+
+        return 'u'.substr(sha1($seed), 0, 8);
     }
 
     private function instantiateTemplateQuestion(

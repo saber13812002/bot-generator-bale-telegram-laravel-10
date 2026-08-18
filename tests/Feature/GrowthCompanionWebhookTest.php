@@ -70,10 +70,11 @@ class GrowthCompanionWebhookTest extends TestCase
         $response = $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:t:skip'));
 
         $response->assertOk();
-        $this->assertSame(1, GrowthProgram::count());
-        $this->assertSame('health', GrowthProgram::first()->template_slug);
-        $this->assertStringContainsString('سلامت', (string) $this->messenger->lastText());
+        $this->assertGreaterThanOrEqual(6, GrowthProgram::count());
+        $this->assertSame('health', GrowthProgram::where('template_slug', 'health')->value('template_slug'));
+        $this->assertStringContainsString(trans('growth_companion.board_title'), (string) $this->messenger->lastText());
 
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:health'));
         $answer = $this->postJson(
             '/api/webhook-growth-companion?origin=bale&token='.$this->token,
             $this->textUpdate('امروز پیاده رفتم')
@@ -121,7 +122,9 @@ class GrowthCompanionWebhookTest extends TestCase
         $this->completeOnboarding();
 
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:freq:w'));
-        $this->assertSame('weekly', GrowthQuestion::first()->frequency);
+        $this->assertSame('weekly', GrowthQuestion::whereHas('program', function ($query) {
+            $query->where('template_slug', 'health');
+        })->value('frequency'));
     }
 
     private function completeOnboarding(): void

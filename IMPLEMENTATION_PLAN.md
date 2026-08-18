@@ -1056,16 +1056,20 @@ Domain is not hard-coded as religion.
 
 ## 27. Phase 2
 
-- Multiple programs
-- Weekly review in-chat (adapt Prayer weekly *aggregation*, send via BotHelper not email)
-- Custom frequency (days of week, every 2 weeks, Fridays)
-- AI variant generation with intent lock (`LlmProvider` + prompt files)
-- User feedback (“too many / too few questions”) affecting budget
-- Export my data
-- Advanced Mode UI
-- AI usage consent
+Status: implemented as 2A / 2B / 2C (board + intensity + remaining Phase 2 items).
 
-Acceptance: two programs; weekly summary; custom question already in MVP stays; generate 3 variants without changing `question_key` intent.
+- Multiple programs (daily topic board; default six categories)
+- Add / remove categories; seeder templates unchanged
+- Done-today checkbox; no repeat question the same day; reset after `day_reset_hour` (default 03:00 profile timezone)
+- Intensity is daily open-topic budget (`minimal`/`balanced` = 1, `active` = 2), not a silent weekly remap
+- Per-topic cadence daily vs weekly; custom weekdays in Advanced Mode
+- Weekly review in-chat (tentative counts + optional user note on `growth_reviews`)
+- AI variant generation with intent lock (`GrowthLlmProvider` + `resources/growth_prompts/variant_generation.v1.md`); no diagnosis/preaching; seeder variants if no API key
+- Export my data from settings
+- Advanced Mode UI (weekdays, AI consent/generate)
+- Dispatcher skips done-today / budget / weekday mismatch
+
+Acceptance: two programs on one board; weekly summary; custom question from MVP stays; generate variants without changing `question_key` intent.
 
 ---
 
@@ -1231,7 +1235,7 @@ This appendix is for a **future** implementation pass. This planning document do
 
 ### Phase 2 / 3 / 4
 
-As sections 27–28. Do not start until Phase 1 acceptance passes.
+Phase 2 (board, intensity budget, weekly review, LLM variants, export, Advanced Mode) is implemented. Phase 3–4 remain as sections 27–28. Do not start Phase 3 until Phase 2 acceptance is used in production.
 
 ---
 

@@ -150,7 +150,7 @@ graph LR
 | 34 | **📢 Admin Bot** | Multi-messenger admin panel | پنل مدیریت چندپیام‌رسانه |
 | 35 | **✅ RSS Admin Bot** | RSS feed management for admins | مدیریت فید RSS ادمین |
 | 36 | **📱 Social Publish** | Chrome Extension integration | یکپارچه‌سازی با افزونه کروم |
-| 37 | **🌱 Growth Companion** | Personal growth engine: daily reflection, programs per life area | رشدیار: سؤال روزانه و برنامه جدا برای هر حوزه زندگی |
+| 37 | **🌱 Growth Companion** | Daily topic board with checkboxes, intensity budget, weekly review | رشدیار: تختهٔ روزانه با چک‌باکس، بودجهٔ شدت سؤال، مرور هفته |
 
 ---
 

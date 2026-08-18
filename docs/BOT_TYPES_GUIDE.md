@@ -248,7 +248,7 @@ CREATE TABLE webhook_endpoints (
   "endpoint_id": "webhook-growth-companion",
   "name": "رشدیار",
   "route": "api/webhook-growth-companion",
-  "description": "موتور رشد شخصی: سؤال روزانه و برنامه جدا برای هر حوزه زندگی",
+  "description": "موتور رشد شخصی: تختهٔ روزانه، چک‌باکس موضوعات، بودجهٔ شدت سؤال",
   "requires_bot_mother_id": true,
   "requires_token": true
 }

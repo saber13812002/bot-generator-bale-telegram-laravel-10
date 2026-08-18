@@ -49,6 +49,7 @@ use App\Interfaces\Services\PoemBotService;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Interfaces\Services\GrowthCompanionService;
+use App\Interfaces\Services\GrowthLlmProvider;
 use App\Interfaces\Services\GrowthMessengerFactory;
 use App\Interfaces\Services\MpContactBotService;
 use App\Interfaces\Services\WeatherOpenWeatherMapApiService;
@@ -174,6 +175,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ChannelPosterPublisherFactory::class, TelegramChannelPosterPublisherFactory::class);
         $this->app->bind(GrowthCompanionService::class, GrowthCompanionServiceImpl::class);
         $this->app->bind(GrowthMessengerFactory::class, TelegramGrowthMessengerFactory::class);
+        $this->app->bind(GrowthLlmProvider::class, function () {
+            $key = config('growth.llm.api_key');
+            if (!$key) {
+                return new \App\Services\NullGrowthLlmProvider();
+            }
+
+            return new \App\Services\HttpGrowthLlmProvider(
+                new \GuzzleHttp\Client(),
+                (array) config('growth.llm')
+            );
+        });
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
         $this->app->singleton(\App\Services\MawkibFinderOtpService::class);
         

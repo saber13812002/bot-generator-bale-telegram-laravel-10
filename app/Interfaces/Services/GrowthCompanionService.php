@@ -4,11 +4,15 @@ namespace App\Interfaces\Services;
 
 use App\Models\BotUsers;
 use App\Models\GrowthProfile;
+use App\Models\GrowthProfileTopic;
 use App\Models\GrowthProgram;
 use App\Models\GrowthQuestion;
 use App\Models\GrowthQuestionSchedule;
 use App\Models\GrowthQuestionVariant;
 use App\Models\GrowthResponse;
+use App\Models\GrowthReview;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 interface GrowthCompanionService
 {
@@ -44,10 +48,10 @@ interface GrowthCompanionService
 
     public function pickVariant(GrowthQuestion $question, int $botUserId, ?string $locale = null): ?GrowthQuestionVariant;
 
-    public function computeNextDueAt(GrowthProfile $profile, string $frequency, ?\Carbon\Carbon $from = null): \Carbon\Carbon;
+    public function computeNextDueAt(GrowthProfile $profile, string $frequency, ?Carbon $from = null): Carbon;
 
     /**
-     * @return \Illuminate\Support\Collection<int, GrowthQuestionSchedule>
+     * @return Collection<int, GrowthQuestionSchedule>
      */
     public function dueSchedules(int $limit = 50);
 
@@ -58,4 +62,56 @@ interface GrowthCompanionService
     public function markSent(GrowthQuestionSchedule $schedule, GrowthProfile $profile): void;
 
     public function activeQuestion(GrowthProfile $profile, bool $includePaused = false): ?GrowthQuestion;
+
+    public function ensureDefaultBoard(GrowthProfile $profile, ?string $primarySlug = null, ?string $customLabel = null): void;
+
+    /**
+     * @return Collection<int, GrowthProfileTopic>
+     */
+    public function enabledTopics(GrowthProfile $profile): Collection;
+
+    public function enableTopic(GrowthProfile $profile, string $slug, ?string $customLabel = null): GrowthProfileTopic;
+
+    public function addCustomTopic(GrowthProfile $profile, string $label): GrowthProfileTopic;
+
+    public function disableTopic(GrowthProfile $profile, string $slug): bool;
+
+    public function setTopicCadence(GrowthProfile $profile, string $slug, string $cadence): bool;
+
+    public function toggleTopicWeekday(GrowthProfile $profile, string $slug, int $weekday): bool;
+
+    public function setIntensity(GrowthProfile $profile, string $intensity): void;
+
+    public function dayWindowStart(GrowthProfile $profile, ?Carbon $now = null): Carbon;
+
+    public function weekWindowStart(GrowthProfile $profile, ?Carbon $now = null): Carbon;
+
+    public function isTopicDone(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): bool;
+
+    public function canOpenTopic(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): string;
+
+    public function questionForTopic(GrowthProfile $profile, string $slug, bool $includePaused = false): ?GrowthQuestion;
+
+    public function usedBudgetToday(GrowthProfile $profile, ?Carbon $now = null): int;
+
+    public function weeklyReviewText(GrowthProfile $profile): string;
+
+    public function saveWeeklyReview(GrowthProfile $profile, string $body): GrowthReview;
+
+    public function exportData(GrowthProfile $profile): array;
+
+    public function generateAiVariants(GrowthQuestion $question, string $locale, int $count = 3): int;
+
+    public function setAiConsent(GrowthProfile $profile, bool $consent): void;
+
+    public function setMode(GrowthProfile $profile, string $mode): void;
+
+    /**
+     * @return list<string>
+     */
+    public function addableSlugs(GrowthProfile $profile): array;
+
+    public function dispatchSkipReason(GrowthQuestionSchedule $schedule, GrowthProfile $profile): ?string;
+
+    public static function budgetForIntensity(string $intensity): int;
 }

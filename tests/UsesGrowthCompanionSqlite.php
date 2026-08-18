@@ -21,6 +21,8 @@ trait UsesGrowthCompanionSqlite
 
     protected function setUpGrowthCompanionTables(): void
     {
+        Schema::dropIfExists('growth_reviews');
+        Schema::dropIfExists('growth_profile_topics');
         Schema::dropIfExists('growth_responses');
         Schema::dropIfExists('growth_question_schedules');
         Schema::dropIfExists('growth_question_variants');
@@ -99,6 +101,9 @@ trait UsesGrowthCompanionSqlite
             $table->string('intensity', 16)->default('balanced');
             $table->unsignedTinyInteger('interaction_budget_per_day')->default(1);
             $table->timestamp('onboarding_completed_at')->nullable();
+            $table->unsignedTinyInteger('day_reset_hour')->default(3);
+            $table->boolean('ai_consent')->default(false);
+            $table->json('settings')->nullable();
             $table->timestamps();
         });
 
@@ -157,6 +162,28 @@ trait UsesGrowthCompanionSqlite
             $table->unsignedBigInteger('bot_id');
             $table->text('body');
             $table->timestamp('answered_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('growth_profile_topics', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('growth_profile_id');
+            $table->string('template_slug', 64);
+            $table->boolean('enabled')->default(true);
+            $table->string('cadence', 16)->default('daily');
+            $table->unsignedTinyInteger('sort_order')->default(0);
+            $table->string('custom_label')->nullable();
+            $table->json('weekdays')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('growth_reviews', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('growth_profile_id');
+            $table->timestamp('period_start')->nullable();
+            $table->timestamp('period_end')->nullable();
+            $table->text('body')->nullable();
+            $table->json('stats')->nullable();
             $table->timestamps();
         });
     }
