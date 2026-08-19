@@ -284,6 +284,14 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
 
     public function canOpenTopic(GrowthProfile $profile, GrowthProfileTopic $topic, ?Carbon $now = null): string
     {
+        if ($this->isPro($profile)) {
+            if ($topic->isWeekly() && $this->isTopicDone($profile, $topic, $now)) {
+                return 'done_week';
+            }
+
+            return 'ask';
+        }
+
         if ($this->isTopicDone($profile, $topic, $now)) {
             return $topic->isWeekly() ? 'done_week' : 'done_today';
         }
@@ -558,6 +566,13 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
         $filled = max(0, min($total, $filled));
 
         return str_repeat('▰', $filled).str_repeat('▱', $total - $filled);
+    }
+
+    public function isPro(GrowthProfile $profile): bool
+    {
+        $user = BotUsers::find($profile->bot_user_id);
+
+        return $user?->isPro((int) $profile->bot_id) ?? false;
     }
 
     private function e(string $value): string

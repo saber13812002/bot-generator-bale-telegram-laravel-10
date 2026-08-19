@@ -14,5 +14,6 @@ alwaysApply: true
 5. [docs/README.md](docs/README.md) — لینک فیچر
 6. [.agents/AGENTS.md](.agents/AGENTS.md) — جدول کاتالوگ ربات‌ها
 7. [docs/BOT_CREATION_GUIDE.md](docs/BOT_CREATION_GUIDE.md) — چک‌لیست مستندات
+8. [database/seeders/BotDetailsSeeder.php](database/seeders/BotDetailsSeeder.php) و [BotDetailsCompleteSeeder.php](database/seeders/BotDetailsCompleteSeeder.php) — صفحهٔ وب `bots.pardisania.ir` و `/bot/{id}`
 
-بدون این به‌روزرسانی‌ها ربات در ربات مادر (جدول `webhook_endpoints`) هست ولی در صفحهٔ اول انواع ربات دیده نمی‌شود.
+بدون این به‌روزرسانی‌ها ربات در ربات مادر (جدول `webhook_endpoints`) هست ولی در صفحهٔ اول انواع ربات یا در سایت دیده نمی‌شود.

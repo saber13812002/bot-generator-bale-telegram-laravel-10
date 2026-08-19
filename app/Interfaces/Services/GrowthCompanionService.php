@@ -136,4 +136,6 @@ interface GrowthCompanionService
     public function bulletSummary(string $body, int $limit = 6): array;
 
     public function progressBar(int $filled, int $total = 7): string;
+
+    public function isPro(GrowthProfile $profile): bool;
 }

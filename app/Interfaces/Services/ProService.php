@@ -16,8 +16,10 @@ interface ProService
 
     /**
      * ثبت درخواست خرید
+     *
+     * @param  array<string, mixed>  $extra
      */
-    public function requestPurchase(int $botUserId, int $botId, string $userIdentifier): array;
+    public function requestPurchase(int $botUserId, int $botId, string $userIdentifier, array $extra = []): array;
 
     /**
      * تایید خرید توسط مدیر

@@ -3807,10 +3807,20 @@ class BotMotherController extends Controller
                     
                     if ($botToken) {
                         $userBot = new Telegram($botToken, $type === 'bale' ? 'bale' : null);
+                        $userMsg = "✅ درخواست Pro شما تایید شد!\n\nحالا می‌توانید از امکانات Pro استفاده کنید.";
+                        if (($request->bot->endpoint_id ?? '') === \App\Http\Controllers\GrowthCompanionController::ENDPOINT_ID) {
+                            $proUser = \App\Models\ProUser::where('bot_user_id', $botUser->id)
+                                ->where('bot_id', $request->bot_id)
+                                ->first();
+                            $until = optional($proUser?->expires_at)?->timezone('Asia/Tehran')?->format('Y-m-d');
+                            $userMsg = trans('growth_companion.pro_activated', [
+                                'date' => $until ?: trans('growth_companion.pro_unlimited'),
+                            ]);
+                        }
                         BotHelper::sendMessageByChatId(
                             $userBot, 
                             $botUser->chat_id, 
-                            "✅ درخواست Pro شما تایید شد!\n\nحالا می‌توانید از امکانات Pro استفاده کنید."
+                            $userMsg
                         );
                     }
                 }

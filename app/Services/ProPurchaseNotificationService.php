@@ -43,6 +43,10 @@ class ProPurchaseNotificationService
         $message .= "💬 Chat ID: {$botUser->chat_id}\n";
         $message .= "🤖 Bot: " . ($bot->name ?? "Bot #{$request->bot_id}") . "\n";
         $message .= "🆔 Request ID: {$request->id}\n";
+        $planLine = $this->planLine($request);
+        if ($planLine !== '') {
+            $message .= $planLine."\n";
+        }
         $message .= "📅 Created: " . $request->created_at->format('Y-m-d H:i') . "\n\n";
         $message .= "برای تایید از دستور زیر استفاده کنید:\n";
         $message .= "/pro_confirm {$request->id}\n\n";
@@ -240,5 +244,29 @@ class ProPurchaseNotificationService
         // $emails = array_merge($emails, $admins);
 
         return array_unique($emails);
+    }
+
+    private function planLine(ProPurchaseRequest $request): string
+    {
+        $raw = $request->payment_info;
+        $info = is_array($raw) ? $raw : (json_decode((string) $raw, true) ?: []);
+        if (!is_array($info) || $info === []) {
+            return '';
+        }
+        $plan = $info['plan'] ?? '';
+        $months = $info['months'] ?? '';
+        $amount = $info['amount'] ?? '';
+        $parts = [];
+        if ($plan !== '') {
+            $parts[] = "📦 Plan: {$plan}";
+        }
+        if ($months !== '') {
+            $parts[] = "⏱ {$months} month(s)";
+        }
+        if ($amount !== '') {
+            $parts[] = "💰 {$amount}";
+        }
+
+        return $parts !== [] ? implode(' · ', $parts) : '';
     }
 }

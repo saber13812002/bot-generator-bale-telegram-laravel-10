@@ -607,6 +607,8 @@ private function createBotInstance(Request $request, string $type, ?int $botId):
 - [ ] ردیف در [`docs/BOT_TYPES_GUIDE.md`](./BOT_TYPES_GUIDE.md) و [`docs/BOTS_COMPLETE_GUIDE.md`](./BOTS_COMPLETE_GUIDE.md)
 - [ ] در صورت وجود، بخش «انواع ربات‌های قابل ساخت» در [`README_LEGACY.md`](../README_LEGACY.md)
 - [ ] جدول کاتالوگ در [`.agents/AGENTS.md`](../.agents/AGENTS.md)
+- [ ] ردیف در [`BotDetailsSeeder`](../database/seeders/BotDetailsSeeder.php) و [`BotDetailsCompleteSeeder`](../database/seeders/BotDetailsCompleteSeeder.php) تا در `https://bots.pardisania.ir/` و `/bots` و `/bot/{endpoint_id}` دیده شود
+- [ ] روی سرور: `php artisan db:seed --class=MyBotWebhookEndpointSeeder` و در صورت جزئیات وب `php artisan db:seed --class=BotDetailsSeeder`
 
 ### تست:
 - [ ] Migration اجرا شده: `php artisan migrate`

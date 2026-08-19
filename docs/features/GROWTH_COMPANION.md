@@ -37,8 +37,11 @@ Query: `origin`، `token`، (اختیاری) `bot_id`، `bot_mother_id`.
 php artisan migrate
 php artisan db:seed --class=GrowthCompanionWebhookEndpointSeeder
 php artisan db:seed --class=GrowthCompanionTemplateSeeder
+php artisan db:seed --class=BotDetailsSeeder
+php artisan db:seed --class=BotDetailsCompleteSeeder
 php artisan cache:clear
 php artisan route:clear
+php artisan config:clear
 ```
 
 بررسی روت:
@@ -65,9 +68,37 @@ Lookup کاربر مثل Channel Poster با `chat_id + origin + bot_id` است�
 
 State مکالمه در `bot_user_states` با پیشوند `gc_`.
 
-Callbackها با پیشوند `gc:` (خانه `gc:home`، سؤال `gc:q`، ثبت روزانه `gc:in:`، بیشتر `gc:more`، موضوعات `gc:b:` / `gc:topics`، تاریخچه `gc:hist`، متن کامل `gc:ft:`).
+Callbackها با پیشوند `gc:` (خانه `gc:home`، سؤال `gc:q`، ثبت روزانه `gc:in:`، بیشتر `gc:more`، موضوعات `gc:b:` / `gc:topics`، تاریخچه `gc:hist`، متن کامل `gc:ft:`، پرو `gc:pro` / `gc:pro:m` / `gc:pro:y`).
 
 Reply Keyboard با متن ترجمه‌شده (`nav.today` و بقیه) در `handlePrivateMessage` هندل می‌شود؛ locale از `language_code` ربات.
+
+## نسخهٔ رایگان و رشدیار پرو
+
+رایگان: بودجهٔ روزانه ۱ یا ۲ موضوع (کم/متعادل یا زیاد)، ریست چک‌باکس بعد از ساعت ۳، حالت پیشرفته و جملهٔ AI قفل. با برخورد به قفل، ربات قیمت و شماره کارت را می‌گوید؛ کاربر واریز می‌کند و ادمین با `/pro_confirm {id}` یا Nova تأیید می‌کند.
+
+پرو (پر-کاربر، روی `pro_users.expires_at`):
+
+- ماهانه ۹۹٬۰۰۰ تومان، با تخفیف ۴۹٬۰۰۰ (مبلغ واریز ماهانه)
+- سالانه ۳۰۰٬۰۰۰ تومان
+- شماره کارت: `GROWTH_PRO_CARD` در `.env`
+
+پرو فعال: بودجه و قفل «امروز انجام شد» برداشته می‌شود؛ cadence هفتگی اگر خود کاربر گذاشته باشد می‌ماند.
+
+## متن کانال
+
+```
+رشدیار؛ همراه آرام تأمل روزانه
+
+هر روز یک سؤال کوتاه از حوزه‌ای که خودت انتخاب می‌کنی: سلامت، کار، خانواده، مطالعه، معنویت یا هدف شخصی.
+کارت امروز، ثبت حال با چند ضربه، مرور هفته بدون تشخیص پزشکی.
+
+نسخهٔ رایگان برای شروع کافی است. اگر می‌خواهی همهٔ موضوعات را در یک روز پیش ببری و قفل نیمه‌شب نداشته باشی، رشدیار پرو ماهانه است.
+
+ساختن ربات: https://bots.pardisania.ir/bots
+معرفی: https://bots.pardisania.ir/bot/webhook-growth-companion
+```
+
+کلید ترجمه: `growth_companion.invite_channel`.
 
 ## حریم خصوصی
 

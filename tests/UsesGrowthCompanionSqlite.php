@@ -22,6 +22,8 @@ trait UsesGrowthCompanionSqlite
     protected function setUpGrowthCompanionTables(): void
     {
         Schema::dropIfExists('growth_daily_checkins');
+        Schema::dropIfExists('pro_purchase_requests');
+        Schema::dropIfExists('pro_users');
         Schema::dropIfExists('growth_reviews');
         Schema::dropIfExists('growth_profile_topics');
         Schema::dropIfExists('growth_responses');
@@ -200,6 +202,33 @@ trait UsesGrowthCompanionSqlite
             $table->text('evening_note')->nullable();
             $table->timestamps();
             $table->unique(['growth_profile_id', 'day_key']);
+        });
+
+        Schema::create('pro_users', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_user_id');
+            $table->unsignedBigInteger('bot_id');
+            $table->string('status')->default('pending');
+            $table->timestamp('purchase_requested_at')->nullable();
+            $table->timestamp('purchase_confirmed_at')->nullable();
+            $table->unsignedBigInteger('confirmed_by_admin_id')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->json('payment_info')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('pro_purchase_requests', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_user_id');
+            $table->unsignedBigInteger('bot_id');
+            $table->string('user_identifier');
+            $table->string('payment_method')->nullable();
+            $table->text('payment_info')->nullable();
+            $table->string('status')->default('pending');
+            $table->text('admin_notes')->nullable();
+            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->timestamp('approved_at')->nullable();
+            $table->timestamps();
         });
     }
 }

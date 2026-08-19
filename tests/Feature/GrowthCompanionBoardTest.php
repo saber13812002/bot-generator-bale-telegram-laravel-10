@@ -110,11 +110,10 @@ class GrowthCompanionBoardTest extends TestCase
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
         $this->assertTrue($this->buttonHasPrefix('سلامت', '✅'));
 
-        $before = count($this->messenger->messages);
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:health'));
         $this->assertSame(1, $this->messenger->questionMessageCount());
         $this->assertSame(trans('growth_companion.already_reviewed_today'), $this->messenger->lastCallbackText());
-        $this->assertSame($before, count($this->messenger->messages));
+        $this->assertContains('gc:pro:m', $this->callbackDatas());
     }
 
     public function test_day_reset_clears_checkboxes_after_3am(): void
@@ -207,6 +206,7 @@ class GrowthCompanionBoardTest extends TestCase
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:exp'));
         $this->assertStringContainsString('جواب', (string) $this->messenger->lastText());
 
+        $this->grantPro();
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:adv'));
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:aic'));
         $before = GrowthQuestionVariant::count();
@@ -256,6 +256,61 @@ class GrowthCompanionBoardTest extends TestCase
         $this->assertContains('gc:priv', $this->callbackDatas());
         $this->assertContains('gc:topics', $this->callbackDatas());
         $this->assertContains('gc:hist', $this->callbackDatas());
+        $this->assertContains('gc:pro', $this->callbackDatas());
+    }
+
+    public function test_budget_lock_shows_pro_and_pro_user_can_continue(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding('gc:i:min');
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:health'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('یک'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:family'));
+        $this->assertSame(trans('growth_companion.budget_full'), $this->messenger->lastCallbackText());
+        $this->assertContains('gc:pro:m', $this->callbackDatas());
+        $this->assertSame(1, $this->messenger->questionMessageCount());
+
+        $this->grantPro();
+
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:family'));
+        $this->assertSame(2, $this->messenger->questionMessageCount());
+    }
+
+    public function test_pro_request_is_pending_until_confirm(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding();
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:pro:m'));
+        $this->assertSame(1, \App\Models\ProPurchaseRequest::count());
+        $this->assertSame('pending', \App\Models\ProPurchaseRequest::first()->status);
+        $this->assertStringContainsString(trans('growth_companion.pro_requested', [
+            'amount' => number_format((int) config('growth.pro.monthly_promo'), 0, '', '٬'),
+            'admin' => (string) config('growth.pro.admin'),
+            'card' => trans('growth_companion.pro_card_from_admin'),
+        ]), (string) $this->messenger->lastText());
+    }
+
+    public function test_advanced_mode_requires_pro(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding();
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:adv'));
+        $this->assertContains('gc:pro:m', $this->callbackDatas());
+        $this->assertSame('simple', \App\Models\GrowthProfile::first()->mode);
+    }
+
+    private function grantPro(): void
+    {
+        $user = \App\Models\BotUsers::first();
+        $bot = Bot::first();
+        \App\Models\ProUser::create([
+            'bot_user_id' => $user->id,
+            'bot_id' => $bot->id,
+            'status' => 'active',
+            'purchase_requested_at' => now(),
+            'purchase_confirmed_at' => now(),
+            'expires_at' => now()->addMonth(),
+        ]);
     }
 
     private function completeOnboarding(string $intensityCallback = 'gc:i:bal'): void

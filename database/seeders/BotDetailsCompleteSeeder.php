@@ -565,6 +565,19 @@ class BotDetailsCompleteSeeder extends Seeder
             'image_path' => 'images/bots/list-bot.png',
         ]);
 
+        $this->updateDetails('webhook-growth-companion', [
+            'icon_emoji' => '🌱',
+            'detailed_description' => 'Calm daily reflection companion. You pick the life area: health, work, family, study, spirituality, or a personal goal. Home is a short card, a 4-tap check-in, and a weekly review without diagnosis. Free tier is enough to start; Growth Pro lifts the daily budget and the 3am lock.',
+            'features' => [
+                'Today card' => 'Mood, week progress, one next step',
+                'Daily question' => 'One open topic at a time',
+                'Check-in' => 'Mood, energy, sleep, movement',
+                'Weekly review' => 'Wins, open topics, short bullets',
+                'Growth Pro' => 'Unlimited topics in one day; monthly promo or yearly',
+            ],
+            'usage_instructions' => "1. Create the bot at bots.pardisania.ir/bots\n2. Send /start and pick a focus\n3. Use Today, Daily check-in, and More\n4. Manage topics under More → My topics\n5. When the free budget is full, request Pro in the same chat",
+        ]);
+
         Log::info('✅ All 34+ bot details seeded successfully');
     }
 

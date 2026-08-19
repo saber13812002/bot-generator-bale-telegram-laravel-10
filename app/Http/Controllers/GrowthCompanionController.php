@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Interfaces\Services\GrowthCompanionService;
 use App\Interfaces\Services\GrowthMessenger;
 use App\Interfaces\Services\GrowthMessengerFactory;
+use App\Interfaces\Services\ProService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\BotUserState;
@@ -317,6 +318,24 @@ class GrowthCompanionController extends Controller
             return;
         }
 
+        if ($payload === 'pro') {
+            $this->sendProPitch($messenger, $chatId);
+
+            return;
+        }
+
+        if ($payload === 'pro:m' || $payload === 'pro:y') {
+            $this->requestGrowthPro(
+                $messenger,
+                $botItem,
+                $chatId,
+                $botUser,
+                $payload === 'pro:y' ? 'yearly' : 'monthly'
+            );
+
+            return;
+        }
+
         if ($payload === 'more') {
             $this->sendMore($messenger, $botItem, $chatId, $botUser);
 
@@ -551,6 +570,11 @@ class GrowthCompanionController extends Controller
         if ($payload === 'adv') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $next = $profile->isAdvanced() ? 'simple' : 'advanced';
+            if ($next === 'advanced' && !$this->service->isPro($profile)) {
+                $this->sendProPitch($messenger, $chatId, trans('growth_companion.pro_need_advanced'));
+
+                return;
+            }
             $this->service->setMode($profile, $next);
             $note = $next === 'advanced'
                 ? trans('growth_companion.advanced_on')
@@ -570,6 +594,11 @@ class GrowthCompanionController extends Controller
 
         if ($payload === 'ai') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+            if (!$this->service->isPro($profile)) {
+                $this->sendProPitch($messenger, $chatId, trans('growth_companion.pro_need_ai'));
+
+                return;
+            }
             if (!$profile->ai_consent) {
                 $messenger->send($chatId, trans('growth_companion.ai_consent_needed'), [
                     [['text' => trans('growth_companion.btn_ai_consent'), 'callback_data' => 'gc:aic']],
@@ -619,6 +648,11 @@ class GrowthCompanionController extends Controller
                 default => trans('growth_companion.already_reviewed_today'),
             };
             $messenger->answerCallback($callbackId, $toast);
+            if (in_array($status, ['budget', 'done_today'], true) && !$this->service->isPro($profile)) {
+                $this->sendProPitch($messenger, $chatId, $toast);
+
+                return;
+            }
             $rows = $this->boardKeyboard($profile);
             if ($messageId && $messenger->editReplyMarkup($chatId, $messageId, $rows)) {
                 return;
@@ -985,6 +1019,11 @@ class GrowthCompanionController extends Controller
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
         $topic = $this->service->nextOpenTopic($profile);
         if (!$topic) {
+            if (!$this->service->isPro($profile)) {
+                $this->sendProPitch($messenger, $chatId, trans('growth_companion.qotd_done'));
+
+                return;
+            }
             $this->sendHome($messenger, $profile, $chatId, trans('growth_companion.qotd_done'));
 
             return;
@@ -1044,8 +1083,82 @@ class GrowthCompanionController extends Controller
         } else {
             $rows[] = [['text' => trans('growth_companion.btn_advanced'), 'callback_data' => 'gc:adv']];
         }
+        if (!$this->service->isPro($profile)) {
+            $rows[] = [['text' => trans('growth_companion.btn_pro'), 'callback_data' => 'gc:pro']];
+        }
         $rows[] = [['text' => trans('growth_companion.nav.today'), 'callback_data' => 'gc:home']];
         $messenger->send($chatId, $text, $rows);
+    }
+
+    private function sendProPitch(GrowthMessenger $messenger, string $chatId, ?string $preamble = null): void
+    {
+        $promo = number_format((int) config('growth.pro.monthly_promo'), 0, '', '٬');
+        $list = number_format((int) config('growth.pro.monthly_price'), 0, '', '٬');
+        $year = number_format((int) config('growth.pro.yearly_price'), 0, '', '٬');
+        $card = (string) config('growth.pro.card');
+        $admin = (string) config('growth.pro.admin');
+        $text = trans('growth_companion.pro_pitch', [
+            'promo' => $promo,
+            'list' => $list,
+            'year' => $year,
+            'admin' => $admin,
+            'card' => $card !== '' ? $card : trans('growth_companion.pro_card_from_admin'),
+        ]);
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
+        $messenger->send($chatId, $text, [
+            [['text' => trans('growth_companion.btn_pro_month'), 'callback_data' => 'gc:pro:m']],
+            [['text' => trans('growth_companion.btn_pro_year'), 'callback_data' => 'gc:pro:y']],
+            [['text' => trans('growth_companion.nav.more'), 'callback_data' => 'gc:more']],
+        ]);
+    }
+
+    private function requestGrowthPro(
+        GrowthMessenger $messenger,
+        Bot $botItem,
+        string $chatId,
+        BotUsers $botUser,
+        string $plan
+    ): void {
+        $months = $plan === 'yearly' ? 12 : 1;
+        $amount = $plan === 'yearly'
+            ? (int) config('growth.pro.yearly_price')
+            : (int) config('growth.pro.monthly_promo');
+        $proService = app(ProService::class);
+        $result = $proService->requestPurchase($botUser->id, $botItem->id, $chatId, [
+            'payment_method' => 'card',
+            'payment_info' => [
+                'plan' => $plan,
+                'months' => $months,
+                'amount' => $amount,
+                'product' => 'growth_companion',
+            ],
+        ]);
+        if (!($result['success'] ?? false)) {
+            $messenger->send($chatId, trans('growth_companion.pro_pending'), [
+                [['text' => trans('growth_companion.nav.more'), 'callback_data' => 'gc:more']],
+            ]);
+
+            return;
+        }
+        $request = \App\Models\ProPurchaseRequest::find($result['request_id'] ?? 0);
+        if ($request) {
+            try {
+                app(\App\Services\ProPurchaseNotificationService::class)->notifyAdmins($request);
+            } catch (Throwable $e) {
+                Log::warning('[GrowthCompanion] Pro notify failed', [
+                    'error' => $e->getMessage(),
+                    'request_id' => $request->id,
+                ]);
+            }
+        }
+        $card = (string) config('growth.pro.card');
+        $messenger->send($chatId, trans('growth_companion.pro_requested', [
+            'amount' => number_format($amount, 0, '', '٬'),
+            'admin' => (string) config('growth.pro.admin'),
+            'card' => $card !== '' ? $card : trans('growth_companion.pro_card_from_admin'),
+        ]));
     }
 
     private function sendHistory(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId): void

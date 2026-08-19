@@ -39,9 +39,8 @@ class ProServiceImpl implements ProService
     /**
      * ثبت درخواست خرید
      */
-    public function requestPurchase(int $botUserId, int $botId, string $userIdentifier): array
+    public function requestPurchase(int $botUserId, int $botId, string $userIdentifier, array $extra = []): array
     {
-        // بررسی وجود درخواست pending
         $existingRequest = ProPurchaseRequest::where('bot_user_id', $botUserId)
             ->where('bot_id', $botId)
             ->where('status', 'pending')
@@ -55,11 +54,18 @@ class ProServiceImpl implements ProService
             ];
         }
 
+        $paymentInfo = $extra['payment_info'] ?? null;
+        if (is_array($paymentInfo)) {
+            $paymentInfo = json_encode($paymentInfo, JSON_UNESCAPED_UNICODE);
+        }
+
         $request = ProPurchaseRequest::create([
             'bot_user_id' => $botUserId,
             'bot_id' => $botId,
             'user_identifier' => $userIdentifier,
             'status' => 'pending',
+            'payment_method' => $extra['payment_method'] ?? null,
+            'payment_info' => $paymentInfo,
         ]);
 
         Log::info('💳 [Pro] Purchase request created', [
@@ -86,7 +92,9 @@ class ProServiceImpl implements ProService
             return false;
         }
 
-        // ایجاد یا به‌روزرسانی ProUser
+        $info = $this->decodePaymentInfo($request->payment_info);
+        $months = (int) ($info['months'] ?? 0);
+
         $proUser = ProUser::updateOrCreate(
             [
                 'bot_user_id' => $request->bot_user_id,
@@ -97,9 +105,10 @@ class ProServiceImpl implements ProService
                 'purchase_requested_at' => $request->created_at,
                 'purchase_confirmed_at' => now(),
                 'confirmed_by_admin_id' => $adminId,
+                'expires_at' => $months > 0 ? now()->addMonths($months) : null,
                 'payment_info' => [
                     'payment_method' => $request->payment_method,
-                    'payment_info' => $request->payment_info,
+                    'payment_info' => $info !== [] ? $info : $request->payment_info,
                 ],
             ]
         );
@@ -149,6 +158,34 @@ class ProServiceImpl implements ProService
             $features[] = 'email_after_year';
         }
 
+        if (isset($botFeatures['unlimited_topics']) && $botFeatures['unlimited_topics']) {
+            $features[] = 'unlimited_topics';
+        }
+
+        if (isset($botFeatures['advanced_mode']) && $botFeatures['advanced_mode']) {
+            $features[] = 'advanced_mode';
+        }
+
+        if (isset($botFeatures['ai_variants']) && $botFeatures['ai_variants']) {
+            $features[] = 'ai_variants';
+        }
+
         return $features;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decodePaymentInfo(mixed $raw): array
+    {
+        if (is_array($raw)) {
+            return $raw;
+        }
+        if (!is_string($raw) || $raw === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 }

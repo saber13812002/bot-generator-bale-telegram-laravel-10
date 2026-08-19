@@ -77,4 +77,33 @@ class GrowthCompanionPhase2UnitTest extends TestCase
             $service->bulletSummary("First line\n\nSecond sentence. Extra")
         );
     }
+
+    public function test_pro_confirm_sets_monthly_expiry(): void
+    {
+        $bot = \App\Models\Bot::create([
+            'endpoint_id' => \App\Http\Controllers\GrowthCompanionController::ENDPOINT_ID,
+            'bale_bot_token' => 'tok',
+        ]);
+        $user = BotUsers::create([
+            'chat_id' => 9,
+            'bot_id' => $bot->id,
+            'origin' => 'bale',
+            'status' => 'active',
+        ]);
+        $request = \App\Models\ProPurchaseRequest::create([
+            'bot_user_id' => $user->id,
+            'bot_id' => $bot->id,
+            'user_identifier' => '9',
+            'status' => 'pending',
+            'payment_info' => json_encode(['plan' => 'monthly', 'months' => 1, 'amount' => 49000]),
+        ]);
+
+        $ok = app(\App\Interfaces\Services\ProService::class)->confirmPurchase($request->id, 1);
+        $this->assertTrue($ok);
+        $pro = \App\Models\ProUser::where('bot_user_id', $user->id)->where('bot_id', $bot->id)->first();
+        $this->assertNotNull($pro);
+        $this->assertTrue($user->fresh()->isPro($bot->id));
+        $this->assertNotNull($pro->expires_at);
+        $this->assertTrue($pro->expires_at->greaterThan(now()->addDays(20)));
+    }
 }
