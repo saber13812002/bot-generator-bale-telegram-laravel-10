@@ -72,7 +72,7 @@ class GrowthCompanionWebhookTest extends TestCase
         $response->assertOk();
         $this->assertGreaterThanOrEqual(6, GrowthProgram::count());
         $this->assertSame('health', GrowthProgram::where('template_slug', 'health')->value('template_slug'));
-        $this->assertStringContainsString(trans('growth_companion.board_title'), (string) $this->messenger->lastText());
+        $this->assertStringContainsString(trans('growth_companion.home_title'), (string) $this->messenger->lastText());
 
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:health'));
         $answer = $this->postJson(

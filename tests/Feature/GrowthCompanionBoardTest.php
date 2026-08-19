@@ -6,10 +6,10 @@ use App\Http\Controllers\GrowthCompanionController;
 use App\Interfaces\Services\GrowthLlmProvider;
 use App\Interfaces\Services\GrowthMessengerFactory;
 use App\Models\Bot;
+use App\Models\GrowthDailyCheckin;
 use App\Models\GrowthProfile;
 use App\Models\GrowthProfileTopic;
 use App\Models\GrowthProgram;
-use App\Models\GrowthQuestion;
 use App\Models\GrowthQuestionVariant;
 use App\Models\GrowthResponse;
 use App\Models\GrowthReview;
@@ -53,17 +53,23 @@ class GrowthCompanionBoardTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_onboarding_shows_board_not_a_question(): void
+    public function test_onboarding_shows_home_card_not_topic_board(): void
     {
         $this->createBot();
         $this->completeOnboarding();
 
         $this->assertGreaterThanOrEqual(6, GrowthProgram::count());
         $this->assertTrue(GrowthProgram::where('template_slug', 'health')->exists());
-        $this->assertStringContainsString(trans('growth_companion.board_title'), (string) $this->messenger->lastText());
-        $this->assertContains('gc:b:health', $this->callbackDatas());
+        $this->assertStringContainsString(trans('growth_companion.home_title'), (string) $this->messenger->lastText());
+        $this->assertStringContainsString(trans('growth_companion.home_no_checkin'), (string) $this->messenger->lastText());
+        $this->assertNotContains('gc:b:health', $this->callbackDatas());
+        $this->assertContains(trans('growth_companion.nav.today'), $this->replyTexts());
         $this->assertSame(0, $this->messenger->questionMessageCount());
         $this->assertSame(6, GrowthProfileTopic::where('enabled', true)->count());
+
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
+        $this->assertContains('gc:b:health', $this->callbackDatas());
+        $this->assertStringContainsString(trans('growth_companion.topics_title'), (string) $this->messenger->lastText());
     }
 
     public function test_second_start_does_not_resend_question(): void
@@ -73,7 +79,19 @@ class GrowthCompanionBoardTest extends TestCase
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('/start'));
 
         $this->assertSame(0, $this->messenger->questionMessageCount());
-        $this->assertStringContainsString(trans('growth_companion.board_title'), (string) $this->messenger->lastText());
+        $this->assertStringContainsString(trans('growth_companion.home_title'), (string) $this->messenger->lastText());
+    }
+
+    public function test_question_screen_has_later_only(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding();
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:q'));
+
+        $this->assertSame(1, $this->messenger->questionMessageCount());
+        $this->assertContains('gc:later', $this->callbackDatas());
+        $this->assertNotContains('gc:set', $this->callbackDatas());
+        $this->assertCount(1, $this->callbackDatas());
     }
 
     public function test_answering_checks_topic_and_repeat_tap_does_not_resend(): void
@@ -89,6 +107,7 @@ class GrowthCompanionBoardTest extends TestCase
             $this->textUpdate('امروز پیاده رفتم')
         );
         $this->assertSame(1, GrowthResponse::count());
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
         $this->assertTrue($this->buttonHasPrefix('سلامت', '✅'));
 
         $before = count($this->messenger->messages);
@@ -105,14 +124,17 @@ class GrowthCompanionBoardTest extends TestCase
         $this->completeOnboarding();
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:b:health'));
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('پاسخ روز اول'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
         $this->assertTrue($this->buttonHasPrefix('سلامت', '✅'));
 
         Carbon::setTestNow(Carbon::parse('2026-08-19 02:00:00', 'Asia/Tehran'));
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('/start'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
         $this->assertTrue($this->buttonHasPrefix('سلامت', '✅'));
 
         Carbon::setTestNow(Carbon::parse('2026-08-19 04:00:00', 'Asia/Tehran'));
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('/start'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:topics'));
         $this->assertTrue($this->buttonHasPrefix('سلامت', '☐'));
     }
 
@@ -177,7 +199,7 @@ class GrowthCompanionBoardTest extends TestCase
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('جواب'));
 
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:rev'));
-        $this->assertStringContainsString(trans('growth_companion.weekly_review_title'), (string) $this->messenger->lastText());
+        $this->assertStringContainsString(trans('growth_companion.weekly_section_title'), (string) $this->messenger->lastText());
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:revw'));
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->textUpdate('هفته خوبی بود'));
         $this->assertSame(1, GrowthReview::count());
@@ -200,6 +222,40 @@ class GrowthCompanionBoardTest extends TestCase
         $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:k:health:1'));
         $topic = GrowthProfileTopic::where('template_slug', 'health')->first();
         $this->assertContains(1, $topic->weekdays ?? []);
+    }
+
+    public function test_four_step_checkin_feeds_home_card(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding();
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:in'));
+        $this->assertStringContainsString(trans('growth_companion.checkin_mood'), (string) $this->messenger->lastText());
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:in:m:good'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:in:e:7'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:in:s:7'));
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:in:v:1'));
+
+        $this->assertSame(1, GrowthDailyCheckin::count());
+        $row = GrowthDailyCheckin::first();
+        $this->assertSame('good', $row->mood);
+        $this->assertSame(7, (int) $row->energy);
+        $this->assertSame(7, (int) $row->sleep_hours);
+        $this->assertTrue((bool) $row->moved);
+        $this->assertStringContainsString(trans('growth_companion.home_title'), (string) $this->messenger->lastText());
+        $this->assertStringContainsString(trans('growth_companion.home_energy', ['n' => 7]), (string) $this->messenger->lastText());
+    }
+
+    public function test_more_menu_has_export_and_privacy(): void
+    {
+        $this->createBot();
+        $this->completeOnboarding();
+        $this->postJson('/api/webhook-growth-companion?origin=bale&token='.$this->token, $this->callbackUpdate('gc:more'));
+
+        $this->assertStringContainsString(trans('growth_companion.more_title'), (string) $this->messenger->lastText());
+        $this->assertContains('gc:exp', $this->callbackDatas());
+        $this->assertContains('gc:priv', $this->callbackDatas());
+        $this->assertContains('gc:topics', $this->callbackDatas());
+        $this->assertContains('gc:hist', $this->callbackDatas());
     }
 
     private function completeOnboarding(string $intensityCallback = 'gc:i:bal'): void
@@ -264,6 +320,18 @@ class GrowthCompanionBoardTest extends TestCase
         }
 
         return false;
+    }
+
+    private function replyTexts(): array
+    {
+        $texts = [];
+        foreach ($this->messenger->lastReplyKeyboard() ?? [] as $row) {
+            foreach ($row as $button) {
+                $texts[] = $button['text'] ?? '';
+            }
+        }
+
+        return $texts;
     }
 
     private function textUpdate(string $text): array

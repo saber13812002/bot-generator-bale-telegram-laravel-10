@@ -278,7 +278,7 @@ class GrowthCompanionController extends Controller
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             if ($profile->onboarding_completed_at) {
                 $this->service->setIntensity($profile, $intensity);
-                $this->sendSettings($messenger, $botItem, $chatId, $botUser, trans('growth_companion.intensity_updated'));
+                $this->sendMore($messenger, $botItem, $chatId, $botUser, trans('growth_companion.intensity_updated'));
 
                 return;
             }
@@ -372,7 +372,7 @@ class GrowthCompanionController extends Controller
         }
 
         if ($payload === 'set') {
-            $this->sendSettings($messenger, $botItem, $chatId, $botUser);
+            $this->sendMore($messenger, $botItem, $chatId, $botUser);
 
             return;
         }
@@ -564,7 +564,7 @@ class GrowthCompanionController extends Controller
             $note = $next === 'advanced'
                 ? trans('growth_companion.advanced_on')
                 : trans('growth_companion.advanced_off');
-            $this->sendSettings($messenger, $botItem, $chatId, $botUser, $note);
+            $this->sendMore($messenger, $botItem, $chatId, $botUser, $note);
 
             return;
         }
@@ -572,7 +572,7 @@ class GrowthCompanionController extends Controller
         if ($payload === 'aic') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
             $this->service->setAiConsent($profile, true);
-            $this->sendSettings($messenger, $botItem, $chatId, $botUser, trans('growth_companion.ai_consent_on'));
+            $this->sendMore($messenger, $botItem, $chatId, $botUser, trans('growth_companion.ai_consent_on'));
 
             return;
         }
@@ -582,7 +582,7 @@ class GrowthCompanionController extends Controller
             if (!$profile->ai_consent) {
                 $messenger->send($chatId, trans('growth_companion.ai_consent_needed'), [
                     [['text' => trans('growth_companion.btn_ai_consent'), 'callback_data' => 'gc:aic']],
-                    [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']],
+                    [['text' => trans('growth_companion.nav.more'), 'callback_data' => 'gc:more']],
                 ]);
 
                 return;
@@ -598,7 +598,7 @@ class GrowthCompanionController extends Controller
             $note = $added > 0
                 ? trans('growth_companion.ai_variants_added', ['count' => $added])
                 : trans('growth_companion.ai_unavailable');
-            $this->sendSettings($messenger, $botItem, $chatId, $botUser, $note);
+            $this->sendMore($messenger, $botItem, $chatId, $botUser, $note);
         }
     }
 
@@ -713,7 +713,7 @@ class GrowthCompanionController extends Controller
     private function sendHome(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId, ?string $preamble = null): void
     {
         $cta = $this->primaryCta($profile);
-        $html = $this->homeCardHtml($profile, $preamble);
+        $html = $this->homeCardHtml($profile, $preamble, $cta);
         $messenger->send($chatId, $html, null, $this->navKeyboard($profile), 'HTML');
     }
 
@@ -729,7 +729,10 @@ class GrowthCompanionController extends Controller
         $messenger->send($chatId, $text, $rows, $this->navKeyboard($profile));
     }
 
-    private function homeCardHtml(GrowthProfile $profile, ?string $preamble = null): string
+    /**
+     * @param  array{label: string, action: string, callback: ?string}|null  $cta
+     */
+    private function homeCardHtml(GrowthProfile $profile, ?string $preamble = null, ?array $cta = null): string
     {
         $tz = $profile->timezone ?: 'Asia/Tehran';
         $now = \Carbon\Carbon::now($tz);
@@ -787,6 +790,10 @@ class GrowthCompanionController extends Controller
             $lines[] = $e(trans('growth_companion.next_evening'));
         } else {
             $lines[] = $e(trans('growth_companion.qotd_done'));
+        }
+        if ($cta) {
+            $lines[] = '';
+            $lines[] = $e('→ '.$cta['label']);
         }
 
         return implode("\n", $lines);
@@ -909,7 +916,7 @@ class GrowthCompanionController extends Controller
                 [['text' => trans('growth_companion.btn_save_review'), 'callback_data' => 'gc:revw']],
                 [['text' => trans('growth_companion.nav.today'), 'callback_data' => 'gc:home']],
             ],
-            $this->navKeyboard($profile),
+            null,
             'HTML'
         );
     }
@@ -1012,9 +1019,18 @@ class GrowthCompanionController extends Controller
         $this->sendHome($messenger, $profile, $chatId, trans('growth_companion.ack'));
     }
 
-    private function sendMore(GrowthMessenger $messenger, Bot $botItem, string $chatId, BotUsers $botUser): void
-    {
+    private function sendMore(
+        GrowthMessenger $messenger,
+        Bot $botItem,
+        string $chatId,
+        BotUsers $botUser,
+        ?string $preamble = null
+    ): void {
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
+        $text = trans('growth_companion.more_title');
+        if ($preamble) {
+            $text = $preamble."\n\n".$text;
+        }
         $rows = [
             [['text' => trans('growth_companion.btn_topics'), 'callback_data' => 'gc:topics']],
             [['text' => trans('growth_companion.btn_history'), 'callback_data' => 'gc:hist']],
@@ -1038,7 +1054,7 @@ class GrowthCompanionController extends Controller
             $rows[] = [['text' => trans('growth_companion.btn_advanced'), 'callback_data' => 'gc:adv']];
         }
         $rows[] = [['text' => trans('growth_companion.nav.today'), 'callback_data' => 'gc:home']];
-        $messenger->send($chatId, trans('growth_companion.more_title'), $rows, $this->navKeyboard($profile));
+        $messenger->send($chatId, $text, $rows);
     }
 
     private function sendHistory(GrowthMessenger $messenger, GrowthProfile $profile, string $chatId): void
@@ -1114,21 +1130,21 @@ class GrowthCompanionController extends Controller
             ['text' => trans('growth_companion.btn_add_topic'), 'callback_data' => 'gc:add'],
             ['text' => trans('growth_companion.btn_remove_topic'), 'callback_data' => 'gc:del'],
         ];
-        $rows[] = [
-            ['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set'],
-        ];
 
         return $rows;
     }
 
-    private function sendQuestion(GrowthMessenger $messenger, string $chatId, string $body): void
+    private function sendQuestion(GrowthMessenger $messenger, string $chatId, string $body, string $topicLabel = ''): void
     {
-        $messenger->send($chatId, trans('growth_companion.today')."\n\n".$body, [
-            [
-                ['text' => trans('growth_companion.btn_later'), 'callback_data' => 'gc:later'],
-                ['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set'],
-            ],
-        ]);
+        $title = trans('growth_companion.qotd_title');
+        if ($topicLabel !== '') {
+            $title .= ' · '.$topicLabel;
+        }
+        $html = '<b>'.htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8').'</b>'
+            ."\n\n".htmlspecialchars($body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $messenger->send($chatId, $html, [
+            [['text' => trans('growth_companion.btn_later'), 'callback_data' => 'gc:later']],
+        ], null, 'HTML');
     }
 
     private function sendIntensity(GrowthMessenger $messenger, string $chatId): void
@@ -1237,7 +1253,7 @@ class GrowthCompanionController extends Controller
         if ($row !== []) {
             $rows[] = $row;
         }
-        $rows[] = [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']];
+        $rows[] = [['text' => trans('growth_companion.btn_topics'), 'callback_data' => 'gc:topics']];
         $messenger->send($chatId, trans('growth_companion.pick_add_topic'), $rows);
     }
 
@@ -1257,7 +1273,7 @@ class GrowthCompanionController extends Controller
                 'callback_data' => 'gc:x:'.$topic->template_slug,
             ]];
         }
-        $rows[] = [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']];
+        $rows[] = [['text' => trans('growth_companion.btn_topics'), 'callback_data' => 'gc:topics']];
         $messenger->send($chatId, trans('growth_companion.pick_remove_topic'), $rows);
     }
 
@@ -1277,7 +1293,7 @@ class GrowthCompanionController extends Controller
                 'callback_data' => 'gc:c:'.$topic->template_slug,
             ]];
         }
-        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $rows[] = [['text' => trans('growth_companion.btn_topics'), 'callback_data' => 'gc:topics']];
         $messenger->send($chatId, $text, $rows);
     }
 
@@ -1290,7 +1306,7 @@ class GrowthCompanionController extends Controller
                 'callback_data' => 'gc:w:'.$topic->template_slug,
             ]];
         }
-        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $rows[] = [['text' => trans('growth_companion.nav.more'), 'callback_data' => 'gc:more']];
         $messenger->send($chatId, trans('growth_companion.weekday_menu'), $rows);
     }
 
@@ -1323,7 +1339,7 @@ class GrowthCompanionController extends Controller
         if ($row !== []) {
             $rows[] = $row;
         }
-        $rows[] = [['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set']];
+        $rows[] = [['text' => trans('growth_companion.nav.more'), 'callback_data' => 'gc:more']];
         $messenger->send($chatId, $text, $rows);
     }
 

@@ -83,15 +83,18 @@ class GrowthDispatchDueCommand extends Command
                 }
 
                 $messenger = $this->messengerFactory->make($token, $origin);
+                $topicLabel = $program->name ?: trans('growth_companion.qotd_title');
+                $title = trans('growth_companion.qotd_title').' · '.$topicLabel;
+                $html = '<b>'.htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8').'</b>'
+                    ."\n\n".htmlspecialchars($variant->body, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $messenger->send(
                     (string) $botUser->chat_id,
-                    trans('growth_companion.today')."\n\n".$variant->body,
+                    $html,
                     [
-                        [
-                            ['text' => trans('growth_companion.btn_later'), 'callback_data' => 'gc:later'],
-                            ['text' => trans('growth_companion.btn_settings'), 'callback_data' => 'gc:set'],
-                        ],
-                    ]
+                        [['text' => trans('growth_companion.btn_later'), 'callback_data' => 'gc:later']],
+                    ],
+                    null,
+                    'HTML'
                 );
 
                 $this->service->markSent($schedule, $profile);

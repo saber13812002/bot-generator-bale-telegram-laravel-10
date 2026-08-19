@@ -21,6 +21,7 @@ trait UsesGrowthCompanionSqlite
 
     protected function setUpGrowthCompanionTables(): void
     {
+        Schema::dropIfExists('growth_daily_checkins');
         Schema::dropIfExists('growth_reviews');
         Schema::dropIfExists('growth_profile_topics');
         Schema::dropIfExists('growth_responses');
@@ -185,6 +186,20 @@ trait UsesGrowthCompanionSqlite
             $table->text('body')->nullable();
             $table->json('stats')->nullable();
             $table->timestamps();
+        });
+
+        Schema::create('growth_daily_checkins', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('growth_profile_id');
+            $table->string('day_key', 16);
+            $table->unsignedTinyInteger('energy')->nullable();
+            $table->string('mood', 16)->nullable();
+            $table->unsignedTinyInteger('sleep_hours')->nullable();
+            $table->boolean('moved')->nullable();
+            $table->json('focus_slugs')->nullable();
+            $table->text('evening_note')->nullable();
+            $table->timestamps();
+            $table->unique(['growth_profile_id', 'day_key']);
         });
     }
 }
