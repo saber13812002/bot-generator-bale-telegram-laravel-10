@@ -10,12 +10,19 @@ class FakeGrowthMessenger implements GrowthMessenger
     public array $callbacks = [];
     public array $edits = [];
 
-    public function send(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
-    {
+    public function send(
+        string $chatId,
+        string $text,
+        ?array $inlineKeyboardRows = null,
+        ?array $replyKeyboardRows = null,
+        ?string $parseMode = null
+    ): void {
         $this->messages[] = [
             'chat_id' => $chatId,
             'text' => $text,
             'keyboard' => $inlineKeyboardRows,
+            'reply_keyboard' => $replyKeyboardRows,
+            'parse_mode' => $parseMode,
         ];
     }
 
@@ -57,6 +64,13 @@ class FakeGrowthMessenger implements GrowthMessenger
         return $lastEdit['keyboard'] ?? ($lastMsg['keyboard'] ?? null);
     }
 
+    public function lastReplyKeyboard(): ?array
+    {
+        $last = end($this->messages);
+
+        return $last['reply_keyboard'] ?? null;
+    }
+
     public function lastCallbackText(): ?string
     {
         $last = end($this->callbacks);
@@ -67,32 +81,14 @@ class FakeGrowthMessenger implements GrowthMessenger
     public function questionMessageCount(): int
     {
         $count = 0;
-        $prefix = trans('growth_companion.today')."\n\n";
-        $oldNeedle = trans('growth_companion.today');
-        $classified = [];
+        $title = trans('growth_companion.qotd_title');
+        $legacy = trans('growth_companion.today')."\n\n";
         foreach ($this->messages as $message) {
-            $text = (string) ($message['text'] ?? '');
-            $isQuestion = str_starts_with($text, $prefix);
-            $oldMatch = str_contains($text, $oldNeedle);
-            if ($isQuestion) {
+            $text = strip_tags((string) ($message['text'] ?? ''));
+            if (str_contains((string) ($message['text'] ?? ''), $title) || str_starts_with($text, $legacy)) {
                 $count++;
             }
-            $classified[] = [
-                'preview' => mb_substr($text, 0, 60),
-                'oldMatch' => $oldMatch,
-                'isQuestion' => $isQuestion,
-            ];
         }
-        // #region agent log
-        file_put_contents(base_path('debug-3f8f5f.log'), json_encode([
-            'sessionId' => '3f8f5f',
-            'hypothesisId' => 'A',
-            'location' => 'tests/Fakes/FakeGrowthMessenger.php:questionMessageCount',
-            'message' => 'question vs board classification',
-            'data' => ['count' => $count, 'classified' => $classified],
-            'timestamp' => (int) round(microtime(true) * 1000),
-        ], JSON_UNESCAPED_UNICODE)."\n", FILE_APPEND);
-        // #endregion
 
         return $count;
     }

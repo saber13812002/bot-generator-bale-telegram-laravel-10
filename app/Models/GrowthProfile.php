@@ -75,6 +75,11 @@ class GrowthProfile extends Model
         return $this->hasMany(GrowthReview::class);
     }
 
+    public function checkins(): HasMany
+    {
+        return $this->hasMany(GrowthDailyCheckin::class);
+    }
+
     public function activeProgram(): ?GrowthProgram
     {
         return $this->programs()->where('status', 'active')->latest('id')->first();

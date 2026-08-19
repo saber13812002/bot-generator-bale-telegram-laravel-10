@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Interfaces\Services\GrowthCompanionService;
 use App\Interfaces\Services\GrowthLlmProvider;
 use App\Models\BotUsers;
+use App\Models\GrowthDailyCheckin;
 use App\Models\GrowthProfile;
 use App\Models\GrowthProfileTopic;
 use App\Models\GrowthProgram;
@@ -359,26 +360,209 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
 
     public function weeklyReviewText(GrowthProfile $profile): string
     {
-        $start = $this->weekWindowStart($profile);
-        $topics = $this->enabledTopics($profile);
-        $lines = [trans('growth_companion.weekly_review_title')];
-        $answered = 0;
+        $data = $this->weeklyReviewData($profile);
+        $lines = ['<b>'.e(trans('growth_companion.weekly_section_title')).'</b>', ''];
 
-        foreach ($topics as $topic) {
-            $question = $this->questionForTopic($profile, $topic->template_slug, true);
-            $count = 0;
-            if ($question) {
-                $count = $question->responses()->where('answered_at', '>=', $start)->count();
-            }
-            $answered += $count;
-            $lines[] = $topic->displayLabel().': '.$count;
+        $lines[] = '<b>'.e(trans('growth_companion.weekly_wins')).'</b>';
+        $lines[] = trans('growth_companion.weekly_count', ['count' => count($data['wins'])]);
+        foreach ($data['wins'] as $win) {
+            $lines[] = '✓ '.$this->e($win);
+        }
+        if ($data['wins'] === []) {
+            $lines[] = e(trans('growth_companion.weekly_review_empty'));
         }
 
-        if ($answered === 0) {
-            $lines[] = trans('growth_companion.weekly_review_empty');
+        $lines[] = '';
+        $lines[] = '<b>'.e(trans('growth_companion.weekly_challenges')).'</b>';
+        $lines[] = trans('growth_companion.weekly_count', ['count' => count($data['challenges'])]);
+        foreach ($data['challenges'] as $item) {
+            $lines[] = '· '.$this->e($item);
+        }
+
+        $lines[] = '';
+        $lines[] = '<b>'.e(trans('growth_companion.weekly_learned')).'</b>';
+        $lines[] = trans('growth_companion.weekly_count', ['count' => count($data['notes'])]);
+        foreach ($data['notes'] as $note) {
+            $lines[] = '· '.$this->e($note);
+        }
+
+        $lines[] = '';
+        $lines[] = '<b>'.e(trans('growth_companion.weekly_next')).'</b>';
+        foreach ($data['next'] as $i => $action) {
+            $lines[] = ($i + 1).'. '.$this->e($action);
+        }
+
+        $stats = $data['stats'];
+        $lines[] = '';
+        $lines[] = e(trans('growth_companion.week_line', [
+            'done' => $stats['days'],
+            'total' => 7,
+        ])).' '.$this->progressBar((int) $stats['days']);
+        if ($stats['moved'] > 0) {
+            $lines[] = e(trans('growth_companion.week_moved', ['count' => $stats['moved']]));
+        }
+        if ($stats['sleep_ok'] > 0) {
+            $lines[] = e(trans('growth_companion.week_sleep', ['count' => $stats['sleep_ok']]));
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @return array{wins: list<string>, challenges: list<string>, notes: list<string>, next: list<string>, stats: array}
+     */
+    public function weeklyReviewData(GrowthProfile $profile, ?Carbon $now = null): array
+    {
+        $start = $this->weekWindowStart($profile, $now);
+        $wins = [];
+        $challenges = [];
+        $notes = [];
+
+        foreach ($this->enabledTopics($profile) as $topic) {
+            $question = $this->questionForTopic($profile, $topic->template_slug, true);
+            $count = 0;
+            if ($question) {
+                $responses = $question->responses()->where('answered_at', '>=', $start)->orderBy('answered_at')->get();
+                $count = $responses->count();
+                foreach ($responses as $response) {
+                    foreach ($this->bulletSummary((string) $response->body, 2) as $bullet) {
+                        $notes[] = $bullet;
+                    }
+                }
+            }
+            if ($count > 0) {
+                $wins[] = $topic->displayLabel();
+            } else {
+                $challenges[] = $topic->displayLabel();
+            }
+        }
+
+        $notes = array_slice(array_values(array_unique($notes)), 0, 4);
+        $stats = $this->weekCheckinStats($profile, $now);
+        $next = [];
+        foreach (array_slice($challenges, 0, 2) as $challenge) {
+            $next[] = trans('growth_companion.weekly_next_topic', ['topic' => $challenge]);
+        }
+        if ($stats['days'] < 5) {
+            $next[] = trans('growth_companion.weekly_next_checkin');
+        }
+        if ($next === []) {
+            $next[] = trans('growth_companion.weekly_next_keep');
+        }
+        $next = array_slice($next, 0, 3);
+
+        return [
+            'wins' => $wins,
+            'challenges' => array_slice($challenges, 0, 6),
+            'notes' => $notes,
+            'next' => $next,
+            'stats' => $stats,
+        ];
+    }
+
+    public function dayKey(GrowthProfile $profile, ?Carbon $now = null): string
+    {
+        $tz = $profile->timezone ?: 'Asia/Tehran';
+
+        return $this->dayWindowStart($profile, $now)->timezone($tz)->toDateString();
+    }
+
+    public function todayCheckin(GrowthProfile $profile, ?Carbon $now = null): ?GrowthDailyCheckin
+    {
+        return GrowthDailyCheckin::where('growth_profile_id', $profile->id)
+            ->where('day_key', $this->dayKey($profile, $now))
+            ->first();
+    }
+
+    public function upsertCheckin(GrowthProfile $profile, array $attrs, ?Carbon $now = null): GrowthDailyCheckin
+    {
+        $row = GrowthDailyCheckin::firstOrNew([
+            'growth_profile_id' => $profile->id,
+            'day_key' => $this->dayKey($profile, $now),
+        ]);
+        $row->fill($attrs);
+        $row->save();
+
+        return $row;
+    }
+
+    public function nextOpenTopic(GrowthProfile $profile, ?Carbon $now = null): ?GrowthProfileTopic
+    {
+        foreach ($this->enabledTopics($profile) as $topic) {
+            if ($this->canOpenTopic($profile, $topic, $now) === 'ask') {
+                return $topic;
+            }
+        }
+
+        return null;
+    }
+
+    public function weekCheckinStats(GrowthProfile $profile, ?Carbon $now = null): array
+    {
+        $start = $this->weekWindowStart($profile, $now);
+        $tz = $profile->timezone ?: 'Asia/Tehran';
+        $fromKey = $start->copy()->timezone($tz)->toDateString();
+        $checkins = GrowthDailyCheckin::where('growth_profile_id', $profile->id)
+            ->where('day_key', '>=', $fromKey)
+            ->get();
+
+        $days = $checkins->pluck('day_key')->unique()->count();
+        $programIds = $profile->programs()->where('status', 'active')->pluck('id');
+        $questionIds = GrowthQuestion::whereIn('growth_program_id', $programIds)->pluck('id');
+        $responseDays = GrowthResponse::whereIn('growth_question_id', $questionIds)
+            ->where('answered_at', '>=', $start)
+            ->get()
+            ->map(fn (GrowthResponse $response) => $this->dayKey($profile, $response->answered_at?->timezone($tz)))
+            ->unique()
+            ->count();
+
+        return [
+            'days' => max($days, $responseDays),
+            'moved' => $checkins->where('moved', true)->count(),
+            'sleep_ok' => $checkins->filter(fn ($row) => (int) $row->sleep_hours >= 7)->count(),
+        ];
+    }
+
+    public function recentResponses(GrowthProfile $profile, int $limit = 10)
+    {
+        $programIds = $profile->programs()->pluck('id');
+        $questionIds = GrowthQuestion::whereIn('growth_program_id', $programIds)->pluck('id');
+
+        return GrowthResponse::whereIn('growth_question_id', $questionIds)
+            ->with('question.program')
+            ->orderByDesc('answered_at')
+            ->limit($limit)
+            ->get();
+    }
+
+    public function bulletSummary(string $body, int $limit = 6): array
+    {
+        $parts = preg_split('/[\r\n]+|(?<=[.!?؟])\s+/u', $body) ?: [];
+        $out = [];
+        foreach ($parts as $part) {
+            $part = trim((string) $part);
+            if ($part === '') {
+                continue;
+            }
+            $out[] = mb_strlen($part) > 80 ? mb_substr($part, 0, 77).'…' : $part;
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    public function progressBar(int $filled, int $total = 7): string
+    {
+        $filled = max(0, min($total, $filled));
+
+        return str_repeat('▰', $filled).str_repeat('▱', $total - $filled);
+    }
+
+    private function e(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     public function saveWeeklyReview(GrowthProfile $profile, string $body): GrowthReview
@@ -654,6 +838,7 @@ class GrowthCompanionServiceImpl implements GrowthCompanionService
         $profiles = GrowthProfile::where('bot_user_id', $botUser->id)->where('bot_id', $botId)->get();
         foreach ($profiles as $profile) {
             $profile->reviews()->delete();
+            $profile->checkins()->delete();
             $profile->topics()->delete();
             foreach ($profile->programs as $program) {
                 foreach ($program->questions as $question) {

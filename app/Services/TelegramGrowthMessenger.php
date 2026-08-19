@@ -13,16 +13,31 @@ class TelegramGrowthMessenger implements GrowthMessenger
     {
     }
 
-    public function send(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
-    {
+    public function send(
+        string $chatId,
+        string $text,
+        ?array $inlineKeyboardRows = null,
+        ?array $replyKeyboardRows = null,
+        ?string $parseMode = null
+    ): void {
         $content = [
             'chat_id' => $chatId,
             'text' => $text,
         ];
 
+        if ($parseMode) {
+            $content['parse_mode'] = $parseMode;
+        }
+
         if ($inlineKeyboardRows) {
             $content['reply_markup'] = json_encode([
                 'inline_keyboard' => $inlineKeyboardRows,
+            ], JSON_UNESCAPED_UNICODE);
+        } elseif ($replyKeyboardRows) {
+            $content['reply_markup'] = json_encode([
+                'keyboard' => $replyKeyboardRows,
+                'resize_keyboard' => true,
+                'is_persistent' => true,
             ], JSON_UNESCAPED_UNICODE);
         }
 

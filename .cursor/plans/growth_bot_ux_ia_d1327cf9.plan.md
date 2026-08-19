@@ -4,7 +4,7 @@ overview: "بازطراحی رابط رشدیار فقط در تلگرام/بل�
 todos:
   - id: ux-messenger-nav
     content: "GrowthMessenger: HTML + reply keyboard; persistent 5-action nav; parse home from text"
-    status: pending
+    status: in_progress
   - id: ux-home-card
     content: Home as daily/weekly text card + single primary CTA; move topic board off home
     status: pending

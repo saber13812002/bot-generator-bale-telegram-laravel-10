@@ -114,4 +114,24 @@ interface GrowthCompanionService
     public function dispatchSkipReason(GrowthQuestionSchedule $schedule, GrowthProfile $profile): ?string;
 
     public static function budgetForIntensity(string $intensity): int;
+
+    public function dayKey(GrowthProfile $profile, ?Carbon $now = null): string;
+
+    public function todayCheckin(GrowthProfile $profile, ?Carbon $now = null): ?\App\Models\GrowthDailyCheckin;
+
+    public function upsertCheckin(GrowthProfile $profile, array $attrs, ?Carbon $now = null): \App\Models\GrowthDailyCheckin;
+
+    public function nextOpenTopic(GrowthProfile $profile, ?Carbon $now = null): ?GrowthProfileTopic;
+
+    public function weekCheckinStats(GrowthProfile $profile, ?Carbon $now = null): array;
+
+    /**
+     * @return \Illuminate\Support\Collection<int, GrowthResponse>
+     */
+    public function recentResponses(GrowthProfile $profile, int $limit = 10);
+
+    /**
+     * @return list<string>
+     */
+    public function bulletSummary(string $body, int $limit = 6): array;
 }
