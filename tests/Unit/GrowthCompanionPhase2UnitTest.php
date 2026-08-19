@@ -67,4 +67,14 @@ class GrowthCompanionPhase2UnitTest extends TestCase
         $this->assertSame(1, \App\Services\GrowthCompanionServiceImpl::budgetForIntensity('balanced'));
         $this->assertSame(2, \App\Services\GrowthCompanionServiceImpl::budgetForIntensity('active'));
     }
+
+    public function test_progress_bar_and_bullet_summary(): void
+    {
+        $service = app(GrowthCompanionService::class);
+        $this->assertSame('▰▰▰▱▱▱▱', $service->progressBar(3));
+        $this->assertSame(
+            ['First line', 'Second sentence.', 'Extra'],
+            $service->bulletSummary("First line\n\nSecond sentence. Extra")
+        );
+    }
 }

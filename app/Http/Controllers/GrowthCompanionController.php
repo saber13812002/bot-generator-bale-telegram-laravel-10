@@ -520,16 +520,7 @@ class GrowthCompanionController extends Controller
 
         if ($payload === 'rev') {
             $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-            $messenger->send(
-                $chatId,
-                $this->service->weeklyReviewText($profile),
-                [
-                    [['text' => trans('growth_companion.btn_save_review'), 'callback_data' => 'gc:revw']],
-                    [['text' => trans('growth_companion.nav.today'), 'callback_data' => 'gc:home']],
-                ],
-                null,
-                'HTML'
-            );
+            $this->sendWeekly($messenger, $profile, $chatId);
 
             return;
         }
@@ -1168,53 +1159,6 @@ class GrowthCompanionController extends Controller
                 ['text' => trans('growth_companion.time.skip'), 'callback_data' => 'gc:t:skip'],
             ],
         ]);
-    }
-
-    private function sendSettings(
-        GrowthMessenger $messenger,
-        Bot $botItem,
-        string $chatId,
-        BotUsers $botUser,
-        ?string $preamble = null
-    ): void {
-        $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
-        $current = $profile->intensity ?: 'balanced';
-        $text = trans('growth_companion.settings_title');
-        if ($preamble) {
-            $text = $preamble."\n\n".$text;
-        }
-
-        $rows = [
-            [
-                $this->intensityBtn('min', 'minimal', $current),
-                $this->intensityBtn('bal', 'balanced', $current),
-                $this->intensityBtn('act', 'active', $current),
-            ],
-            [
-                ['text' => trans('growth_companion.btn_daily'), 'callback_data' => 'gc:freq:d'],
-                ['text' => trans('growth_companion.btn_weekly'), 'callback_data' => 'gc:freq:w'],
-            ],
-            [
-                ['text' => trans('growth_companion.btn_pause'), 'callback_data' => 'gc:p'],
-                ['text' => trans('growth_companion.btn_unpause'), 'callback_data' => 'gc:u'],
-            ],
-            [['text' => trans('growth_companion.btn_cadence'), 'callback_data' => 'gc:cad']],
-            [['text' => trans('growth_companion.btn_weekly_review'), 'callback_data' => 'gc:rev']],
-            [['text' => trans('growth_companion.btn_export'), 'callback_data' => 'gc:exp']],
-            [['text' => trans('growth_companion.btn_custom_question'), 'callback_data' => 'gc:cq']],
-            [['text' => trans('growth_companion.btn_privacy'), 'callback_data' => 'gc:priv']],
-            [['text' => trans('growth_companion.btn_board'), 'callback_data' => 'gc:home']],
-        ];
-
-        if ($profile->isAdvanced()) {
-            $rows[] = [['text' => trans('growth_companion.btn_weekdays'), 'callback_data' => 'gc:wdm']];
-            $rows[] = [['text' => trans('growth_companion.btn_ai_variants'), 'callback_data' => 'gc:ai']];
-            $rows[] = [['text' => trans('growth_companion.btn_simple_mode'), 'callback_data' => 'gc:adv']];
-        } else {
-            $rows[] = [['text' => trans('growth_companion.btn_advanced'), 'callback_data' => 'gc:adv']];
-        }
-
-        $messenger->send($chatId, $text, $rows);
     }
 
     private function intensityBtn(string $code, string $intensity, string $current): array

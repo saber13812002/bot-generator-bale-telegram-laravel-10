@@ -4,19 +4,19 @@ overview: "بازطراحی رابط رشدیار فقط در تلگرام/بل�
 todos:
   - id: ux-messenger-nav
     content: "GrowthMessenger: HTML + reply keyboard; persistent 5-action nav; parse home from text"
-    status: in_progress
+    status: completed
   - id: ux-home-card
     content: Home as daily/weekly text card + single primary CTA; move topic board off home
-    status: pending
+    status: completed
   - id: ux-checkin
     content: growth_daily_checkins + 4-step choice check-in feeding the home card
-    status: pending
+    status: completed
   - id: ux-qotd-week-more
     content: One-question screen; structured weekly review + short summary of long text; More/history/topics
-    status: pending
+    status: completed
   - id: ux-i18n-tests-docs
     content: 15 locales, SQLite board/home tests, GROWTH_COMPANION.md
-    status: pending
+    status: completed
 isProject: false
 ---
 
