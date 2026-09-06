@@ -490,7 +490,7 @@ class BookLibraryReaderController extends Controller
             return;
         }
         if ($text === $menuCategories) {
-            $this->showCategoryPage($bot, $instanceBotId, 1);
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, 1);
             return;
         }
 
@@ -757,7 +757,7 @@ class BookLibraryReaderController extends Controller
         // صفحه‌بندی دسته‌ها
         if (str_starts_with($callbackData, 'bl:cat_page:')) {
             $page = (int) str_replace('bl:cat_page:', '', $callbackData);
-            $this->showCategoryPage($bot, $instanceBotId, $page);
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, $page);
             return;
         }
 
@@ -861,7 +861,7 @@ class BookLibraryReaderController extends Controller
         BotHelper::sendMessage($bot, "📖 به ربات کتابخانه خوش آمدید!\nبرای شروع یک دسته را انتخاب کنید.");
         $this->sendMainMenu($bot);
         if ($botId > 0) {
-            $this->showCategoryPage($bot, $botId, 1);
+            $this->showCategoryPage($bot, $botUser, $botId, 1);
         }
     }
 
@@ -875,7 +875,7 @@ class BookLibraryReaderController extends Controller
         BotHelper::sendKeyboardMessage($bot, '📋 منوی اصلی:', $bot->buildKeyBoard($keyboard, true, true));
     }
 
-    private function showCategoryPage(Telegram $bot, int $botId, int $page): void
+    private function showCategoryPage(Telegram $bot, BotUsers $botUser, int $botId, int $page): void
     {
         if ($botId <= 0) {
             BotHelper::sendMessage($bot, '❌ خطا');
@@ -887,6 +887,40 @@ class BookLibraryReaderController extends Controller
             return;
         }
         $keyboard = [];
+
+        // --- Recent Categories (Continue Reading) ---
+        if ($page === 1) {
+            $progressRecords = \App\Models\ContentUserProgress::with('category')
+                ->where('bot_user_id', $botUser->id)
+                ->where('bot_id', $botId)
+                ->orderBy('updated_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            $recentCategories = [];
+            foreach ($progressRecords as $progress) {
+                if (!$progress->category || !$progress->category->is_active) continue;
+
+                $totalItems = $progress->category->items()->where('is_active', true)->count();
+                if ($totalItems > $progress->last_position) {
+                    $recentCategories[] = $progress->category;
+                }
+
+                if (count($recentCategories) >= 2) break;
+            }
+
+            if (count($recentCategories) > 0) {
+                $keyboard[] = [$bot->buildInlineKeyBoardButton('👇 ⏳ ادامه فایل‌های قبلی 👇', callback_data: "ignore")];
+                $recentRow = [];
+                foreach ($recentCategories as $cat) {
+                    $recentRow[] = $bot->buildInlineKeyBoardButton('🔥 ' . $cat->title, callback_data: "bl:cat:{$cat->id}");
+                }
+                $keyboard[] = $recentRow;
+                $keyboard[] = [$bot->buildInlineKeyBoardButton('👇 🗂 همه دسته‌بندی‌ها 👇', callback_data: "ignore")];
+            }
+        }
+        // --------------------------------------------
+
         foreach ($categories as $category) {
             $keyboard[] = [$bot->buildInlineKeyBoardButton($category->title, callback_data: "bl:cat:{$category->id}")];
         }
