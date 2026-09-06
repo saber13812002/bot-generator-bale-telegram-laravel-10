@@ -47,6 +47,9 @@ class UserProgressReport extends Command
             $remaining = max(0, $totalItemsInCategory - $received);
             
             $categoryBreakdown .= "- 📁 {$categoryName}: دریافت شده {$received} | باقیمانده {$remaining}\n";
+            if ($remaining > 0) {
+                $categoryBreakdown .= "  📥 ادامه  : /category{$progress->category_id}\n";
+            }
         }
 
         if (empty($categoryBreakdown)) {

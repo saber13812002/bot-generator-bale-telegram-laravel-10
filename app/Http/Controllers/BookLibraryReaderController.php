@@ -222,6 +222,18 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== User Command: /category {id} =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/category')) {
+            $catIdStr = trim(str_replace(['/category', ' '], '', mb_strtolower(trim($text))));
+            if (is_numeric($catIdStr)) {
+                $categoryId = (int) $catIdStr;
+                $this->deliverNextInCategory($bot, $botUser, $instanceBotId, $type, $categoryId);
+            } else {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شناسه دسته نامعتبر است.");
+            }
+            return;
+        }
+
         // ===== پردازش دستور /tome برای Claim ربات =====
         if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
             \Illuminate\Support\Facades\Log::info('📋 [BookLibraryReader] /tome command received', [
