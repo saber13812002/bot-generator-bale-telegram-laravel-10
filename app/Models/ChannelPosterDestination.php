@@ -26,4 +26,12 @@ class ChannelPosterDestination extends Model
         'verified_at' => 'datetime',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Relationship to the Bot model.
+     */
+    public function bot()
+    {
+        return $this->belongsTo(Bot::class);
+    }
 }
