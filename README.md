@@ -232,6 +232,7 @@ Looking for the original README? [Click here](README_LEGACY.md)
 | [📖 Bot Creation Guide](docs/BOT_CREATION_GUIDE.md) | Step-by-step guide to create new bots |
 | [📖 Bot Types Guide](docs/BOT_TYPES_GUIDE.md) | Complete list of bot endpoints |
 | [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 37 bots |
+| [📖 Book Library Quick Start](QUICK_START_BOOK_LIBRARY.md) | Guide for setting up the Smart Book Library bot |
 | [📖 Architecture](plans/BOT_GENERATOR_ARCHITECTURE.md) | System architecture documentation |
 | [📖 Get Started](docs/GETTING-STARTED.md) | Development setup guide |
 | [📖 API Docs](docs/API_README.md) | API documentation |
