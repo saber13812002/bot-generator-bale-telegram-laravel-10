@@ -88,7 +88,17 @@ class SendAudioTestReport extends Command
             ['text' => '❌ نمایش نظرسنجی را مخفی کن', 'callback_data' => "survey:hide:{$user->id}"],
         ];
 
-        $messenger = new Telegram(env('BOT_MOTHER_TOKEN_BALE'), 'bale');
+        // Retrieve the specific bot for this user (fallback to mother bot if not found)
+        $bot = \App\Models\Bot::find($user->bot_id);
+        if ($bot) {
+            $token = $bot->bale_bot_token ?? $bot->telegram_bot_token;
+            $type = $bot->type ?? 'bale';
+        } else {
+            // Fallback to mother bot token
+            $token = env('BOT_MOTHER_TOKEN_BALE');
+            $type = 'bale';
+        }
+        $messenger = new Telegram($token, $type);
         BotHelper::sendMessageByChatId(
             $messenger,
             $user->chat_id,
