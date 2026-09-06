@@ -166,6 +166,13 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        if (in_array(mb_strtolower(trim($text)), ['/dailyreport', 'dailyreport', '/myreport'])) {
+            \Illuminate\Support\Facades\Artisan::call('user:progress-report', [
+                '--user-id' => $botUser->id
+            ]);
+            return;
+        }
+
         // ===== پردازش دستور /tome برای Claim ربات =====
         if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
             \Illuminate\Support\Facades\Log::info('📋 [BookLibraryReader] /tome command received', [
