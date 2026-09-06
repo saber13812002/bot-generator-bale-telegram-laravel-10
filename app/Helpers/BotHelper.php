@@ -457,13 +457,13 @@ class BotHelper
      * @param string $message
      * @return mixed
      */
-    public static function sendMessageByChatId($messenger, $chat_id, string $message)
+    public static function sendMessageByChatId($messenger, $chat_id, string $message, array $options = [])
     {
-        $content = [
+        $content = array_merge([
             'chat_id' => $chat_id,
             'text' => $message,
             'parse_mode' => "html"
-        ];
+        ], $options);
 
         return $messenger->sendMessage($content);
     }

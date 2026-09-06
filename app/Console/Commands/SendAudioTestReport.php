@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Helpers\BotHelper;
+use Telegram;
 use App\Models\BotUsers;
 use App\Models\BotLog;
 use App\Services\AudioSurveyService;
@@ -87,7 +88,9 @@ class SendAudioTestReport extends Command
             ['text' => '❌ نمایش نظرسنجی را مخفی کن', 'callback_data' => "survey:hide:{$user->id}"],
         ];
 
+        $messenger = new Telegram(env('BOT_MOTHER_TOKEN_BALE'), 'bale');
         BotHelper::sendMessageByChatId(
+            $messenger,
             $user->chat_id,
             $message,
             ['reply_markup' => json_encode(['inline_keyboard' => [$keyboard]])]
