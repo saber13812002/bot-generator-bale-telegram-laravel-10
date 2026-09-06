@@ -35,32 +35,42 @@ class UserProgressReport extends Command
         }
 
         // Gather progress data
-        $progressRecords = ContentUserProgress::where('bot_user_id', $user->id)->get();
+        $progressRecords = ContentUserProgress::with('category.items')->where('bot_user_id', $user->id)->get();
         $totalCategories = $progressRecords->unique('category_id')->count();
-        $totalItems = $progressRecords->count();
-        $completed = $progressRecords->where('last_position', '>', 0)->count();
-        $completionPercent = $totalItems ? round(($completed / $totalItems) * 100, 2) : 0;
+        $totalReceived = $progressRecords->sum('last_position');
+
+        $categoryBreakdown = "";
+        foreach ($progressRecords as $progress) {
+            $categoryName = $progress->category->title ?? 'دسته نامشخص';
+            $received = $progress->last_position;
+            $totalItemsInCategory = $progress->category ? $progress->category->items->count() : 0;
+            $remaining = max(0, $totalItemsInCategory - $received);
+            
+            $categoryBreakdown .= "- 📁 {$categoryName}: دریافت شده {$received} | باقیمانده {$remaining}\n";
+        }
+
+        if (empty($categoryBreakdown)) {
+            $categoryBreakdown = "- هنوز فایلی دریافت نشده است.\n";
+        }
 
         // Load template if exists
         $templatePath = base_path('docs/PROGRESS_REPORT_TEMPLATE.md');
         if (file_exists($templatePath)) {
             $template = file_get_contents($templatePath);
         } else {
-            $template = "## 📊 گزارش پیشرفت کاربر\n\n- شناسه کاربر: {user_id}\n- کل دسته‌ها: {total_categories}\n- کل آیتم‌ها: {total_items}\n- تکمیل شده: {completed}\n- درصد تکمیل: {percent}%\n";
+            $template = "## 📊 گزارش پیشرفت کاربر\n\n- شناسه کاربر: {user_id}\n- کل دسته‌ها: {total_categories}\n- کل فایل‌های دریافتی: {total_received}\n\n### جزئیات دسته‌ها:\n{category_breakdown}\n";
         }
 
         $report = str_replace([
             '{user_id}',
             '{total_categories}',
-            '{total_items}',
-            '{completed}',
-            '{percent}'
+            '{total_received}',
+            '{category_breakdown}'
         ], [
             $user->id,
             $totalCategories,
-            $totalItems,
-            $completed,
-            $completionPercent
+            $totalReceived,
+            $categoryBreakdown
         ], $template);
 
         // Determine bot token

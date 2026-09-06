@@ -174,6 +174,54 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== Admin Commands: /topusers and /sendmsg =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/topusers')) {
+            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                $topUsers = \App\Models\ContentUserProgress::selectRaw('bot_user_id, sum(last_position) as total_received')
+                    ->where('bot_id', $instanceBotId)
+                    ->groupBy('bot_user_id')
+                    ->orderBy('total_received', 'desc')
+                    ->limit(10)
+                    ->get();
+
+                if ($topUsers->isEmpty()) {
+                    \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "موردی یافت نشد.");
+                    return;
+                }
+
+                $msg = "🏆 لیست ۱۰ کاربر برتر (بر اساس تعداد فایل‌های دریافتی):\n\n";
+                foreach ($topUsers as $index => $u) {
+                    $rank = $index + 1;
+                    $msg .= "{$rank}. شناسه کاربر: {$u->bot_user_id} - تعداد فایل: {$u->total_received}\n";
+                }
+                
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $msg);
+            }
+            return;
+        }
+
+        if (str_starts_with(mb_strtolower(trim($text)), '/sendmsg ')) {
+            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                $parts = explode(' ', trim($text), 3);
+                if (count($parts) >= 3) {
+                    $targetUserId = $parts[1];
+                    $messageContent = $parts[2];
+                    
+                    $targetUser = \App\Models\BotUsers::find($targetUserId);
+                    if ($targetUser) {
+                        $adminMsg = "پیام ادمین:\n\n" . $messageContent;
+                        \App\Helpers\BotHelper::sendMessageByChatId($bot, $targetUser->chat_id, $adminMsg);
+                        \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "✅ پیام با موفقیت به کاربر {$targetUserId} ارسال شد.");
+                    } else {
+                        \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
+                    }
+                } else {
+                    \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ فرمت دستور اشتباه است. مثال:\n/sendmsg 123 پیام شما");
+                }
+            }
+            return;
+        }
+
         // ===== پردازش دستور /tome برای Claim ربات =====
         if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
             \Illuminate\Support\Facades\Log::info('📋 [BookLibraryReader] /tome command received', [
