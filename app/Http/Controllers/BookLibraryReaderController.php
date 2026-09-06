@@ -208,6 +208,8 @@ class BookLibraryReaderController extends Controller
             if (!$hasNew) {
                 $whatsNewMsg = "در حال حاضر هیچ فایل صوتی جدیدی برای شما اضافه نشده است. شما تمام محتواها را دریافت کرده‌اید! 🎉";
             }
+            
+            $whatsNewMsg .= \App\Helpers\BotHelper::getRandomHelpCta();
 
             \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $whatsNewMsg);
             return;
@@ -364,10 +366,15 @@ class BookLibraryReaderController extends Controller
             $message .= "🔹 /adminkie — درخواست ادمین شدن\n";
             if ($isOwner) {
                 $message .= "\n🛠 دستورات مدیریت:\n";
-                $message .= "/manage — پنل مدیریت\n";
-                $message .= "/categories — لیست دسته‌بندی‌ها\n";
-                $message .= "/addcategory — دسته جدید\n";
-                $message .= "/broadcast — ارسال همگانی\n";
+                $message .= "🔹 /manage — پنل مدیریت\n";
+                $message .= "🔹 /categories — لیست دسته‌بندی‌ها\n";
+                $message .= "🔹 /addcategory — دسته جدید\n";
+                $message .= "🔹 /broadcast — ارسال همگانی\n";
+            }
+            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                $message .= "\n⚙️ دستورات ادمین:\n";
+                $message .= "🔹 /topusers — 🏆 لیست کاربران برتر\n";
+                $message .= "🔹 /sendmsg — ✉️ ارسال پیام به کاربر خاص\n";
             }
             BotHelper::sendMessage($bot, $message);
             $this->sendMainMenu($bot);

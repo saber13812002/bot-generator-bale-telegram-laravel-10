@@ -81,6 +81,8 @@ class UserProgressReport extends Command
             $totalReceived,
             $categoryBreakdown
         ], $template);
+        
+        $report .= \App\Helpers\BotHelper::getRandomHelpCta();
 
         // Determine bot token
         $botId = $this->option('bot-id') ?: $user->bot_id;

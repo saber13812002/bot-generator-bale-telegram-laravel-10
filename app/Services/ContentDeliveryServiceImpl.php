@@ -104,7 +104,9 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         $footer = $botModel?->caption_footer;
 
         if (!$footer) {
-            return $text;
+            $caption = $text;
+            $caption .= \App\Helpers\BotHelper::getRandomHelpCta();
+            return $caption;
         }
 
         // جایگزینی متغیرها
@@ -118,7 +120,10 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
             $footer
         );
 
-        return $text . "\n\n" . $footer;
+        $caption = $text . "\n\n" . $footer;
+        $caption .= \App\Helpers\BotHelper::getRandomHelpCta();
+        
+        return $caption;
     }
 
     private function sendAudio(

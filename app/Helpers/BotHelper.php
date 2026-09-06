@@ -469,6 +469,26 @@ class BotHelper
     }
 
     /**
+     * Get a random call to action for the /help command.
+     */
+    public static function getRandomHelpCta(): string
+    {
+        $messages = [
+            "💡 برای آشنایی با امکانات بیشتر، روی /help کلیک کنید.",
+            "📌 راهنمای استفاده از ربات رو خوندی؟ 👉 /help",
+            "🤔 می‌خوای بدونی ربات چه قابلیت‌های دیگه‌ای داره؟ /help",
+            "🔍 اگر گیر کردی یا سوالی داری، /help به کمکت میاد!",
+            "⚙️ لیست کامل دستورات رو در /help ببینید.",
+            "📚 کار با ربات رو بلدی؟ نگاهی به /help بنداز.",
+            "✨ برای مدیریت بهتر فایل‌هات، حتماً /help رو ببین.",
+            "💡 یک کلیک تا راهنمای کامل ربات: /help",
+            "🧩 می‌خوای حرفه‌ای‌تر از ربات استفاده کنی؟ 👉 /help",
+            "🧭 برای پیدا کردن مسیر و دستورات، /help رو لمس کن!"
+        ];
+        return "\n\n" . $messages[array_rand($messages)];
+    }
+
+    /**
      * @param $token
      * @param $type
      * @param $chat_id
