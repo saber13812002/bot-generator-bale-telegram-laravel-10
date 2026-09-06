@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Helpers\BotHelper;
+use App\Models\Bot;
+use App\Models\BotUsers;
+use App\Models\ContentUserProgress;
+use Telegram;
+use Illuminate\Console\Command;
+
+/**
+ * Generate a progress report for a user and send it via the user's bot.
+ */
+class UserProgressReport extends Command
+{
+    protected $signature = 'user:progress-report
+                            {--user-id= : ID of the BotUsers record (required)}
+                            {--format=markdown : Output format (markdown or text)}';
+    protected $description = 'ارسال گزارش پیشرفت کاربر به ربات مربوطه';
+
+    public function handle(): int
+    {
+        $userId = $this->option('user-id');
+        if (!$userId) {
+            $this->error('❌ لطفاً شناسه کاربر را با گزینه --user-id مشخص کنید');
+            return 1;
+        }
+
+        $user = BotUsers::find($userId);
+        if (!$user) {
+            $this->error("❌ کاربر با شناسه $userId یافت نشد");
+            return 1;
+        }
+
+        // Gather progress data
+        $progressRecords = ContentUserProgress::where('bot_user_id', $user->id)->get();
+        $totalCategories = $progressRecords->unique('category_id')->count();
+        $totalItems = $progressRecords->count();
+        $completed = $progressRecords->where('last_position', '>', 0)->count();
+        $completionPercent = $totalItems ? round(($completed / $totalItems) * 100, 2) : 0;
+
+        // Load template if exists
+        $templatePath = base_path('docs/PROGRESS_REPORT_TEMPLATE.md');
+        if (file_exists($templatePath)) {
+            $template = file_get_contents($templatePath);
+        } else {
+            $template = "## 📊 گزارش پیشرفت کاربر\n\n- شناسه کاربر: {user_id}\n- کل دسته‌ها: {total_categories}\n- کل آیتم‌ها: {total_items}\n- تکمیل شده: {completed}\n- درصد تکمیل: {percent}%\n";
+        }
+
+        $report = str_replace([
+            '{user_id}',
+            '{total_categories}',
+            '{total_items}',
+            '{completed}',
+            '{percent}'
+        ], [
+            $user->id,
+            $totalCategories,
+            $totalItems,
+            $completed,
+            $completionPercent
+        ], $template);
+
+        // Determine bot token
+        $bot = Bot::find($user->bot_id);
+        if (!$bot) {
+            $this->error('❌ ربات مربوط به کاربر یافت نشد');
+            return 1;
+        }
+        $token = $bot->bale_bot_token ?? $bot->telegram_bot_token;
+        $type = $bot->type ?? 'bale';
+
+        $messenger = new Telegram($token, $type);
+        BotHelper::sendMessageByChatId($messenger, $user->chat_id, $report);
+
+        $this->info('✅ گزارش به کاربر ارسال شد');
+        return 0;
+    }
+}
