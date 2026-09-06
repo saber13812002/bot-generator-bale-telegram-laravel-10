@@ -168,7 +168,8 @@ class BookLibraryReaderController extends Controller
 
         if (in_array(mb_strtolower(trim($text)), ['/dailyreport', 'dailyreport', '/myreport'])) {
             \Illuminate\Support\Facades\Artisan::call('user:progress-report', [
-                '--user-id' => $botUser->id
+                '--user-id' => $botUser->id,
+                '--bot-id' => $instanceBotId
             ]);
             return;
         }

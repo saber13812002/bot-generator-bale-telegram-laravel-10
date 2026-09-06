@@ -16,6 +16,7 @@ class UserProgressReport extends Command
 {
     protected $signature = 'user:progress-report
                             {--user-id= : ID of the BotUsers record (required)}
+                            {--bot-id= : ID of the specific Bot to send from (optional)}
                             {--format=markdown : Output format (markdown or text)}';
     protected $description = 'ارسال گزارش پیشرفت کاربر به ربات مربوطه';
 
@@ -63,11 +64,15 @@ class UserProgressReport extends Command
         ], $template);
 
         // Determine bot token
-        $bot = Bot::find($user->bot_id);
+        $botId = $this->option('bot-id') ?: $user->bot_id;
+        $bot = Bot::find($botId);
+        
         if (!$bot) {
+            \Illuminate\Support\Facades\Log::error("UserProgressReport: Bot not found for botId '{$botId}' (userId '{$userId}')");
             $this->error('❌ ربات مربوط به کاربر یافت نشد');
             return 1;
         }
+        
         $token = $bot->bale_bot_token ?? $bot->telegram_bot_token;
         $type = $bot->type ?? 'bale';
 
@@ -75,6 +80,7 @@ class UserProgressReport extends Command
         BotHelper::sendMessageByChatId($messenger, $user->chat_id, $report);
 
         $this->info('✅ گزارش به کاربر ارسال شد');
+        \Illuminate\Support\Facades\Log::info("UserProgressReport: Sent report to user {$user->id} via bot {$bot->id}");
         return 0;
     }
 }

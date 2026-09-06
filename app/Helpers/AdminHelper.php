@@ -49,17 +49,17 @@ class AdminHelper
     /**
      * تشخیص فرمان آمار: ///stats
      */
-    public static function isStatsCommand(string $text): bool
+    public static function isStatsCommand(?string $text): bool
     {
-        return trim($text) === '///stats';
+        return $text !== null && trim($text) === '///stats';
     }
 
     /**
      * تشخیص فرمان آمار یک زبان خاص: ///stats ru
      */
-    public static function isStatsLanguageCommand(string $text): bool
+    public static function isStatsLanguageCommand(?string $text): bool
     {
-        if (!Str::startsWith($text, '///stats ')) {
+        if ($text === null || !Str::startsWith($text, '///stats ')) {
             return false;
         }
         $parts = explode(' ', trim($text), 2);
@@ -73,9 +73,9 @@ class AdminHelper
      * تشخیص فرمان ارسال به زبان خاص: ////xx متن پیام
      * ////ru سلام => language=ru, message=سلام
      */
-    public static function isBroadcastLanguageCommand(string $text): bool
+    public static function isBroadcastLanguageCommand(?string $text): bool
     {
-        if (!Str::startsWith($text, '////')) {
+        if ($text === null || !Str::startsWith($text, '////')) {
             return false;
         }
         // باید حتماً بعد از //// یک کد زبان 2-5 حرفی و بعد فاصله و متن باشد
@@ -93,33 +93,33 @@ class AdminHelper
     /**
      * تشخیص فرمان ارسال به همه: /////all متن پیام
      */
-    public static function isBroadcastAllCommand(string $text): bool
+    public static function isBroadcastAllCommand(?string $text): bool
     {
-        return Str::startsWith($text, '/////all ');
+        return $text !== null && Str::startsWith($text, '/////all ');
     }
 
     /**
      * تشخیص فرمان تأیید ارسال: /confirm
      */
-    public static function isConfirmCommand(string $text): bool
+    public static function isConfirmCommand(?string $text): bool
     {
-        return trim($text) === '/confirm';
+        return $text !== null && trim($text) === '/confirm';
     }
 
     /**
      * تشخیص فرمان تاریخچه ارسال‌ها: ///broadcast-history
      */
-    public static function isBroadcastHistoryCommand(string $text): bool
+    public static function isBroadcastHistoryCommand(?string $text): bool
     {
-        return trim($text) === '///broadcast-history';
+        return $text !== null && trim($text) === '///broadcast-history';
     }
 
     /**
      * تشخیص فرمان راهنمای ادمین: /helpadmin
      */
-    public static function isHelpAdminCommand(string $text): bool
+    public static function isHelpAdminCommand(?string $text): bool
     {
-        return trim($text) === '/helpadmin';
+        return $text !== null && trim($text) === '/helpadmin';
     }
 
     /**
