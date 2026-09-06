@@ -356,10 +356,12 @@ class BookLibraryReaderController extends Controller
         // ===== Help =====
         if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
             $message = "📖 راهنمای ربات کتابخانه\n\n";
-            $message .= "دستورات:\n";
-            $message .= "/start — شروع\n";
-            $message .= "/help — راهنما\n";
-            $message .= "/adminkie — درخواست ادمین شدن\n";
+            $message .= "دستورات عمومی:\n";
+            $message .= "🔹 /start — شروع کار با ربات\n";
+            $message .= "🔹 /whatsnew — بررسی پادکست‌های جدید اضافه‌شده\n";
+            $message .= "🔹 /dailyreport — مشاهده کارنامه فعالیت و دریافت‌های شما\n";
+            $message .= "🔹 /help — راهنمای استفاده از ربات\n";
+            $message .= "🔹 /adminkie — درخواست ادمین شدن\n";
             if ($isOwner) {
                 $message .= "\n🛠 دستورات مدیریت:\n";
                 $message .= "/manage — پنل مدیریت\n";
