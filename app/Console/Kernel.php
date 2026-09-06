@@ -82,6 +82,8 @@ class Kernel extends ConsoleKernel
             ->dailyAt('08:00')
             ->withoutOverlapping()
             ->onOneServer();
+        // ارسال گزارش کتابخانه صوتی تستی (یک‌بار در روز)
+        $schedule->command('audio:test-report')->dailyAt('10:00')->withoutOverlapping()->onOneServer();
 
         // ارسال آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (اسلات‌های ۶ ساعته؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند)
         $schedule->command(PostDailyVerseToChannels::class, ['--slot=1'])->dailyAt('00:00')->withoutOverlapping()->onOneServer();
