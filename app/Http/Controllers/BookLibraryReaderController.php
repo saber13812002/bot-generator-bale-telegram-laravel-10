@@ -227,7 +227,11 @@ class BookLibraryReaderController extends Controller
             $catIdStr = trim(str_replace(['/category', ' '], '', mb_strtolower(trim($text))));
             if (is_numeric($catIdStr)) {
                 $categoryId = (int) $catIdStr;
-                $this->deliverNextInCategory($bot, $botUser, $instanceBotId, $type, $categoryId);
+                
+                $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
+                $actualBotId = $config ? $config->bot_id : $instanceBotId;
+                
+                $this->deliverNextInCategory($bot, $botUser, $actualBotId, $type, $categoryId);
             } else {
                 \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شناسه دسته نامعتبر است.");
             }
