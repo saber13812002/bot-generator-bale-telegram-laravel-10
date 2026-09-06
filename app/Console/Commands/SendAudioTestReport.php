@@ -102,17 +102,18 @@ class SendAudioTestReport extends Command
      */
     private function topActiveUsers(int $limit): Collection
     {
-        $logs = BotLog::select('bot_user_id')
+        $logs = BotLog::select('chat_id')
             ->selectRaw('COUNT(*) as request_count')
-            ->groupBy('bot_user_id')
+            ->groupBy('chat_id')
             ->orderByDesc('request_count')
             ->limit($limit)
-            ->pluck('request_count', 'bot_user_id');
+            ->pluck('request_count', 'chat_id');
 
-        $users = BotUsers::whereIn('id', $logs->keys())->get();
+        $users = BotUsers::whereIn('chat_id', $logs->keys())->get();
         foreach ($users as $u) {
-            $u->request_count = $logs[$u->id] ?? 0;
+            $u->request_count = $logs[$u->chat_id] ?? 0;
         }
+
         // Preserve ordering by count (descending)
         return $users->sortByDesc(fn($u) => $u->request_count)->values();
     }
