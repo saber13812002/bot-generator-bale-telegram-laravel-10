@@ -174,6 +174,45 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== User Command: /whatsnew =====
+        if (in_array(mb_strtolower(trim($text)), ['/whatsnew', 'whatsnew', 'تازه ها'])) {
+            $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
+            $actualBotId = $config ? $config->bot_id : $instanceBotId;
+
+            $categories = \App\Models\ContentCategory::with('items')
+                ->where('bot_id', $actualBotId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+
+            $progressRecords = \App\Models\ContentUserProgress::where('bot_user_id', $botUser->id)
+                ->where('bot_id', $actualBotId)
+                ->get()
+                ->keyBy('category_id');
+
+            $whatsNewMsg = "🆕 **پادکست‌های جدید برای شما:**\n\n";
+            $hasNew = false;
+
+            foreach ($categories as $category) {
+                $totalItems = $category->items->count();
+                $lastPosition = isset($progressRecords[$category->id]) ? $progressRecords[$category->id]->last_position : 0;
+                $newItemsCount = max(0, $totalItems - $lastPosition);
+
+                if ($newItemsCount > 0) {
+                    $hasNew = true;
+                    $whatsNewMsg .= "🔹 **{$category->title}**: {$newItemsCount} فایل جدید\n";
+                    $whatsNewMsg .= "   👉 دریافت: /category{$category->id}\n\n";
+                }
+            }
+
+            if (!$hasNew) {
+                $whatsNewMsg = "در حال حاضر هیچ فایل صوتی جدیدی برای شما اضافه نشده است. شما تمام محتواها را دریافت کرده‌اید! 🎉";
+            }
+
+            \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $whatsNewMsg);
+            return;
+        }
+
         // ===== Admin Commands: /topusers and /sendmsg =====
         if (str_starts_with(mb_strtolower(trim($text)), '/topusers')) {
             if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {

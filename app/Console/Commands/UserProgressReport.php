@@ -46,14 +46,20 @@ class UserProgressReport extends Command
             $totalItemsInCategory = $progress->category ? $progress->category->items->count() : 0;
             $remaining = max(0, $totalItemsInCategory - $received);
             
-            $categoryBreakdown .= "- 📁 {$categoryName}: دریافت شده {$received} | باقیمانده {$remaining}\n";
+            $statusIcon = $remaining === 0 ? '✅' : '⏳';
+            $categoryBreakdown .= "🔹 **{$categoryName}**\n";
+            $categoryBreakdown .= "   🎧 دریافت شده: {$received} فایل\n";
+            
             if ($remaining > 0) {
-                $categoryBreakdown .= "  📥 ادامه  : /category{$progress->category_id}\n";
+                $categoryBreakdown .= "   {$statusIcon} باقی‌مانده: {$remaining} فایل\n";
+                $categoryBreakdown .= "   👉 **دریافت قسمت بعدی:** /category{$progress->category_id}\n\n";
+            } else {
+                $categoryBreakdown .= "   {$statusIcon} _پایان یافته (تمام فایل‌ها دریافت شد)_\n\n";
             }
         }
 
         if (empty($categoryBreakdown)) {
-            $categoryBreakdown = "- هنوز فایلی دریافت نشده است.\n";
+            $categoryBreakdown = "🔸 هنوز فایلی دریافت نکرده‌اید.\n";
         }
 
         // Load template if exists
