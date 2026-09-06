@@ -209,7 +209,7 @@ class BookLibraryReaderController extends Controller
                 $whatsNewMsg = "در حال حاضر هیچ فایل صوتی جدیدی برای شما اضافه نشده است. شما تمام محتواها را دریافت کرده‌اید! 🎉";
             }
             
-            $whatsNewMsg .= \App\Helpers\BotHelper::getRandomHelpCta();
+            $whatsNewMsg .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
 
             \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $whatsNewMsg);
             return;

@@ -471,7 +471,7 @@ class BotHelper
     /**
      * Get a random call to action for the /help command.
      */
-    public static function getRandomHelpCta(): string
+    public static function getRandomHelpCta($botUser = null): string
     {
         $messages = [
             "💡 برای آشنایی با امکانات بیشتر، روی /help کلیک کنید.",
@@ -485,7 +485,21 @@ class BotHelper
             "🧩 می‌خوای حرفه‌ای‌تر از ربات استفاده کنی؟ 👉 /help",
             "🧭 برای پیدا کردن مسیر و دستورات، /help رو لمس کن!"
         ];
-        return "\n\n" . $messages[array_rand($messages)];
+        
+        $cta = "\n\n" . $messages[array_rand($messages)];
+        
+        if ($botUser && class_exists('\App\Helpers\ContentBotAdminHelper')) {
+            $botModel = \App\Models\Bot::find($botUser->bot_id);
+            if ($botModel) {
+                // Determine origin (telegram or bale) from BotUsers or Bot
+                $origin = $botUser->origin ?? 'bale';
+                if (\App\Helpers\ContentBotAdminHelper::isBotOwner($botModel, (string)$botUser->chat_id, $origin)) {
+                    $cta .= "\n🛠 پنل مدیریت (ویژه شما): /manage";
+                }
+            }
+        }
+        
+        return $cta;
     }
 
     /**

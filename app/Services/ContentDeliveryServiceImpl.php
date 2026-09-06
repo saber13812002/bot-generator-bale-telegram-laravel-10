@@ -48,7 +48,7 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         BotHelper::sendMessageByChatId($bot, $chatId, $displayText);
 
         // ساختن کپشن با فوتر
-        $caption = $this->buildCaptionWithFooter($title, $botId, $origin);
+        $caption = $this->buildCaptionWithFooter($title, $botId, $origin, $botUser);
 
         $sent = $this->sendAudio($bot, $asset, $item, $botId, $origin, $chatId, $caption);
         if (!$sent) {
@@ -96,16 +96,20 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
     }
 
     /**
-     * ساختن کپشن با فوتر تنظیم شده در bot.caption_footer
+     * @param string $text
+     * @param int $botId
+     * @param string $origin
+     * @param BotUsers|null $botUser
+     * @return string
      */
-    public function buildCaptionWithFooter(string $text, int $botId, string $origin): string
+    public function buildCaptionWithFooter(string $text, int $botId, string $origin, $botUser = null): string
     {
         $botModel = Bot::find($botId);
         $footer = $botModel?->caption_footer;
 
         if (!$footer) {
             $caption = $text;
-            $caption .= \App\Helpers\BotHelper::getRandomHelpCta();
+            $caption .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
             return $caption;
         }
 
@@ -121,7 +125,7 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
         );
 
         $caption = $text . "\n\n" . $footer;
-        $caption .= \App\Helpers\BotHelper::getRandomHelpCta();
+        $caption .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
         
         return $caption;
     }
