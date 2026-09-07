@@ -612,7 +612,7 @@ Minute	Hour	Day	Month	Weekday	Command	Actions
 */45	23	*	*	*	cd /home/pardisa2/blog && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
 
 0	0	*	*	0	cd /home/pardisa2/blog && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-
+0 9 * * *	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:daily-blog-reminder >> /dev/null 2>&1	# Daily blog reminder (admin)
 59	23	10	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
 
 */20	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
