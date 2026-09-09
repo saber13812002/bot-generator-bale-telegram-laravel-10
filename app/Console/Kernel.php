@@ -3,6 +3,7 @@
 namespace App\Console;
 
 use App\Console\Commands\PostDailyVerseToChannels;
+use App\Console\Commands\DailyBlogReminderCommand;
 use App\Console\Commands\PostMediaQueueToChannels;
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
@@ -94,6 +95,10 @@ class Kernel extends ConsoleKernel
         // ارسال نوبتی صف رسانه به کانال‌ها (روزانه یک بار)
         $schedule->command(PostMediaQueueToChannels::class)
             ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command(DailyBlogReminderCommand::class)
+            ->dailyAt('09:01')
             ->withoutOverlapping()
             ->onOneServer();
 
