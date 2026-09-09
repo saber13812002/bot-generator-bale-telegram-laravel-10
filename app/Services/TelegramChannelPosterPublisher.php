@@ -81,7 +81,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null
-    ): bool {
+    ): array {
         try {
             $caption = $text ?? '';
 
@@ -93,7 +93,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     'eitaa'
                 );
 
-                return $this->isOk($result);
+                return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
             }
 
             $client = $this->clientFor($platform, $botToken);
@@ -103,8 +103,9 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_TELEGRAM && $fileId && in_array($contentType, ['photo', 'video', 'voice', 'audio'], true)) {
-                if ($this->publishMedia($client, $channelChatId, $contentType, $caption, $fileId)) {
-                    return true;
+                $mediaResult = $this->publishMedia($client, $channelChatId, $contentType, $caption, $fileId);
+                if ($mediaResult['success']) {
+                    return $mediaResult;
                 }
             }
 
@@ -113,7 +114,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'text' => $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
             ]);
 
-            return $this->isOk($result);
+            return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
         } catch (Exception $e) {
             Log::error('[ChannelPoster] Publish failed', [
                 'platform' => $platform,
@@ -122,7 +123,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'error' => $e->getMessage(),
             ]);
 
-            return false;
+            return ['success' => false, 'message_id' => null];
         }
     }
 
@@ -145,7 +146,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         }
     }
 
-    private function publishMedia(Telegram $client, string $channelChatId, string $contentType, string $caption, string $fileId): bool
+    private function publishMedia(Telegram $client, string $channelChatId, string $contentType, string $caption, string $fileId): array
     {
         $result = null;
         if ($contentType === 'photo') {
@@ -185,7 +186,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             ]);
         }
 
-        return $this->isOk($result);
+        return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
     }
 
     private function clientFor(string $platform, ?string $botToken): Telegram
@@ -210,6 +211,20 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         }
 
         return (bool) $result;
+    }
+
+    private function extractMessageId(mixed $result): ?string
+    {
+        $normalized = $this->normalizeResult($result);
+        if (!is_array($normalized)) {
+            return null;
+        }
+
+        $messageId = $normalized['result']['message_id']
+            ?? $normalized['message_id']
+            ?? null;
+
+        return $messageId !== null ? (string) $messageId : null;
     }
 
     private function normalizeResult(mixed $result): mixed

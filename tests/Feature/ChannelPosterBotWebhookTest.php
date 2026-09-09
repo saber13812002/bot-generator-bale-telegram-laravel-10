@@ -229,12 +229,33 @@ class ChannelPosterBotWebhookTest extends TestCase
             $this->privateTextUpdate($this->ownerChatId, 'hello channel')
         );
 
+        // Now the bot asks publish options (now/queue). Click "now".
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_ask_publish_options'),
+            (string) $this->publisher->lastPrivateText()
+        );
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 5,
+                'callback_query' => [
+                    'id' => 'cb-now',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:now',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+
         $this->assertCount(1, $this->publisher->publishes);
         $this->assertSame('-100555', $this->publisher->publishes[0]['channel_chat_id']);
         $this->assertSame('text', $this->publisher->publishes[0]['content_type']);
         $this->assertSame('hello channel', $this->publisher->publishes[0]['text']);
         $this->assertStringContainsString(
-            trans('bot.channel_poster_published', ['tag' => 'News']),
+            trans('bot.channel_poster_report_header'),
             (string) $this->publisher->lastPrivateText()
         );
     }

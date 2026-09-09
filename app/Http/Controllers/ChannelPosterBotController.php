@@ -28,6 +28,9 @@ class ChannelPosterBotController extends Controller
     public const STATE_AWAITING_TELEGRAM_CHAT_ID = 'cp_awaiting_telegram_chat_id';
     public const STATE_AWAITING_EITAA_TOKEN = 'cp_awaiting_eitaa_token';
     public const STATE_AWAITING_EITAA_CHAT_ID = 'cp_awaiting_eitaa_chat_id';
+    public const STATE_AWAITING_SIGN_TAG = 'cp_awaiting_sign_tag';
+    public const STATE_AWAITING_SIGN_CHANNEL = 'cp_awaiting_sign_channel';
+    public const STATE_AWAITING_SIGN_LINK = 'cp_awaiting_sign_link';
 
     public function __construct(
         private ChannelPosterBotService $service,
@@ -234,6 +237,11 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        if (is_string($text) && ($text === '/sign' || str_starts_with($text, '/sign '))) {
+            $this->startSignWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
         $state = $this->getState($botItem, $chatId, $type);
 
         if ($state && is_string($text) && $this->isShortTagName($text)) {
@@ -244,6 +252,13 @@ class ChannelPosterBotController extends Controller
             if ($state->state === self::STATE_AWAITING_TAG_NAME) {
                 $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_PLATFORM, ['tag' => trim($text)]);
                 $this->sendPlatformKeyboard($publisher, $chatId, trim($text));
+                return;
+            }
+        }
+
+        if ($state && is_string($text) && !str_starts_with($text, '/')) {
+            if ($state->state === self::STATE_AWAITING_SIGN_LINK) {
+                $this->handleSignLink($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
         }
@@ -473,6 +488,46 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        // Handle signature callbacks
+        if ($data === 'cp:sig:yes' || $data === 'cp:sig:no') {
+            $state = $this->getState($botItem, $chatId, $type);
+            if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+                return;
+            }
+            $stateData = $state->data ?? [];
+            $stateData['signature_enabled'] = ($data === 'cp:sig:yes');
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            return;
+        }
+
+        // Handle now/queue callbacks
+        if ($data === 'cp:now' || $data === 'cp:queue') {
+            $state = $this->getState($botItem, $chatId, $type);
+            if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_no_pending'));
+                return;
+            }
+            $stateData = $state->data ?? [];
+            $stateData['enqueue'] = ($data === 'cp:queue');
+            $tagKey = (string) ($stateData['selected_tag'] ?? '');
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $state = $this->getState($botItem, $chatId, $type);
+            if ($state) {
+                $this->publishPendingToTag($publisher, $botItem, $type, $chatId, $state, $tagKey);
+            }
+            return;
+        }
+
+        // Handle sign wizard callbacks
+        if (str_starts_with($data, 'cp:signtag:')) {
+            $this->handleSignTagCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:signchn:')) {
+            $this->handleSignChannelCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
         $state = $this->getState($botItem, $chatId, $type);
         if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_no_pending'));
@@ -491,6 +546,13 @@ class ChannelPosterBotController extends Controller
             $index = (int) substr($data, 7);
             $keys = $state->getData('tag_keys', []);
             $tagKey = is_array($keys) ? (string) ($keys[$index] ?? '') : null;
+            if ($tagKey !== null) {
+                $stateData = $state->data ?? [];
+                $stateData['selected_tag'] = $tagKey;
+                $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+                $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+                return;
+            }
         }
 
         if ($tagKey === null) {
@@ -639,11 +701,9 @@ class ChannelPosterBotController extends Controller
 
         if (count($groups) <= 1) {
             $tagKey = $groups[0]['key'] ?? '';
+            $pending['selected_tag'] = $tagKey;
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $pending);
-            $state = $this->getState($botItem, $chatId, $type);
-            if ($state) {
-                $this->publishPendingToTag($publisher, $botItem, $type, $chatId, $state, $tagKey);
-            }
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
             return;
         }
 
@@ -658,6 +718,45 @@ class ChannelPosterBotController extends Controller
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_which_tag'), $rows);
     }
 
+    private function askSignatureAndQueue(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tagKey
+    ): void {
+        $hasLinks = $this->service->resolveByTag($botItem->id, $tagKey)
+            ->filter(fn ($d) => !empty($d->channel_link))
+            ->isNotEmpty();
+
+        $pendingCount = $this->service->countPending($botItem->id, $tagKey);
+        $nextSlot = $this->service->getNextSlot($botItem->id, $tagKey);
+        $nextTimeLabel = $nextSlot->setTimezone('Asia/Tehran')->format('H:i');
+
+        $rows = [];
+
+        // Signature option (only if any channel has a link)
+        if ($hasLinks) {
+            $rows[] = [
+                ['text' => trans('bot.channel_poster_btn_sig_yes'), 'callback_data' => 'cp:sig:yes'],
+                ['text' => trans('bot.channel_poster_btn_sig_no'), 'callback_data' => 'cp:sig:no'],
+            ];
+        }
+
+        // Queue option
+        $rows[] = [
+            ['text' => trans('bot.channel_poster_btn_now'), 'callback_data' => 'cp:now'],
+            ['text' => trans('bot.channel_poster_btn_queue', ['time' => $nextTimeLabel]), 'callback_data' => 'cp:queue'],
+        ];
+
+        $msg = trans('bot.channel_poster_ask_publish_options');
+        if ($pendingCount > 0) {
+            $msg .= "\n" . trans('bot.channel_poster_queue_count', ['count' => $pendingCount]);
+        }
+
+        $publisher->sendPrivateMessage($chatId, $msg, $rows);
+    }
+
     private function publishPendingToTag(
         ChannelPosterPublisher $publisher,
         Bot $botItem,
@@ -669,6 +768,8 @@ class ChannelPosterBotController extends Controller
         $contentType = (string) $state->getData('content_type', 'text');
         $text = $state->getData('text');
         $fileId = $state->getData('file_id');
+        $signatureEnabled = (bool) $state->getData('signature_enabled', false);
+        $enqueue = (bool) $state->getData('enqueue', false);
 
         $destinations = $this->service->resolveByTag($botItem->id, $tagKey);
         if ($destinations->isEmpty()) {
@@ -679,32 +780,77 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        // Append signature if enabled
+        $finalText = is_string($text) ? $text : null;
+        if ($signatureEnabled && $finalText !== null) {
+            $sig = $this->service->buildSignature($botItem->id, $tagKey);
+            if ($sig !== '') {
+                $finalText .= $sig;
+            }
+        }
+
+        // Enqueue instead of immediate publish
+        if ($enqueue) {
+            $nextSlot = $this->service->getNextSlot($botItem->id, $tagKey);
+            $this->service->enqueue(
+                $botItem->id,
+                $tagKey,
+                $contentType,
+                $finalText,
+                is_string($fileId) ? $fileId : null,
+                $signatureEnabled,
+                $nextSlot,
+                $chatId,
+                $type
+            );
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage(
+                $chatId,
+                trans('bot.channel_poster_queued', [
+                    'time' => $nextSlot->setTimezone('Asia/Tehran')->format('H:i'),
+                    'date' => $nextSlot->setTimezone('Asia/Tehran')->format('Y-m-d'),
+                ])
+            );
+            return;
+        }
+
+        // Immediate publish with logging and report
+        $results = [];
         $allOk = true;
         foreach ($destinations as $destination) {
-            $ok = $publisher->publish(
+            $result = $publisher->publish(
                 $destination->channel_chat_id,
                 $contentType,
-                is_string($text) ? $text : null,
+                $finalText,
                 is_string($fileId) ? $fileId : null,
                 $destination->platform,
                 $destination->bot_token
             );
+            $ok = $result['success'] ?? false;
+            $messageId = $result['message_id'] ?? null;
+
+            $this->service->logPublish(
+                $botItem->id,
+                $destination->id,
+                $destination->platform,
+                $ok,
+                $messageId
+            );
+
+            $results[] = [
+                'destination_id' => $destination->id,
+                'platform' => $destination->platform,
+                'success' => $ok,
+            ];
+
             if (!$ok) {
                 $allOk = false;
             }
         }
 
-        $label = $this->service->displayTagLabel(
-            $tagKey !== '' ? $tagKey : ($destinations->first()?->tag),
-            $destinations->first()?->channel_title
-        );
         $this->clearState($botItem, $chatId, $type);
-        $publisher->sendPrivateMessage(
-            $chatId,
-            $allOk
-                ? trans('bot.channel_poster_published', ['tag' => $label])
-                : trans('bot.channel_poster_publish_failed')
-        );
+        $report = $this->service->buildPublishReport($results, $destinations);
+        $publisher->sendPrivateMessage($chatId, $report);
     }
 
     private function sendPlatformKeyboard(ChannelPosterPublisher $publisher, string $chatId, string $tag): void
@@ -799,5 +945,136 @@ class ChannelPosterBotController extends Controller
         BotUserState::where('bot_user_id', $botUser->id)
             ->where('bot_mother_id', $this->motherId($botItem))
             ->delete();
+    }
+
+    private function startSignWizard(ChannelPosterPublisher $publisher, Bot $botItem, string $type, string $chatId): void
+    {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_no_tag'));
+            return;
+        }
+
+        if (count($groups) === 1) {
+            $this->showSignChannels($publisher, $botItem, $type, $chatId, $groups[0]['key']);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:signtag:' . $index]];
+        }
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_TAG, [
+            'tag_keys' => array_map(fn (array $g) => $g['key'], $groups),
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_ask_tag'), $rows);
+    }
+
+    private function handleSignTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $index = (int) substr($data, 11);
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+
+        $this->showSignChannels($publisher, $botItem, $type, $chatId, $tag);
+    }
+
+    private function showSignChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $hasLink = !empty($dest->channel_link) ? '✅' : '❌';
+            $rows[] = [['text' => "{$label} — {$title} {$hasLink}", 'callback_data' => 'cp:signchn:' . $dest->id]];
+            $destIds[] = $dest->id;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_CHANNEL, [
+            'tag' => $tag,
+            'dest_ids' => $destIds,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_pick_channel'), $rows);
+    }
+
+    private function handleSignChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $destId = (int) substr($data, 11);
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return;
+        }
+
+        $currentLink = $dest->channel_link ?? '';
+        $msg = $currentLink !== ''
+            ? trans('bot.channel_poster_sign_current_link', ['link' => $currentLink])
+            : trans('bot.channel_poster_sign_no_link');
+
+        $state = $this->getState($botItem, $chatId, $type);
+        $tag = $state?->getData('tag') ?? '';
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_LINK, [
+            'destination_id' => $destId,
+            'tag' => $tag,
+        ]);
+        $publisher->sendPrivateMessage($chatId, $msg);
+    }
+
+    private function handleSignLink(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $link,
+        array $stateData
+    ): void {
+        $link = trim($link);
+        if ($link === '' || (!str_starts_with($link, 'http://') && !str_starts_with($link, 'https://'))) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_invalid_link'));
+            return;
+        }
+
+        $destId = (int) ($stateData['destination_id'] ?? 0);
+        if ($destId <= 0) {
+            return;
+        }
+
+        $this->service->updateChannelLink($destId, $link);
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_link_saved', ['link' => $link]));
     }
 }

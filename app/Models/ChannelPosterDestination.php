@@ -16,6 +16,7 @@ class ChannelPosterDestination extends Model
         'platform',
         'channel_chat_id',
         'channel_title',
+        'channel_link',
         'tag',
         'bot_token',
         'verified_at',

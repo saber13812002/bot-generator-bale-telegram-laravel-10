@@ -425,4 +425,33 @@ Chat ID: :chat_id',
     'channel_poster_invalid_chat_id' => 'That chat id is invalid. Send the numeric channel id.',
     'channel_poster_telegram_connected' => 'Telegram channel linked to tag ":tag".',
     'channel_poster_eitaa_connected' => 'Eitaa channel linked to tag ":tag".',
+
+    // === Channel Signature ===
+    'channel_poster_sig_bale' => 'Bale',
+    'channel_poster_sig_telegram' => 'Telegram',
+    'channel_poster_sig_eitaa' => 'Eitaa',
+    'channel_poster_sig_soroush' => 'Soroush',
+    'channel_poster_sign_no_tag' => 'No tags yet. Use /start first to connect a channel.',
+    'channel_poster_sign_ask_tag' => 'Which tag\'s channel links do you want to set?',
+    'channel_poster_sign_pick_channel' => 'Which channel to edit? (✅ = has link, ❌ = no link)',
+    'channel_poster_sign_no_channels' => 'This tag has no channels.',
+    'channel_poster_sign_current_link' => 'Current link: :link'."\n".'Send a new link or /cancel.',
+    'channel_poster_sign_no_link' => 'No link set. Send the public channel URL (e.g. https://t.me/channel_name).',
+    'channel_poster_sign_invalid_link' => 'Invalid link. It must start with http:// or https://.',
+    'channel_poster_sign_link_saved' => 'Link saved: :link'."\n".'Use /sign to set more links.',
+
+    // === Publish Options ===
+    'channel_poster_ask_publish_options' => 'How should I publish?',
+    'channel_poster_btn_sig_yes' => '✍️ With signature',
+    'channel_poster_btn_sig_no' => '📄 No signature',
+    'channel_poster_btn_now' => '🚀 Now',
+    'channel_poster_btn_queue' => '⏰ :time',
+    'channel_poster_queue_count' => '(:count items in queue)',
+
+    // === Publish Queue ===
+    'channel_poster_queued' => 'Queued for :date at :time.',
+    'channel_poster_queue_published' => '📢 Queued post published:',
+
+    // === Publish Report ===
+    'channel_poster_report_header' => '✅ Published to:',
 ];

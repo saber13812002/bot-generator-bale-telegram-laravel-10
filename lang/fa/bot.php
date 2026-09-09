@@ -866,4 +866,33 @@ Chat ID: :chat_id',
     'channel_poster_invalid_chat_id' => 'شناسه نامعتبر است. شناسه عددی کانال را بفرست.',
     'channel_poster_telegram_connected' => 'کانال تلگرام به تگ «:tag» وصل شد.',
     'channel_poster_eitaa_connected' => 'کانال ایتا به تگ «:tag» وصل شد.',
+
+    // === Channel Signature ===
+    'channel_poster_sig_bale' => 'در بله',
+    'channel_poster_sig_telegram' => 'در تلگرام',
+    'channel_poster_sig_eitaa' => 'در ایتا',
+    'channel_poster_sig_soroush' => 'در سروش',
+    'channel_poster_sign_no_tag' => 'هنوز تگی نداری. اول /start بزن و کانال وصل کن.',
+    'channel_poster_sign_ask_tag' => 'لینک کانال کدام تگ را تنظیم کنی؟',
+    'channel_poster_sign_pick_channel' => 'کدام کانال را ویرایش کنی؟ (✅ = لینک دارد، ❌ = ندارد)',
+    'channel_poster_sign_no_channels' => 'این تگ کانالی ندارد.',
+    'channel_poster_sign_current_link' => 'لینک فعلی: :link'."\n".'لینک جدید بفرست یا /cancel.',
+    'channel_poster_sign_no_link' => 'لینکی تنظیم نشده. لینک عمومی کانال را بفرست (مثلاً https://eitaa.com/channel_name).',
+    'channel_poster_sign_invalid_link' => 'لینک نامعتبر است. لینک باید با http:// یا https:// شروع شود.',
+    'channel_poster_sign_link_saved' => 'لینک ذخیره شد: :link'."\n".'با /sign می‌توانی بقیه لینک‌ها را هم تنظیم کنی.',
+
+    // === Publish Options ===
+    'channel_poster_ask_publish_options' => 'چطور ارسال شود؟',
+    'channel_poster_btn_sig_yes' => '✍️ با امضا',
+    'channel_poster_btn_sig_no' => '📄 بدون امضا',
+    'channel_poster_btn_now' => '🚀 الان',
+    'channel_poster_btn_queue' => '⏰ :time',
+    'channel_poster_queue_count' => '(:count مطلب در صف)',
+
+    // === Publish Queue ===
+    'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
+    'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
+
+    // === Publish Report ===
+    'channel_poster_report_header' => '✅ منتشر شد در:',
 ];

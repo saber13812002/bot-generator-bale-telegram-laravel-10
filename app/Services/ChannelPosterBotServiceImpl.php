@@ -5,6 +5,10 @@ namespace App\Services;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
+use App\Models\ChannelPosterPublishLog;
+use App\Models\ChannelPosterQueue;
+use App\Models\ChannelPosterTagSetting;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 class ChannelPosterBotServiceImpl implements ChannelPosterBotService
@@ -340,5 +344,164 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         }
 
         return trans('bot.channel_poster_untagged');
+    }
+
+    public function getTagSetting(int $botId, string $tag): ?ChannelPosterTagSetting
+    {
+        return ChannelPosterTagSetting::where('bot_id', $botId)
+            ->where('tag', $tag)
+            ->first();
+    }
+
+    public function setSignatureEnabled(int $botId, string $tag, bool $enabled): ChannelPosterTagSetting
+    {
+        return ChannelPosterTagSetting::updateOrCreate(
+            ['bot_id' => $botId, 'tag' => $tag],
+            ['signature_enabled' => $enabled]
+        );
+    }
+
+    public function updateChannelLink(int $destinationId, string $link): ChannelPosterDestination
+    {
+        $destination = ChannelPosterDestination::findOrFail($destinationId);
+        $destination->channel_link = $link;
+        $destination->save();
+
+        return $destination;
+    }
+
+    public function buildSignature(int $botId, string $tag): string
+    {
+        $destinations = $this->resolveByTag($botId, $tag);
+        $withLinks = $destinations->filter(fn (ChannelPosterDestination $d) => !empty($d->channel_link));
+
+        if ($withLinks->isEmpty()) {
+            return '';
+        }
+
+        $items = $withLinks->values()->toArray();
+        shuffle($items);
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+        ];
+
+        $lines = [];
+        foreach ($items as $item) {
+            $label = $platformLabels[$item['platform']] ?? $item['platform'];
+            $lines[] = $label . ":\n" . $item['channel_link'];
+        }
+
+        return "\n\n" . implode("\n\n", $lines);
+    }
+
+    public function getNextSlot(int $botId, string $tag): Carbon
+    {
+        $tz = 'Asia/Tehran';
+        $lastScheduled = ChannelPosterQueue::where('bot_id', $botId)
+            ->where('tag', $tag)
+            ->pending()
+            ->orderBy('scheduled_at', 'desc')
+            ->value('scheduled_at');
+
+        if ($lastScheduled) {
+            $next = Carbon::parse($lastScheduled)->addHours(2);
+        } else {
+            $next = Carbon::now($tz)->addHours(2);
+        }
+
+        $next = $next->setTimezone($tz);
+
+        // Skip quiet hours: 2 AM – 9 AM Tehran time
+        $hour = (int) $next->format('H');
+        if ($hour >= 2 && $hour < 9) {
+            $next = $next->copy()->setTime(9, 0, 0);
+        }
+
+        return $next;
+    }
+
+    public function countPending(int $botId, string $tag): int
+    {
+        return ChannelPosterQueue::where('bot_id', $botId)
+            ->where('tag', $tag)
+            ->pending()
+            ->count();
+    }
+
+    public function enqueue(
+        int $botId,
+        string $tag,
+        string $contentType,
+        ?string $text,
+        ?string $fileId,
+        bool $signatureEnabled,
+        Carbon $scheduledAt,
+        ?string $ownerChatId = null,
+        string $ownerOrigin = 'bale'
+    ): ChannelPosterQueue {
+        return ChannelPosterQueue::create([
+            'bot_id' => $botId,
+            'tag' => $tag,
+            'content_type' => $contentType,
+            'text' => $text,
+            'file_id' => $fileId,
+            'signature_enabled' => $signatureEnabled,
+            'scheduled_at' => $scheduledAt,
+            'status' => ChannelPosterQueue::STATUS_PENDING,
+            'owner_chat_id' => $ownerChatId,
+            'owner_origin' => $ownerOrigin,
+        ]);
+    }
+
+    public function logPublish(
+        int $botId,
+        int $destinationId,
+        string $platform,
+        bool $success,
+        ?string $messageId = null,
+        ?string $error = null,
+        ?int $queueId = null
+    ): ChannelPosterPublishLog {
+        return ChannelPosterPublishLog::create([
+            'bot_id' => $botId,
+            'queue_id' => $queueId,
+            'destination_id' => $destinationId,
+            'platform' => $platform,
+            'success' => $success,
+            'message_id' => $messageId,
+            'error' => $error,
+            'published_at' => now(),
+        ]);
+    }
+
+    public function buildPublishReport(array $results, Collection $destinations): string
+    {
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+        ];
+
+        $lines = [];
+        foreach ($results as $result) {
+            $dest = $destinations->firstWhere('id', $result['destination_id']);
+            $platform = $platformLabels[$result['platform']] ?? $result['platform'];
+            $title = $dest?->channel_title ?? $dest?->channel_chat_id ?? '';
+            $icon = $result['success'] ? '✅' : '❌';
+            $lines[] = "• {$platform} — {$title} {$icon}";
+        }
+
+        if (empty($lines)) {
+            return trans('bot.channel_poster_publish_failed');
+        }
+
+        $header = trans('bot.channel_poster_report_header');
+
+        return $header . "\n" . implode("\n", $lines);
     }
 }

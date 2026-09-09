@@ -41,7 +41,7 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null
-    ): bool {
+    ): array {
         $this->publishes[] = [
             'channel_chat_id' => $channelChatId,
             'content_type' => $contentType,
@@ -51,7 +51,7 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'bot_token' => $botToken,
         ];
 
-        return $this->publishSucceeds;
+        return ['success' => $this->publishSucceeds, 'message_id' => $this->publishSucceeds ? 'fake-msg-' . count($this->publishes) : null];
     }
 
     public function answerCallback(?string $callbackId, string $text = ''): void

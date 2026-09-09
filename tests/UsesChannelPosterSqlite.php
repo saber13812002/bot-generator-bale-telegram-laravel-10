@@ -69,12 +69,51 @@ trait UsesChannelPosterSqlite
             $table->string('platform', 20);
             $table->string('channel_chat_id', 64);
             $table->string('channel_title')->nullable();
+            $table->string('channel_link', 255)->nullable();
             $table->string('tag', 64)->nullable();
             $table->string('bot_token')->nullable();
             $table->timestamp('verified_at')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->unique(['bot_id', 'platform', 'channel_chat_id'], 'cp_dest_bot_plat_chat_unique');
+        });
+
+        Schema::create('channel_poster_tag_settings', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('tag', 64);
+            $table->boolean('signature_enabled')->default(false);
+            $table->timestamps();
+            $table->unique(['bot_id', 'tag'], 'cp_tag_settings_bot_tag_unique');
+        });
+
+        Schema::create('channel_poster_queue', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('tag', 64)->nullable();
+            $table->string('content_type', 20);
+            $table->text('text')->nullable();
+            $table->string('file_id', 512)->nullable();
+            $table->boolean('signature_enabled')->default(false);
+            $table->dateTime('scheduled_at');
+            $table->dateTime('published_at')->nullable();
+            $table->string('status', 20)->default('pending');
+            $table->string('owner_chat_id', 64)->nullable();
+            $table->string('owner_origin', 20)->default('bale');
+            $table->timestamps();
+        });
+
+        Schema::create('channel_poster_publish_logs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->unsignedBigInteger('queue_id')->nullable();
+            $table->unsignedBigInteger('destination_id');
+            $table->string('platform', 20);
+            $table->boolean('success');
+            $table->string('message_id', 128)->nullable();
+            $table->text('error')->nullable();
+            $table->dateTime('published_at');
+            $table->timestamps();
         });
     }
 }

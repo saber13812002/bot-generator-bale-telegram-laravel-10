@@ -8,6 +8,9 @@ interface ChannelPosterPublisher
 
     public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool;
 
+    /**
+     * @return array{success: bool, message_id: ?string}
+     */
     public function publish(
         string $channelChatId,
         string $contentType,
@@ -15,7 +18,7 @@ interface ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null
-    ): bool;
+    ): array;
 
     public function answerCallback(?string $callbackId, string $text = ''): void;
 }

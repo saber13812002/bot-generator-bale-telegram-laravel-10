@@ -117,6 +117,12 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->onOneServer();
+
+        // پردازش صف ارسال به کانال‌ها (هر ۵ دقیقه)
+        $schedule->job(new \App\Jobs\ProcessChannelPosterQueueJob)
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**
