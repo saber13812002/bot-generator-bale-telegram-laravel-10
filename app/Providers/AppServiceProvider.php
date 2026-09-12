@@ -36,6 +36,7 @@ use App\Interfaces\Services\BookLibraryService;
 use App\Interfaces\Services\ContentDeliveryService;
 use App\Interfaces\Services\ContentQueueService;
 use App\Interfaces\Services\HadithApiService;
+use App\Interfaces\Services\LibraryMilestoneService;
 use App\Interfaces\Services\MissionService;
 use App\Interfaces\Services\NahjService;
 use App\Interfaces\Services\PrayerBotService;
@@ -85,6 +86,7 @@ use App\Services\MawkibFinderServiceImpl;
 use App\Services\BookLibraryDeliveryServiceImpl;
 use App\Services\BookLibraryPlanServiceImpl;
 use App\Services\BookLibraryServiceImpl;
+use App\Services\LibraryMilestoneServiceImpl;
 use App\Services\ContentAdminService;
 use App\Services\ContentDeliveryServiceImpl;
 use App\Services\ContentQueueServiceImpl;
@@ -145,7 +147,7 @@ class AppServiceProvider extends ServiceProvider
         // Services
         $this->app->bind(WeatherTomorrowApiService::class, WeatherTomorrowApiServiceImpl::class);
         $this->app->bind(WeatherOpenWeatherMapApiService::class, WeatherOpenWeatherMapApiServiceImpl::class);
-        
+
         $this->app->bind(ReverseGeocodingService::class, ReverseGeocodingServiceImpl::class);
         $this->app->bind(WeatherComparisonService::class, WeatherComparisonServiceImpl::class);
         $this->app->bind(ProService::class, ProServiceImpl::class);
@@ -154,6 +156,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BookLibraryService::class, BookLibraryServiceImpl::class);
         $this->app->bind(BookLibraryDeliveryService::class, BookLibraryDeliveryServiceImpl::class);
         $this->app->bind(BookLibraryPlanService::class, BookLibraryPlanServiceImpl::class);
+        $this->app->bind(LibraryMilestoneService::class, LibraryMilestoneServiceImpl::class);
 
         $this->app->bind(ContentQueueService::class, ContentQueueServiceImpl::class);
         $this->app->bind(ContentDeliveryService::class, ContentDeliveryServiceImpl::class);
@@ -168,7 +171,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ContentService::class, ContentServiceImpl::class);
 
         $this->app->bind(PrayerBotService::class, PrayerBotServiceImpl::class);
-        
+
         $this->app->bind(PoemBotService::class, PoemBotServiceImpl::class);
         $this->app->bind(MpContactBotService::class, MpContactBotServiceImpl::class);
         $this->app->bind(ChannelPosterBotService::class, ChannelPosterBotServiceImpl::class);
@@ -188,7 +191,7 @@ class AppServiceProvider extends ServiceProvider
         });
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);
         $this->app->singleton(\App\Services\MawkibFinderOtpService::class);
-        
+
         $this->app->bind(BookPixelService::class, BookPixelServiceImpl::class);
         $this->app->bind(BookGamificationService::class, BookGamificationServiceImpl::class);
         $this->app->bind(BookPublishingService::class, BookPublishingServiceImpl::class);
@@ -196,7 +199,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(BookScanMissionService::class, BookScanMissionServiceImpl::class);
         $this->app->bind(BookStatisticsService::class, BookStatisticsServiceImpl::class);
         $this->app->bind(ContentSubmissionService::class, ContentSubmissionServiceImpl::class);
-        
+
         // Email Service
         $this->app->bind(EmailService::class, MailtrapEmailServiceImpl::class);
     }

@@ -7,6 +7,7 @@ use App\Helpers\FileUploadHelper;
 use App\Interfaces\Services\BookLibraryPlanService;
 use App\Interfaces\Services\BookLibraryService;
 use App\Interfaces\Services\ContentDeliveryService;
+use App\Interfaces\Services\LibraryMilestoneService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\ContentItem;
@@ -18,7 +19,8 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
 {
     public function __construct(
         private BookLibraryService $bookLibraryService,
-        private BookLibraryPlanService $planService
+        private BookLibraryPlanService $planService,
+        private LibraryMilestoneService $milestoneService
     ) {}
 
     public function deliverNextInCategory(
@@ -58,6 +60,9 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
 
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
         $subscription->increment('books_used');
+
+        // Milestone reward: receiving the Nth book = "listened to N books"
+        $this->milestoneService->registerDelivery($bot, $botUser, $botId, $origin, $chatId);
 
         // کتابخانه کاربر (اختیاری - ممکن است foreign key با content_items نداشته باشد)
         try {
@@ -126,7 +131,7 @@ class ContentDeliveryServiceImpl implements ContentDeliveryService
 
         $caption = $text . "\n\n" . $footer;
         $caption .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
-        
+
         return $caption;
     }
 

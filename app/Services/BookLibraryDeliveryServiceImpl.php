@@ -6,6 +6,7 @@ use App\Helpers\BotHelper;
 use App\Helpers\FileUploadHelper;
 use App\Interfaces\Services\BookLibraryDeliveryService;
 use App\Interfaces\Services\BookLibraryService;
+use App\Interfaces\Services\LibraryMilestoneService;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\LibraryBook;
@@ -17,7 +18,8 @@ use Telegram;
 class BookLibraryDeliveryServiceImpl implements BookLibraryDeliveryService
 {
     public function __construct(
-        private BookLibraryService $bookLibraryService
+        private BookLibraryService $bookLibraryService,
+        private LibraryMilestoneService $milestoneService
     ) {}
 
     public function deliverBook(
@@ -70,6 +72,16 @@ class BookLibraryDeliveryServiceImpl implements BookLibraryDeliveryService
 
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $mainBotId);
         $subscription->increment('books_used');
+
+        // Milestone reward: receiving the Nth book = "listened to N books"
+        $this->milestoneService->registerDelivery(
+            $deliveryBot,
+            $botUser,
+            $mainBotId,
+            $origin,
+            $chatId,
+            $deliveredVia === 'reader'
+        );
 
         $userBook = LibraryUserBook::create([
             'bot_user_id' => $botUser->id,

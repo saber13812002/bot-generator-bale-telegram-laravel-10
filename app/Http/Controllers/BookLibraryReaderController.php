@@ -208,7 +208,7 @@ class BookLibraryReaderController extends Controller
             if (!$hasNew) {
                 $whatsNewMsg = "در حال حاضر هیچ فایل صوتی جدیدی برای شما اضافه نشده است. شما تمام محتواها را دریافت کرده‌اید! 🎉";
             }
-            
+
             $whatsNewMsg .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
 
             \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $whatsNewMsg);
@@ -235,7 +235,7 @@ class BookLibraryReaderController extends Controller
                     $rank = $index + 1;
                     $msg .= "{$rank}. شناسه کاربر: {$u->bot_user_id} - تعداد فایل: {$u->total_received}\n";
                 }
-                
+
                 \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $msg);
             }
             return;
@@ -247,7 +247,7 @@ class BookLibraryReaderController extends Controller
                 if (count($parts) >= 3) {
                     $targetUserId = $parts[1];
                     $messageContent = $parts[2];
-                    
+
                     $targetUser = \App\Models\BotUsers::find($targetUserId);
                     if ($targetUser) {
                         $adminMsg = "پیام ادمین:\n\n" . $messageContent;
@@ -268,10 +268,10 @@ class BookLibraryReaderController extends Controller
             $catIdStr = trim(str_replace(['/category', ' '], '', mb_strtolower(trim($text))));
             if (is_numeric($catIdStr)) {
                 $categoryId = (int) $catIdStr;
-                
+
                 $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
                 $actualBotId = $config ? $config->bot_id : $instanceBotId;
-                
+
                 $this->deliverNextInCategory($bot, $botUser, $actualBotId, $type, $categoryId);
             } else {
                 \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شناسه دسته نامعتبر است.");
@@ -326,17 +326,11 @@ class BookLibraryReaderController extends Controller
             if ($requestId > 0) {
                 try {
                     $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+                    // confirmPlanRequest() خودش پیام فعال‌سازی (با یادآوری
+                    // هدیه‌ی مایلستون) را به کاربر ارسال می‌کند؛ اینجا فقط
+                    // اعلان برای ادمین ارسال می‌شود تا پیام دوباره نشود.
                     $result = $planService->confirmPlanRequest($requestId, 'bot_mother_admin');
                     if ($result['success']) {
-                        // اطلاع به کاربر
-                        $planRequest = \App\Models\LibraryPlanRequest::find($requestId);
-                        if ($planRequest && $planRequest->botUser) {
-                            $botToken = $type === 'bale' ? $botModel?->bale_bot_token : $botModel?->telegram_bot_token;
-                            if ($botToken) {
-                                $userBot = $type === 'bale' ? new Telegram($botToken, 'bale') : new Telegram($botToken);
-                                BotHelper::sendMessageByChatId($userBot, $planRequest->botUser->chat_id, "🎉 پلن شما تایید شد!\nبه کتابخانه بیشتر دسترسی دارید.");
-                            }
-                        }
                         BotHelper::sendMessage($bot, "✅ پلن #{$requestId} تایید شد.");
                     } else {
                         BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
@@ -671,7 +665,7 @@ class BookLibraryReaderController extends Controller
     {
         //先在 صف pending ثبت کن (file_id ذخیره می‌شود برای ارسال مجدد)
         $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
-        
+
         // اطلاع به کاربر
         BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد (کد: {$pending->id}). پس از تایید ادمین به صف اضافه خواهد شد.");
 
@@ -681,7 +675,7 @@ class BookLibraryReaderController extends Controller
         if ($adminChatId) {
             $userName = $botUser->alias_name ?: "کاربر {$chatId}";
             $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\n📌 Pending ID: {$pending->id}\n\nبرای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}_CATEGORY_ID\n\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-items";
-            
+
             // ارسال فایل به ادمین
             try {
                 if ($mimeType === 'voice') {
@@ -693,7 +687,7 @@ class BookLibraryReaderController extends Controller
                 Log::warning('[BookLibrary] Forward to admin failed', ['error' => $e->getMessage()]);
             }
         }
-        
+
         // به ادمین مادر هم اطلاع بده
         $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
         $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
@@ -974,17 +968,36 @@ class BookLibraryReaderController extends Controller
     {
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
         $currentPlan = trans(config('book_library.plans.' . $subscription->plan . '.label_key', 'book_library.plan.free'));
+        $currency = trans('book_library.currency');
         $message = "⭐ پلن فعلی: {$currentPlan}\n";
         $message .= $this->bookLibraryService->buildProgressBar($subscription) . "\n\n";
-        $message .= "پلن‌های قابل ارتقا:\n";
+        $message .= "پلن‌های قابل ارتقا:\n\n";
         $keyboard = [];
         foreach (config('book_library.paid_plans', []) as $planKey) {
             $plan = config('book_library.plans.' . $planKey);
             if ($plan) {
-                $label = trans($plan['label_key']) . ' - ' . number_format($plan['price']) . ' تومان';
-                $keyboard[] = [$bot->buildInlineKeyBoardButton($label, callback_data: "bl:plan:{$planKey}")];
+                $label = trans($plan['label_key']);
+                $price = number_format($plan['price']);
+
+                // Demo pricing: show struck-through list price when present
+                $message .= $label . ' ';
+                if (!empty($plan['list_price'])) {
+                    $message .= trans('book_library.plan_offer_line', [
+                        'list' => number_format($plan['list_price']),
+                        'price' => $price,
+                        'currency' => $currency,
+                    ]);
+                } else {
+                    $message .= trans('book_library.plan_price_line', ['price' => $price, 'currency' => $currency]);
+                }
+                $message .= "\n";
+
+                // Button labels can't carry HTML markup — plain offer price only
+                $buttonLabel = $label . ' - ' . $price . ' ' . $currency;
+                $keyboard[] = [$bot->buildInlineKeyBoardButton($buttonLabel, callback_data: "bl:plan:{$planKey}")];
             }
         }
+        $message .= "\n" . trans('book_library.reward_menu_hint');
         if (!empty($keyboard)) {
             BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
         } else {

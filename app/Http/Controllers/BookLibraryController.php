@@ -627,10 +627,11 @@ class BookLibraryController extends Controller
     {
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
         $currentPlan = trans(config('book_library.plans.' . $subscription->plan . '.label_key', 'book_library.plan.free'));
+        $currency = trans('book_library.currency');
 
         $message = trans('book_library.plan_current', ['plan' => $currentPlan]) . "\n";
         $message .= $this->bookLibraryService->buildProgressBar($subscription) . "\n\n";
-        $message .= trans('book_library.plan_choose');
+        $message .= trans('book_library.plan_choose') . "\n\n";
 
         $keyboard = [];
         foreach (config('book_library.paid_plans', []) as $planKey) {
@@ -638,9 +639,28 @@ class BookLibraryController extends Controller
             if (!$plan) {
                 continue;
             }
-            $label = trans($plan['label_key']) . ' - ' . number_format($plan['price']) . ' ' . trans('book_library.currency');
-            $keyboard[] = [$bot->buildInlineKeyBoardButton($label, callback_data: "bl:plan:{$planKey}")];
+            $label = trans($plan['label_key']);
+            $price = number_format($plan['price']);
+
+            // Demo pricing: show struck-through list price when present
+            $message .= $label . ' ';
+            if (!empty($plan['list_price'])) {
+                $message .= trans('book_library.plan_offer_line', [
+                    'list' => number_format($plan['list_price']),
+                    'price' => $price,
+                    'currency' => $currency,
+                ]);
+            } else {
+                $message .= trans('book_library.plan_price_line', ['price' => $price, 'currency' => $currency]);
+            }
+            $message .= "\n";
+
+            // Button labels can't carry HTML markup — plain offer price only
+            $buttonLabel = $label . ' - ' . $price . ' ' . $currency;
+            $keyboard[] = [$bot->buildInlineKeyBoardButton($buttonLabel, callback_data: "bl:plan:{$planKey}")];
         }
+
+        $message .= "\n" . trans('book_library.reward_menu_hint');
 
         BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
     }

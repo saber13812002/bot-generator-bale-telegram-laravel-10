@@ -13,12 +13,16 @@ class LibraryUserSubscription extends Model
         'plan',
         'books_used',
         'books_limit',
+        'reward_target',
+        'reward_bonus',
+        'reward_granted_at',
         'status',
         'expires_at',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
+        'reward_granted_at' => 'datetime',
     ];
 
     public function botUser(): BelongsTo
@@ -39,5 +43,41 @@ class LibraryUserSubscription extends Model
     public function canDeliver(): bool
     {
         return $this->status === 'active' && $this->remainingBooks() > 0;
+    }
+
+    /**
+     * Milestone reward engine
+     * ------------------------------------------------------------------
+     * A "milestone" is armed when a paid plan is confirmed:
+     *   reward_target  = plan book limit (N)
+     * When books_used reaches N we assume the user listened to all of
+     * them and the win moment fires exactly once (reward_granted_at).
+     */
+
+    /**
+     * Is a milestone currently armed (paid plan confirmed, reward not yet given)?
+     */
+    public function hasArmedMilestone(): bool
+    {
+        return $this->reward_target !== null
+            && $this->reward_granted_at === null;
+    }
+
+    /**
+     * Milestone reached? (books_used >= target and not yet granted)
+     */
+    public function milestoneReached(): bool
+    {
+        return $this->hasArmedMilestone() && $this->books_used >= $this->reward_target;
+    }
+
+    /**
+     * Arm (or re-arm) a milestone for the given target book count.
+     */
+    public function armMilestone(int $target): void
+    {
+        $this->reward_target = $target;
+        $this->reward_bonus = null;
+        $this->reward_granted_at = null;
     }
 }
