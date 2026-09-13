@@ -13,6 +13,7 @@ use App\Jobs\ContentBroadcastJob;
 use App\Models\Bot;
 use App\Models\BotUsers;
 use App\Models\ContentBroadcastJob as ContentBroadcastJobModel;
+use App\Models\ContentNote;
 use App\Models\ContentPendingUpload;
 use App\Models\ContentCategory;
 use App\Models\ContentItem;
@@ -174,6 +175,18 @@ class BookLibraryController extends Controller
         // ===== دستورات مدیریتی ادمین ربات =====
         if ($isOwner && in_array(mb_strtolower($text), ['/manage', '/مدیریت'], true)) {
             $this->showAdminPanel($bot, $instanceBotId);
+            return;
+        }
+
+        // لغو ویزارد فعال (یادداشت/سؤال و ...)
+        if (in_array(mb_strtolower(trim($text)), ['/cancel', 'لغو'], true)) {
+            $botUser->settings(['content_wizard' => null, 'content_note_item_id' => null, 'content_note_type' => null]);
+            BotHelper::sendMessage($bot, '❌ لغو شد.');
+            return;
+        }
+
+        // ویزارد یادداشت/سؤال (برای همه‌ی کاربران — بدون محدودیت $isOwner)
+        if ($this->handleUserNoteWizardText($bot, $text, $botUser)) {
             return;
         }
 
@@ -344,6 +357,42 @@ class BookLibraryController extends Controller
         return false;
     }
 
+    /**
+     * ویزارد یادداشت/سؤال کاربر (مستقل از $isOwner)
+     */
+    private function handleUserNoteWizardText(Telegram $bot, string $text, BotUsers $botUser): bool
+    {
+        $wizard = $botUser->setting('content_wizard');
+        if ($wizard !== 'add_note') {
+            return false;
+        }
+
+        $itemId = (int) $botUser->setting('content_note_item_id', 0);
+        $noteType = $botUser->setting('content_note_type', 'note');
+        $botUser->settings(['content_wizard' => null, 'content_note_item_id' => null, 'content_note_type' => null]);
+        $item = $itemId > 0 ? ContentItem::find($itemId) : null;
+        if (!$item) {
+            BotHelper::sendMessage($bot, '❌ فایل موردنظر یافت نشد.');
+            return true;
+        }
+
+        try {
+            ContentNote::create([
+                'content_item_id' => $item->id,
+                'bot_user_id' => $botUser->id,
+                'type' => $noteType === 'question' ? 'question' : 'note',
+                'text' => $text,
+            ]);
+            $msg = $noteType === 'question' ? '❓' : '📝';
+            BotHelper::sendMessage($bot, "{$msg} با موفقیت ثبت شد.\nبرای مشاهده همه‌ی یادداشت‌ها: دکمه «📄 همهٔ یادداشت‌ها»");
+        } catch (\Throwable $e) {
+            Log::error('❌ [BookLibrary] Error saving content note', ['item_id' => $itemId, 'error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, '❌ خطا در ثبت یادداشت. لطفاً دوباره تلاش کنید.');
+        }
+
+        return true;
+    }
+
     private function handleMediaUpload(
         Telegram $bot,
         array $update,
@@ -418,6 +467,27 @@ class BookLibraryController extends Controller
         $callbackQueryId = $callbackQuery['id'] ?? null;
         if ($callbackQueryId) {
             $bot->answerCallbackQuery(['callback_query_id' => $callbackQueryId]);
+        }
+
+        // دکمه‌های یادداشت/سؤال/نمایش یادداشت‌ها (ارسال شده بعد از فایل صوتی)
+        if (str_starts_with($callbackData, 'bl:note:')) {
+            $itemId = (int) str_replace('bl:note:', '', $callbackData);
+            $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'note']);
+            BotHelper::sendMessage($bot, "📝 متن یادداشت خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:question:')) {
+            $itemId = (int) str_replace('bl:question:', '', $callbackData);
+            $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'question']);
+            BotHelper::sendMessage($bot, "❓ متن سؤال خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:show_notes:')) {
+            $itemId = (int) str_replace('bl:show_notes:', '', $callbackData);
+            $this->showUserNotes($bot, $botUser, $itemId);
+            return;
         }
 
         // ===== دکمه‌های پنل ادمین =====
@@ -702,5 +772,36 @@ class BookLibraryController extends Controller
         ]);
 
         BotHelper::sendMessage($bot, trans('book_library.broadcast_queued'));
+    }
+
+    private function showUserNotes(Telegram $bot, BotUsers $botUser, int $itemId): void
+    {
+        $item = $itemId > 0 ? ContentItem::find($itemId) : null;
+        if (!$item) {
+            BotHelper::sendMessage($bot, '❌ فایل موردنظر یافت نشد.');
+            return;
+        }
+
+        $notes = ContentNote::where('content_item_id', $item->id)
+            ->where('bot_user_id', $botUser->id)
+            ->latest()
+            ->take(50)
+            ->get();
+
+        $title = $item->title ?: ('#' . $item->queue_order);
+
+        if ($notes->isEmpty()) {
+            BotHelper::sendMessage($bot, "📄 هنوز یادداشتی برای «{$title}» ثبت نکرده‌اید.\nبرای ثبت: دکمه «📝 یادداشت»");
+            return;
+        }
+
+        $message = "📄 یادداشت‌ها و سؤالات شما برای «{$title}»:\n\n";
+        foreach ($notes as $index => $note) {
+            $icon = $note->type === 'question' ? '❓' : '📝';
+            $message .= "{$icon} [{($index + 1)}] {$note->text}\n";
+        }
+        $message .= "\n(تعداد: {$notes->count()})";
+
+        BotHelper::sendMessage($bot, $message);
     }
 }
