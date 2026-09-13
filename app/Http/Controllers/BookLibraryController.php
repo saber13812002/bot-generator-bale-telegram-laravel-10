@@ -60,7 +60,7 @@ class BookLibraryController extends Controller
                 return 200;
             }
 
-            $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
+            $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
             $instanceBotId = $this->resolveInstanceBotId($botUser, $botId);
 
             if ($this->handleMediaUpload($bot, $update, $botUser, $instanceBotId, $type, $chatId)) {
@@ -100,6 +100,26 @@ class BookLibraryController extends Controller
         }
 
         return $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+    }
+
+    /**
+     * پیدا کردن BotUsers مناسب با اولویت رکوردی که library_bot_instance_id دارد
+     * (wizard state در این رکورد ذخیره می‌شود)
+     */
+    private function resolveBotUser(string $chatId, int $botMotherId, string $origin, ?int $botId): BotUsers
+    {
+        if ($botId) {
+            $userWithInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('settings', 'like', '%"library_bot_instance_id":' . $botId . '%')
+                ->first();
+
+            if ($userWithInstance) {
+                return $userWithInstance;
+            }
+        }
+
+        return BotUsers::firstOrNew($chatId, $botMotherId, $origin);
     }
 
     private function resolveInstanceBotId(BotUsers $botUser, ?int $botId): int
@@ -461,7 +481,7 @@ class BookLibraryController extends Controller
         ?int $botId
     ): void {
         $callbackData = $callbackQuery['data'] ?? '';
-        $botUser = BotUsers::firstOrNew((string) $chatId, $botMotherId, $type);
+        $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
         $instanceBotId = $this->resolveInstanceBotId($botUser, $botId);
 
         $callbackQueryId = $callbackQuery['id'] ?? null;
