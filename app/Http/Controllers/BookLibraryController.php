@@ -109,6 +109,7 @@ class BookLibraryController extends Controller
     private function resolveBotUser(string $chatId, int $botMotherId, string $origin, ?int $botId): BotUsers
     {
         if ($botId) {
+            // حالت ۱: botId مشخص است → دقیقاً همان instance را جستجو کن
             $userWithInstance = BotUsers::where('chat_id', $chatId)
                 ->where('origin', $origin)
                 ->where('settings', 'like', '%"library_bot_instance_id":' . $botId . '%')
@@ -118,18 +119,27 @@ class BookLibraryController extends Controller
                 return $userWithInstance;
             }
         } else {
-            // اگر botId نیامده، رکوردی که instance دارد را ترجیح بده
+            // حالت ۲: botId نیامده → اولین رکوردی که هر instance ای دارد را ترجیح بده
             // تا wizard state (که روی همان رکورد ذخیره شده) از دست نرود
+            // فیلتر bot_id = botMotherId برای جلوگیری از برگرداندن رکورد خانواده‌ی ربات دیگر
             $userWithAnyInstance = BotUsers::where('chat_id', $chatId)
                 ->where('origin', $origin)
+                ->where('bot_id', $botMotherId)
                 ->where('settings', 'like', '%"library_bot_instance_id"%')
                 ->first();
+
+            Log::info('🔍 [BookLibrary] resolveBotUser - search with any instance_id', [
+                'chat_id' => $chatId,
+                'origin' => $origin,
+                'found_with_any_instance' => $userWithAnyInstance ? $userWithAnyInstance->id : null,
+            ]);
 
             if ($userWithAnyInstance) {
                 return $userWithAnyInstance;
             }
         }
 
+        // حالت ۳: هیچ رکوردی با instance پیدا نشد → fallback به firstOrNew
         return BotUsers::firstOrNew($chatId, $botMotherId, $origin);
     }
 

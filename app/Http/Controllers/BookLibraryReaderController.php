@@ -126,35 +126,29 @@ class BookLibraryReaderController extends Controller
      */
     private function resolveBotUser(string $chatId, int $botMotherId, string $origin, ?int $botId): BotUsers
     {
-        Log::info('🔍 [BookLibrary] resolveBotUser - looking for user', [
-            'chat_id' => $chatId,
-            'origin' => $origin,
-            'botId_param' => $botId,
-        ]);
-
-        // اول: رکوردی که library_bot_instance_id دارد (wizard state اینجا ذخیره می‌شود)
         if ($botId) {
+            // حالت ۱: botId مشخص است → دقیقاً همان instance را جستجو کن
             $userWithInstance = BotUsers::where('chat_id', $chatId)
                 ->where('origin', $origin)
                 ->where('settings', 'like', '%"library_bot_instance_id":' . $botId . '%')
                 ->first();
 
-            Log::info('🔍 [BookLibrary] resolveBotUser - search with instance_id', [
-                'found_with_instance' => $userWithInstance ? $userWithInstance->id : null,
-            ]);
-
             if ($userWithInstance) {
                 return $userWithInstance;
             }
         } else {
-            // اگر botId نیامده، رکوردی که instance دارد را ترجیح بده
+            // حالت ۲: botId نیامده → اولین رکوردی که هر instance ای دارد را ترجیح بده
             // تا wizard state (که روی همان رکورد ذخیره شده) از دست نرود
+            // فیلتر bot_id = botMotherId برای جلوگیری از برگرداندن رکورد خانواده‌ی ربات دیگر
             $userWithAnyInstance = BotUsers::where('chat_id', $chatId)
                 ->where('origin', $origin)
+                ->where('bot_id', $botMotherId)
                 ->where('settings', 'like', '%"library_bot_instance_id"%')
                 ->first();
 
             Log::info('🔍 [BookLibrary] resolveBotUser - search with any instance_id', [
+                'chat_id' => $chatId,
+                'origin' => $origin,
                 'found_with_any_instance' => $userWithAnyInstance ? $userWithAnyInstance->id : null,
             ]);
 
@@ -163,13 +157,8 @@ class BookLibraryReaderController extends Controller
             }
         }
 
-        // دوم: رکورد با chat_id و origin (رفتار پیش‌فرض)
-        $fallback = BotUsers::firstOrNew($chatId, $botMotherId, $origin);
-        Log::info('🔍 [BookLibrary] resolveBotUser - fallback firstOrNew', [
-            'fallback_id' => $fallback->id,
-            'fallback_settings' => $fallback->settings,
-        ]);
-        return $fallback;
+        // حالت ۳: هیچ رکوردی با instance پیدا نشد → fallback به firstOrNew
+        return BotUsers::firstOrNew($chatId, $botMotherId, $origin);
     }
 
     // ======================== TEXT HANDLING ========================
