@@ -117,6 +117,17 @@ class BookLibraryController extends Controller
             if ($userWithInstance) {
                 return $userWithInstance;
             }
+        } else {
+            // اگر botId نیامده، رکوردی که instance دارد را ترجیح بده
+            // تا wizard state (که روی همان رکورد ذخیره شده) از دست نرود
+            $userWithAnyInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('settings', 'like', '%"library_bot_instance_id"%')
+                ->first();
+
+            if ($userWithAnyInstance) {
+                return $userWithAnyInstance;
+            }
         }
 
         return BotUsers::firstOrNew($chatId, $botMotherId, $origin);

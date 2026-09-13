@@ -146,6 +146,21 @@ class BookLibraryReaderController extends Controller
             if ($userWithInstance) {
                 return $userWithInstance;
             }
+        } else {
+            // اگر botId نیامده، رکوردی که instance دارد را ترجیح بده
+            // تا wizard state (که روی همان رکورد ذخیره شده) از دست نرود
+            $userWithAnyInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('settings', 'like', '%"library_bot_instance_id"%')
+                ->first();
+
+            Log::info('🔍 [BookLibrary] resolveBotUser - search with any instance_id', [
+                'found_with_any_instance' => $userWithAnyInstance ? $userWithAnyInstance->id : null,
+            ]);
+
+            if ($userWithAnyInstance) {
+                return $userWithAnyInstance;
+            }
         }
 
         // دوم: رکورد با chat_id و origin (رفتار پیش‌فرض)
