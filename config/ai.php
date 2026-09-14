@@ -25,8 +25,11 @@ return [
 
     // تنظیمات HTTP (معادل curl -k --noproxy "*")
     'http_options' => [
-        'verify'  => false, // نادیده گرفتن SSL — معادل -k در curl
-        'timeout' => 30,
-        'proxy'   => '',    // معادل --noproxy "*"
+        'verify'          => false,  // نادیده گرفتن SSL — معادل -k در curl
+        'timeout'         => 60,     // حداکثر زمان کل درخواست (ثانیه)
+        'connect_timeout' => 30,     // حداکثر زمان اتصال (ثانیه)
+        'proxy'           => [       // معادل --noproxy "*" در curl
+            'no' => ['*'],
+        ],
     ],
 ];
