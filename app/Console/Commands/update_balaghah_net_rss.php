@@ -44,8 +44,9 @@ class update_balaghah_net_rss extends Command
 
         $mediaId = "11111111111" . $randId;
         // Create or update the RSS feed item
-        $rssItem = RssFeedWebOrigin::create([
-                "media_id" => $mediaId,
+        $rssItem = RssFeedWebOrigin::updateOrCreate(
+            ['media_id' => $mediaId], // Conditions to find existing
+            [
                 "origin" => "balaghah.net",  // Set the origin
                 "title" => $nahjItem->title ?? 'Untitled',
                 "description" => $nahjItem->persian ?? 'Untitled',
