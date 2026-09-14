@@ -772,6 +772,13 @@ class BookLibraryReaderController extends Controller
         // دکمه‌های یادداشت/سؤال/نمایش یادداشت‌ها (ارسال شده بعد از فایل صوتی)
         if (str_starts_with($callbackData, 'bl:note:')) {
             $itemId = (int) str_replace('bl:note:', '', $callbackData);
+            Log::info('📝 [BookLibrary] Note callback received', [
+                'item_id' => $itemId,
+                'chat_id' => $chatId,
+                'bot_user_id' => $botUser->id,
+                'instance_bot_id' => $instanceBotId,
+                'callback_data' => $callbackData,
+            ]);
             $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'note']);
             BotHelper::sendMessage($bot, "📝 متن یادداشت خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
             return;
@@ -779,6 +786,13 @@ class BookLibraryReaderController extends Controller
 
         if (str_starts_with($callbackData, 'bl:question:')) {
             $itemId = (int) str_replace('bl:question:', '', $callbackData);
+            Log::info('❓ [BookLibrary] Question callback received', [
+                'item_id' => $itemId,
+                'chat_id' => $chatId,
+                'bot_user_id' => $botUser->id,
+                'instance_bot_id' => $instanceBotId,
+                'callback_data' => $callbackData,
+            ]);
             $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'question']);
             BotHelper::sendMessage($bot, "❓ متن سؤال خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
             return;
@@ -1167,7 +1181,7 @@ class BookLibraryReaderController extends Controller
         $message = "📄 یادداشت‌ها و سؤالات شما برای «{$title}»:\n\n";
         foreach ($notes as $index => $note) {
             $icon = $note->type === 'question' ? '❓' : '📝';
-            $message .= "{$icon} [{($index + 1)}] {$note->text}\n";
+            $message .= "{$icon} [" . ($index + 1) . "] {$note->text}\n";
         }
         $message .= "\n(تعداد: {$notes->count()})";
 
