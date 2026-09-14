@@ -126,6 +126,8 @@ class AiProvider extends Resource
                 ->json()
                 ->nullable()
                 ->hideFromIndex(),
+
+            \Laravel\Nova\Fields\HasMany::make('Logs', 'logs', AiProviderLog::class),
         ];
     }
 

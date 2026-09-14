@@ -42,6 +42,13 @@ class AiHealthCheck extends Command
                     'last_ping_ms'     => $result['ping_ms'],
                 ]);
 
+                $provider->logs()->create([
+                    'check_type'    => 'connection',
+                    'status'        => 'failed',
+                    'ping_ms'       => $result['ping_ms'],
+                    'error_message' => $result['message'],
+                ]);
+
                 $this->error("❌ {$provider->name}: {$result['message']}");
 
                 // نوتیفیکیشن fail
@@ -64,6 +71,14 @@ class AiHealthCheck extends Command
                 'last_test_error'  => null,
                 'last_ping_ms'     => $result['ping_ms'],
                 'available_models' => $result['models'],
+            ]);
+
+            $provider->logs()->create([
+                'check_type'       => 'chat',
+                'status'           => $chatResult['success'] ? 'success' : 'failed',
+                'ping_ms'          => $result['ping_ms'],
+                'response_payload' => $chatResult['success'] ? $chatResult['response'] : null,
+                'error_message'    => $chatResult['success'] ? null : $chatResult['response'],
             ]);
 
             $this->info("✅ {$provider->name}: OK — ping {$result['ping_ms']}ms — models: " . count($result['models']));
