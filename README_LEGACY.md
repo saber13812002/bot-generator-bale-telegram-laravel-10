@@ -605,35 +605,26 @@ UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\R
 
 
 
+
 Minute	Hour	Day	Month	Weekday	Command	Actions
-
 */15	22	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
-
 */45	23	*	*	*	cd /home/pardisa2/blog && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
-
 0	0	*	*	0	cd /home/pardisa2/blog && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-0 9 * * *	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:daily-blog-reminder >> /dev/null 2>&1	# Daily blog reminder (admin)
-59	23	10	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-
-*/20	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
-
-*/15	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss-post >> /dev/null 2>&1	    
-
+59	23	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
+*/19	*	*	*	*	cd /home/pardisa2/bots && sleep $((RANDOM % 60)) && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
+*/14	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss-post >> /dev/null 2>&1	    
 58	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:boo >> /dev/null 2>&1	    
-
-57	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:gen >> /dev/null 2>&1	    
-
-*/19	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:get-all >> /dev/null 2>&1	    
-
+57	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:generate-audio >> /dev/null 2>&1	    
+*/18	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:get-all >> /dev/null 2>&1	    
 */40	18	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_so >> /dev/null 2>&1	    
+4	3	*	*	*	rm -f /home/pardisa2/bots/storage/logs/laravel.log; rm -rf /home/pardisa2/bots.pardisania.ir/logs/*; rm -rf /home/pardisa2/bots/logs/*; rm -rf /home/pardisa2/logs/*; rm -rf /home/pardisa2/bots/storage/app/public/images/*; rm -rf /home/pardisa2/tmp/*	    
+46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1	    
+20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1	    
+56	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:generate-s >> /dev/null 2>&1	    
+55	5	*	*	1	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:user >> /dev/null 2>&1	    
+01	09	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:daily-blog-reminder >> /dev/null 2>&1	    
+4	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan ai:health-check >> /dev/null 2>&1	    
 
-4	3	*	*	*	rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/	    
-
-rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/ && rm -R ./bots/storage/app/public/images && rm -R ./tmp
-
-46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1
-
-20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
 
 ### دستوراتی که با `schedule:run` اجرا می‌شوند
 
