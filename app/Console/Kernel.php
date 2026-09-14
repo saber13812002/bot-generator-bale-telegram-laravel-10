@@ -107,6 +107,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // بررسی سلامت سرورهای AI هر ۱ ساعت
+        $schedule->command('ai:health-check')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
         $schedule->command(ScheduleContentDelivery::class)
             ->hourly()
