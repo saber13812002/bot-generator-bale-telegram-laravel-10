@@ -11,4 +11,7 @@ interface BookLibraryPlanService
     public function requestPlanUpgrade(BotUsers $botUser, int $botId, string $plan, string $userIdentifier): array;
 
     public function confirmPlanRequest(int $requestId, ?string $approvedBy = null): array;
+
+    public function rejectPlanRequest(int $requestId, ?string $approvedBy = null): array;
 }
+

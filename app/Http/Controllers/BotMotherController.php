@@ -50,76 +50,79 @@ class BotMotherController extends Controller
      */
     public function botMotherWebhook(BotRequest $request)
     {
+        $type = $request->input('origin')
+            ?? ($request->header('User-Agent') && str_contains($request->header('User-Agent'), 'Telegram') ? 'telegram' : 'bale');
+        $botMotherId = (int) ($request->input('bot_mother_id') ?? 1);
+
         Log::info('🤖 [BotMother] Webhook received', [
             'has_origin' => $request->has('origin'),
             'has_bot_mother_id' => $request->has('bot_mother_id'),
-            'origin' => $request->input('origin'),
-            'bot_mother_id' => $request->input('bot_mother_id'),
+            'origin' => $type,
+            'bot_mother_id' => $botMotherId,
             'has_token' => $request->has('token'),
         ]);
 
-        if ($request->has('origin') && $request->has('bot_mother_id')) {
-            $type = $request->input('origin');
-            $botMotherId = $request->input('bot_mother_id');
-            if ($type == 'bale') {
-                $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE");
-                Log::info('🤖 [BotMother] Creating Bale bot instance', [
-                    'has_custom_token' => $request->has('token'),
-                    'using_env_token' => !$request->has('token'),
-                ]);
-                $bot = new Telegram($token, 'bale');
-            } else {
-                $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM");
-                $bot = new Telegram($token);
-            }
+        if ($type == 'bale') {
+            $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE");
+            Log::info('🤖 [BotMother] Creating Bale bot instance', [
+                'has_custom_token' => $request->has('token'),
+                'using_env_token' => !$request->has('token'),
+            ]);
+            $bot = new Telegram($token, 'bale');
+        } else {
+            $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM");
+            $bot = new Telegram($token);
+        }
 
-            $update = $request->json()->all() ?? $request->all();
+        $update = $request->json()->all() ?? $request->all();
 
-            if (isset($update['callback_query'])) {
-                $chatId = $update['callback_query']['message']['chat']['id']
-                    ?? $update['callback_query']['from']['id']
-                    ?? null;
-            } elseif (isset($update['message'])) {
-                $chatId = $update['message']['chat']['id'] ?? null;
-            } elseif (isset($update['edited_message'])) {
-                $chatId = $update['edited_message']['chat']['id'] ?? null;
-            } else {
-                Log::info('🤖 [BotMother] Ignoring unsupported update type', [
-                    'update_keys' => array_keys($update),
-                ]);
-
-                return response('ok', 200);
-            }
-
-            if (!$chatId) {
-                return response('ok', 200);
-            }
-
-            // چک کردن ادمین بودن کاربر
-            Log::info('🤖 [BotMother] Checking admin status', [
-                'chat_id' => $chatId,
-                'type' => $type,
+        if (isset($update['callback_query'])) {
+            $chatId = $update['callback_query']['message']['chat']['id']
+                ?? $update['callback_query']['from']['id']
+                ?? null;
+        } elseif (isset($update['message'])) {
+            $chatId = $update['message']['chat']['id'] ?? null;
+        } elseif (isset($update['edited_message'])) {
+            $chatId = $update['edited_message']['chat']['id'] ?? null;
+        } else {
+            Log::info('🤖 [BotMother] Ignoring unsupported update type', [
+                'update_keys' => array_keys($update),
             ]);
 
-            if (!AdminHelper::isAdmin($chatId)) {
-                Log::warning('⚠️ [BotMother] User is not admin', [
-                    'chat_id' => $chatId,
-                ]);
-                $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
-                BotHelper::sendMessage($bot, $message);
-                return;
-            }
+            return response('ok', 200);
+        }
 
-            Log::info('✅ [BotMother] User is admin, processing request', [
+        if (!$chatId) {
+            return response('ok', 200);
+        }
+
+        // لاگ کردن درخواست قبل از چک ادمین تا تمام پیام‌ها ثبت شوند
+        try {
+            LogHelper::log($request, $type, $bot);
+        } catch (Exception $e) {
+            Log::info('LogHelper error: ' . $e->getMessage());
+        }
+
+        // چک کردن ادمین بودن کاربر
+        Log::info('🤖 [BotMother] Checking admin status', [
+            'chat_id' => $chatId,
+            'type' => $type,
+            'text' => $bot->Text(),
+        ]);
+
+        if (!AdminHelper::isAdmin($chatId)) {
+            Log::warning('⚠️ [BotMother] User is not admin', [
                 'chat_id' => $chatId,
+                'text' => $bot->Text(),
             ]);
+            $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
 
-            // Log the request
-            try {
-                LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info($e->getMessage());
-            }
+        Log::info('✅ [BotMother] User is admin, processing request', [
+            'chat_id' => $chatId,
+        ]);
 
             // Handle callback query (for inline buttons)
             if (isset($update['callback_query'])) {
@@ -236,6 +239,10 @@ class BotMotherController extends Controller
             else if (str_starts_with($text, '/library_plan_confirm')) {
                 $this->handleLibraryPlanConfirm($bot, $text, $type);
             }
+            else if (str_starts_with($text, '/library_plan_reject')) {
+                $this->handleLibraryPlanReject($bot, $text, $type);
+            }
+
             else if ($text == '/content' || $text == '/محتوا' || strtolower($text) == 'content') {
                 $this->contentBotMotherService->handleContentCommand($bot, (string) $chatId, $type);
             }
@@ -3716,19 +3723,24 @@ class BotMotherController extends Controller
             $logFile = storage_path('logs/laravel-' . date('Y-m-d') . '.log');
 
             if (!file_exists($logFile)) {
-                // اگر فایل امروز وجود نداشت، آخرین فایل لاگ را پیدا کن
-                $logDir = storage_path('logs');
-                $files = glob($logDir . '/laravel-*.log');
-                if (empty($files)) {
-                    $message = "❌ هیچ فایل لاگی یافت نشد.";
-                    BotHelper::sendMessage($bot, $message);
-                    return;
+                $singleLog = storage_path('logs/laravel.log');
+                if (file_exists($singleLog)) {
+                    $logFile = $singleLog;
+                } else {
+                    // اگر فایل امروز وجود نداشت، آخرین فایل لاگ را پیدا کن
+                    $logDir = storage_path('logs');
+                    $files = glob($logDir . '/laravel-*.log');
+                    if (empty($files)) {
+                        $message = "❌ هیچ فایل لاگی یافت نشد.";
+                        BotHelper::sendMessage($bot, $message);
+                        return;
+                    }
+                    // آخرین فایل را انتخاب کن
+                    usort($files, function($a, $b) {
+                        return filemtime($b) - filemtime($a);
+                    });
+                    $logFile = $files[0];
                 }
-                // آخرین فایل را انتخاب کن
-                usort($files, function($a, $b) {
-                    return filemtime($b) - filemtime($a);
-                });
-                $logFile = $files[0];
             }
 
             // خواندن 50 خط آخر
@@ -3908,6 +3920,13 @@ class BotMotherController extends Controller
         $requestId = $args['request_id'];
         $mainBotId = $args['main_bot_id'];
 
+        Log::info('🤖 [BotMother] adminbot_confirm triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+            'main_bot_id' => $mainBotId,
+        ]);
+
         if ($requestId === null) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
             return;
@@ -3945,7 +3964,14 @@ class BotMotherController extends Controller
      */
     private function handleAdminbotReject(Telegram $bot, string $text, string $type): void
     {
+        $chatId = $bot->ChatID();
         $requestId = $this->extractNumericCommandArg($text, 'adminbot_reject');
+
+        Log::info('🤖 [BotMother] adminbot_reject triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
 
         if ($requestId === null) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
@@ -3971,10 +3997,12 @@ class BotMotherController extends Controller
     {
         // Accept:
         // - /command 123
+        // - /command_123
         // - /command123
-        // - /command@SomeBot 123   (Telegram linked command)
+        // - /command@SomeBot 123
+        // - /command@SomeBot_123
         // - extra whitespace/newlines
-        $pattern = '~^/\s*' . preg_quote($command, '~') . '(?:@\w+)?\s*([0-9]+)\b~iu';
+        $pattern = '~^/\s*' . preg_quote($command, '~') . '(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
         if (preg_match($pattern, trim($text), $m) !== 1) {
             return null;
         }
@@ -3988,7 +4016,14 @@ class BotMotherController extends Controller
      */
     private function extractAdminbotConfirmArgs(string $text): array
     {
-        $pattern = '~^/\s*adminbot_confirm(?:@\w+)?\s*([0-9]+)(?:\s+([0-9]+))?\b~iu';
+        // Accept:
+        // - /adminbot_confirm 123
+        // - /adminbot_confirm_123
+        // - /adminbot_confirm_123_456
+        // - /adminbot_confirm 123 456
+        // - /adminbot_confirm 123 456 — Bot Name
+        // - /adminbot_confirm@SomeBot_123_456
+        $pattern = '~^/\s*adminbot_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)(?:[\s_]+([0-9]+))?~iu';
         if (preg_match($pattern, trim($text), $m) !== 1) {
             return ['request_id' => null, 'main_bot_id' => null];
         }
@@ -4206,10 +4241,15 @@ class BotMotherController extends Controller
     private function handleLibraryPlanConfirm(Telegram $bot, string $text, string $type): void
     {
         $chatId = $bot->ChatID();
-        $parts = explode(' ', $text);
-        $requestId = $parts[1] ?? null;
+        $requestId = $this->extractNumericCommandArg($text, 'library_plan_confirm');
 
-        if (!$requestId || !is_numeric($requestId)) {
+        Log::info('💎 [BotMother] library_plan_confirm triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
+
+        if ($requestId === null) {
             BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /library_plan_confirm [REQUEST_ID]");
             return;
         }
@@ -4228,6 +4268,37 @@ class BotMotherController extends Controller
             }
         } catch (Exception $e) {
             Log::error('❌ [BotMother] library_plan_confirm error', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
+    }
+
+    private function handleLibraryPlanReject(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $requestId = $this->extractNumericCommandArg($text, 'library_plan_reject');
+
+        Log::info('💎 [BotMother] library_plan_reject triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
+
+        if ($requestId === null) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /library_plan_reject [REQUEST_ID]");
+            return;
+        }
+
+        try {
+            $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+            $result = $planService->rejectPlanRequest((int) $requestId, 'bot_mother_admin');
+
+            if ($result['success'] ?? false) {
+                BotHelper::sendMessage($bot, "❌ درخواست پلن کتابخانه رد شد.\n🆔 Request ID: {$requestId}");
+            } else {
+                BotHelper::sendMessage($bot, $result['message'] ?? '❌ خطا در پردازش درخواست.');
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] library_plan_reject error', ['error' => $e->getMessage()]);
             BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
         }
     }

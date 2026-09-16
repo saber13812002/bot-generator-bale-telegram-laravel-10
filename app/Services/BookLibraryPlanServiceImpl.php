@@ -133,6 +133,28 @@ class BookLibraryPlanServiceImpl implements BookLibraryPlanService
         return ['success' => true, 'message' => trans('book_library.plan_confirmed')];
     }
 
+    public function rejectPlanRequest(int $requestId, ?string $approvedBy = null): array
+    {
+        $request = LibraryPlanRequest::find($requestId);
+        if (!$request || $request->status !== 'pending') {
+            return ['success' => false, 'message' => trans('book_library.plan_not_found')];
+        }
+
+        $request->update([
+            'status' => 'rejected',
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+        ]);
+
+        Log::info('❌ [BookLibrary] Plan request rejected', [
+            'request_id' => $requestId,
+            'approved_by' => $approvedBy,
+        ]);
+
+        return ['success' => true, 'message' => 'درخواست رد شد'];
+    }
+
+
     /**
      * Milestone target for a plan (null = no milestone).
      */

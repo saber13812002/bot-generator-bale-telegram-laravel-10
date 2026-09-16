@@ -323,18 +323,16 @@ class BookLibraryReaderController extends Controller
 
         // ===== /library_plan_confirm (پشتیبانی از هر دو فرمت با فاصله و آندرلاین) =====
         if (str_starts_with($text, '/library_plan_confirm')) {
-            // تبدیل آندرلاین به فاصله برای یکسان سازی
-            $normalized = str_replace('_', ' ', $text);
-            $parts = preg_split('/\s+/', $normalized);
-            $requestId = (int) ($parts[1] ?? 0);
-            if ($requestId > 0) {
+            $pattern = '~^/\s*library_plan_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
                 try {
                     $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
                     // confirmPlanRequest() خودش پیام فعال‌سازی (با یادآوری
                     // هدیه‌ی مایلستون) را به کاربر ارسال می‌کند؛ اینجا فقط
                     // اعلان برای ادمین ارسال می‌شود تا پیام دوباره نشود.
                     $result = $planService->confirmPlanRequest($requestId, 'bot_mother_admin');
-                    if ($result['success']) {
+                    if ($result['success'] ?? false) {
                         BotHelper::sendMessage($bot, "✅ پلن #{$requestId} تایید شد.");
                     } else {
                         BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
@@ -347,6 +345,79 @@ class BookLibraryReaderController extends Controller
             }
             return;
         }
+
+        // ===== /library_plan_reject =====
+        if (str_starts_with($text, '/library_plan_reject')) {
+            $pattern = '~^/\s*library_plan_reject(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                try {
+                    $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+                    $result = $planService->rejectPlanRequest($requestId, 'bot_mother_admin');
+                    if ($result['success'] ?? false) {
+                        BotHelper::sendMessage($bot, "❌ درخواست پلن #{$requestId} رد شد.");
+                    } else {
+                        BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ فرمت: /library_plan_reject REQUEST_ID");
+            }
+            return;
+        }
+
+        // ===== /adminbot_confirm در کتابخوان =====
+        if (str_starts_with($text, '/adminbot_confirm')) {
+            $pattern = '~^/\s*adminbot_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)(?:[\s_]+([0-9]+))?~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                $mainBotId = isset($m[2]) ? (int) $m[2] : null;
+                try {
+                    $service = app(\App\Services\BotAdminKieService::class);
+                    $result = $service->confirmRequest($requestId, (int) $chatId, $mainBotId);
+                    if ($result) {
+                        $req = \App\Models\BotAdminKieRequest::find($requestId);
+                        $msg = trans('bot.admin_kie_confirmed_admin') . "\n\n🆔 Request ID: {$requestId}\n";
+                        if ($req) {
+                            $msg .= "👤 {$req->displayName()}\n💬 Chat ID: {$req->chat_id}\n🤖 Bot ID: " . ($req->bot_id ?? '—');
+                        }
+                        BotHelper::sendMessage($bot, $msg);
+                    } else {
+                        BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, '❌ خطا: ' . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
+            }
+            return;
+        }
+
+        // ===== /adminbot_reject در کتابخوان =====
+        if (str_starts_with($text, '/adminbot_reject')) {
+            $pattern = '~^/\s*adminbot_reject(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                $req = \App\Models\BotAdminKieRequest::pending()->find($requestId);
+                if ($req) {
+                    $req->update([
+                        'status' => 'rejected',
+                        'approved_by' => $chatId,
+                        'approved_at' => now(),
+                    ]);
+                    BotHelper::sendMessage($bot, trans('bot.admin_kie_rejected_admin') . "\n🆔 Request ID: {$requestId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+                }
+            } else {
+                BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
+            }
+            return;
+        }
+
 
         // ===== دستورات ادمین مادر =====
         if (AdminHelper::isAdmin((string) $chatId) && $this->handleSuperAdminCommands($bot, $text, $botModel, $instanceBotId, $type)) {
