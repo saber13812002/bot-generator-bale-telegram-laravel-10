@@ -74,7 +74,12 @@ class BotMotherController extends Controller
             $bot = new Telegram($token);
         }
 
-        $update = $request->json()->all() ?? $request->all();
+        $update = $request->json()->all() ?: $request->all();
+        // Ensure the SDK instance (which normally reads php://input in its
+        // constructor) holds this update, so Text()/ChatID() resolve correctly
+        // even when this method is invoked in-process (e.g. delegation from
+        // the v2 workflow webhook) or in feature tests.
+        $bot->setData($update);
 
         if (isset($update['callback_query'])) {
             $chatId = $update['callback_query']['message']['chat']['id']
@@ -372,9 +377,7 @@ class BotMotherController extends Controller
                 $message .= "برای مشاهده لیست ربات‌های غیر فعال، /inactive را ارسال کنید.";
                 BotHelper::sendMessage($bot, $message);
             }
-        }
     }
-
 
     /**
      * Display a listing of the resource.
@@ -412,6 +415,7 @@ class BotMotherController extends Controller
     {
         $type = 'bale';
         $baleMotherBot = $this->getMotherBotByType($type);
+        $baleMotherBot->setData($request->json()->all() ?? $request->all());
 //        dd(json_decode($request->getContent()), $baleMotherBot);
         $chat_id = $baleMotherBot->ChatID();
         $text = $baleMotherBot->Text();
@@ -434,7 +438,7 @@ class BotMotherController extends Controller
             } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
                 Log::error($e->getMessage());
-//                throw $e;
+                return response('ok', 200);
             }
             // TODO: count check
             if (config('app.env') == 'local') {

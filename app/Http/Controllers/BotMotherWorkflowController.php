@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\BotMotherStateHelper;
+use App\Http\Requests\BotRequest;
 use App\Modules\BotCreation\Contracts\BotCreationWorkflowInterface;
 use App\Modules\BotCreation\Models\BotCreationSession;
 use App\Modules\BotCreation\Services\ChatRenderer;
@@ -57,6 +58,7 @@ class BotMotherWorkflowController extends Controller
 
         $bot = new Telegram($token, $type);
         $update = $request->json()->all() ?? $request->all();
+        $bot->setData($update);
         $chatId = $this->extractChatId($update);
 
         if (!$chatId) {
@@ -71,29 +73,52 @@ class BotMotherWorkflowController extends Controller
 
         // Handle callback queries
         if (isset($update['callback_query'])) {
-            return $this->handleCallbackQuery($bot, $update, $type, $botMotherId);
+            return $this->handleCallbackQuery($bot, $update, $type, $botMotherId, $request);
         }
 
         $text = $bot->Text();
         $currentState = BotMotherStateHelper::getCurrentState($chatId);
 
-        // /start or "ساختن" command
+        // /start or "ساختن" command - kept by the new workflow engine
         if (in_array(mb_strtolower($text ?? ''), ['/start', 'ساختن', '/new', 'new'], true)) {
             $this->handleStart($bot, $type, $botMotherId, $chatId);
             return;
         }
 
-        // Handle active creation session
+        // Any other slash command (statistics, broadcast, confirm/reject commands,
+        // content management, ...) must reach the legacy controller, even while
+        // a creation workflow is active.
+        if (is_string($text) && str_starts_with($text, '/')) {
+            return $this->delegateToLegacyMotherController($request);
+        }
+
+        // Handle active creation session (plain text answers to workflow steps)
         if ($currentState === 'workflow_creation') {
             $this->handleWorkflowStep($bot, $text, $chatId, $type);
             return;
         }
 
-        // Other commands - forward to original BotMotherController logic
-        // For now, just show help
-        $message = "❓ دستور نامعتبر است.\n\n";
-        $message .= "برای شروع ساخت ربات، /start را ارسال کنید.";
-        BotHelper::sendMessage($bot, $message);
+        // Everything else - forward to the legacy BotMotherController so it can
+        // answer it properly (and log it) instead of replying "invalid command".
+        return $this->delegateToLegacyMotherController($request);
+    }
+
+    /**
+     * Delegate a non-workflow message/callback to the legacy BotMotherController.
+     *
+     * The v2 webhook already validated origin/bot_mother_id/token and resolved
+     * the chat id, so we build the BotRequest directly (skipping
+     * validateResolved) and let the legacy controller do its full dispatch,
+     * logging and admin checks.
+     */
+    private function delegateToLegacyMotherController(Request $request)
+    {
+        $botRequest = BotRequest::createFrom($request);
+        // Ensure the full update payload (JSON or form encoded) is available
+        // as form input on the delegated request.
+        $botRequest->request->add($request->all());
+
+        return app(BotMotherController::class)->botMotherWebhook($botRequest);
     }
 
     /**
@@ -237,7 +262,7 @@ class BotMotherWorkflowController extends Controller
     /**
      * Handle callback queries (button presses).
      */
-    private function handleCallbackQuery(Telegram $bot, array $update, string $type, int $botMotherId): void
+    private function handleCallbackQuery(Telegram $bot, array $update, string $type, int $botMotherId, Request $request): void
     {
         $callbackQuery = $update['callback_query'];
         $callbackData = $callbackQuery['data'] ?? '';
@@ -247,13 +272,13 @@ class BotMotherWorkflowController extends Controller
             return;
         }
 
-        // Answer callback query immediately
-        $bot->answerCallbackQuery([
-            'callback_query_id' => $callbackQuery['id'],
-        ]);
-
         // Handle workflow callback data: wf:{field_id}:{value}
         if (str_starts_with($callbackData, 'wf:')) {
+            // Answer workflow callback immediately
+            $bot->answerCallbackQuery([
+                'callback_query_id' => $callbackQuery['id'],
+            ]);
+
             $parts = explode(':', $callbackData);
             $fieldId = $parts[1] ?? null;
             $value = $parts[2] ?? null;
@@ -264,8 +289,10 @@ class BotMotherWorkflowController extends Controller
             return;
         }
 
-        // Other callbacks (language selection, etc.) - pass through
-        // For now, ignore unknown callbacks
+        // Other callbacks (language selection, content menu, broadcast, ...)
+        // belong to the legacy controller. Do NOT answer the callback here -
+        // the legacy controller answers callbacks it handles itself.
+        $this->delegateToLegacyMotherController($request);
     }
 
     /**

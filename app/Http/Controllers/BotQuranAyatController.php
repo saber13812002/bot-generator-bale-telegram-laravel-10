@@ -61,6 +61,8 @@ class BotQuranAyatController
                 return 200;
             }
 
+            $bot->setData($request->json()->all() ?? $request->all());
+
             try {
                 LogHelper::log($request, $type, $bot);
             } catch (Exception $e) {
