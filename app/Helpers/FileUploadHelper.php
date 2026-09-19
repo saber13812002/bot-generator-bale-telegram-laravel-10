@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use App\Models\BotLog;
 use App\Models\BotUploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -43,7 +44,11 @@ class FileUploadHelper
         if (!$botId || !$botType) {
             Log::warning('⚠️ [FileUploadHelper] Bot ID or type not found', [
                 'file_unique_key' => $fileUniqueKey,
-                'file_type' => $fileType
+                'file_type' => $fileType,
+                'request_token' => substr((string) self::getRequestToken(), 0, 12) . '...',
+                'messenger_token' => substr((string) $messenger->token(), 0, 12) . '...',
+                'token_match' => self::getRequestToken() === $messenger->token(),
+                'bot_type' => $botType,
             ]);
             return null;
         }
@@ -277,7 +282,29 @@ class FileUploadHelper
     }
 
     /**
+     * دریافت token ارسالی در request (query string یا body)
+     *
+     * @return string|null
+     */
+    private static function getRequestToken(): ?string
+    {
+        $request = request();
+        if (!$request) {
+            return null;
+        }
+
+        return $request->input('token') ?: $request->query('token');
+    }
+
+    /**
      * دریافت اطلاعات bot از messenger
+     *
+     * ترتیب تلاش برای پیدا کردن bot_id:
+     * 1. bot_id مستقیم از request
+     * 2. جستجو در جدول bots بر اساس token (messenger یا request)
+     * 3. جستجو بر اساس bot_mother_id + endpoint_id + language + type (مشخصات webhook)
+     * 4. جستجو بر اساس bot_mother_id + language + type
+     * 5. جستجو در BotLog های اخیر بر اساس مشخصات webhook (مشابه LogHelper)
      *
      * @param Telegram $messenger
      * @return array [botId, botType]
@@ -285,13 +312,13 @@ class FileUploadHelper
     private static function getBotInfo(Telegram $messenger): array
     {
         $botType = $messenger->BotType();
-        $token = $messenger->Token();
+        $token = $messenger->token();
 
-        if (!$token) {
+        if (!$botType) {
             return [null, null];
         }
 
-        // دریافت bot_id از request (اولویت اول)
+        // 1. دریافت bot_id از request (اولویت اول)
         $request = request();
         if ($request && $request->has('bot_id')) {
             $botId = $request->input('bot_id');
@@ -300,19 +327,116 @@ class FileUploadHelper
             }
         }
 
-        // پیدا کردن bot_id از token
-        $bot = null;
-        if ($botType == 'telegram') {
-            $bot = Bot::where('telegram_bot_token', $token)->first();
-        } elseif ($botType == 'bale') {
-            $bot = Bot::where('bale_bot_token', $token)->first();
+        // 2. پیدا کردن bot_id از token (اول token خود messenger، سپس token request)
+        $candidates = [];
+        if ($token) {
+            $candidates[] = $token;
+        }
+        $requestToken = self::getRequestToken();
+        if ($requestToken && !in_array($requestToken, $candidates, true)) {
+            $candidates[] = $requestToken;
         }
 
-        if ($bot) {
-            return [$bot->id, $botType];
+        foreach ($candidates as $candidateToken) {
+            $bot = self::findBotByToken($candidateToken, $botType);
+            if ($bot) {
+                return [$bot->id, $botType];
+            }
+        }
+
+        // 3 و 4. پیدا کردن bot از مشخصات webhook (bot_mother_id + endpoint + language + type)
+        if ($request) {
+            $bot = self::findBotFromWebhookContext($request, $botType);
+            if ($bot) {
+                return [$bot, $botType];
+            }
         }
 
         return [null, null];
+    }
+
+    /**
+     * پیدا کردن bot از token بر اساس نوع
+     *
+     * @param string $token
+     * @param string $botType
+     * @return Bot|null
+     */
+    private static function findBotByToken(string $token, string $botType): ?Bot
+    {
+        $query = Bot::query();
+
+        if ($botType == 'telegram') {
+            $query->where('telegram_bot_token', $token);
+        } elseif ($botType == 'bale') {
+            $query->where('bale_bot_token', $token);
+        } else {
+            return null;
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * پیدا کردن bot از مشخصات webhook (bot_mother_id، endpoint، language و type)
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param string $botType
+     * @return int|null
+     */
+    private static function findBotFromWebhookContext(\Illuminate\Http\Request $request, string $botType): ?int
+    {
+        $botMotherId = $request->input('bot_mother_id') ?: $request->query('bot_mother_id');
+        $language = $request->input('language') ?: $request->query('language');
+        // segment(2) معمولاً نام endpoint است (مثلاً webhook-quran-word)
+        $endpointUri = $request->segment(2);
+
+        if (!$botMotherId || !$language || !$endpointUri) {
+            return null;
+        }
+
+        // endpoint_id در جدول bots ممکن است با یا بدون پیشوند webhook- باشد
+        $endpointId = $endpointUri;
+        $endpointIdAlt = str_starts_with($endpointId, 'webhook-')
+            ? substr($endpointId, strlen('webhook-'))
+            : 'webhook-' . $endpointId;
+
+        // 3. جستجو بر اساس bot_mother_id + endpoint_id + language + type
+        $bot = Bot::where('bot_mother_id', $botMotherId)
+            ->where('type', $botType)
+            ->where('language_code', $language)
+            ->whereIn('endpoint_id', [$endpointId, $endpointIdAlt])
+            ->first();
+
+        if ($bot) {
+            return $bot->id;
+        }
+
+        // 4. جستجو بر اساس bot_mother_id + language + type (اگر فقط یک ربات دارد)
+        $bots = Bot::where('bot_mother_id', $botMotherId)
+            ->where('type', $botType)
+            ->where('language_code', $language)
+            ->get();
+
+        if ($bots->count() === 1) {
+            return $bots->first()->id;
+        }
+
+        // 5. جستجو در BotLog های اخیر (مشابه روش LogHelper)
+        $botLog = BotLog::where('bot_mother_id', $botMotherId)
+            ->where('type', $botType)
+            ->where('webhook_endpoint_uri', $endpointUri)
+            ->where('language', $language)
+            ->whereNotNull('bot_id')
+            ->where('bot_id', '!=', 1)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if ($botLog && Bot::whereKey($botLog->bot_id)->exists()) {
+            return $botLog->bot_id;
+        }
+
+        return null;
     }
 
     /**
