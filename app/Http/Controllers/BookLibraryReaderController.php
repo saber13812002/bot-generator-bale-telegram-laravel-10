@@ -221,48 +221,84 @@ class BookLibraryReaderController extends Controller
 
         // ===== Admin Commands: /topusers and /sendmsg =====
         if (str_starts_with(mb_strtolower(trim($text)), '/topusers')) {
-            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
-                $topUsers = \App\Models\ContentUserProgress::selectRaw('bot_user_id, sum(last_position) as total_received')
-                    ->where('bot_id', $instanceBotId)
-                    ->groupBy('bot_user_id')
-                    ->orderBy('total_received', 'desc')
-                    ->limit(10)
-                    ->get();
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شما مجوز استفاده از این دستور را ندارید.");
+                return;
+            }
 
-                if ($topUsers->isEmpty()) {
-                    \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "موردی یافت نشد.");
-                    return;
+            $topUsers = \App\Models\ContentUserProgress::selectRaw('bot_user_id, sum(last_position) as total_received')
+                ->where('bot_id', $instanceBotId)
+                ->groupBy('bot_user_id')
+                ->orderBy('total_received', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($topUsers->isEmpty()) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "موردی یافت نشد.");
+                return;
+            }
+
+            $userIds = $topUsers->pluck('bot_user_id')->all();
+            $botUsers = \App\Models\BotUsers::whereIn('id', $userIds)->get()->keyBy('id');
+
+            $msg = "🏆 لیست ۱۰ کاربر برتر (بر اساس تعداد فایل‌های دریافتی):\n\n";
+            $rows = [];
+            foreach ($topUsers as $index => $u) {
+                $rank = $index + 1;
+                $uUser = $botUsers[$u->bot_user_id] ?? null;
+                $name = $uUser && $uUser->alias_name ? $uUser->alias_name : 'کاربر';
+
+                $msg .= "{$rank}. {$name} (شناسه کاربر: {$u->bot_user_id}) — {$u->total_received} فایل\n";
+                if ($uUser) {
+                    $detail = "   🆔 Chat ID: {$uUser->chat_id} | 🌐 " . ($uUser->origin ?: '?');
+                    if ($uUser->email) {
+                        $detail .= " | ✉️ {$uUser->email}";
+                    }
+                    $msg .= $detail . "\n";
+                    $rows[] = [$bot->buildInlineKeyBoardButton("✉️ ارسال پیام به {$name}", callback_data: "bl:admin:sendmsg:{$u->bot_user_id}")];
+                } else {
+                    $msg .= "   ⚠️ مشخصات کاربر در سیستم موجود نیست\n";
                 }
+            }
+            $msg .= "\nبا کلیک روی دکمه می‌توانید مستقیم برای کاربر مربوطه پیام بنویسید و ارسال کنید.";
 
-                $msg = "🏆 لیست ۱۰ کاربر برتر (بر اساس تعداد فایل‌های دریافتی):\n\n";
-                foreach ($topUsers as $index => $u) {
-                    $rank = $index + 1;
-                    $msg .= "{$rank}. شناسه کاربر: {$u->bot_user_id} - تعداد فایل: {$u->total_received}\n";
-                }
-
+            if ($rows) {
+                BotHelper::sendKeyboardMessage($bot, $msg, $bot->buildInlineKeyBoard($rows));
+            } else {
                 \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $msg);
             }
             return;
         }
 
-        if (str_starts_with(mb_strtolower(trim($text)), '/sendmsg ')) {
-            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
-                $parts = explode(' ', trim($text), 3);
-                if (count($parts) >= 3) {
-                    $targetUserId = $parts[1];
-                    $messageContent = $parts[2];
+        // ===== /sendmsg — ارسال پیام به کاربر خاص (فقط ادمین) =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/sendmsg')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شما مجوز استفاده از این دستور را ندارید.");
+                return;
+            }
 
-                    $targetUser = \App\Models\BotUsers::find($targetUserId);
-                    if ($targetUser) {
-                        $adminMsg = "پیام ادمین:\n\n" . $messageContent;
-                        \App\Helpers\BotHelper::sendMessageByChatId($bot, $targetUser->chat_id, $adminMsg);
-                        \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "✅ پیام با موفقیت به کاربر {$targetUserId} ارسال شد.");
-                    } else {
-                        \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
-                    }
-                } else {
-                    \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ فرمت دستور اشتباه است. مثال:\n/sendmsg 123 پیام شما");
-                }
+            $parts = preg_split('/\s+/', trim($text), 3);
+            $targetUserId = $parts[1] ?? null;
+            $messageContent = trim($parts[2] ?? '');
+
+            if ($targetUserId !== null && $messageContent !== '') {
+                $this->sendAdminMessageToUser($bot, $targetUserId, $messageContent, (string)$chatId, $instanceBotId, $type);
+            } elseif (is_numeric((string)$targetUserId)) {
+                // فقط شناسه کاربر داده شده → ویزارد دو مرحله‌ای: حالا متن پیام را بنویسد
+                $botUser->settings(['content_wizard' => 'sendmsg_user', 'sendmsg_target_id' => (int)$targetUserId]);
+                $targetUser = \App\Models\BotUsers::find((int)$targetUserId);
+                $who = $targetUser
+                    ? "کاربر «" . ($targetUser->alias_name ?: "کاربر") . "» (شناسه: {$targetUser->id} | Chat ID: {$targetUser->chat_id})"
+                    : "کاربر با شناسه {$targetUserId}";
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "📝 برای {$who} پیام بنویسید و ارسال کنید:\n(برای لغو: /cancel)");
+            } else {
+                // بدون آرگومان (مثلاً کلیک روی دکمه راهنما) → راهنمای فرمت
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId,
+                    "✉️ فرمت ارسال پیام به کاربر خاص:\n" .
+                    "/sendmsg USER_ID متن پیام\n" .
+                    "یا فقط /sendmsg USER_ID را بفرستید و بعد متن پیام را بنویسید.\n" .
+                    "USER_ID همان «شناسه کاربر» گزارش /topusers است."
+                );
             }
             return;
         }
@@ -442,8 +478,14 @@ class BookLibraryReaderController extends Controller
             }
             if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
                 $message .= "\n⚙️ دستورات ادمین:\n";
-                $message .= "🔹 /topusers — 🏆 لیست کاربران برتر\n";
-                $message .= "🔹 /sendmsg — ✉️ ارسال پیام به کاربر خاص\n";
+                $message .= "🔹 /topusers — 🏆 لیست کاربران برتر (با دکمه ارسال پیام)\n";
+                if ($type === 'bale') {
+                    $message .= "🔹 [✉️ ارسال پیام به کاربر خاص](send:/sendmsg)\n";
+                } else {
+                    $message .= "🔹 /sendmsg — ✉️ ارسال پیام به کاربر خاص\n";
+                }
+                $message .= "   فرمت: /sendmsg USER_ID متن پیام\n";
+                $message .= "   (یا فقط /sendmsg USER_ID و بعد متن پیام را بفرستید)\n";
             }
             BotHelper::sendMessage($bot, $message);
             $this->sendMainMenu($bot);
@@ -459,7 +501,12 @@ class BookLibraryReaderController extends Controller
         // ویزارد ادمین (بدون $isOwner چون ویزارد قبلاً ست شده)
         // لغو ویزارد فعال (یادداشت/سؤال و ...)
         if (in_array(mb_strtolower(trim($text)), ['/cancel', 'لغو'], true)) {
-            $botUser->settings(['content_wizard' => null, 'content_note_item_id' => null, 'content_note_type' => null]);
+            $botUser->settings([
+                'content_wizard' => null,
+                'content_note_item_id' => null,
+                'content_note_type' => null,
+                'sendmsg_target_id' => null,
+            ]);
             BotHelper::sendMessage($bot, '❌ لغو شد.');
             return;
         }
@@ -600,6 +647,42 @@ class BookLibraryReaderController extends Controller
         return false;
     }
 
+    /**
+     * ارسال پیام ادمین به یک کاربر (بر اساس bot_user_id).
+     * اگر origin کاربر با origin ادمین متفاوت است، با توکن همان پلتفرم ارسال می‌شود
+     * تا پیام حتماً به دست کاربر برسد.
+     */
+    private function sendAdminMessageToUser(Telegram $bot, string $targetUserId, string $messageContent, string $adminChatId, int $instanceBotId, string $type): void
+    {
+        $targetUser = \App\Models\BotUsers::find($targetUserId);
+        if (!$targetUser) {
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
+            return;
+        }
+
+        $messenger = $bot;
+        if ($targetUser->origin && $targetUser->origin !== $type && $instanceBotId > 0) {
+            $botModel = Bot::find($instanceBotId);
+            $token = $targetUser->origin === 'bale' ? $botModel?->bale_bot_token : $botModel?->telegram_bot_token;
+            if ($token) {
+                $messenger = $targetUser->origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+            }
+        }
+
+        $who = $targetUser->alias_name ? $targetUser->alias_name : $targetUser->chat_id;
+        try {
+            BotHelper::sendMessageByChatId($messenger, (string)$targetUser->chat_id, "پیام ادمین:\n\n" . $messageContent);
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "✅ پیام با موفقیت به کاربر {$targetUser->id} ({$who}) ارسال شد.");
+        } catch (\Throwable $e) {
+            Log::error('❌ [BookLibrary] Failed to send admin message to user', [
+                'target_user_id' => $targetUserId,
+                'target_chat_id' => $targetUser->chat_id,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "❌ ارسال پیام به کاربر ممکن نشد. دوباره تلاش کنید.");
+        }
+    }
+
     private function handleAdminWizardText(Telegram $bot, string $text, BotUsers $botUser, int $botId, string $type): bool
     {
         $wizard = $botUser->setting('content_wizard');
@@ -681,6 +764,18 @@ class BookLibraryReaderController extends Controller
                 }
             }
             $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
+        // ===== ویزارد ارسال پیام به کاربر خاص (بعد از /sendmsg USER_ID یا دکمه گزارش) =====
+        if ($wizard === 'sendmsg_user') {
+            $targetUserId = (int) $botUser->setting('sendmsg_target_id', 0);
+            $botUser->settings(['content_wizard' => null, 'sendmsg_target_id' => null]);
+            if ($targetUserId > 0) {
+                $this->sendAdminMessageToUser($bot, (string)$targetUserId, $text, (string)$botUser->chat_id, $botId, $type);
+            } else {
+                BotHelper::sendMessage($bot, '❌ شناسه کاربر یافت نشد. دوباره از /sendmsg شروع کنید.');
+            }
             return true;
         }
 
@@ -888,6 +983,29 @@ class BookLibraryReaderController extends Controller
         if ($callbackData === 'bl:admin:broadcast') {
             $botUser->settings(['content_wizard' => 'broadcast_message']);
             BotHelper::sendMessage($bot, '📢 پیام همگانی را وارد کنید:');
+            return;
+        }
+
+        // ===== دکمه «ارسال پیام» در گزارش /topusers =====
+        if (str_starts_with($callbackData, 'bl:admin:sendmsg:')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                BotHelper::sendMessage($bot, '❌ شما مجوز استفاده از این قابلیت را ندارید.');
+                return;
+            }
+            $targetUserId = (int) str_replace('bl:admin:sendmsg:', '', $callbackData);
+            $targetUser = \App\Models\BotUsers::find($targetUserId);
+            if (!$targetUser) {
+                BotHelper::sendMessage($bot, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
+                return;
+            }
+            $botUser->settings(['content_wizard' => 'sendmsg_user', 'sendmsg_target_id' => $targetUserId]);
+            $who = $targetUser->alias_name ? $targetUser->alias_name : 'کاربر';
+            $info = "📮 پیام را برای: {$who}\n🆔 Chat ID: {$targetUser->chat_id}";
+            if ($targetUser->email) {
+                $info .= "\n✉️ ایمیل: {$targetUser->email}";
+            }
+            $info .= "\n\nحالا متن پیام خود را بنویسید و ارسال کنید:\n(برای لغو: /cancel)";
+            BotHelper::sendMessage($bot, $info);
             return;
         }
 

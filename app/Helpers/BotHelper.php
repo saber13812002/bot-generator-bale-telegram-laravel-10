@@ -954,29 +954,91 @@ class BotHelper
     public
     static function makeBaleKeyboard4button($array, $arrayCommands): array
     {
-        return [
-            [
-                [
-                    "text" => $array[0][0],
-                    "callback_data" => $array[0][1]
-                ],
-                [
-                    "text" => $array[1][0],
-                    "callback_data" => $array[1][1]
-                ]
-            ],
-            [
-                [
-                    "text" => $array[2][0],
-                    "callback_data" => $array[2][1]
-                ],
-                [
-                    "text" => $array[3][0],
-                    "callback_data" => $array[3][1]
-                ]
-            ],
-            $arrayCommands
-        ];
+        return self::makeButtonGrid(array_merge($array, $arrayCommands), 2);
+    }
+
+    /**
+     * Normalize mixed button input into a flat list of ['text' => ..., 'callback_data' => ...].
+     *
+     * Accepts:
+     *  - flat pairs:            [['label', '/command'], ...]
+     *  - assoc buttons:         [['text' => 'label', 'callback_data' => '/command'], ...]
+     *  - chunked rows of either (nested arrays of buttons)
+     *
+     * @return array<int, array{string, string}>
+     */
+    public static function normalizeButtonPairs(array $buttons): array
+    {
+        $normalized = [];
+        foreach ($buttons as $button) {
+            if (!is_array($button)) {
+                continue;
+            }
+            if (isset($button['text'])) {
+                $normalized[] = ['text' => (string) $button['text'], 'callback_data' => (string) ($button['callback_data'] ?? '')];
+            } elseif (isset($button[0]) && is_array($button[0])) {
+                // nested row of buttons
+                $normalized = array_merge($normalized, self::normalizeButtonPairs($button));
+            } elseif (array_key_exists(0, $button) && is_string($button[0])) {
+                $normalized[] = ['text' => (string) $button[0], 'callback_data' => (string) ($button[1] ?? '')];
+            }
+        }
+        return $normalized;
+    }
+
+    /**
+     * Build an inline-keyboard grid (rows of ['text','callback_data']) from any button list,
+     * chunked into rows of $perRow buttons.
+     */
+    public static function makeButtonGrid(array $buttons, int $perRow = 2): array
+    {
+        $flat = self::normalizeButtonPairs($buttons);
+        $grid = [];
+        foreach (array_chunk($flat, max(1, $perRow)) as $row) {
+            $grid[] = $row;
+        }
+        return $grid;
+    }
+
+    /**
+     * Send a message with a generic N-button keyboard, chunked into rows,
+     * for any bot type (bale inline, telegram inline, gap reply keyboard).
+     *
+     * @param $messenger
+     * @param string $message
+     * @param array $buttons flat pairs ['text','command'] and/or assoc ['text'=>..,'callback_data'=>..]
+     * @param string $type bale | telegram | gap
+     * @param string $token bot token (bale)
+     * @param int $perRow buttons per row
+     */
+    public static function sendButtonGridMessage($messenger, string $message, array $buttons, string $type, string $token = '', int $perRow = 2): void
+    {
+        $flat = self::normalizeButtonPairs($buttons);
+        if (empty($flat)) {
+            self::sendMessage($messenger, $message);
+            return;
+        }
+
+        if ($type == 'gap') {
+            $rows = [];
+            foreach (array_chunk($flat, max(1, $perRow)) as $chunk) {
+                $row = [];
+                foreach ($chunk as $button) {
+                    $row[] = [$button['callback_data'] => $button['text']];
+                }
+                $rows[] = $row;
+            }
+            $messenger->sendText($messenger->ChatID(), $message, $messenger->replyKeyboard($rows));
+            return;
+        }
+
+        if ($type == 'telegram') {
+            self::sendTelegramInlineMessageWithButtons($messenger, $message, self::makeButtonGrid($buttons, $perRow));
+            return;
+        }
+
+        // bale (default)
+        self::messageWithKeyboard($token, $messenger->ChatID(), $message, self::makeButtonGrid($buttons, $perRow));
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
@@ -666,7 +667,59 @@ class QuranWordController extends Controller
                         
                         return 0;
                     }
-                    
+
+                    // دکمه انتخاب قاری — نمایش لیست قاری‌های موجود
+                    if ($callbackData == 'settings_select_reciter') {
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $currentReciter = $userSettings ? $userSettings->setting('mp3_reciter') : null;
+
+                        $buttons = [];
+                        foreach (QuranHelper::getReciterRegistry() as $reciterKey => $reciterInfo) {
+                            $check = ($reciterKey === ($currentReciter ?: QuranHelper::getDefaultReciter())) ? "✅ " : "";
+                            $buttons[] = ['text' => $check . QuranHelper::getReciterName($reciterKey), 'callback_data' => 'mp3reciter_select_' . $reciterKey];
+                        }
+                        $buttons[] = ['text' => trans('bot.return to menu'), 'callback_data' => '/settings'];
+
+                        $message = trans('bot.select reciter') . "\n\n" . trans("bot.current reciter :reciter", ['reciter' => QuranHelper::getReciterName($currentReciter ?: QuranHelper::getDefaultReciter())]);
+
+                        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 2);
+
+                        Log::info('🎧 [CallbackQuery] Reciter selection menu sent', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+
+                        return 0;
+                    }
+
+                    // انتخاب قاری — ذخیره در تنظیمات کاربر
+                    if (str_starts_with($callbackData, 'mp3reciter_select_')) {
+                        $reciterKey = substr($callbackData, strlen('mp3reciter_select_'));
+
+                        if (!QuranHelper::hasReciter($reciterKey)) {
+                            BotHelper::sendMessage($bot, trans('bot.reciter not found'));
+                            return 0;
+                        }
+
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $currentSettings = $userSettings->settings ?? [];
+                        $currentSettings['mp3_reciter'] = $reciterKey;
+                        $currentSettings['mp3_enable'] = 'true';
+                        $userSettings->settings = $currentSettings;
+                        $userSettings->save();
+
+                        $message = "✅ " . trans('bot.this reciter :reciter selected', ['reciter' => QuranHelper::getReciterName($reciterKey)]);
+                        BotHelper::sendMessage($bot, $message);
+
+                        Log::info('🎧 [CallbackQuery] Reciter selected', [
+                            'chat_id' => $callbackChatId,
+                            'reciter' => $reciterKey,
+                            'type' => $type
+                        ]);
+
+                        return 0;
+                    }
+
                     // برای دکمه‌های دیگر (مثل next/previous)، callback_data را به عنوان کامند پردازش می‌کنیم
                     // با تنظیم update برای شبیه‌سازی پیام
                     if ($callbackData && !str_starts_with($callbackData, 'translation_select_') && !str_starts_with($callbackData, 'copy_invite_link_') && $callbackData != 'start_use_bot_language' && $callbackData != 'start_keep_current_language') {
@@ -829,6 +882,24 @@ class QuranWordController extends Controller
                     }
                 }
 
+                // حالت جستجو — اگر کاربر در انتظار ارسال عبارت جستجو بود (دستور /search)
+                if ($bot->ChatID() && BotMotherStateHelper::getCurrentState($bot->ChatID()) === BotMotherStateHelper::STATE_WAITING_QURAN_SEARCH) {
+                    BotMotherStateHelper::clearState($bot->ChatID());
+                    $rawText = trim((string) $bot->Text());
+
+                    if ($rawText !== '' && !str_starts_with($rawText, '/')) {
+                        [$searchPhrase, $searchPageNumber] = QuranHelper::getPageNumberFromPhrase($rawText);
+                        Log::info('🔍 [Search] Stateful search phrase received', [
+                            'chat_id' => $bot->ChatID(),
+                            'search_phrase' => $searchPhrase,
+                            'page_number' => $searchPageNumber,
+                            'type' => $type
+                        ]);
+                        QuranHelper::findResultThenSend($searchPhrase, $searchPageNumber, $type, $bot, $token);
+                        return 0;
+                    }
+                    // اگر کاربر دستور (مثلاً /start) فرستاد، حالت پاک شد و پردازش عادی ادامه دارد
+                }
 
                 $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
 
@@ -850,37 +921,30 @@ class QuranWordController extends Controller
 
                     $command_type = "start";
                     $isStartCommandShow = 0;
-                    list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
-                    $reciterCommands = QuranHelper::getSettingReciter($type);
-                    $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
-                    
-                    Log::info('📤 [Command] Sending /start message with inline buttons', [
+                    [$message, $messageCommands] = QuranHelper::getStringCommandsStartBot($type);
+
+                    $array = [
+                        [trans('bot.word by word'), "/1"],
+                        [trans('bot.ayah after ayah'), "/sure2ayah2"],
+                        [trans('bot.List of 114 Surahs'), "/fehrest"],
+                        [trans('bot.List of 30 Juz'), "/joz"],
+                        ["🔍 " . trans('bot.search'), "/search"],
+                        ["⚙️ " . trans('bot.settings menu'), "/settings"],
+                        ["❓ " . trans('bot.help'), "/help"],
+                    ];
+
+                    // دکمه‌های قاری و mp3 (برای بله به دکمه‌های اصلی اضافه می‌شوند)
+                    $buttons = $array;
+                    if ($type == 'bale') {
+                        $buttons = array_merge($buttons, $arrayCommands);
+                    }
+
+                    BotHelper::sendButtonGridMessage($bot, $message . $messageCommands, $buttons, $type, $token, 2);
+                    Log::info('✅ [Command] /start message sent', [
                         'chat_id' => $bot->ChatID(),
                         'type' => $type,
-                        'buttons_count' => count($array),
-                        'message_length' => strlen($message . $messageCommands . $reciterCommands)
+                        'buttons_count' => count($buttons)
                     ]);
-                    
-                    if ($type == 'telegram') {
-                        BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
-                        Log::info('✅ [Command] /start message sent via Telegram', [
-                            'chat_id' => $bot->ChatID(),
-                            'type' => $type
-                        ]);
-                    } else if ($type == 'gap') {
-                        BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
-                        Log::info('✅ [Command] /start message sent via Gap', [
-                            'chat_id' => $bot->ChatID(),
-                            'type' => $type
-                        ]);
-                    } else {
-                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
-                        Log::info('✅ [Command] /start message sent via Bale', [
-                            'chat_id' => $bot->ChatID(),
-                            'type' => $type
-                        ]);
-                    }
                     
                     // اگر کاربر جدید است یا pending_language_selection دارد، از او می‌پرسیم
                     if ($userSettings) {
@@ -1246,32 +1310,20 @@ class QuranWordController extends Controller
                                     'type' => $type
                                 ]);
                                 
-                                if ($type == 'telegram') {
-                                    BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
-                                    Log::info('✅ [Command] Sure aya message sent via Telegram', [
-                                        'chat_id' => $bot->ChatID(),
-                                        'sure' => $sure,
-                                        'aya' => $aya,
-                                        'type' => $type
-                                    ]);
-                                } else if ($type == 'gap') {
-                                    BotHelper::sendGap4InlineMessage($bot, $message, $array);
-                                    Log::info('✅ [Command] Sure aya message sent via Gap', [
-                                        'chat_id' => $bot->ChatID(),
-                                        'sure' => $sure,
-                                        'aya' => $aya,
-                                        'type' => $type
-                                    ]);
-                                } else {
-                                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-                                    Log::info('✅ [Command] Sure aya message sent via Bale', [
-                                        'chat_id' => $bot->ChatID(),
-                                        'sure' => $sure,
-                                        'aya' => $aya,
-                                        'type' => $type
-                                    ]);
-                                    
+                                $verseButtons = $array;
+                                if ($type == 'bale') {
+                                    $verseButtons = array_merge($verseButtons, $arrayCommands);
+                                }
+                                BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+                                Log::info('✅ [Command] Sure aya message sent', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'buttons_count' => count($verseButtons),
+                                    'type' => $type
+                                ]);
+
+                                if ($type == 'bale') {
                                     QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot, $type);
                                     Log::info('✅ [Command] Scan buttons sent for Bale', [
                                         'chat_id' => $bot->ChatID(),
@@ -1614,7 +1666,7 @@ class QuranWordController extends Controller
                         'type' => $type
                     ]);
                     
-                    QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+                    QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot, $token);
                     
                     Log::info('✅ [Command] Search command processed', [
                         'chat_id' => $bot->ChatID(),
@@ -1870,6 +1922,25 @@ class QuranWordController extends Controller
                             'chat_id' => $bot->ChatID(),
                             'type' => $type
                         ]);
+                    } else if ($command == "search") {
+                        $searchValue = trim(substr($bot->Text(), Str::length('/search')));
+
+                        if ($searchValue !== '') {
+                            [$searchPhrase, $searchPageNumber] = QuranHelper::getPageNumberFromPhrase($searchValue);
+                            Log::info('🔍 [Command] Processing /search command with phrase', [
+                                'chat_id' => $bot->ChatID(),
+                                'search_phrase' => $searchPhrase,
+                                'type' => $type
+                            ]);
+                            QuranHelper::findResultThenSend($searchPhrase, $searchPageNumber, $type, $bot, $token);
+                        } else {
+                            BotMotherStateHelper::setState($bot->ChatID(), BotMotherStateHelper::STATE_WAITING_QURAN_SEARCH);
+                            Log::info('🔍 [Command] /search state set, waiting for phrase', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                            QuranHelper::sendMessageWithCommonButtons($bot, trans('bot.search prompt'), $type, $token);
+                        }
                     } else if ($command == "settings") {
                         Log::info('📝 [Command] Processing /settings command', [
                             'chat_id' => $bot->ChatID(),
@@ -1883,46 +1954,23 @@ class QuranWordController extends Controller
                             $currentLanguage = App::getLocale();
                         }
                         
+                        $currentReciterName = QuranHelper::getReciterName($userSettings ? $userSettings->setting('mp3_reciter') : null);
+                        $mp3Enable = $userSettings ? $userSettings->setting('mp3_enable') : null;
+
                         $message = "⚙️ " . trans("bot.settings menu") . "\n\n";
-                        $message .= "📖 " . trans("bot.current translation language") . ": " . $currentLanguage . "\n\n";
+                        $message .= "📖 " . trans("bot.current translation language") . ": " . $currentLanguage . "\n";
+                        $message .= "🎧 " . trans("bot.current reciter :reciter", ['reciter' => $currentReciterName]) . "\n";
+                        $message .= "🔊 " . trans("bot.settings mp3 status") . " : " . ($mp3Enable == "true" ? trans('bot.enabled') : trans('bot.disabled')) . "\n\n";
                         $message .= trans("bot.select option from menu");
-                        
-                        // ساخت دکمه‌های منوی تنظیمات
-                        $buttons = [];
-                        $buttonRows = [];
-                        
-                        // دکمه انتخاب زبان ترجمه
-                        $selectLanguageText = "🌐 " . trans("bot.select translation language");
-                        $selectLanguageCallback = "settings_select_language";
-                        
-                        // دکمه مشاهده ترجمه‌های زبان فعلی
-                        $viewTranslationsText = "📖 " . trans("bot.view translations for current language");
-                        $viewTranslationsCallback = "settings_view_translations_" . $currentLanguage;
-                        
-                        if ($type == 'telegram') {
-                            $buttons[] = [
-                                ['text' => $selectLanguageText, 'callback_data' => $selectLanguageCallback],
-                                ['text' => $viewTranslationsText, 'callback_data' => $viewTranslationsCallback]
-                            ];
-                        } else {
-                            // برای Bale
-                            $buttonRows[] = [$selectLanguageText, $selectLanguageCallback];
-                            $buttonRows[] = [$viewTranslationsText, $viewTranslationsCallback];
-                        }
-                        
-                        if ($type == 'telegram') {
-                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $buttons);
-                        } else {
-                            // برای Bale
-                            $inlineKeyboardArray = [];
-                            foreach ($buttonRows as $row) {
-                                $inlineKeyboardArray[] = [[
-                                    "text" => $row[0],
-                                    "callback_data" => $row[1]
-                                ]];
-                            }
-                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
-                        }
+
+                        $buttons = [
+                            ['text' => "🌐 " . trans("bot.select translation language"), 'callback_data' => "settings_select_language"],
+                            ['text' => "📖 " . trans("bot.view translations for current language"), 'callback_data' => "settings_view_translations_" . $currentLanguage],
+                            ['text' => "🎧 " . trans('bot.select reciter'), 'callback_data' => "settings_select_reciter"],
+                            ['text' => "🔊 " . trans("bot.settings mp3 status") . " : " . ($mp3Enable == "true" ? trans('bot.disable reciter') : trans('bot.enable reciter')), 'callback_data' => $mp3Enable == "true" ? "/mp3_false" : "/mp3_true"],
+                        ];
+
+                        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 1);
                         
                         Log::info('✅ [Command] Settings menu sent', [
                             'chat_id' => $bot->ChatID(),
@@ -2356,34 +2404,27 @@ class QuranWordController extends Controller
                                 $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
                                 BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
                             } else if ($subCommand == "mp3reciter") {
-//                    $mp3Enable = $userSettings->setting('mp3_enable');
-                                $mp3Enable = "true";
-                                $translationId = $userSettings->setting('translation_id');
-                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
-
-                                $arr = [
-                                    'mp3_reciter' => $value,
-                                    'mp3_enable' => $mp3Enable,
-                                    'quran_transliteration_tr' => $quranTransliterationTr,
-                                    'quran_transliteration_en' => $quranTransliterationEn,
-                                    'translation_id' => $translationId
-                                ];
-
-                                $user = $userSettings->settings($arr);
-                                $mp3Reciter = $user->setting('mp3_reciter');
-
-//                    dd($userSettings->setting('mp3_reciter'));
-
-//                    dd($mp3Enable, $value);
-                                if ($mp3Enable == "true") {
-                                    $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
-" . "/mp3reciter_alafasy";
+                                if (!QuranHelper::hasReciter($value)) {
+                                    BotHelper::sendMessage($bot, trans('bot.reciter not found'));
                                 } else {
-                                    $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
-                                }
+                                    $mp3Enable = "true";
+                                    $translationId = $userSettings->setting('translation_id');
+                                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                                BotHelper::sendMessage($bot, $message);
+                                    $arr = [
+                                        'mp3_reciter' => $value,
+                                        'mp3_enable' => $mp3Enable,
+                                        'quran_transliteration_tr' => $quranTransliterationTr,
+                                        'quran_transliteration_en' => $quranTransliterationEn,
+                                        'translation_id' => $translationId
+                                    ];
+
+                                    $userSettings->settings($arr);
+
+                                    $message = trans('bot.this reciter :reciter selected', ['reciter' => QuranHelper::getReciterName($value)]);
+                                    BotHelper::sendMessage($bot, $message);
+                                }
                             }
                         }
                     }
