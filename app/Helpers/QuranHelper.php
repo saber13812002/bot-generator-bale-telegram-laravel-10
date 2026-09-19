@@ -75,7 +75,7 @@ class QuranHelper
             $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
             $audio = self::getAudioUrl($mp3Reciter, $aye);
 
-            $caption = self::getSettingReciter($messenger->BotType());
+            $caption = self::getSettingReciter($mp3Reciter, $messenger->BotType());
             $title = self::getAyeDescription($aye);
 
             $botType = $messenger->BotType();
@@ -162,7 +162,7 @@ class QuranHelper
 
             // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
 
-            $caption = self::getSettingReciter($messenger->BotType());
+            $caption = self::getSettingReciter(self::getSettingsByTags($userSettings, 'mp3_reciter'), $messenger->BotType());
             $title = self::getAyeDescription($aye);
             $botType = $messenger->BotType();
 
@@ -218,14 +218,15 @@ class QuranHelper
     }
 
     /**
+     * @param mixed $mp3Reciter
      * @param string $type
      * @return string
      */
-    public static function getSettingReciter(string $type = 'bale'): string
+    public static function getSettingReciter(mixed $mp3Reciter = null, string $type = 'bale'): string
     {
-        $current = self::getDefaultReciter();
+        $current = self::resolveReciter($mp3Reciter);
         $caption = trans("bot.current reciter :reciter", ['reciter' => self::getReciterName($current)]);
-        $caption .= "\n" . trans("bot.change reciter") . " : /mp3reciter";
+        $caption .= "\n" . trans("bot.change reciter") . " : /settings";
         $caption .= "\n" . trans("bot.disable enable reciter") . " : /mp3_true /mp3_false";
         return $caption;
     }
