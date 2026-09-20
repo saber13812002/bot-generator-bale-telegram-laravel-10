@@ -10,7 +10,7 @@ use App\Interfaces\Services\ContentQueueService;
 use App\Models\BotUsers;
 use App\Models\LibraryUserSubscription;
 use App\Services\ContentAdminService;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
 use Telegram;
@@ -25,6 +25,15 @@ use Telegram;
  */
 class PlanMenuRenderingTest extends TestCase
 {
+    use RefreshDatabase;
+
+    /**
+     * Runs against the fully-migrated schema (RefreshDatabase) and every
+     * test is rolled back afterwards. It must NOT drop/recreate the shared
+     * `bot_users` table: that DDL auto-commits and would corrupt the
+     * schema for every later test in the same run.
+     */
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,38 +44,6 @@ class PlanMenuRenderingTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
-    }
-
-    private function setUpTables(): void
-    {
-        Schema::dropIfExists('library_user_subscriptions');
-        Schema::dropIfExists('bot_users');
-
-        Schema::create('bot_users', function ($table) {
-            $table->id();
-            $table->bigInteger('chat_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('origin')->default('telegram');
-            $table->string('status')->default('active');
-            $table->timestamps();
-        });
-
-        Schema::create('library_user_subscriptions', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('bot_user_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('plan', 20)->default('free');
-            $table->unsignedInteger('books_used')->default(0);
-            $table->unsignedInteger('books_limit')->default(3);
-            $table->unsignedInteger('reward_target')->nullable();
-            $table->unsignedInteger('reward_bonus')->nullable();
-            $table->timestamp('reward_granted_at')->nullable();
-            $table->string('status', 20)->default('active');
-            $table->timestamp('expires_at')->nullable();
-            $table->timestamps();
-
-            $table->unique(['bot_user_id', 'bot_id']);
-        });
     }
 
     /**
@@ -110,6 +87,20 @@ class PlanMenuRenderingTest extends TestCase
         $captured = [];
         $messenger = Mockery::mock(Telegram::class);
         $messenger->shouldReceive('ChatID')->andReturn('chat-7');
+        // Mirrors vendor Telegram::buildInlineKeyBoardButton(): first arg is the
+        // label, callback_data arrives as the third positional (a named arg
+        // fills skipped parameters with their defaults).
+        $messenger->shouldReceive('buildInlineKeyBoardButton')->zeroOrMoreTimes()
+            ->andReturnUsing(function (...$args) {
+                $button = ['text' => $args[0] ?? ''];
+                if (!empty($args[2])) {
+                    $button['callback_data'] = $args[2];
+                }
+                return $button;
+            });
+        // Mirrors vendor Telegram::buildInlineKeyBoard(): returns a JSON string
+        $messenger->shouldReceive('buildInlineKeyBoard')->zeroOrMoreTimes()
+            ->andReturnUsing(fn (array $options) => json_encode(['inline_keyboard' => $options], JSON_UNESCAPED_UNICODE));
         $messenger->shouldReceive('sendMessage')->once()->andReturnUsing(function (array $content) use (&$captured) {
             $captured[] = $content;
             return [];
@@ -120,15 +111,14 @@ class PlanMenuRenderingTest extends TestCase
         $method->invoke($controller, $messenger, $user, $botId);
 
         $this->assertCount(1, $captured);
-        $captured[0]['message'] = $captured[0]['text'] ?? '';
-        unset($captured[0]['text'], $captured[0]['reply_markup']);
+        $message = $captured[0]['text'] ?? '';
+        $keyboard = $captured[0]['reply_markup'] ?? [];
 
-        return ['message' => $captured[0]['message'], 'keyboard' => $captured[0]['reply_markup'] ?? []];
+        return ['message' => $message, 'keyboard' => $keyboard];
     }
 
     public function test_unlimited_plan_renders_strikethrough_offer_price(): void
     {
-        $this->setUpTables();
         $user = BotUsers::create(['chat_id' => 7001, 'bot_id' => 7, 'origin' => 'telegram']);
 
         $rendered = $this->renderPlanMenu($user, 7);
@@ -138,9 +128,9 @@ class PlanMenuRenderingTest extends TestCase
                 $this->assertStringContainsString('<s>20,000,000', $message);
                 $this->assertStringContainsString('<b>10,000,000', $message);
 
-        // No broken/untranslated key or "0 toman" for the unlimited plan
+        // No broken/untranslated key, and no zero-price line ("— 0 تومان")
         $this->assertStringNotContainsString('book_library.plan.', $message);
-        $this->assertStringNotContainsString('0 ' . trans('book_library.currency'), $message);
+        $this->assertStringNotContainsString('— 0 ' . trans('book_library.currency'), $message);
 
         // Reward teaser line
         $this->assertStringContainsString(trans('book_library.reward_menu_hint'), $message);
@@ -148,7 +138,6 @@ class PlanMenuRenderingTest extends TestCase
 
     public function test_other_paid_plans_render_plain_price(): void
     {
-        $this->setUpTables();
         $user = BotUsers::create(['chat_id' => 7002, 'bot_id' => 7, 'origin' => 'telegram']);
 
         $message = $this->renderPlanMenu($user, 7)['message'];
@@ -164,7 +153,6 @@ class PlanMenuRenderingTest extends TestCase
 
     public function test_button_labels_use_plain_offer_price_without_html(): void
     {
-        $this->setUpTables();
         $user = BotUsers::create(['chat_id' => 7003, 'bot_id' => 7, 'origin' => 'telegram']);
 
         $keyboard = $this->renderPlanMenu($user, 7)['keyboard'];

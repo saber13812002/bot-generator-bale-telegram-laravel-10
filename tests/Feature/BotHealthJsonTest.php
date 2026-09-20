@@ -97,12 +97,16 @@ class BotHealthJsonTest extends TestCase
             'bale_bot_status' => 'DeActive',
         ]);
 
-        $this->artisan('observability:health-report')->assertSuccessful();
-
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        $this->assertStringContainsString('"symptoms"', $output);
-        $this->assertStringContainsString('deactive', $output);
-        $this->assertStringContainsString('no_users', $output);
+        // Note: Artisan::output() is empty after $this->artisan() in Laravel 10
+        // because PendingCommand passes a mocked OutputStyle (no fetch()) as the
+        // output buffer, so the capture idiom is expectsOutputToContain().
+        // The whole report is a single JSON line (no --pretty), and each mocked
+        // doWrite consumes only the FIRST matching substring expectation, so we
+        // assert one exact fragment. Order matches BotObservabilityService:
+        // deactive -> webhook_not_set -> no_users -> no_inbound.
+        $this->artisan('observability:health-report')
+            ->expectsOutputToContain('"symptoms":["deactive","webhook_not_set","no_users","no_inbound"]')
+            ->assertSuccessful();
     }
 
     public function test_health_does_not_flag_inbound_without_outbound_when_ok_is_newer(): void

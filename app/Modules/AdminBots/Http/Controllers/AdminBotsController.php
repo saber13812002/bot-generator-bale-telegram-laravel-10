@@ -98,7 +98,17 @@ class AdminBotsController extends Controller
             return null;
         }
 
-        return $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+        $bot = $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+
+        // Inject the incoming update explicitly. The Telegram constructor only
+        // reads php://input, which is empty in feature tests and unreliable as
+        // the single source of truth — mirrors BotMotherWorkflowController.
+        $update = $request->json()->all() ?: $request->all();
+        if (is_array($update)) {
+            $bot->setData($update);
+        }
+
+        return $bot;
     }
 
     private function handleStart(Telegram $bot): void

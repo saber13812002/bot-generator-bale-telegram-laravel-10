@@ -7,7 +7,7 @@ use App\Models\BotUsers;
 use App\Models\LibraryDiscountCode;
 use App\Models\LibraryUserSubscription;
 use App\Services\LibraryMilestoneServiceImpl;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
 use Telegram;
@@ -21,69 +21,20 @@ use Telegram;
  */
 class MilestoneRewardTest extends TestCase
 {
+    use RefreshDatabase;
+
+    /**
+     * Runs against the fully-migrated schema (RefreshDatabase) and every
+     * test is rolled back afterwards. It must NOT drop/recreate the shared
+     * `bots`/`bot_users` tables: that DDL auto-commits and would corrupt
+     * the schema for every later test in the same run (TopUsersSendMsg,
+     * BotFileUpload, BotOwner dashboard, ...).
+     */
+
     protected function tearDown(): void
     {
         Mockery::close();
         parent::tearDown();
-    }
-
-    private function setUpLibraryTables(): void
-    {
-        Schema::dropIfExists('library_discount_codes');
-        Schema::dropIfExists('library_user_subscriptions');
-        Schema::dropIfExists('bot_users');
-        Schema::dropIfExists('bots');
-
-        Schema::create('bots', function ($table) {
-            $table->id();
-            $table->string('bale_bot_token')->nullable();
-            $table->string('telegram_bot_token')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('bot_users', function ($table) {
-            $table->id();
-            $table->bigInteger('chat_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('origin')->default('telegram');
-            $table->string('status')->default('active');
-            $table->timestamps();
-        });
-
-        // Matches 2026_06_15_100000_create_library_tables.php
-        // + 2026_09_10_000001_add_milestone_rewards_to_library_tables.php
-        Schema::create('library_user_subscriptions', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('bot_user_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('plan', 20)->default('free');
-            $table->unsignedInteger('books_used')->default(0);
-            $table->unsignedInteger('books_limit')->default(3);
-            $table->unsignedInteger('reward_target')->nullable();
-            $table->unsignedInteger('reward_bonus')->nullable();
-            $table->timestamp('reward_granted_at')->nullable();
-            $table->string('status', 20)->default('active');
-            $table->timestamp('expires_at')->nullable();
-            $table->timestamps();
-
-            $table->unique(['bot_user_id', 'bot_id']);
-        });
-
-        Schema::create('library_discount_codes', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('bot_user_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('code', 40)->unique();
-            $table->unsignedTinyInteger('percent')->default(100);
-            $table->unsignedBigInteger('display_amount')->default(0);
-            $table->string('source', 30)->default('milestone');
-            $table->boolean('auto_activated')->default(true);
-            $table->timestamp('activated_at')->nullable();
-            $table->string('status', 20)->default('active');
-            $table->timestamps();
-
-            $table->index(['bot_user_id', 'bot_id']);
-        });
     }
 
     private function armSubscription(
@@ -127,12 +78,13 @@ class MilestoneRewardTest extends TestCase
 
     public function test_milestone_grants_unlimited_plus_auto_activated_code_when_target_book_received(): void
     {
-        $this->setUpLibraryTables();
         $bot = Bot::create(['bale_bot_token' => 'T', 'telegram_bot_token' => 'T']);
         $user = BotUsers::create(['chat_id' => 111, 'bot_id' => $bot->id, 'origin' => 'telegram']);
-        $this->armSubscription($bot, $user, 'plan_100', 100, 100, 99);
+        $subscription = $this->armSubscription($bot, $user, 'plan_100', 100, 100, 99);
 
-        // Delivering the 100th book fires the win moment
+        // Delivering the 100th book fires the win moment (the delivery path
+        // increments books_used before calling registerDelivery)
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'telegram', 'chat-1');
 
         $subscription = LibraryUserSubscription::where('bot_user_id', $user->id)
@@ -158,13 +110,15 @@ class MilestoneRewardTest extends TestCase
 
     public function test_milestone_grant_is_idempotent_across_repeated_deliveries(): void
     {
-        $this->setUpLibraryTables();
         $bot = Bot::create(['bale_bot_token' => 'T', 'telegram_bot_token' => 'T']);
         $user = BotUsers::create(['chat_id' => 222, 'bot_id' => $bot->id, 'origin' => 'bale']);
-        $this->armSubscription($bot, $user, 'plan_100', 100, 100, 99);
+        $subscription = $this->armSubscription($bot, $user, 'plan_100', 100, 100, 99);
 
-        // Two "concurrent" deliveries crossing the threshold
+        // Two "concurrent" deliveries crossing the threshold (each increments
+        // books_used before calling registerDelivery)
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'bale', 'chat-1');
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'bale', 'chat-1');
 
         $this->assertSame(1, LibraryDiscountCode::where('bot_user_id', $user->id)->count());
@@ -180,11 +134,12 @@ class MilestoneRewardTest extends TestCase
 
     public function test_no_grant_before_the_target_book_is_received(): void
     {
-        $this->setUpLibraryTables();
         $bot = Bot::create(['bale_bot_token' => 'T', 'telegram_bot_token' => 'T']);
         $user = BotUsers::create(['chat_id' => 333, 'bot_id' => $bot->id, 'origin' => 'telegram']);
-        $this->armSubscription($bot, $user, 'plan_100', 100, 100, 98);
+        $subscription = $this->armSubscription($bot, $user, 'plan_100', 100, 100, 98);
 
+        // One delivery only reaches book 99 — still below the 100 target
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'telegram', 'chat-1');
 
         $subscription = LibraryUserSubscription::where('bot_user_id', $user->id)
@@ -198,11 +153,11 @@ class MilestoneRewardTest extends TestCase
 
     public function test_no_grant_when_no_milestone_is_armed(): void
     {
-        $this->setUpLibraryTables();
         $bot = Bot::create(['bale_bot_token' => 'T', 'telegram_bot_token' => 'T']);
         $user = BotUsers::create(['chat_id' => 444, 'bot_id' => $bot->id, 'origin' => 'telegram']);
-        $this->armSubscription($bot, $user, 'free', 3, null, 3);
+        $subscription = $this->armSubscription($bot, $user, 'free', 3, null, 3);
 
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'telegram', 'chat-1');
 
         $subscription = LibraryUserSubscription::where('bot_user_id', $user->id)
@@ -215,13 +170,13 @@ class MilestoneRewardTest extends TestCase
 
     public function test_disabled_rewards_are_inert(): void
     {
-        $this->setUpLibraryTables();
         config()->set('book_library.rewards.enabled', false);
 
         $bot = Bot::create(['bale_bot_token' => 'T', 'telegram_bot_token' => 'T']);
         $user = BotUsers::create(['chat_id' => 555, 'bot_id' => $bot->id, 'origin' => 'telegram']);
-        $this->armSubscription($bot, $user, 'plan_100', 100, 100, 100);
+        $subscription = $this->armSubscription($bot, $user, 'plan_100', 100, 100, 100);
 
+        $subscription->increment('books_used');
         $this->service()->registerDelivery($this->messengerMock(), $user, $bot->id, 'telegram', 'chat-1');
 
         $subscription = LibraryUserSubscription::where('bot_user_id', $user->id)

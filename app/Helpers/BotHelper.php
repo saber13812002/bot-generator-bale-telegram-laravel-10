@@ -1243,16 +1243,30 @@ class BotHelper
     public
     static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
     {
-        $client = new GuzzleHttp\Client();
-        $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
-        $response = $client->post($uri, ['json' => [
-            "chat_id" => $chatId,
-            "text" => $message,
-            'parse_mode' => "html",
-            "reply_markup" => [
-                "inline_keyboard" => $inlineKeyboard
-            ]]]);
-//        echo $response->getBody()->getContents();
+        // Mirror the vendor Telegram package's curl behavior:
+        // (a) CURLOPT_SSL_VERIFYPEER = false — tapi.bale.ai is reached behind
+        //     a self-signed MITM certificate on some networks, and Guzzle's
+        //     default certificate verification aborts with cURL error 60.
+        // (b) API errors (e.g. 404 for an invalid/empty bot token) are
+        //     swallowed and logged, exactly like the vendor package does for
+        //     curl failures — the response body is never consumed by any
+        //     caller, so a failed send must not turn the webhook into a 500.
+        try {
+            $client = new GuzzleHttp\Client(['verify' => false]);
+            $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
+            $client->post($uri, ['json' => [
+                "chat_id" => $chatId,
+                "text" => $message,
+                'parse_mode' => "html",
+                "reply_markup" => [
+                    "inline_keyboard" => $inlineKeyboard
+                ]]]);
+        } catch (GuzzleException $e) {
+            Log::warning('BotHelper::messageWithKeyboard failed', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
 

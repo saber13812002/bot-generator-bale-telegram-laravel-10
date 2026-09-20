@@ -9,7 +9,7 @@ use App\Models\LibraryPlanRequest;
 use App\Models\LibraryUserSubscription;
 use App\Services\BookLibraryPlanServiceImpl;
 use App\Services\LibraryPlanNotificationService;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
 use Telegram;
@@ -22,6 +22,15 @@ use Telegram;
  */
 class PlanApprovalNotificationTest extends TestCase
 {
+    use RefreshDatabase;
+
+    /**
+     * Runs against the fully-migrated schema (RefreshDatabase) and every
+     * test is rolled back afterwards. It must NOT drop/recreate the shared
+     * `bots`/`bot_users` tables: that DDL auto-commits and would corrupt
+     * the schema for every later test in the same run.
+     */
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,64 +41,6 @@ class PlanApprovalNotificationTest extends TestCase
     {
         Mockery::close();
         parent::tearDown();
-    }
-
-    private function setUpTables(): void
-    {
-        Schema::dropIfExists('library_user_subscriptions');
-        Schema::dropIfExists('library_plan_requests');
-        Schema::dropIfExists('bot_users');
-        Schema::dropIfExists('bots');
-
-        Schema::create('bots', function ($table) {
-            $table->id();
-            $table->string('bale_bot_token')->nullable();
-            $table->string('telegram_bot_token')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('bot_users', function ($table) {
-            $table->id();
-            $table->bigInteger('chat_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('origin')->default('telegram');
-            $table->string('status')->default('active');
-            $table->timestamps();
-        });
-
-        Schema::create('library_user_subscriptions', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('bot_user_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('plan', 20)->default('free');
-            $table->unsignedInteger('books_used')->default(0);
-            $table->unsignedInteger('books_limit')->default(3);
-            $table->unsignedInteger('reward_target')->nullable();
-            $table->unsignedInteger('reward_bonus')->nullable();
-            $table->timestamp('reward_granted_at')->nullable();
-            $table->string('status', 20)->default('active');
-            $table->timestamp('expires_at')->nullable();
-            $table->timestamps();
-
-            $table->unique(['bot_user_id', 'bot_id']);
-        });
-
-        Schema::create('library_plan_requests', function ($table) {
-            $table->id();
-            $table->unsignedBigInteger('bot_user_id');
-            $table->unsignedBigInteger('bot_id');
-            $table->string('plan', 20);
-            $table->string('user_identifier')->nullable();
-            $table->string('payment_method', 20)->nullable();
-            $table->text('payment_info')->nullable();
-            $table->string('status', 20)->default('pending');
-            $table->text('admin_notes')->nullable();
-            $table->string('approved_by')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->timestamps();
-
-            $table->index(['bot_id', 'status']);
-        });
     }
 
     /**
@@ -131,7 +82,6 @@ class PlanApprovalNotificationTest extends TestCase
 
     public function test_nova_confirmation_notifies_telegram_user_with_reward_teaser(): void
     {
-        $this->setUpTables();
         $bot = Bot::create(['bale_bot_token' => 'bale-token', 'telegram_bot_token' => 'tg-token']);
         $user = BotUsers::create(['chat_id' => 9001, 'bot_id' => $bot->id, 'origin' => 'telegram']);
         $request = LibraryPlanRequest::create([
@@ -170,7 +120,6 @@ class PlanApprovalNotificationTest extends TestCase
 
     public function test_bale_origin_uses_bale_token_for_user_notification(): void
     {
-        $this->setUpTables();
         $bot = Bot::create(['bale_bot_token' => 'bale-token', 'telegram_bot_token' => 'tg-token']);
         $user = BotUsers::create(['chat_id' => 9002, 'bot_id' => $bot->id, 'origin' => 'bale']);
         $request = LibraryPlanRequest::create([
@@ -203,7 +152,6 @@ class PlanApprovalNotificationTest extends TestCase
 
     public function test_unlimited_confirmation_clears_milestone(): void
     {
-        $this->setUpTables();
         $bot = Bot::create(['bale_bot_token' => 'bale-token', 'telegram_bot_token' => 'tg-token']);
         $user = BotUsers::create(['chat_id' => 9003, 'bot_id' => $bot->id, 'origin' => 'bale']);
 
@@ -246,8 +194,6 @@ class PlanApprovalNotificationTest extends TestCase
 
     public function test_confirmation_of_unknown_request_is_rejected_without_notification(): void
     {
-        $this->setUpTables();
-
         $sentMessages = [];
         $result = $this->confirmViaService(999999, $sentMessages);
 
@@ -257,7 +203,6 @@ class PlanApprovalNotificationTest extends TestCase
 
     public function test_missing_bot_token_skips_notification_but_still_confirms(): void
     {
-        $this->setUpTables();
         $bot = Bot::create(['bale_bot_token' => null, 'telegram_bot_token' => null]);
         $user = BotUsers::create(['chat_id' => 9004, 'bot_id' => $bot->id, 'origin' => 'telegram']);
         $request = LibraryPlanRequest::create([

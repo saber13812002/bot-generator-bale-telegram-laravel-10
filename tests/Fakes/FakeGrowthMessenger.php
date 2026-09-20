@@ -85,7 +85,12 @@ class FakeGrowthMessenger implements GrowthMessenger
         $legacy = trans('growth_companion.today')."\n\n";
         foreach ($this->messages as $message) {
             $text = strip_tags((string) ($message['text'] ?? ''));
-            if (str_contains((string) ($message['text'] ?? ''), $title) || str_starts_with($text, $legacy)) {
+            // NOTE: match with str_starts_with, not str_contains: question messages
+            // from GrowthCompanionController::sendQuestion() always begin with
+            // '<b>qotd_title [· topic]</b>', but the home card's CTA line
+            // ('→ ' + btn_answer_today = 'پاسخ به سؤال امروز') merely contains the
+            // qotd_title substring and must not be counted as a question.
+            if (str_starts_with($text, $title) || str_starts_with($text, $legacy)) {
                 $count++;
             }
         }
