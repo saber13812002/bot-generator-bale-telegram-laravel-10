@@ -14,6 +14,9 @@ class AiHealthCheck extends Command
 
     public function handle(): int
     {
+        // تضمین وجود provider پیش‌فرض از config (اگر seeder اجرا نشده باشد)
+        AiProviderService::ensureDefaultProvider();
+
         $providers = AiProvider::active()->needsTest()->get();
 
         if ($providers->isEmpty()) {
@@ -51,12 +54,12 @@ class AiHealthCheck extends Command
 
                 $this->error("❌ {$provider->name}: {$result['message']}");
 
-                // نوتیفیکیشن fail
+                // نوتیفیکیشن fail → ربات مادر + ربات ادمین قرآن
                 $msg = "🔴 AI Health Check FAILED\n"
                      . "Server: {$provider->name} ({$provider->base_url})\n"
                      . "Error: {$result['message']}\n"
                      . "Time: " . now()->format('Y-m-d H:i:s');
-                AiProviderService::notifyAdmin($msg, $provider);
+                AiProviderService::notifyAllAdmins($msg, $provider);
                 Log::warning('[AiHealthCheck] FAILED', ['provider' => $provider->name, 'error' => $result['message']]);
 
                 continue;
@@ -98,7 +101,7 @@ class AiHealthCheck extends Command
                      . "Ping: {$result['ping_ms']}ms\n"
                      . "Models: {$modelsList}\n"
                      . "Time: " . now()->format('Y-m-d H:i:s');
-                AiProviderService::notifyAdmin($msg, $provider);
+                AiProviderService::notifyAllAdmins($msg, $provider);
                 $this->info("   📨 پیام recovery ارسال شد.");
             }
 

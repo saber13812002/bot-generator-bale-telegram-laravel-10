@@ -42,5 +42,8 @@ class DatabaseSeeder extends Seeder
         // Personnel seeder (اختیاری - فقط در صورت نیاز uncomment کنید)
         // $this->call(PersonnelSeeder::class);
         $this->call(BotsTableSeeder::class);
+
+        // Provider پیش‌فرض AI (ISMC) — برای health check و گزارش روزانه
+        $this->call(AiProviderDefaultSeeder::class);
     }
 }

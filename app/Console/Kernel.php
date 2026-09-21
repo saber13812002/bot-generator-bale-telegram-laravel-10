@@ -113,6 +113,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // گزارش ۲۴ ساعته سلامت سرویس AI (سالم → «من زنده هستم» / خراب → هشدار) به ربات مادر و ربات ادمین قرآن
+        $schedule->command('ai:daily-health-report')
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
         $schedule->command(ScheduleContentDelivery::class)
             ->hourly()

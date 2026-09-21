@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\EmailAdminHelper;
 use App\Models\AiProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -191,5 +193,100 @@ class AiProviderService
         } catch (Throwable $e) {
             Log::error('[AiProvider] Failed to notify admin', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * ایجاد خودکار provider پیش‌فرض از تنظیمات .env (config/ai.php)
+     *
+     * اگر رکورد provider با همان base_url موجود نباشد، ساخته می‌شود —
+     * دقیقاً مشابه AiProviderDefaultSeeder اما بدون وابستگی به اجرای seeder.
+     */
+    public static function ensureDefaultProvider(): AiProvider
+    {
+        $provider = AiProvider::firstOrCreate(
+            ['base_url' => config('ai.default_base_url')],
+            [
+                'name'            => 'ISMC AI Server',
+                'base_url'        => config('ai.default_base_url', 'https://ai.ismc.ir/api'),
+                'api_key'         => config('ai.default_api_key', ''),
+                'model_name'      => config('ai.default_model', 'qwen38'),
+                'default_prompt'  => config('ai.default_prompt', 'سلام! جواب سلام بده و در ۴ کاراکتر'),
+                'provider_type'   => 'openai_compatible',
+                'is_active'       => true,
+                'notify_platform' => config('ai.notify_type', 'bale'),
+            ]
+        );
+
+        if ($provider->wasRecentlyCreated) {
+            Log::info('[AiProvider] Default provider created from config', ['base_url' => $provider->base_url]);
+        }
+
+        return $provider;
+    }
+
+    /**
+     * ارسال پیام به همه ادمین‌ها از دو مسیر:
+     * 1) ربات مادر (bale + telegram) — الگوی درخواست تایید پلن کتابخانه
+     * 2) ربات ادمین قرآن QURAN_HEFZ (bale + telegram) — الگوی گزارش روزانه قرآن
+     *
+     * @return int تعداد ارسال‌های موفق
+     */
+    public static function notifyAllAdmins(string $message, ?AiProvider $provider = null): int
+    {
+        $sent = 0;
+
+        // اولویت ۱: توکن اختصاصی provider (همان رفتار قبلی)
+        if ($provider && $provider->notify_bot_token && $provider->notify_chat_id) {
+            try {
+                $platform = $provider->notify_platform ?: 'bale';
+                $bot      = new Telegram($provider->notify_bot_token, $platform);
+                BotHelper::sendMessageByChatId($bot, $provider->notify_chat_id, $message);
+                $sent++;
+            } catch (Throwable $e) {
+                Log::error('[AiProvider] Failed to notify provider-specific bot', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // مسیر ۱: ربات مادر (bale + telegram)
+        try {
+            EmailAdminHelper::sendToAllAdmins($message, 'bale');
+            EmailAdminHelper::sendToAllAdmins($message, 'telegram');
+        } catch (Throwable $e) {
+            Log::error('[AiProvider] Failed to notify via mother bot', ['error' => $e->getMessage()]);
+        }
+
+        // مسیر ۲: ربات ادمین قرآن (QURAN_HEFZ)
+        try {
+            $admins = array_filter(AdminHelper::getAdmins());
+            $baleToken     = env('QURAN_HEFZ_BOT_TOKEN_BALE');
+            $telegramToken = env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM');
+
+            foreach ($admins as $chatId) {
+                if (!$chatId) {
+                    continue;
+                }
+                try {
+                    if ($baleToken) {
+                        $botBale = new Telegram($baleToken, 'bale');
+                        BotHelper::sendMessageByChatId($botBale, (string) $chatId, $message);
+                        $sent++;
+                    }
+                    if ($telegramToken) {
+                        $botTelegram = new Telegram($telegramToken);
+                        BotHelper::sendMessageByChatId($botTelegram, (string) $chatId, $message);
+                        $sent++;
+                    }
+                } catch (Throwable $e) {
+                    Log::warning('[AiProvider] Failed to send via Quran bot', [
+                        'chat_id' => $chatId,
+                        'error'   => $e->getMessage(),
+                    ]);
+                }
+            }
+        } catch (Throwable $e) {
+            Log::error('[AiProvider] Failed to notify via Quran bot', ['error' => $e->getMessage()]);
+        }
+
+        return $sent;
     }
 }
