@@ -35,6 +35,21 @@ class QuranHelper
     private const PLACEQURAN_SUPPORTED_LANGUAGES = ['ar', 'en', 'ms', 'id', 'tr', 'ur', 'hi'];
 
     /**
+     * حداکثر مجاز برای caption صدا در تلگرام/بله (1024 کاراکتر)
+     */
+    private const AUDIO_CAPTION_MAX = 1024;
+
+    /**
+     * حداکثر کاراکتر برای هر پیام متنی (تلگرام/بله 4096، با کمی حاشیه امن)
+     */
+    private const TEXT_MESSAGE_MAX = 3800;
+
+    /**
+     * برچسب صوت هر کلمه در quran_words.audio
+     */
+    private const WORD_AUDIO_BASE_URL = 'https://words.audios.quranwbw.com/1/';
+
+    /**
      * Normalize language code for database queries
      * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
      * 
@@ -51,87 +66,200 @@ class QuranHelper
     }
 
     /**
+     * ارسال صوت قاری آیه (با ادغام متن آیه در کپشن در صورت امکان)
+     *
      * @param $messenger
      * @param $suraId
      * @param $ayaId
      * @param BotUsers|null $userSettings
-     * @return void
+     * @param string $verseMessage متن آیه (ترجمه + ترانه و ...) برای درج در کپشن
+     * @param array $buttons دکمه‌هایی که زیر پیام صوتی پیوست می‌شوند
+     * @return array{sent: bool, captured: int, remaining: string}
+     *   sent=آیا صوت فرستاده شد، captured=تعداد کاراکتر از verseMessage که در کپشن جای گرفت،
+     *   remaining=بقیه‌ی متن آیه که جا نشد (برای ارسال جداگانه توسط فراخواننده)
      */
-    public static function sendAudio($messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
+    public static function sendAudio($messenger, $suraId, $ayaId, BotUsers $userSettings = null, string $verseMessage = '', array $buttons = []): array
     {
-        // TODO: cache
-        //
+        $result = ['sent' => false, 'captured' => 0, 'remaining' => ''];
+
         $aye = QuranAyat::query()
             ->whereSura($suraId)
             ->whereAya($ayaId)
             ->first();
-//        dd($aye->id);
+
+        if (!$aye) {
+            Log::warning('⚠️ [QuranAudio] sendAudio: ayah not found', [
+                'sura' => $suraId, 'aya' => $ayaId, 'chat_id' => $messenger->ChatID()
+            ]);
+            return $result;
+        }
 
         $chat_id = $messenger->ChatID();
+        $botType = $messenger->BotType();
 
         $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
 
-        if ($mp3Enable == "true") {
-            $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
-            $audio = self::getAudioUrl($mp3Reciter, $aye);
+        if ($mp3Enable != "true") {
+            Log::info('🔇 [QuranAudio] mp3 disabled, skipping audio', [
+                'sura' => $suraId, 'aya' => $ayaId, 'chat_id' => $chat_id
+            ]);
+            return $result;
+        }
 
-            $caption = self::getSettingReciter($mp3Reciter, $messenger->BotType());
-            $title = self::getAyeDescription($aye);
+        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
+        self::recordReciterUsage($userSettings, $mp3Reciter);
 
-            $botType = $messenger->BotType();
+        $audio = self::getAudioUrl($mp3Reciter, $aye);
 
-            // استفاده از FileUploadHelper برای چک کردن file_id
-            if ($botType != "gap") {
-                $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_recitation', [
-                    'reciter' => $mp3Reciter,
+        // ترکیب کپشن: متن آیه + مشخصات قاری
+        $reciterCaption = self::getSettingReciter($mp3Reciter, $botType);
+        $versePart = trim($verseMessage);
+        $caption = $reciterCaption;
+        $remaining = '';
+
+        if ($versePart !== '') {
+            $budget = self::AUDIO_CAPTION_MAX - mb_strlen($reciterCaption) - 4;
+            if (mb_strlen($versePart) <= $budget) {
+                $caption = $versePart . "\n\n" . $reciterCaption;
+                $result['captured'] = mb_strlen($versePart);
+            } else {
+                $chunks = self::splitTextAtPunctuation($versePart, $budget);
+                $firstChunk = array_shift($chunks);
+                $caption = $firstChunk . "\n\n" . $reciterCaption;
+                $result['captured'] = mb_strlen($firstChunk);
+                $remaining = implode("\n\n", $chunks);
+            }
+        }
+        $result['remaining'] = $remaining;
+
+        $title = self::getAyeDescription($aye);
+        $replyMarkup = empty($buttons) ? null : self::buildInlineKeyboard($buttons);
+
+        Log::info('🎵 [QuranAudio] Sending reciter audio (before)', [
+            'chat_id' => $chat_id,
+            'sura' => $suraId,
+            'aya' => $ayaId,
+            'reciter' => self::resolveReciter($mp3Reciter),
+            'audio_url' => $audio,
+            'caption_len' => mb_strlen($caption),
+            'remaining_len' => mb_strlen($remaining),
+            'has_buttons' => $replyMarkup !== null,
+            'bot_type' => $botType,
+        ]);
+
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        if ($botType != "gap") {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_recitation', [
+                'reciter' => self::resolveReciter($mp3Reciter),
+                'sura' => $suraId,
+                'aya' => $ayaId
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $audio,
+                'audio_recitation',
+                [
+                    'reciter' => self::resolveReciter($mp3Reciter),
                     'sura' => $suraId,
-                    'aya' => $ayaId
-                ], $botType);
+                    'aya' => $ayaId,
+                    'title' => $title,
+                    'caption' => $caption,
+                    'reply_markup' => $replyMarkup,
+                ]
+            );
 
-                $fileInfo = FileUploadHelper::getOrUploadFile(
-                    $messenger,
-                    $fileUniqueKey,
-                    $audio,
-                    'audio_recitation',
-                    [
-                        'reciter' => $mp3Reciter,
-                        'sura' => $suraId,
-                        'aya' => $ayaId,
-                        'title' => $title,
-                        'caption' => $caption
-                    ]
-                );
-
-                // اگر file_id موجود است، از آن استفاده می‌کنیم
-                if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+            if ($fileInfo && isset($fileInfo['file_id'])) {
+                if ($fileInfo['is_cached']) {
+                    // فایل قبلاً آپلود شده بود → این‌جا اولین و تنها ارسال است
                     $content = [
                         'chat_id' => $chat_id,
                         'audio' => $fileInfo['file_id'],
                         'title' => $title,
                         'caption' => $caption
                     ];
-                    $messenger->sendAudio($content);
-                    return;
+                    if ($replyMarkup) {
+                        $content['reply_markup'] = $replyMarkup;
+                    }
+                    $response = $messenger->sendAudio($content);
+                    if (!self::apiOk($response) && $replyMarkup) {
+                        // برخی ربات‌ها reply_markup را روی صدا قبول نمی‌کنند → بدون دکمه دوباره بفرست
+                        Log::warning('⚠️ [QuranAudio] sendAudio with reply_markup failed, retrying without buttons', [
+                            'chat_id' => $chat_id,
+                            'response' => is_array($response) ? ($response['description'] ?? null) : $response,
+                        ]);
+                        unset($content['reply_markup']);
+                        $response = $messenger->sendAudio($content);
+                    }
+                    $result['sent'] = self::apiOk($response);
+                    Log::info('🎵 [QuranAudio] Reciter audio sent by file_id (after)', [
+                        'chat_id' => $chat_id,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'file_id' => $fileInfo['file_id'],
+                        'ok' => $result['sent'],
+                    ]);
+                } else {
+                    // فایل تازه در لحظه آپلود، به چت کاربر فرستاده شد → ارسال دوم یعنی تکرار (بمب دوگانه)
+                    Log::info('🎵 [QuranAudio] Audio already delivered during upload (fresh upload), skipping second send', [
+                        'chat_id' => $chat_id,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'file_id' => $fileInfo['file_id'] ?? null,
+                    ]);
+                    $result['sent'] = true;
                 }
+                return $result;
             }
 
-            // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
-            $content = [
+            Log::warning('⚠️ [QuranAudio] getOrUploadFile failed, falling back to URL send', [
                 'chat_id' => $chat_id,
-                'audio' => $audio,
-                'title' => $title,
-                'caption' => $caption,
-            ];
-
-            if ($botType != "gap")
-                $messenger->sendAudio($content);
-            else {
-                // if not exist download then upload then deleted then save to db
-
-                // if exist and uploaded
-                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
-            }
+                'sura' => $suraId,
+                'aya' => $ayaId,
+                'audio_url' => $audio,
+            ]);
         }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
+        $content = [
+            'chat_id' => $chat_id,
+            'audio' => $audio,
+            'title' => $title,
+            'caption' => $caption,
+        ];
+        if ($replyMarkup) {
+            $content['reply_markup'] = $replyMarkup;
+        }
+
+        if ($botType != "gap") {
+            $response = $messenger->sendAudio($content);
+            if (!self::apiOk($response) && $replyMarkup) {
+                Log::warning('⚠️ [QuranAudio] URL sendAudio with reply_markup failed, retrying without buttons', [
+                    'chat_id' => $chat_id,
+                ]);
+                unset($content['reply_markup']);
+                $response = $messenger->sendAudio($content);
+            }
+            $result['sent'] = self::apiOk($response);
+            Log::info('🎵 [QuranAudio] Reciter audio sent by URL (after)', [
+                'chat_id' => $chat_id,
+                'sura' => $suraId,
+                'aya' => $ayaId,
+                'ok' => $result['sent'],
+                'response' => is_array($response) ? ($response['description'] ?? null) : null,
+            ]);
+        } else {
+            $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            $result['sent'] = true;
+            Log::info('🎵 [QuranAudio] Reciter audio sent via gap (after)', [
+                'chat_id' => $chat_id,
+                'sura' => $suraId,
+                'aya' => $ayaId,
+            ]);
+        }
+
+        return $result;
     }
 
     /**
@@ -189,14 +317,25 @@ class QuranHelper
                 );
 
                 // اگر file_id موجود است، از آن استفاده می‌کنیم
-                if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
-                    $content = [
-                        'chat_id' => $chat_id,
-                        'audio' => $fileInfo['file_id'],
-                        'title' => $title,
-                        'caption' => $caption
-                    ];
-                    $messenger->sendAudio($content);
+                if ($fileInfo && isset($fileInfo['file_id'])) {
+                    if ($fileInfo['is_cached']) {
+                        // فایل قبلاً آپلود شده بود → این‌جا اولین و تنها ارسال است
+                        $content = [
+                            'chat_id' => $chat_id,
+                            'audio' => $fileInfo['file_id'],
+                            'title' => $title,
+                            'caption' => $caption
+                        ];
+                        $messenger->sendAudio($content);
+                    } else {
+                        // فایل تازه در لحظه آپلود به چت کاربر فرستاده شد → ارسال دوم یعنی تکرار (بمب دوگانه)
+                        Log::info('🎵 [QuranAudio] sendAudioByLocale: audio already delivered during upload (fresh upload), skipping second send', [
+                            'chat_id' => $chat_id,
+                            'sura' => $suraId,
+                            'aya' => $ayaId,
+                            'postfix' => $postfix
+                        ]);
+                    }
                     return;
                 }
             }
@@ -218,6 +357,130 @@ class QuranHelper
     }
 
     /**
+     * بررسی موفقیت‌آمیز بودن پاسخ API مسنجر (تلگرام/بله)
+     */
+    private static function apiOk(mixed $response): bool
+    {
+        return is_array($response) && !empty($response['ok']);
+    }
+
+    /**
+     * شکستن متن در نقاط نشانه‌گذاری (فاوا/عربی/انگلیسی) طوری که هر قسمت حداکثر $maxLen کاراکتر باشد
+     *
+     * @param string $text
+     * @param int $maxLen
+     * @return string[]
+     */
+    public static function splitTextAtPunctuation(string $text, int $maxLen): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return [];
+        }
+        if ($maxLen <= 0 || mb_strlen($text) <= $maxLen) {
+            return [$text];
+        }
+
+        $breakers = " \t\n.؟?۔:؛;،,-—–";
+        $chunks = [];
+        $rest = $text;
+
+        while (mb_strlen($rest) > $maxLen) {
+            $window = mb_substr($rest, 0, $maxLen);
+            $len = mb_strlen($window);
+            // اول آخرینِ نشانه در نیمه دوم پنجره، در غیر این‌صورت نیمه اول
+            $best = self::lastBreakerIndex($window, (int) ceil($len / 2), $len - 1, $breakers);
+            if ($best < 0) {
+                $best = self::lastBreakerIndex($window, 0, (int) ceil($len / 2) - 1, $breakers);
+            }
+            if ($best < 0) {
+                // نقطه شکست نبود → برش اجباری
+                $chunks[] = $window;
+                $rest = mb_substr($rest, $maxLen);
+                continue;
+            }
+            $chunks[] = rtrim(mb_substr($window, 0, $best + 1));
+            $rest = ltrim(mb_substr($rest, $best + 1));
+        }
+
+        if ($rest !== '') {
+            $chunks[] = $rest;
+        }
+        return $chunks;
+    }
+
+    /**
+     * آخرین مکان کاراکتر شکست در بازه [$from, $to] یا -1
+     */
+    private static function lastBreakerIndex(string $text, int $from, int $to, string $breakers): int
+    {
+        if ($to < $from) {
+            return -1;
+        }
+        for ($pos = $to; $pos >= $from; $pos--) {
+            if (strpos($breakers, mb_substr($text, $pos, 1)) !== false) {
+                return $pos;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * ساخت رشته JSON اینلاین کیبورد (reply_markup) از لیست دکمه‌ها
+     *
+     * فرمت خروجی دقیقاًَ مشابه BotHelper::sendKeyboardMessage است (JSON string).
+     * دکمه‌هایی که callback_data خالی دارند حذف می‌شوند.
+     *
+     * @param array $buttons خروجی normalizeButtonPairs یا جفت‌های [text, command]
+     * @return string رشته JSON یا '' در صورت خالی
+     */
+    public static function buildInlineKeyboard(array $buttons): string
+    {
+        $flat = BotHelper::normalizeButtonPairs($buttons);
+        $rows = [];
+        foreach (array_chunk($flat, 2) as $rowButtons) {
+            $row = [];
+            foreach ($rowButtons as $btn) {
+                if ($btn['callback_data'] === '') {
+                    continue;
+                }
+                $row[] = ['text' => $btn['text'], 'callback_data' => $btn['callback_data']];
+            }
+            if ($row !== []) {
+                $rows[] = $row;
+            }
+        }
+        if ($rows === []) {
+            return '';
+        }
+        return json_encode(['inline_keyboard' => $rows], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * ثبت تعداد استفاده از هر قاری در تنظیمات کاربر (برای آمار و رتبه‌بندی)
+     */
+    private static function recordReciterUsage(?BotUsers $userSettings, mixed $mp3Reciter): void
+    {
+        if (!$userSettings) {
+            return;
+        }
+        $reciter = self::resolveReciter($mp3Reciter);
+        try {
+            $usage = $userSettings->setting('mp3_reciter_usage', []);
+            if (!is_array($usage)) {
+                $usage = [];
+            }
+            $usage[$reciter] = ($usage[$reciter] ?? 0) + 1;
+            $userSettings->settings(['mp3_reciter_usage' => $usage]);
+        } catch (\Throwable $e) {
+            Log::warning('⚠️ [QuranAudio] recordReciterUsage failed', [
+                'reciter' => $reciter,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * @param mixed $mp3Reciter
      * @param string $type
      * @return string
@@ -227,7 +490,7 @@ class QuranHelper
         $current = self::resolveReciter($mp3Reciter);
         $caption = trans("bot.current reciter :reciter", ['reciter' => self::getReciterName($current)]);
         $caption .= "\n" . trans("bot.change reciter") . " : /settings";
-        $caption .= "\n" . trans("bot.disable enable reciter") . " : /mp3_true /mp3_false";
+        // دستورات /mp3_true و /mp3_false از کپشن حذف شدند (با دکمه‌ها و /settings هندل می‌شوند)
         return $caption;
     }
 
@@ -1114,8 +1377,9 @@ class QuranHelper
         $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
 
         $buttons = [
-            ['text' => trans('bot.next'), 'callback_data' => $nextCommand],
-            ['text' => trans('bot.previous'), 'callback_data' => $backCommand],
+            // دکمه‌های اسکن صفحه: فقط «صفحه بعدی/قبلی» (نه بعدی/قبلی آیه)
+            ['text' => trans('bot.next page'), 'callback_data' => $nextCommand],
+            ['text' => trans('bot.previous page'), 'callback_data' => $backCommand],
         ];
         foreach (self::getCommonActionButtons($type) as $commonButton) {
             $buttons[] = ['text' => $commonButton[0], 'callback_data' => $commonButton[1]];
@@ -1331,19 +1595,36 @@ class QuranHelper
     }
 
     /**
+     * ارسال صوت قاری آیه (و آیه ۱ سوره ۱ به‌عنوان بسمله برای سوره‌های دیگر)
+     * متن آیه در کپشن صوت جای می‌گیرد و دکمه‌ها زیر پیام صوتی پیوست می‌شوند.
+     *
      * @param int $aya
      * @param int $sure
      * @param Telegram $bot
      * @param BotUsers|null $userSettings
-     * @return void
+     * @param string $verseMessage متن آیه برای درج در کپشن صوت
+     * @param array $buttons دکمه‌های ناوبری زیر پیام صوتی
+     * @return array{sent: bool, captured: int, remaining: string}
      */
     public
-    static function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
+    static function sendAudioMp3Aye(int $aya, int $sure, $bot, ?BotUsers $userSettings = null, string $verseMessage = '', array $buttons = []): array
     {
+        $isGap = $bot->BotType() == 'gap';
+        $verse = $isGap ? '' : $verseMessage;
+        $audioButtons = $isGap ? [] : $buttons;
+
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             QuranHelper::sendAudio($bot, 1, 1, $userSettings);
         }
-        QuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+        $result = QuranHelper::sendAudio($bot, $sure, $aya, $userSettings, $verse, $audioButtons);
+
+        // اگر متن آیه کامل در کپشن جا نشد، مازاد را به‌صورت پیام متنی جداگانه ارسال می‌کنیم
+        if ($result['sent'] && $result['remaining'] !== '') {
+            foreach (self::splitTextAtPunctuation($result['remaining'], self::TEXT_MESSAGE_MAX) as $part) {
+                BotHelper::sendMessage($bot, $part);
+            }
+        }
+        return $result;
     }
 
     /**

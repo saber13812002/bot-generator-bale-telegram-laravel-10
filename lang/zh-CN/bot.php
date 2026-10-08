@@ -43,6 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert'   => '请确定机器人向您发送所需警报的最低风速。',
     'previous'                                                                    => '上一篇',
     'next'                                                                        => '下一页',
+    'previous page'                                                               => '上一页',
+    'next page'                                                                   => '下一页',
     'please wait'                                                                 => '请稍候...',
     'processing your request'                                                     => '⏳ 正在处理您的请求...',
     'your chat id'                                                                => '您的聊天ID：',

@@ -43,6 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Lütfen botun size istediğiniz uyarıyı göndermesi için minimum rüzgar hızını belirleyin.',
     'previous'                                                                  => 'Önceki',
     'next'                                                                      => 'Sonraki',
+    'previous page'                                                             => 'Önceki sayfa',
+    'next page'                                                                 => 'Sonraki sayfa',
     'please wait'                                                               => 'lütfen bekleyin ...',
     'processing your request'                                                   => '⏳ İsteğiniz işleniyor...',
     'your chat id'                                                              => 'sohbet kimliğiniz:',

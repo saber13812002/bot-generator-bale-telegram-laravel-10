@@ -89,6 +89,8 @@ return [
     'to send your daily activity report please try it with this command'        => 'da pošaljete svoj dnevni izvještaj o aktivnostima, pokušajte s ovom komandom',
     'previous'                                                                  => 'Prethodno',
     'next'                                                                      => 'Sljedeći',
+    'previous page'                                                             => 'Prethodna stranica',
+    'next page'                                                                 => 'Sljedeća stranica',
     'change reciter'                                                            => 'promeni recitatora',
     'disable enable reciter'                                                    => 'onemogućiti/omogućiti recitator',
     'enable reciter'                                                            => 'omogući recitatora',

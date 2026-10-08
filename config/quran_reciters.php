@@ -80,6 +80,87 @@ return [
             'file' => '{ayah_id}',
         ],
 
+        'husary' => [
+            'name' => [
+                'en' => 'Mahmoud Al-Husary',
+                'fa' => 'محمود الحسّاری',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.husary/',
+            'file' => '{ayah_id}',
+        ],
+
+        'husarymujawwad' => [
+            'name' => [
+                'en' => 'Mahmoud Al-Husary (Mujawwad)',
+                'fa' => 'محمود الحسّاری (مجوّد)',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.husarymujawwad/',
+            'file' => '{ayah_id}',
+        ],
+
+        'minshawimujawwad' => [
+            'name' => [
+                'en' => 'Minshawi (Mujawwad)',
+                'fa' => 'المنشاوی (مجوّد)',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.minshawimujawwad/',
+            'file' => '{ayah_id}',
+        ],
+
+        'abdulbasitmurattal' => [
+            'name' => [
+                'en' => 'Abdul-Basit (Murattal)',
+                'fa' => 'عبدالباسط عبدالصمد (مرتل)',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.abdulbasitmurattal/',
+            'file' => '{ayah_id}',
+        ],
+
+        'muhammadayyoub' => [
+            'name' => [
+                'en' => 'Muhammad Ayyoub',
+                'fa' => 'محمد یدوب',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.muhammadayyoub/',
+            'file' => '{ayah_id}',
+        ],
+
+        'muhammadjibreel' => [
+            'name' => [
+                'en' => 'Muhammad Jibreel',
+                'fa' => 'محمد جبریل',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.muhammadjibreel/',
+            'file' => '{ayah_id}',
+        ],
+
+        'abdullahbasfar' => [
+            'name' => [
+                'en' => 'Abdullah Basfar',
+                'fa' => 'عبدالله بصفر',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.abdullahbasfar/',
+            'file' => '{ayah_id}',
+        ],
+
+        'hanirifai' => [
+            'name' => [
+                'en' => 'Hani Rifai',
+                'fa' => 'هانی ریفعل',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.hanirifai/',
+            'file' => '{ayah_id}',
+        ],
+
+        'ibrahimakhbar' => [
+            'name' => [
+                'en' => 'Ibrahim Akhbar',
+                'fa' => 'ابراهیم اخبر',
+            ],
+            'url'  => 'https://cdn.islamic.network/quran/audio/128/ar.ibrahimakhbar/',
+            'file' => '{ayah_id}',
+        ],
+
     ],
 
 ];

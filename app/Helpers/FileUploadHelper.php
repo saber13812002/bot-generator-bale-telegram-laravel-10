@@ -501,6 +501,9 @@ class FileUploadHelper
                         'photo' => new \CURLFile($filePath),
                         'caption' => $metadata['caption'] ?? ''
                     ];
+                    if (!empty($metadata['reply_markup'])) {
+                        $content['reply_markup'] = $metadata['reply_markup'];
+                    }
                     return $messenger->sendPhoto($content);
 
                 case 'audio_recitation':
@@ -513,6 +516,9 @@ class FileUploadHelper
                         'title' => $metadata['title'] ?? '',
                         'caption' => $metadata['caption'] ?? ''
                     ];
+                    if (!empty($metadata['reply_markup'])) {
+                        $content['reply_markup'] = $metadata['reply_markup'];
+                    }
                     return $messenger->sendAudio($content);
 
                 case 'document':

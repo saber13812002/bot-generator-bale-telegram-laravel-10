@@ -43,6 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'إذا كنت بحاجة إلى برنامج :bot. الرجاء إرسال رمز آخر',
     'previous'                                                                  => 'سابق',
     'next'                                                                      => 'التالي',
+    'previous page'                                                             => 'الصفحة السابقة',
+    'next page'                                                                 => 'الصفحة التالية',
     'please wait'                                                               => 'الرجاء الانتظار قبل إعادة المحاولة.',
     'processing your request'                                                   => '⏳ جاري معالجة طلبك...',
     'your chat id'                                                              => 'معرف الدردشة الخاص بك:',

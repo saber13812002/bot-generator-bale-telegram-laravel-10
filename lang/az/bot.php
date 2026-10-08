@@ -89,6 +89,8 @@ return [
     'to send your daily activity report please try it with this command'        => 'gündəlik fəaliyyət hesabatınızı göndərmək üçün bu əmrlə cəhd edin',
     'previous'                                                                  => 'Əvvəlki',
     'next'                                                                      => 'Sonrakı',
+    'previous page'                                                             => 'Əvvəlki səhifə',
+    'next page'                                                                 => 'Sonrakı səhifə',
     'change reciter'                                                            => 'oxuyanı dəyişdirin',
     'disable enable reciter'                                                    => 'oxuyanı söndürün/aktiv edin',
     'enable reciter'                                                            => 'oxuyanı aktivləşdirin',

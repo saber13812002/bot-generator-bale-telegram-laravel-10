@@ -43,6 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'Por favor, determine la velocidad mínima del viento para que el bot le envíe la alerta deseada.',
     'previous'                                                                  => 'Anteriormente',
     'next'                                                                      => 'Siguiente',
+    'previous page'                                                             => 'Página anterior',
+    'next page'                                                                 => 'Página siguiente',
     'please wait'                                                               => 'por favor espere ...',
     'processing your request'                                                   => '⏳ Procesando su solicitud...',
     'your chat id'                                                              => 'tu id de chat:',

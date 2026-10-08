@@ -1314,13 +1314,39 @@ class QuranWordController extends Controller
                                 if ($type == 'bale') {
                                     $verseButtons = array_merge($verseButtons, $arrayCommands);
                                 }
-                                BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+
+                                $isGap = $bot->BotType() == "gap";
+                                $verseMp3Enable = QuranHelper::getBooleanSettingsByTags($userSettings, 'mp3_enable') == "true";
+                                $audioResult = null;
+
+                                if ($verseMp3Enable && !$isGap) {
+                                    // متن آیه و دکمه‌ها به پیام صوتی وصل می‌شود و پیام متنی جداگانه حذف می‌شود
+                                    Log::info('🎵 [Command] Sending reciter audio with verse caption for aya', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'sure' => $sure,
+                                        'aya' => $aya,
+                                        'type' => $type
+                                    ]);
+                                    $audioResult = QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings, $message, $verseButtons);
+                                    if (empty($audioResult['sent'])) {
+                                        Log::warning('⚠️ [Command] Reciter audio not sent, falling back to plain text message with buttons', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type
+                                        ]);
+                                        BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+                                    }
+                                } else {
+                                    BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+                                }
                                 Log::info('✅ [Command] Sure aya message sent', [
                                     'chat_id' => $bot->ChatID(),
                                     'sure' => $sure,
                                     'aya' => $aya,
                                     'buttons_count' => count($verseButtons),
-                                    'type' => $type
+                                    'type' => $type,
+                                    'audio_captured_chars' => $audioResult['captured'] ?? 0,
                                 ]);
 
                                 if ($type == 'bale') {
@@ -1333,15 +1359,17 @@ class QuranWordController extends Controller
                                 }
 
                                 if ($bot->BotType() != "gap") {
-                                    Log::info('🎵 [Command] Sending audio MP3 for aya', [
-                                        'chat_id' => $bot->ChatID(),
-                                        'sure' => $sure,
-                                        'aya' => $aya,
-                                        'type' => $type
-                                    ]);
-                                    
-                                    QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
-                                    
+                                    if ($audioResult === null) {
+                                        // صوت قاری یا غیرفعال است یا هنوز ارسال نشده → اینجا صدا بزن (در حالت غیرفعال no-op است)
+                                        Log::info('🎵 [Command] Sending audio MP3 for aya', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type
+                                        ]);
+                                        QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                    }
+
                                     if (App::getLocale()) {
                                         $postfix = config("reciter.audio." . App::getLocale(), '');
                                         if ($postfix) {

@@ -89,6 +89,8 @@ return [
     'to send your daily activity report please try it with this command'        => 'para enviar seu relatório de atividades diárias, experimente usá-lo com este comando',
     'previous'                                                                  => 'Anterior',
     'next'                                                                      => 'Próximo',
+    'previous page'                                                             => 'Página anterior',
+    'next page'                                                                 => 'Próxima página',
     'change reciter'                                                            => 'recitador de mudanças',
     'disable enable reciter'                                                    => 'desativar/ativar o recitador',
     'enable reciter'                                                            => 'ativar o recitador',

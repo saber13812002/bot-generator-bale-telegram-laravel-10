@@ -43,6 +43,8 @@ return [
     'Please determine the minimum wind speed for bot to send you desired alert' => 'براہ کرم آپ کو مطلوبہ الرٹ بھیجنے کے لیے بوٹ کے لیے ہوا کی کم از کم رفتار کا تعین کریں۔',
     'previous'                                                                  => 'پچھلا',
     'next'                                                                      => 'اگلے',
+    'previous page'                                                             => 'پچھلا صفحہ',
+    'next page'                                                                 => 'اگلا صفحہ',
     'please wait'                                                               => 'برائے مہربانی انتظار کریں ...',
     'processing your request'                                                   => '⏳ آپ کی درخواست پر کارروائی ہو رہی ہے...',
     'your chat id'                                                              => 'آپ کی چیٹ آئی ڈی:',
