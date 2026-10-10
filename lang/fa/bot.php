@@ -910,6 +910,19 @@ Chat ID: :chat_id',
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
 
+    // === Queue Control (/queue) ===
+    'channel_poster_btn_queue_list' => '📋 صف ارسال (:count)',
+    'channel_poster_queue_empty' => '✅ صف خالی است. مطلب جدیدی در انتظار ارسال نیست.',
+    'channel_poster_queue_list_header' => '📋 :count مطلب در صف ارسال (⚠️ = موعدش رسیده و ارسال نشده):',
+    'channel_poster_queue_media' => '[فایل/مدیا]',
+    'channel_poster_btn_send_now' => '🚀 ارسال الان',
+    'channel_poster_btn_cancel_item' => '❌ لغو',
+    'channel_poster_queue_item_sending' => '⏳ ارسال #:id در حال پردازش است...',
+    'channel_poster_queue_item_sent' => '✅ #:id ارسال شد.',
+    'channel_poster_queue_item_failed' => '❌ ارسال #:id ناموفق بود. دلیل: :error',
+    'channel_poster_queue_item_cancelled' => '🗑️ #:id لغو شد.',
+    'channel_poster_queue_item_gone' => 'این آیتم در صف نیست (احتمالا ارسال یا لغو شده).',
+
     // === Publish Report ===
     'channel_poster_report_header' => '✅ منتشر شد در:',
 ];

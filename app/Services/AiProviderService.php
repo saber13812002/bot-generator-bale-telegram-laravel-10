@@ -98,9 +98,11 @@ class AiProviderService
      *
      * @return array{success: bool, response: string, usage: array}
      */
-    public function chat(?string $prompt = null): array
+    public function chat(?string $prompt = null, ?int $maxTokens = null, ?float $temperature = null): array
     {
         $prompt = $prompt ?: $this->prompt;
+        $maxTokens = $maxTokens ?? 50;
+        $temperature = $temperature ?? 0.7;
 
         try {
             $response = Http::withOptions(config('ai.http_options'))
@@ -111,8 +113,8 @@ class AiProviderService
                     'messages' => [
                         ['role' => 'user', 'content' => $prompt],
                     ],
-                    'max_tokens'  => 50,
-                    'temperature' => 0.7,
+                    'max_tokens'  => $maxTokens,
+                    'temperature' => $temperature,
                 ]);
 
             if ($response->successful()) {

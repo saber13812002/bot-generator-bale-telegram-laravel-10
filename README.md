@@ -88,6 +88,22 @@ graph LR
 
 ---
 
+## 🆕 LLM & Automation Features | قابلیت‌های LLM و اتوماسیون
+
+| Feature | 🇬🇧 | 🇮🇷 |
+|---------|----|----|
+| **📊 Smart Quran Report** | Quran bot `/report` adds anonymized 7-day cohort comparison + optional LLM analysis (plain stats fallback) | گزارش هوشمند: مقایسه با سایر کاربران (ناشناس) + تحلیل LLM با فول‌بک آمار ساده |
+| **🌐 LLM Translation** | `TRANSLATION_DRIVER=one_api\|llm\|auto` — translate via one-api.ir, local LLM, or auto fallback | ترجمه با one-api، LLM محلی، یا خودکار (فول‌بک) |
+| **📤 Queue Control** | Channel Poster `/queue` — view pending/overdue posts, send-now/cancel from chat; `php artisan channel-poster:send-queued` | مدیریت صف: مشاهده و ارسال دستی مطالب صف از ربات یا Artisan |
+| **🕵️ Watchdog** | `channel-poster:watchdog` hourly — resends overdue posts, red alerts while stuck, one green on recovery | نظارت ساعتی: ارسال مجدد مطالب عقب‌مانده، هشدار قرمز/سبز برای مدیران |
+| **📖 Weekly Read Invite** | `/weeklyinvite` wizard + `weekly-read:invite` — weekly "read post #N" channel invitation | دعوت هفتگی به مطالعهٔ یک مطلب قدیمی از کانال |
+| **💬 Motivational Post** | `/motivation` wizard + `channel-motivation:send` — LLM one-line Persian post on a schedule (daily/biweekly/weekly, staggered days) | پست انگیزشی یک‌خطی LLM بر اساس اسکدیول روز/فراوانی |
+
+Key artisan commands: `channel-poster:send-queued`, `channel-poster:watchdog --dry-run`,
+`weekly-read:invite --dry-run`, `channel-motivation:send --dry-run`.
+
+---
+
 ## 📋 Complete Bot Catalog | کاتالوگ کامل ربات‌ها
 
 ### 📖 Quran & Religious | قرآن و مذهبی

@@ -11,6 +11,7 @@ use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
+use App\Services\ActivityReportSummaryService;
 use App\Models\BotUsers;
 use App\Models\QuranScanPage;
 use App\Models\QuranSearchSuggestion;
@@ -1863,6 +1864,25 @@ class QuranWordController extends Controller
                             ]);
                             BotHelper::sendMessage($bot, $message);
                             BotHelper::sendMessageToSuperAdmin($message, $type);
+
+                            // F1: تحلیل هوشمند (LLM) فعالیت + مقایسه‌ی ناشناس با سایر کاربران
+                            // در صورت خرابی LLM، خودِ سرویس fallback ساده ارائه می‌دهد؛ اینجا هم try/catch جدا داریم.
+                            try {
+                                $summary = (new ActivityReportSummaryService())->buildMessage(
+                                    (int) $chatId,
+                                    $type,
+                                    $request->input('language') ?: null
+                                );
+                                if ($summary !== '') {
+                                    BotHelper::sendMessage($bot, $summary);
+                                }
+                            } catch (\Throwable $summaryException) {
+                                Log::warning('⚠️ [Command] Activity report summary failed (skipped)', [
+                                    'error'   => $summaryException->getMessage(),
+                                    'chat_id' => $chatId,
+                                    'type'    => $type,
+                                ]);
+                            }
                         } catch (Exception $reportException) {
                             Log::error('❌ [Command] Error in /report command', [
                                 'error' => $reportException->getMessage(),

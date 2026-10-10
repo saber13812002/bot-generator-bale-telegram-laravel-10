@@ -143,5 +143,16 @@ class BotMotherStateHelper
     const STATE_CONTENT_ADD_CATEGORY_BROADCAST = 'content_add_category_broadcast';
     const STATE_CONTENT_BROADCAST_MESSAGE = 'content_broadcast_message';
     const STATE_CONTENT_BROADCAST_FILTER = 'content_broadcast_filter';
+
+    // F5: weekly read invitation wizard (/weeklyinvite)
+    const STATE_WEEKLY_INVITE_PICK_DESTINATION = 'weekly_invite_pick_destination';
+    const STATE_WEEKLY_INVITE_PICK_DAY = 'weekly_invite_pick_day';
+    const STATE_WEEKLY_INVITE_MAX_POST_ID = 'weekly_invite_max_post_id';
+
+    // F6: channel motivational schedule wizard (/motivation)
+    const STATE_MOTIVATION_PICK_DESTINATION = 'motivation_pick_destination';
+    const STATE_MOTIVATION_PICK_DAY = 'motivation_pick_day';
+    const STATE_MOTIVATION_PICK_FREQUENCY = 'motivation_pick_frequency';
+    const STATE_MOTIVATION_PROMPT = 'motivation_prompt';
 }
 

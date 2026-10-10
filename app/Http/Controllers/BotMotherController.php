@@ -15,8 +15,11 @@ use App\Http\Requests\UpdateBotRequest;
 use App\Models\AdminChannelMediaQueueConfig;
 use App\Models\AdminDailyChannelConfig;
 use App\Models\Bot;
+use App\Models\ChannelMotivationalSchedule;
+use App\Models\ChannelPosterDestination;
 use App\Models\MediaQueue;
 use App\Models\MediaQueueItem;
+use App\Models\WeeklyReadInvitation;
 use App\Models\BotLog;
 use App\Models\ContentSubmissionBotConfig;
 use App\Models\LibraryBotConfig;
@@ -255,6 +258,14 @@ class BotMotherController extends Controller
             else if ($text == '/daily_channel_settings' || $text == '/تنظیمات_کانال_روزانه' || strtolower($text) == 'daily_channel_settings') {
                 $this->handleDailyChannelSettings($bot, $type, $botMotherId);
             }
+            // F5: دعوت هفتگی به مطالعه (شروع/لیست/فعال‌سازی)
+            else if (stripos($text, '/weeklyinvite') === 0) {
+                $this->handleWeeklyInviteStart($bot, substr($text, 13), $type, $botMotherId);
+            }
+            // F6: متن انگیزشی LLM کانال (شروع/لیست/فعال‌سازی)
+            else if (stripos($text, '/motivation') === 0) {
+                $this->handleMotivationStart($bot, substr($text, 11), $type, $botMotherId);
+            }
             // Handle Quran bots introduction command
             else if ($text == '/quran_bots' || $text == '/ربات_قرآن' || $text == 'ربات قرآن' || strtolower($text) == 'quran_bots' || strtolower($text) == 'quran bots') {
                 $this->handleQuranBotsIntroduction($bot, $type, $botMotherId);
@@ -274,6 +285,23 @@ class BotMotherController extends Controller
             // Handle broadcast message input
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_BROADCAST_MESSAGE) {
                 $this->handleBroadcastMessageInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // F5: ویزارد دعوت هفتگی مطالعه
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION,
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY,
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID,
+            ])) {
+                $this->handleWeeklyInviteWizard($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // F6: ویزارد اسکدیول متن انگیزشی LLM
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION,
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY,
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY,
+                BotMotherStateHelper::STATE_MOTIVATION_PROMPT,
+            ])) {
+                $this->handleMotivationWizard($bot, $text, $stateData, $type, $botMotherId);
             }
             // Handle endpoint selection
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
@@ -2758,6 +2786,329 @@ class BotMotherController extends Controller
             'bot_mother_id' => $botMotherId,
             'type' => $type,
         ]);
+    }
+
+    // =========================================================
+    // F5: /weeklyinvite — ویزارد دعوت هفتگی به مطالعه (شراب بهشتی style)
+    // =========================================================
+
+    private function handleWeeklyInviteStart(Telegram $bot, string $arg, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $arg = trim($arg);
+
+        if (mb_strtolower($arg) === 'list' || $arg === 'لیست') {
+            $this->listWeeklyInvitations($bot);
+            return;
+        }
+        if (preg_match('/^(on|off)\s+(\d+)$/i', $arg, $m)) {
+            $this->toggleWeeklyInvitation($bot, (int) $m[2], mb_strtolower($m[1]) === 'on');
+            return;
+        }
+
+        $destinations = ChannelPosterDestination::where('is_active', true)->with('bot')->orderBy('id')->get();
+        if ($destinations->isEmpty()) {
+            BotHelper::sendMessage($bot, '❌ هیچ کانال فعالی در channel-poster ثبت نشده. اول از ربات channel-poster یک کانال وصل کن.');
+            return;
+        }
+
+        $map = [];
+        $lines = [];
+        foreach ($destinations as $i => $d) {
+            $idx = (string) ($i + 1);
+            $map[$idx] = (int) $d->id;
+            $title = $d->channel_title ?: '(بدون عنوان)';
+            $tag = ($d->tag !== null && $d->tag !== '') ? " [{$d->tag}]" : '';
+            $lines[] = "{$idx}) #{$d->id} {$title}{$tag} — {$d->platform}";
+        }
+
+        BotHelper::sendMessage($bot, '📖 دعوت هفتگی مطالعه: کدام کانال؟ (شماره بفرست)' . "\n" . implode("\n", $lines) . "\n\nلغو: /cancel");
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION, [
+            'wi_dest_map' => $map,
+        ]);
+    }
+
+    private function listWeeklyInvitations(Telegram $bot): void
+    {
+        $rows = WeeklyReadInvitation::with('destination')->orderBy('id')->get();
+        if ($rows->isEmpty()) {
+            BotHelper::sendMessage($bot, 'هنوز هیچ دعوت هفتگی‌ای ثبت نشده. /weeklyinvite');
+            return;
+        }
+        $lines = [];
+        foreach ($rows as $r) {
+            $dest = $r->destination;
+            $title = $dest?->channel_title ?: "dest#{$r->destination_id}";
+            $lines[] = '#'.$r->id.' '.$title.' ('.($dest?->platform ?? '?').') — روز: '
+                . WeeklyReadInvitation::dayNameFa($r->day_of_week)
+                . '، max_post: '.$r->max_post_id
+                . ($r->enabled ? '' : ' [غیرفعال]')
+                . '، آخرین: '.($r->last_invited_at?->toDateTimeString() ?? '—');
+        }
+        BotHelper::sendMessage($bot, '📖 دعوت‌های هفتگی:' . "\n" . implode("\n", $lines) . "\n\nفعال/غیرفعال: /weeklyinvite on 3 یا /weeklyinvite off 3");
+    }
+
+    private function toggleWeeklyInvitation(Telegram $bot, int $id, bool $enabled): void
+    {
+        $row = WeeklyReadInvitation::find($id);
+        if (!$row) {
+            BotHelper::sendMessage($bot, "❌ دعوت با شناسه {$id} پیدا نشد. /weeklyinvite list");
+            return;
+        }
+        $row->update(['enabled' => $enabled]);
+        BotHelper::sendMessage($bot, $enabled ? "✅ دعوت #{$id} فعال شد." : "⏸ دعوت #{$id} غیرفعال شد.");
+    }
+
+    private function handleWeeklyInviteWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $t = trim($text);
+
+        if ($t === '/cancel' || $t === 'لغو' || $t === 'رد' || mb_strtolower($t) === 'cancel') {
+            BotMotherStateHelper::clearState($chatId);
+            BotHelper::sendMessage($bot, '❌ ویزارد لغو شد.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION) {
+            $map = $stateData['wi_dest_map'] ?? [];
+            $destId = $map[$t] ?? null;
+            if ($destId === null) {
+                BotHelper::sendMessage($bot, 'شماره معتبر نیست. دوباره بفرست یا /cancel.');
+                return;
+            }
+            $existing = WeeklyReadInvitation::where('destination_id', $destId)->first();
+            $dayHint = $existing
+                ? 'روز فعلی: ' . WeeklyReadInvitation::dayNameFa($existing->day_of_week) . ' — برای حفظ: «همون»'
+                : 'پیش‌فرض: جمعه';
+            BotHelper::sendMessage($bot, "کانال ثبت شد.\nروز هفته را بفرست (۰=یکشنبه، ۱=دوشنبه، ۲=سه‌شنبه، ۳=چهارشنبه، ۴=پنجشنبه، ۵=جمعه، ۶=شنبه).\n{$dayHint}");
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY, array_merge($stateData, [
+                'wi_dest_id' => $destId,
+                'wi_day' => $existing?->day_of_week ?? WeeklyReadInvitation::DEFAULT_DAY,
+            ]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY) {
+            $day = null;
+            if (ctype_digit($t)) {
+                $day = (int) $t;
+            }
+            if ($day === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $day = (int) ($stateData['wi_day'] ?? WeeklyReadInvitation::DEFAULT_DAY);
+            }
+            if ($day === null || $day < 0 || $day > 6) {
+                BotHelper::sendMessage($bot, 'عدد ۰ تا ۶ بفرست (یا «همون»).');
+                return;
+            }
+            BotHelper::sendMessage($bot, 'روز «' . WeeklyReadInvitation::dayNameFa($day) . '» ثبت شد.' . "\n" . 'بزرگ‌ترین شماره مطلب آرشیوی را بفرست (شماره تصادفی از ۱ تا همین عدد انتخاب می‌شود):');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID, array_merge($stateData, ['wi_day' => $day]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID) {
+            if (!ctype_digit($t) || (int) $t < 1) {
+                BotHelper::sendMessage($bot, 'یک عدد مثبت (حداقل ۱) بفرست یا /cancel.');
+                return;
+            }
+            $destId = (int) ($stateData['wi_dest_id'] ?? 0);
+            $day = (int) ($stateData['wi_day'] ?? WeeklyReadInvitation::DEFAULT_DAY);
+            $maxPostId = (int) $t;
+
+            WeeklyReadInvitation::updateOrCreate(
+                ['destination_id' => $destId],
+                [
+                    'day_of_week' => $day,
+                    'max_post_id' => $maxPostId,
+                    'enabled' => true,
+                ]
+            );
+
+            BotMotherStateHelper::clearState($chatId);
+            $dest = ChannelPosterDestination::find($destId);
+            BotHelper::sendMessage($bot, '✅ دعوت هفتگی ذخیره شد.' . "\n"
+                . 'کانال: ' . ($dest?->channel_title ?: "dest#{$destId}") . ' (' . ($dest?->platform ?? '?') . ')' . "\n"
+                . 'روز: ' . WeeklyReadInvitation::dayNameFa($day) . ' (هر هفته یک بار)' . "\n"
+                . 'شماره تصادفی از ۱ تا ' . $maxPostId . "\n\n"
+                . 'مدیریت: /weeklyinvite list — /weeklyinvite on N — /weeklyinvite off N');
+            return;
+        }
+
+        BotMotherStateHelper::clearState($chatId);
+        BotHelper::sendMessage($bot, 'ویزارد به پایان رسید. /weeklyinvite برای شروع دوباره.');
+    }
+
+    // =========================================================
+    // F6: /motivation — ویزارد اسکدیول متن انگیزشی LLM
+    // =========================================================
+
+    private function handleMotivationStart(Telegram $bot, string $arg, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $arg = trim($arg);
+
+        if (mb_strtolower($arg) === 'list' || $arg === 'لیست') {
+            $this->listMotivationSchedules($bot);
+            return;
+        }
+        if (preg_match('/^(on|off)\s+(\d+)$/i', $arg, $m)) {
+            $this->toggleMotivationSchedule($bot, (int) $m[2], mb_strtolower($m[1]) === 'on');
+            return;
+        }
+
+        $destinations = ChannelPosterDestination::where('is_active', true)->with('bot')->orderBy('id')->get();
+        if ($destinations->isEmpty()) {
+            BotHelper::sendMessage($bot, '❌ هیچ کانال فعالی در channel-poster ثبت نشده. اول از ربات channel-poster یک کانال وصل کن.');
+            return;
+        }
+
+        $map = [];
+        $lines = [];
+        foreach ($destinations as $i => $d) {
+            $idx = (string) ($i + 1);
+            $map[$idx] = (int) $d->id;
+            $title = $d->channel_title ?: '(بدون عنوان)';
+            $tag = ($d->tag !== null && $d->tag !== '') ? " [{$d->tag}]" : '';
+            $lines[] = "{$idx}) #{$d->id} {$title}{$tag} — {$d->platform}";
+        }
+
+        BotHelper::sendMessage($bot, '✨ متن انگیزشی LLM: کدام کانال؟ (شماره بفرست)' . "\n" . implode("\n", $lines) . "\n\nلغو: /cancel");
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION, [
+            'mot_dest_map' => $map,
+        ]);
+    }
+
+    private function listMotivationSchedules(Telegram $bot): void
+    {
+        $rows = ChannelMotivationalSchedule::with('destination')->orderBy('id')->get();
+        if ($rows->isEmpty()) {
+            BotHelper::sendMessage($bot, 'هنوز هیچ اسکدیول انگیزشی ثبت نشده. /motivation');
+            return;
+        }
+        $freqNames = ['weekly' => 'هفتگی', 'biweekly' => 'دو هفته یکبار', 'daily' => 'روزانه'];
+        $lines = [];
+        foreach ($rows as $r) {
+            $dest = $r->destination;
+            $title = $dest?->channel_title ?: "dest#{$r->destination_id}";
+            $lines[] = '#'.$r->id.' '.$title.' ('.($dest?->platform ?? '?').') — '
+                . ChannelMotivationalSchedule::dayNameFa($r->day_of_week)
+                . '، '.($freqNames[$r->frequency] ?? $r->frequency)
+                . ($r->enabled ? '' : ' [غیرفعال]')
+                . '، آخرین: '.($r->last_sent_at?->toDateTimeString() ?? '—');
+        }
+        BotHelper::sendMessage($bot, '✨ اسکدیول‌های انگیزشی:' . "\n" . implode("\n", $lines) . "\n\nفعال/غیرفعال: /motivation on 3 یا /motivation off 3");
+    }
+
+    private function toggleMotivationSchedule(Telegram $bot, int $id, bool $enabled): void
+    {
+        $row = ChannelMotivationalSchedule::find($id);
+        if (!$row) {
+            BotHelper::sendMessage($bot, "❌ اسکدیول با شناسه {$id} پیدا نشد. /motivation list");
+            return;
+        }
+        $row->update(['enabled' => $enabled]);
+        BotHelper::sendMessage($bot, $enabled ? "✅ اسکدیول #{$id} فعال شد." : "⏸ اسکدیول #{$id} غیرفعال شد.");
+    }
+
+    private function handleMotivationWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $t = trim($text);
+
+        if ($t === '/cancel' || $t === 'لغو' || $t === 'رد' || mb_strtolower($t) === 'cancel') {
+            BotMotherStateHelper::clearState($chatId);
+            BotHelper::sendMessage($bot, '❌ ویزارد لغو شد.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION) {
+            $map = $stateData['mot_dest_map'] ?? [];
+            $destId = $map[$t] ?? null;
+            if ($destId === null) {
+                BotHelper::sendMessage($bot, 'شماره معتبر نیست. دوباره بفرست یا /cancel.');
+                return;
+            }
+            $existing = ChannelMotivationalSchedule::where('destination_id', $destId)->first();
+            $dayHint = $existing
+                ? 'روز فعلی: ' . ChannelMotivationalSchedule::dayNameFa($existing->day_of_week) . ' — برای حفظ: «همون»'
+                : 'پیش‌فرض: جمعه';
+            BotHelper::sendMessage($bot, "کانال ثبت شد.\nروز هفته را بفرست (۰=یکشنبه، ۱=دوشنبه، ۲=سه‌شنبه، ۳=چهارشنبه، ۴=پنجشنبه، ۵=جمعه، ۶=شنبه).\n{$dayHint}");
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY, array_merge($stateData, [
+                'mot_dest_id' => $destId,
+                'mot_day' => $existing?->day_of_week ?? ChannelMotivationalSchedule::DEFAULT_DAY,
+                'mot_freq' => $existing?->frequency ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY,
+            ]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY) {
+            $day = null;
+            if (ctype_digit($t)) {
+                $day = (int) $t;
+            }
+            if ($day === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $day = (int) ($stateData['mot_day'] ?? ChannelMotivationalSchedule::DEFAULT_DAY);
+            }
+            if ($day === null || $day < 0 || $day > 6) {
+                BotHelper::sendMessage($bot, 'عدد ۰ تا ۶ بفرست (یا «همون»).');
+                return;
+            }
+            BotHelper::sendMessage($bot, 'روز «' . ChannelMotivationalSchedule::dayNameFa($day) . '» ثبت شد.' . "\n" . 'فراوانی را انتخاب کن: ۱ = هفتگی، ۲ = دو هفته یکبار، ۳ = روزانه (یا «همون»):');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY, array_merge($stateData, ['mot_day' => $day]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY) {
+            $freqMap = ['1' => ChannelMotivationalSchedule::FREQUENCY_WEEKLY, '2' => ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY, '3' => ChannelMotivationalSchedule::FREQUENCY_DAILY];
+            $freq = $freqMap[$t] ?? null;
+            if ($freq === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $freq = $stateData['mot_freq'] ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY;
+            }
+            if (!in_array($freq, [ChannelMotivationalSchedule::FREQUENCY_WEEKLY, ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY, ChannelMotivationalSchedule::FREQUENCY_DAILY], true)) {
+                BotHelper::sendMessage($bot, 'عدد ۱، ۲ یا ۳ بفرست (یا «همون»).');
+                return;
+            }
+            $freqNames = [ChannelMotivationalSchedule::FREQUENCY_WEEKLY => 'هفتگی', ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY => 'دو هفته یکبار', ChannelMotivationalSchedule::FREQUENCY_DAILY => 'روزانه'];
+            BotHelper::sendMessage($bot, 'فراوانی «' . $freqNames[$freq] . '» ثبت شد.' . "\n"
+                . 'پیام (prompt) سفارشی برای LLM بفرست، یا «default» برای پیش‌فرض:');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PROMPT, array_merge($stateData, ['mot_freq' => $freq]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PROMPT) {
+            $prompt = null;
+            if ($t !== 'default' && mb_strtolower($t) !== 'پیش‌فرض' && $t !== '') {
+                $prompt = $t;
+            }
+            $destId = (int) ($stateData['mot_dest_id'] ?? 0);
+            $day = (int) ($stateData['mot_day'] ?? ChannelMotivationalSchedule::DEFAULT_DAY);
+            $freq = $stateData['mot_freq'] ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY;
+
+            ChannelMotivationalSchedule::updateOrCreate(
+                ['destination_id' => $destId],
+                [
+                    'day_of_week' => $day,
+                    'frequency' => $freq,
+                    'prompt' => $prompt,
+                    'enabled' => true,
+                ]
+            );
+
+            BotMotherStateHelper::clearState($chatId);
+            $dest = ChannelPosterDestination::find($destId);
+            $freqNames = [ChannelMotivationalSchedule::FREQUENCY_WEEKLY => 'هفتگی', ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY => 'دو هفته یکبار', ChannelMotivationalSchedule::FREQUENCY_DAILY => 'روزانه'];
+            BotHelper::sendMessage($bot, '✅ اسکدیول انگیزشی ذخیره شد.' . "\n"
+                . 'کانال: ' . ($dest?->channel_title ?: "dest#{$destId}") . ' (' . ($dest?->platform ?? '?') . ')' . "\n"
+                . 'روز: ' . ChannelMotivationalSchedule::dayNameFa($day) . ' — ' . ($freqNames[$freq] ?? $freq) . "\n"
+                . 'هر بار یک جمله‌ی کوتاه انگیزشی توسط LLM نوشته و ارسال می‌شود.' . "\n\n"
+                . 'مدیریت: /motivation list — /motivation on N — /motivation off N');
+            return;
+        }
+
+        BotMotherStateHelper::clearState($chatId);
+        BotHelper::sendMessage($bot, 'ویزارد به پایان رسید. /motivation برای شروع دوباره.');
     }
 
     /**

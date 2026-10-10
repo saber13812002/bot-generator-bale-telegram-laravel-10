@@ -135,6 +135,24 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->onOneServer();
+
+        // نگهبان ساعتی صف کانال: ارسال مجدد آیتم‌های عقب‌افتاده + هشدار قرمز/سبز
+        $schedule->command('channel-poster:watchdog')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // F5: دعوت هفتگی به مطالعه یک مطلب آرشیوی تصادفی (هر روز ساعت ۱۰:۰۰)
+        $schedule->command('weekly-read:invite')
+            ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // F6: متن انگیزشی LLM برای کانال‌های اسکدیول‌شده (هر روز ساعت ۱۱:۰۰؛ روز هر کانال جدا)
+        $schedule->command('channel-motivation:send')
+            ->dailyAt('11:00')
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**

@@ -19,28 +19,46 @@ class TranslationService
             return "";
         }
 
-
         return self::translate($text, $language);
-        // todo:if status not 200 call another translation api
     }
 
     const CHARACTER_LIMIT = 350; // Define the character limit for the translation service
 
+    /**
+     * ترجمه متن بر اساس driver تنظیم‌شده در config/translation.php
+     *
+     * driver = one_api : فقط one-api.ir
+     * driver = llm     : فقط LLM محلی (LlmTranslationService)
+     * driver = auto    : اول one-api.ir، در صورت شکست LLM محلی
+     * در شکست هر دو، متن اصلی برمی‌گردد.
+     */
     public static function translate($text, $language)
     {
         $text = self::removeEmojiHashTag($text);
         $segments = self::segmentText($text, self::CHARACTER_LIMIT);
 
+        $driver = config('translation.driver', 'auto');
+        $useOneApi = in_array($driver, ['one_api', 'auto'], true);
+        $useLlm = in_array($driver, ['llm', 'auto'], true);
+
         $translatedText = '';
         try {
             foreach ($segments as $segment) {
-                $response = OneApiTranslationService::call($segment, $language);
+                $segmentResult = null;
 
-                if ($response['status'] == 200) {
-                    $translatedText .= $response['result'];
-                } else {
+                if ($useOneApi) {
+                    $segmentResult = self::translateSegmentViaOneApi($segment, $language);
+                }
+
+                if ($segmentResult === null && $useLlm) {
+                    $segmentResult = LlmTranslationService::translate($segment, $language);
+                }
+
+                if ($segmentResult === null) {
                     return $text; // Return original text if translation fails
                 }
+
+                $translatedText .= $segmentResult;
             }
         } catch (\Exception $e) {
             BotHelper::sendMessageToSuperAdmin($e->getMessage(), 'bale');
@@ -49,6 +67,28 @@ class TranslationService
         }
 
         return $translatedText;
+    }
+
+    /**
+     * ترجمه یک segment با one-api.ir
+     * در صورت شکست همه providerها یا status!=200 مقدار null برمی‌گردد
+     */
+    private static function translateSegmentViaOneApi($segment, $language): ?string
+    {
+        try {
+            $response = OneApiTranslationService::call($segment, $language);
+        } catch (\Exception $e) {
+            // همه providerهای one-api.ir شکست خوردند — برای فল‌بک به LLM در حالت auto
+            Log::warning('[TranslationService] OneApi failed, falling back', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if ($response && ($response['status'] ?? null) == 200 && !empty($response['result'])) {
+            return $response['result'];
+        }
+
+        return null;
     }
 
     private static function segmentText($text, $limit)

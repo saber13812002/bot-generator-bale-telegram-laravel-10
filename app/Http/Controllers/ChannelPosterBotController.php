@@ -10,6 +10,8 @@ use App\Models\Bot;
 use App\Models\BotUserState;
 use App\Models\BotUsers;
 use App\Models\ChannelPosterDestination;
+use App\Models\ChannelPosterQueue;
+use App\Services\ChannelPosterQueuePublishService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -34,7 +36,8 @@ class ChannelPosterBotController extends Controller
 
     public function __construct(
         private ChannelPosterBotService $service,
-        private ChannelPosterPublisherFactory $publisherFactory
+        private ChannelPosterPublisherFactory $publisherFactory,
+        private ChannelPosterQueuePublishService $queuePublishService
     ) {
     }
 
@@ -242,6 +245,11 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        if (is_string($text) && ($text === '/queue' || str_starts_with($text, '/queue '))) {
+            $this->showQueueList($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
         $state = $this->getState($botItem, $chatId, $type);
 
         if ($state && is_string($text) && $this->isShortTagName($text)) {
@@ -336,10 +344,20 @@ class ChannelPosterBotController extends Controller
         }
 
         $labels = array_map(fn (array $group) => $group['label'], $this->service->listTagGroups($botItem->id));
-        $publisher->sendPrivateMessage(
-            $chatId,
-            trans('bot.channel_poster_welcome_ready', ['tags' => implode('، ', $labels)])
-        );
+        $msg = trans('bot.channel_poster_welcome_ready', ['tags' => implode('، ', $labels)]);
+        $rows = null;
+
+        $pendingCount = ChannelPosterQueue::where('bot_id', $botItem->id)
+            ->where('status', ChannelPosterQueue::STATUS_PENDING)
+            ->count();
+        if ($pendingCount > 0) {
+            $rows = [[
+                'text' => trans('bot.channel_poster_btn_queue_list', ['count' => $pendingCount]),
+                'callback_data' => 'cp:q:list',
+            ]];
+        }
+
+        $publisher->sendPrivateMessage($chatId, $msg, $rows);
     }
 
     private function startAddWizard(ChannelPosterPublisher $publisher, Bot $botItem, string $type, string $chatId): void
@@ -515,6 +533,18 @@ class ChannelPosterBotController extends Controller
             if ($state) {
                 $this->publishPendingToTag($publisher, $botItem, $type, $chatId, $state, $tagKey);
             }
+            return;
+        }
+
+        // Handle publish-queue control callbacks
+        if ($data === 'cp:q:list') {
+            $this->showQueueList($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (str_starts_with($data, 'cp:q:item:')) {
+            [$itemId, $action] = array_pad(explode(':', substr($data, 10)), 2, '');
+            $this->handleQueueItemCallback($publisher, $botItem, $type, $chatId, (int) $itemId, $action);
             return;
         }
 
@@ -1076,5 +1106,88 @@ class ChannelPosterBotController extends Controller
         $this->service->updateChannelLink($destId, $link);
         $this->clearState($botItem, $chatId, $type);
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_link_saved', ['link' => $link]));
+    }
+
+    /**
+     * نمایش لیست آیتم‌های pending صف ارسال با دکمه‌های «ارسال الان» و «لغو»
+     * (دستور /queue یا callback cp:q:list)
+     */
+    private function showQueueList(ChannelPosterPublisher $publisher, Bot $botItem, string $type, string $chatId): void
+    {
+        $items = ChannelPosterQueue::where('bot_id', $botItem->id)
+            ->where('status', ChannelPosterQueue::STATUS_PENDING)
+            ->orderBy('scheduled_at')
+            ->limit(20)
+            ->get();
+
+        if ($items->isEmpty()) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_queue_empty'));
+            return;
+        }
+
+        $tz = 'Asia/Tehran';
+        $now = now();
+        $parts = [];
+        $rows = [];
+        foreach ($items as $item) {
+            $when = $item->scheduled_at->copy()->setTimezone($tz)->format('Y-m-d H:i');
+            $overdue = $item->scheduled_at->lte($now);
+            $tag = ($item->tag !== null && $item->tag !== '') ? "[{$item->tag}] " : '';
+            $preview = $item->text !== null
+                ? mb_substr($item->text, 0, 40)
+                : trans('bot.channel_poster_queue_media');
+            $marker = $overdue ? '⚠️ ' : '';
+
+            $parts[] = "{$marker}#{$item->id} {$tag}— {$when}\n{$preview}";
+            $rows[] = [
+                ['text' => trans('bot.channel_poster_btn_send_now'), 'callback_data' => "cp:q:item:{$item->id}:send"],
+                ['text' => trans('bot.channel_poster_btn_cancel_item'), 'callback_data' => "cp:q:item:{$item->id}:cancel"],
+            ];
+        }
+
+        $msg = trans('bot.channel_poster_queue_list_header', ['count' => $items->count()]) . "\n\n" . implode("\n\n", $parts);
+        $publisher->sendPrivateMessage($chatId, $msg, $rows);
+    }
+
+    /**
+     * اقدام روی یک آیتم صف: ارسال فوری یا لغو (فقط owner — guard در handleCallbackQuery)
+     */
+    private function handleQueueItemCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $itemId,
+        string $action
+    ): void {
+        $item = ChannelPosterQueue::where('id', $itemId)
+            ->where('bot_id', $botItem->id)
+            ->first();
+
+        if (!$item || $item->status !== ChannelPosterQueue::STATUS_PENDING) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_queue_item_gone'));
+            return;
+        }
+
+        if ($action === 'cancel') {
+            $item->update(['status' => ChannelPosterQueue::STATUS_CANCELLED]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_queue_item_cancelled', ['id' => $item->id]));
+            return;
+        }
+
+        if ($action === 'send') {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_queue_item_sending', ['id' => $item->id]));
+
+            $result = $this->queuePublishService->publishItem($item);
+            $msg = match ($result['status']) {
+                'published' => trans('bot.channel_poster_queue_item_sent', ['id' => $item->id]),
+                'failed' => trans('bot.channel_poster_queue_item_failed', ['id' => $item->id, 'error' => $result['error'] ?? 'unknown']),
+                default => trans('bot.channel_poster_queue_item_gone'),
+            };
+            $publisher->sendPrivateMessage($chatId, $msg);
+            return;
+        }
+
+        $this->showQueueList($publisher, $botItem, $type, $chatId);
     }
 }
