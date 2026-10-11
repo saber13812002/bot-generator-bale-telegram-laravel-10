@@ -20,7 +20,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('destination_id');
-            $table->index(['enabled', 'day_of_week', 'frequency']);
+            // نام خودکار این ایندکس ترکیبی 65 کاراکتر می‌شود که از سقف 64 کاراکتری MySQL فراتر می‌رود (خطای 1059)
+            $table->index(['enabled', 'day_of_week', 'frequency'], 'cms_enabled_dow_freq_idx');
         });
     }
 
