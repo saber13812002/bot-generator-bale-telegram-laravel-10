@@ -22,6 +22,8 @@ class ProcessChannelPosterQueueJob implements ShouldQueue
             ->limit(10)
             ->get();
 
+        Log::info('[ChannelPoster] ProcessChannelPosterQueueJob started (diagnostic marker)', ['ready_items' => $items->count()]);
+
         foreach ($items as $item) {
             $item->refresh();
 

@@ -28,6 +28,7 @@ class PostDailyVerseToChannels extends Command
     public function handle(): int
     {
         $slot = $this->resolveSlot();
+        Log::info('[PostDailyVerseToChannels] Job started (diagnostic marker)', ['slot' => $slot]);
         $configs = AdminDailyChannelConfig::query()
             ->where('is_active', true)
             ->get()

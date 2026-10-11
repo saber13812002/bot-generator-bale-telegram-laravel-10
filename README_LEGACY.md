@@ -610,7 +610,7 @@ Minute	Hour	Day	Month	Weekday	Command	Actions
 */15	22	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
 */45	23	*	*	*	cd /home/pardisa2/blog && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
 0	0	*	*	0	cd /home/pardisa2/blog && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-59	23	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
+*	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
 */19	*	*	*	*	cd /home/pardisa2/bots && sleep $((RANDOM % 60)) && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
 */14	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss-post >> /dev/null 2>&1	    
 58	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:boo >> /dev/null 2>&1	    
@@ -623,11 +623,32 @@ Minute	Hour	Day	Month	Weekday	Command	Actions
 56	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:generate-s >> /dev/null 2>&1	    
 55	5	*	*	1	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:user >> /dev/null 2>&1	    
 01	09	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:daily-blog-reminder >> /dev/null 2>&1	    
-4	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan ai:health-check >> /dev/null 2>&1	    
+4	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan ai:health-check >> /dev/null 2>&1
 
+
+
+## 🚨 اصلاح مهم (1405/07/19): اجرای دقیقه‌ای `schedule:run` + timezone
+
+**مشکل:** قبلاً `schedule:run` فقط **روزی یک‌بار ساعت 23:59** (`59 23 * * *`) اجرا می‌شد؛ به‌همین‌دلیل هیچ‌کدام از جاب‌های انتشار کانال (که **همه** در `app/Console/Kernel.php` ثبت‌اند: `daily-channel:post`، `channel-poster:watchdog`، `media-queue:post`، `weekly-read:invite`، `channel-motivation:send`، `ProcessChannelPosterQueueJob`) اصلاً شلیک نمی‌شدند.
+
+**اصلاح:**
+1. `schedule:run` حتماً **هر دقیقه** اجرا شود (ردیف `* * * * *` در جدول بالا). بدون این خط، هیچ‌یک از رویدادهای `Kernel::schedule()` اجرا نمی‌شود (Laravel catch-up ندارد).
+2. **ساعت سرور UTC است** (مطابق `error_log` و `config/app.php: 'timezone' => 'UTC'`). سیستم انتشار کانال **UTC-محور** طراحی شده است: اسلات‌های 00:00/06:00/12:00/18:00، منطق `shouldRunInSlot` در `app/Models/AdminDailyChannelConfig.php`، بررسی اسلات‌ها در `PostOverdueWatchdog` و تایم‌استمپ‌های جدول `channel_poster_queue` همه بر UTC عمل می‌کنند. ⚠️ **بدون مهاجرت همزمان این منطقات و دیتابیس، `APP_TIMEZONE`/`config('app.timezone')` را تغییر ندهید.**
+3. اگر بخواهید ساعت‌های انتشار کانال **به ساعت ایران** برود، باید **با هم** تغییر دهید:
+   - مقادیر `dailyAt(...)` مربوط به کانال در `app/Console/Kernel.php` (مثلاً `00:00` تهران = `dailyAt('20:30')` UTC)،
+   - مرزهای اسلات در `shouldRunInSlot` (`AdminDailyChannelConfig`) و `findMissedDailySlots` (`PostOverdueWatchdog`) و `resolveSlot` (`PostDailyVerseToChannels`).
+
+**بررسی بعد از دیپلی (روی سرور):**
+```bash
+crontab -l | grep schedule          # باید خط * * * * * schedule:run را ببینید
+date                                 # انتظار: ساعت UTC
+cd /home/pardisa2/bots && php artisan schedule:list | grep -E 'daily-channel|channel-poster|media-queue|weekly-read|channel-motivation'
+# بعد از چند دقیقه:
+grep 'diagnostic marker' storage/logs/laravel.log | tail -20
+```
+مارکر `[ChannelPoster] ProcessChannelPosterQueueJob started (diagnostic marker)` باید تقریباً هر ۵ دقیقه در لاگ ظاهر شود.
 
 ### دستوراتی که با `schedule:run` اجرا می‌شوند
-
 با تنظیم یک کران‌جاب برای `php artisan schedule:run` (مثلاً هر دقیقه یا طبق یکی از ردیف‌های بالا)، این دستورات به‌صورت خودکار طبق زمان‌بندی زیر اجرا می‌شوند (مربوط به `app/Console/Kernel.php`):
 
 | فرکانس | دستور / Job |

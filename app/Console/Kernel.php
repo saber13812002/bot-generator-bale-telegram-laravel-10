@@ -87,6 +87,8 @@ class Kernel extends ConsoleKernel
         $schedule->command('audio:test-report')->dailyAt('10:00')->withoutOverlapping()->onOneServer();
 
         // ارسال آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (اسلات‌های ۶ ساعته؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند)
+        // ⚠️ این اسلات‌ها UTC-محورند (ساعت سرور UTC است) و با shouldRunInSlot و PostOverdueWatchdog
+        // هم‌راسته‌اند؛ بدون تغییر همزمان آن‌ها به ساعت ایران برنگردانید (README_LEGACY.md، بخش 🚨 اصلاح مهم).
         $schedule->command(PostDailyVerseToChannels::class, ['--slot=1'])->dailyAt('00:00')->withoutOverlapping()->onOneServer();
         $schedule->command(PostDailyVerseToChannels::class, ['--slot=2'])->dailyAt('06:00')->withoutOverlapping()->onOneServer();
         $schedule->command(PostDailyVerseToChannels::class, ['--slot=3'])->dailyAt('12:00')->withoutOverlapping()->onOneServer();

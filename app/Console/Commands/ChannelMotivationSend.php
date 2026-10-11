@@ -47,6 +47,7 @@ class ChannelMotivationSend extends Command
         $dryRun = (bool) $this->option('dry-run');
         $force = (bool) $this->option('force');
         $onlyId = $this->option('schedule');
+        Log::info('[ChannelMotivationSend] Job started (diagnostic marker)', ['now' => $now->toDateTimeString(), 'dry_run' => $dryRun]);
 
         $query = ChannelMotivationalSchedule::query()->where('enabled', true);
         if ($onlyId !== null && $onlyId !== '') {

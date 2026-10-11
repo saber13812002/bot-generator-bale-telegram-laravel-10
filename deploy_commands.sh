@@ -41,4 +41,18 @@ echo "⚡ Cache کردن config و route..."
 php artisan config:cache
 php artisan route:cache
 
+# 7. بررسی cron برای schedule:run (ضروری برای جاب‌های انتشار کانال)
+# schedule:run باید هر دقیقه اجرا شود؛ بدون آن هیچ جابی از app/Console/Kernel.php اجرا نمی‌شود
+echo "📆 بررسی cron برای schedule:run..."
+CRON_SCHEDULE='* * * * * cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1'
+if crontab -l 2>/dev/null | grep -E '^\*[[:space:]]+\*[[:space:]]+\*[[:space:]]+\*[[:space:]]+\*' | grep -q 'schedule:run'; then
+    echo "✅ cron دقیقه‌ای schedule:run تنظیم است."
+else
+    echo "⚠️  cron دقیقه‌ای schedule:run پیدا نشد! جاب‌های انتشار کانال اجرا نمی‌شوند."
+    echo "   لطفاً این خط را به crontab اضافه کنید (crontab -e):"
+    echo "   $CRON_SCHEDULE"
+    echo "   crontab فعلی:"
+    crontab -l 2>/dev/null
+fi
+
 echo "✅ Deploy با موفقیت انجام شد!"

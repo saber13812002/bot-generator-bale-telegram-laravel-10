@@ -69,6 +69,10 @@ return [
     |
     */
 
+    // ⚠️ ساعت سرور Production روی UTC است (مطابق error_log). سیستم انتشار کانال
+    // (اسلات‌های 00/06/12/18، shouldRunInSlot، PostOverdueWatchdog، جدول channel_poster_queue)
+    // همگی بر پایه‌ی UTC طراحی شده‌اند؛ این مقدار را بدون مهاجرت همزمان آن منطقات
+    // و تایم‌استمپ‌های دیتابیس تغییر ندهید.
     'timezone' => 'UTC',
 
     /*

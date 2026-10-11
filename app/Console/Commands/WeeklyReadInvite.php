@@ -52,6 +52,7 @@ class WeeklyReadInvite extends Command
         $dryRun = (bool) $this->option('dry-run');
         $force = (bool) $this->option('force');
         $onlyId = $this->option('invitation');
+        Log::info('[WeeklyReadInvite] Job started (diagnostic marker)', ['now' => $now->toDateTimeString(), 'dry_run' => $dryRun]);
 
         $query = WeeklyReadInvitation::query()->where('enabled', true);
         if ($onlyId !== null && $onlyId !== '') {

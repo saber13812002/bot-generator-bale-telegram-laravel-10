@@ -68,6 +68,7 @@ class PostOverdueWatchdog extends Command
         $floor  = $now->copy()->subDays(self::MAX_AGE_DAYS);
 
         $this->info('🐕 PostOverdueWatchdog شروع شد (cutoff: ' . $cutoff->format('Y-m-d H:i') . ')');
+        Log::info('[ChannelPoster] Watchdog started (diagnostic marker)', ['cutoff' => $cutoff->toDateTimeString(), 'dry_run' => $dryRun]);
 
         // ── 1) ارسال مجدد آیتم‌های pendingِ عقب‌افتاده ───────────────────
         $resend = $this->resendOverduePending($cutoff, $floor, $dryRun);

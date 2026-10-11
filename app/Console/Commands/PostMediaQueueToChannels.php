@@ -19,6 +19,7 @@ class PostMediaQueueToChannels extends Command
     public function handle(): int
     {
         $configs = AdminChannelMediaQueueConfig::query()->where('is_active', true)->get();
+        Log::info('[PostMediaQueueToChannels] Job started (diagnostic marker)', ['active_configs' => $configs->count()]);
         if ($configs->isEmpty()) {
             $this->info('هیچ config فعالی برای صف رسانه ثبت نشده است.');
             return 0;
