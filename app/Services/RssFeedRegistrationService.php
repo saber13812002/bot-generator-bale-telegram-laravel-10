@@ -132,10 +132,17 @@ class RssFeedRegistrationService
 
         if ($fetchNow) {
             try {
-                RssService::readRssAndSave($normalizedUrl, $rssItem->id, 'link');
-                $rssItem->last_synced_at = now();
+                $result = RssService::readRssAndSave($normalizedUrl, $rssItem->id, 'link');
+                if (!empty($result['ok'])) {
+                    $rssItem->last_synced_at = now();
+                }
+                $rssItem->consecutive_failures = !empty($result['ok']) ? 0 : 1;
+                $rssItem->last_error = $result['ok'] ? null : \Illuminate\Support\Str::limit((string) ($result['error'] ?? 'unknown error'), 250);
                 $rssItem->save();
             } catch (\Throwable $e) {
+                $rssItem->consecutive_failures = 1;
+                $rssItem->last_error = \Illuminate\Support\Str::limit($e->getMessage(), 250);
+                $rssItem->save();
                 Log::warning('Immediate RSS fetch after registration failed', [
                     'rss_item_id' => $rssItem->id,
                     'error' => $e->getMessage(),

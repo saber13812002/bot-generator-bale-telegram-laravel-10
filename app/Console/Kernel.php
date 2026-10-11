@@ -150,6 +150,18 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // بررسی هفتگی سلامت فیدهای RSS: فیدهای مرده (402/403/404/HTML/timeout) خودکار غیرفعال می‌شوند
+        $schedule->command('rss:feeds-health', ['--disable-dead'])
+            ->weekly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // لغو روزانه آیتم‌های pending قدیمی (بیش از 7 روز) در صف کانال تا محتوای کهنه منتشر نشود
+        $schedule->command('channel-poster:prune-stale')
+            ->dailyAt('04:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // F6: متن انگیزشی LLM برای کانال‌های اسکدیول‌شده (هر روز ساعت ۱۱:۰۰؛ روز هر کانال جدا)
         $schedule->command('channel-motivation:send')
             ->dailyAt('11:00')
