@@ -15,7 +15,6 @@ use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
 use App\Console\Commands\UsersRankingCommand;
 use App\Console\Commands\weatherWindCommand;
-use App\Jobs\CheckWeatherAlertsJob;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -66,7 +65,8 @@ class Kernel extends ConsoleKernel
             $schedule->command(TestScheduleDailyIntoSlack::class)->dailyAt("07:00"); //10:30 iran
         
         // چک کردن weather alerts هر یک ساعت
-        $schedule->job(new CheckWeatherAlertsJob)
+        // (دستور: weather:check-alerts — مستقیم با cron هم قابل اجراست؛ $schedule->job فقط با schedule:run کار می‌کرد)
+        $schedule->command('weather:check-alerts')
             ->hourly()
             ->withoutOverlapping()
             ->onOneServer();
@@ -133,7 +133,8 @@ class Kernel extends ConsoleKernel
             ->onOneServer();
 
         // پردازش صف ارسال به کانال‌ها (هر ۵ دقیقه)
-        $schedule->job(new \App\Jobs\ProcessChannelPosterQueueJob)
+        // (دستور: channel-poster:process — مستقیم با cron هم قابل اجراست؛ $schedule->job فقط با schedule:run کار می‌کرد)
+        $schedule->command('channel-poster:process')
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->onOneServer();
