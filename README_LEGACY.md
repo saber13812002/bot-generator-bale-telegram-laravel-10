@@ -602,6 +602,14 @@ UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\R
 
 # ⏰ Cron Jobs
 
+> 🚫 **فهرست کران‌های فعلی سرور (مستندسازی‌شده — برای حذف/جایگزینی):** جدول بلافاصله‌ی بعدی، خطوطی است که **هم‌اکنون** روی سرور ثبت‌اند. طبق «جدول کامل cron برای cPanel» (بخش بعدی همین فایل) این خط‌ها حذف/جایگزین می‌شوند:
+> - `*/15 22 * * *` queue:work (bots) → **حذف** (صف روی سرور sync است؛ queue:work فقط زامبی می‌سازد)
+> - `* * * * *` schedule:run (bots) → **حذف** (به‌جای آن خط‌های مستقیم جدول جدید)
+> - خط‌های queue:work / schedule:run پروژه **blog** → مربوط به این پروژه نیستند؛ جدا کار کنید
+> - خط‌های RSS پراکنده و ناقص (`app:rss_` هر ۱۹ دقیقه، `app:rss-post` هر ۱۴ دقیقه، بقیه‌ی خط‌های truncation‌شده) → **حذف** و با یک خط `*/15 * * * * app:rss_read_translate` جایگزین کنید
+> - `4 3 * * *` (پاک‌سازی لاگ)، `46 2 * * *`، `20 1 * * *`، `56 * * * *`، `55 5 * * 1` → اگر هنوز لازم‌اند نگه دارید (در جدول جدید نیستند)
+> - `01 09 * * *` daily-blog-reminder و `4 * * * *` ai:health-check → **با جدول جدید تکراری‌اند** (جدید: `1 9 * * *` و `0 * * * *`)؛ یکی را نگه دارید
+
 
 
 
@@ -648,6 +656,66 @@ grep 'diagnostic marker' storage/logs/laravel.log | tail -20
 ```
 مارکر `[ChannelPoster] ProcessChannelPosterQueueJob started (diagnostic marker)` باید تقریباً هر ۵ دقیقه در لاگ ظاهر شود.
 
+### 📋 جدول کامل cron برای cPanel (اجرای مستقیم دستورات — بدون `schedule:run` و `queue:work`)
+
+از تاریخ ۱۴۰۵/۰۷/۲۳ (کمیت `5335b3f8`) **همه‌ی جاب‌های زمان‌بندی‌شده به دستورات artisan قابل‌cron تبدیل شده‌اند** (دو مورد `CheckWeatherAlertsJob` و `ProcessChannelPosterQueueJob` قبلا‌ً فقط `$schedule->job` بودند و با کران مستقیم اجرا نمی‌شدند؛ حالا `weather:check-alerts` و `channel-poster:process` شده‌اند). بنابراین روی سرور **نیازی به `schedule:run` و `queue:work` نیست**؛ هر خط زیر را جداگانه در cPanel → Cron Jobs اضافه کنید:
+
+**مهم:** ساعت سرور **UTC** است (با `error_log` و `config/app.php` تأیید شده). تمام اوقات جدول **UTC** است؛ ستون «ساعت ایران» فقط برای درک است (UTC+3:30). قبل از ثبت، با `date` روی سرور تأیید کنید که UTC نشان می‌دهد.
+
+| Cron (UTC) | دستور artisan | معادل ساعت ایران | توضیح |
+|---|---|---|---|
+| `*/5 * * * *` | `channel-poster:process` | هر ۵ دقیقه | پردازش صف انتشار کانال (یادآوری‌ها و محتوای زمان‌دار) |
+| `*/5 * * * *` | `growth:dispatch-due` | هر ۵ دقیقه | سؤال‌های سررسید رشدیار |
+| `*/15 * * * *` | `app:rss_read_translate` | هر ۱۵ دقیقه | خواندن/ترجمه RSS و ارسال به کانال‌ها |
+| `*/10 * * * *` | `prayer:send-weekly-reports --batch-size=5 --interval=10` | هر ۱۰ دقیقه | گزارش‌های هفتگی نماز قضا (باکس کوچک) |
+| `*/30 * * * *` | `prayer:send-weekly-reports --batch-size=10 --interval=30` | هر ۳۰ دقیقه | گزارش‌های هفتگی نماز قضا (باکس متوسط) |
+| `0 * * * *` | `prayer:send-weekly-reports --batch-size=10 --interval=60` | دقیقه ۰ هر ساعت | گزارش‌های هفتگی نماز قضا (باکس بزرگ) |
+| `0 * * * *` | `weather:check-alerts` | دقیقه ۰ هر ساعت | هشدارهای هواشناسی |
+| `0 * * * *` | `channel-poster:watchdog` | دقیقه ۰ هر ساعت | نگهبان صف: ارسال مجدد عقب‌افتاده + هشدار قرمز/سبز |
+| `0 * * * *` | `ai:health-check` | دقیقه ۰ هر ساعت | سلامت سرورهای AI |
+| `0 * * * *` | `content:deliver-hourly` | دقیقه ۰ هر ساعت | ارسال محتوای کتابخانه (پادکست) |
+| `0 19-23 * * *` | `app:schedule-book-publishing` | ۲۲:۳۰ تا ۰۳:۲۹ | انتشار صفحات کتاب |
+| `0 0 * * *` | `daily-channel:post --slot=1` | ۰۳:۳۰ | تک‌آیه/حدیث/نهج/شراب — اسلات ۱ |
+| `0 6 * * *` | `daily-channel:post --slot=2` | ۰۹:۳۰ | اسلات ۲ |
+| `0 12 * * *` | `daily-channel:post --slot=3` | ۱۵:۳۰ | اسلات ۳ |
+| `0 18 * * *` | `daily-channel:post --slot=4` | ۲۱:۳۰ | اسلات ۴ |
+| `0 4 * * *` | `channel-poster:prune-stale` | ۰۷:۳۰ | لغو آیتم‌های pending قدیمی (۷+ روز) |
+| `0 8 * * *` | `quran:send-daily-suggestion-to-admins` | ۱۱:۳۰ | پیشنهاد روزانه قرآن به ادمین‌ها |
+| `0 9 * * *` | `ai:daily-health-report` | ۱۲:۳۰ | گزارش ۲۴ساعته سلامت AI |
+| `1 9 * * *` | `app:daily-blog-reminder` | ۱۲:۳۱ | یادآوری بلوگ روزانه |
+| `0 10 * * *` | `media-queue:post` | ۱۳:۳۰ | صف رسانه به کانال‌ها |
+| `0 10 * * *` | `audio:test-report` | ۱۳:۳۰ | گزارش تست کتابخانه صوتی |
+| `0 10 * * *` | `weekly-read:invite` | ۱۳:۳۰ | دعوت هفتگی به مطالعه |
+| `0 11 * * *` | `channel-motivation:send` | ۱۴:۳۰ | متن انگیزشی کانال‌های اسکدیول‌شده |
+| `0 5 * * *` | `observability:prune` | ۰۸:۳۰ | حذف قدیمی‌لاگ‌ها و سقف app_log_entries |
+| `27 20 * * 4` | `app:task-reminder-command` | پنج‌شنبه ۲۳:۵۷ | یادآوری تسک پنج‌شنبه |
+| `29 20 * * *` | `app:users-ranking-command` | ۲۳:۵۹ | رانکینگ روزانه کاربران |
+| `0 0 * * 0` | `rss:feeds-health --disable-dead` | یکشنبه ۰۳:۳۰ | بررسی هفتگی سلامت فیدهای RSS |
+
+**قالب هر خط در cPanel** (فیلد Command):
+
+```
+cd /home/pardisa2/bots && /usr/local/bin/php artisan <دستور> >> /dev/null 2>&1
+```
+
+مثال برای خط اول جدول:
+
+```
+cd /home/pardisa2/bots && /usr/local/bin/php artisan channel-poster:process >> /dev/null 2>&1
+```
+
+**بررسی بعد از ثبت کران‌ها (روی سرور):**
+
+```bash
+crontab -l | grep -c "artisan"   # تعداد خط‌های ثبت‌شده (باید ۲۷ باشد)
+# بعد از چند دقیقه تا یک ساعت:
+grep 'diagnostic marker' storage/logs/laravel.log | tail -20
+```
+
+مارکرهای مورد انتظار: `ProcessChannelPosterQueueJob started` (هر ۵ دقیقه)، `Watchdog started` (هر ساعت)، `PostDailyVerseToChannels Job started` (هر اسلات)، `PostMediaQueueToChannels Job started`، `WeeklyReadInvite Job started`، `ChannelMotivationSend Job started`. اگر مارکری بعد از ساعت مقرر نبود، همان خط را دستی اجرا کنید تا خروجی/خطای آن را ببینید (مثلا‌ً `cd /home/pardisa2/bots && /usr/local/bin/php artisan channel-poster:process`).
+
+**نکته:** `withoutOverlapping()`/`onOneServer()` فقط در مسیر `schedule:run` معنا دارند؛ با کران مستقیم اگر دستوری بیشتر از فاصله‌ی بعدی‌اش طول بکشد، اجرای بعدی هم‌زمان اجرا می‌شود (دستورهای این پروژه ایدمپotent هستند و در برابر اجرای مکرر ایمن‌اند). خط اختیاری `app:test-schedule-daily-into-slack` (روزانه ۱۰:۳۰ ایران) فقط در صورتی ثبت کنید که env `TestScheduleDailyIntoSlack` فعال است.
+
 ### دستوراتی که با `schedule:run` اجرا می‌شوند
 با تنظیم یک کران‌جاب برای `php artisan schedule:run` (مثلاً هر دقیقه یا طبق یکی از ردیف‌های بالا)، این دستورات به‌صورت خودکار طبق زمان‌بندی زیر اجرا می‌شوند (مربوط به `app/Console/Kernel.php`):
 
@@ -676,7 +744,7 @@ grep 'diagnostic marker' storage/logs/laravel.log | tail -20
 
 **ارسال تک‌آیه/حدیث/نهج/شراب:** در ربات مادر می‌توانید «تعداد ارسال در روز» را ۱، ۲ یا ۴ انتخاب کنید. دستور `daily-channel:post` در چهار اسلات (۰۰:۰۰، ۰۶:۰۰، ۱۲:۰۰، ۱۸:۰۰) اجرا می‌شود و هر config فقط در اسلات‌های مجاز خودش ارسال می‌کند.
 
-**روش ۱ (پیشنهادی):** یک بار در دقیقه `schedule:run` را اجرا کنید:
+**روش ۱ (قدیمی — دیگر توصیه نمی‌شود):** خط `schedule:run` هر دقیقه. چون `schedule:run` روی این سرور به‌خوبی کار نمی‌کند، **روش ۲ (کران مستقیم) را طبق جدول کامل بالاتر** استفاده کنید:
 
 ```cron
 */1	*	*	*	*	cd /مسیر/پروژه && php artisan schedule:run >> /dev/null 2>&1
