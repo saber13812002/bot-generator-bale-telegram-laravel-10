@@ -179,10 +179,18 @@ class PostDailyVerseToChannels extends Command
                 ],
             ]);
             if (!$ok) {
+                $failText = (string) $failDetail;
                 Log::warning("[PostDailyVerseToChannels] {$platform} send not ok", [
                     'config_id' => $config->id,
                     'feature_key' => $featureKey,
+                    'chat_id' => match ($platform) {
+                        'bale' => $config->bale_channel_chat_id,
+                        'telegram' => $config->telegram_channel_chat_id,
+                        'eitaa' => $config->eitaa_channel_chat_id,
+                        default => null,
+                    },
                     'bot_id' => null,
+                    'diagnosis' => $this->diagnoseSendFailure($failText),
                     'api_response' => $failDetail,
                 ]);
             }
@@ -203,6 +211,33 @@ class PostDailyVerseToChannels extends Command
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * تشخیص ساده‌ی خطاهای رایج ارسال برای راهنمایی عملیاتی در لاگ.
+     */
+    private function diagnoseSendFailure(string $failDetail): ?string
+    {
+        $lower = mb_strtolower($failDetail);
+
+        if (str_contains($lower, 'chat not found')
+            || str_contains($lower, 'chat_id is invalid')
+            || str_contains($lower, 'peers not found')
+            || str_contains($lower, 'group chat not found')) {
+            return 'channel chat_id is invalid or the bot was removed/kicked from the channel — fix the *_channel_chat_id in AdminDailyChannelConfig or re-add the bot';
+        }
+
+        if (str_contains($lower, 'token_hash_invalid')
+            || str_contains($lower, 'invalid token')
+            || str_contains($lower, 'unauthorized')) {
+            return 'bot token invalid — check the channel bot token env vars';
+        }
+
+        if (str_contains($lower, 'blocked') || str_contains($lower, 'permission_denied')) {
+            return 'chat has blocked the bot or the bot lacks permission for this chat';
+        }
+
+        return null;
     }
 
     /**

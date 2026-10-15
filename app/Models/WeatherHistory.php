@@ -9,6 +9,14 @@ class WeatherHistory extends Model
 {
     use HasFactory;
 
+    /**
+     * The migration 2026_01_24_035132_create_weather_history_table creates the
+     * table with the singular name "weather_history", while Eloquent would
+     * default to "weather_histories". Pin the table name explicitly so the
+     * model queries the table that actually exists in the database.
+     */
+    protected $table = 'weather_history';
+
     protected $fillable = [
         'latitude',
         'longitude',

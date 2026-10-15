@@ -766,6 +766,26 @@ class QuranWordController extends Controller
                     }
                 }
                 
+                // Guard against update types the vendor ChatID() cannot handle
+                // (message_reaction, chat_member, poll, ...): vendor Chat() reads
+                // $data['message']['chat'] unconditionally and PHP 8 raises
+                // "Undefined array key \"message\"", which Laravel turns into an
+                // ErrorException. Probe safely and skip when there is no chat.
+                $hasChat = false;
+                try {
+                    $hasChat = (bool) $bot->ChatID();
+                } catch (\Throwable) {
+                    $hasChat = false;
+                }
+
+                if (!$hasChat) {
+                    Log::info('⏭️ [QuranBot] Update without chat, skipping', [
+                        'type' => $type,
+                        'update_keys' => is_array($update) ? array_keys($update) : null,
+                    ]);
+                    return 0;
+                }
+
                 // لاگ برای دیباگ
                 Log::info('🔍 QuranWordController - Processing request', [
                     'chat_id' => $bot->ChatID(),
@@ -2516,11 +2536,18 @@ class QuranWordController extends Controller
 //                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                     } else {
                         $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
-                        Log::info('✅ [Command] Start command button sent via Bale', [
-                            'chat_id' => $bot->ChatID(),
-                            'type' => $type
-                        ]);
+                        $keyboardSent = BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                        if ($keyboardSent) {
+                            Log::info('✅ [Command] Start command button sent via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        } else {
+                            Log::warning('⚠️ [Command] Start command button NOT sent via Bale (send failed — see BotHelper log)', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        }
                     }
                 }
 

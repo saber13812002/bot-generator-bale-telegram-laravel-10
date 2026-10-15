@@ -1241,7 +1241,7 @@ class BotHelper
      * @throws GuzzleException
      */
     public
-    static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
+    static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): bool
     {
         // Mirror the vendor Telegram package's curl behavior:
         // (a) CURLOPT_SSL_VERIFYPEER = false — tapi.bale.ai is reached behind
@@ -1249,23 +1249,36 @@ class BotHelper
         //     default certificate verification aborts with cURL error 60.
         // (b) API errors (e.g. 404 for an invalid/empty bot token) are
         //     swallowed and logged, exactly like the vendor package does for
-        //     curl failures — the response body is never consumed by any
-        //     caller, so a failed send must not turn the webhook into a 500.
+        //     curl failures — a failed send must not turn the webhook into a 500.
+        // Returns true only when the send actually succeeded, so callers can
+        // stop logging misleading "✅ sent" messages on failure.
         try {
             $client = new GuzzleHttp\Client(['verify' => false]);
             $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
-            $client->post($uri, ['json' => [
+            $response = $client->post($uri, ['json' => [
                 "chat_id" => $chatId,
                 "text" => $message,
                 'parse_mode' => "html",
                 "reply_markup" => [
                     "inline_keyboard" => $inlineKeyboard
                 ]]]);
+
+            $body = (string) $response->getBody();
+            $decoded = json_decode($body, true);
+            if (is_array($decoded) && array_key_exists('ok', $decoded) && !(bool) $decoded['ok']) {
+                Log::warning('BotHelper::messageWithKeyboard not ok', [
+                    'chat_id' => $chatId,
+                    'api_response' => mb_substr($body, 0, 500),
+                ]);
+                return false;
+            }
+            return true;
         } catch (GuzzleException $e) {
             Log::warning('BotHelper::messageWithKeyboard failed', [
                 'chat_id' => $chatId,
                 'error' => $e->getMessage(),
             ]);
+            return false;
         }
     }
 
