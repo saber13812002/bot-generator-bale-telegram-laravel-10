@@ -2,6 +2,40 @@
 
 ## [Unreleased](https://github.com/laravel/laravel/compare/v10.0.4...10.x)
 
+### 2026-10-15 — Channel Poster: Multi-Channel Content Sync & Archive
+
+- **Content Sync (fast mode)**: admins forward a link to an already-published
+  post plus its text to the bot; the content is registered once and
+  immediately re-published to the other channels of the same tag
+  (source channel excluded). No extra questions when the tag is unambiguous
+  (source-channel tag → single tag → admin hint → last-used tag).
+  `PostUrlParser` (Eitaa/Bale/Soroush/Telegram) resolves the source and
+  `PostUrlBuilder` constructs the destination post URLs with a
+  confirmed/constructed/unverified link status.
+- **Archive & dedup**: new tables `content_sync_contents`,
+  `content_sync_versions`, `content_sync_operations`, `content_sync_admins`,
+  `content_sync_admin_prefs` (migration `2026_10_15_100000_create_content_sync_tables`).
+  Unique constraints on `(bot, source_platform, source_channel, source_message)`
+  and `(content, destination)` keep concurrent admins from double-publishing;
+  every version stores its `post_url`, `link_status`, `message_id` and
+  `published_at` so old posts can be found later.
+- **Long text**: `TextChunker` splits posts over ~3500 chars into sequential
+  messages; `chunks_count` is recorded per version.
+- **Queue mode**: `/mode` (immediate|queue); queued content reuses
+  `ChannelPosterQueue` slots and `ChannelPosterQueuePublishService` records
+  results back into `content_sync_versions`. Soroush destinations are skipped
+  (no publisher yet) instead of silently failing.
+- **Bot commands**: `/sync [id|url]` (full report), `/last`, `/retry`
+  (failed versions only), `/admin` (multi-admin), `/channels` (list + per-channel
+  detach button). `php artisan content-sync:report [id|--all]` exports a
+  text/CSV report for the 5000-post migration goal.
+- **Bug fixes**: `/channels` delete button now detaches the destination
+  (link-takeover fix) instead of erroring; `logs/TelegramErrorLogger-*.txt`
+  added to `.gitignore`.
+- **Tests**: `tests/Unit/ContentSync/*` (PostUrlBuilder/PostUrlParser/
+  TextChunker) + `tests/Feature/ContentSyncFlowTest.php` (SQLite in-memory,
+  fake publisher) — 49 new tests.
+
 ### 2026-10-09 — LLM Reports, Translation, Queue Control & Channel Campaigns
 
 - **F1 — Quran Bot Smart Report**: `/report` now appends an anonymized 7-day cohort
