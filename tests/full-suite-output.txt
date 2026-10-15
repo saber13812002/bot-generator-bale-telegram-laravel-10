@@ -30,4 +30,11 @@ PHPUnit 10.5.16 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.5.5
 Configuration: C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\phpunit.xml
 
-.
+.DPHP Deprecated:  Constant E_STRICT is deprecated since 8.4, the error level was removed in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\phpunit\phpunit\src\Runner\ErrorHandler.php on line 71
+PHP Deprecated:  Constant PDO::MYSQL_ATTR_SSL_CA is deprecated since 8.5, use Pdo\Mysql::ATTR_SSL_CA instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\config\database.php on line 62
+
+Deprecated: Constant E_STRICT is deprecated since 8.4, the error level was removed in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\phpunit\phpunit\src\Runner\ErrorHandler.php on line 71
+
+Deprecated: Constant PDO::MYSQL_ATTR_SSL_CA is deprecated since 8.5, use Pdo\Mysql::ATTR_SSL_CA instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\config\database.php on line 62
+D............................................................  63 / 288 ( 21%)
+...........................................S......
