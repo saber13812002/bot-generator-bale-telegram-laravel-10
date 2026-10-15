@@ -166,12 +166,13 @@ class PostDailyVerseToChannels extends Command
         try {
             $response = $sender();
             $ok = BotHealthRecorder::isMessengerOk($response);
+            $failDetail = $ok ? null : $this->describeMessengerResponse($response);
             BotHealthRecorder::record([
                 'feature_key' => $featureKey,
                 'platform' => $platform,
                 'event_type' => 'channel_post',
                 'status' => $ok ? 'ok' : 'fail',
-                'message' => $ok ? null : 'messenger response not ok',
+                'message' => $ok ? null : $failDetail,
                 'meta' => [
                     'config_id' => $config->id,
                     'content_type' => $config->content_type,
@@ -182,6 +183,7 @@ class PostDailyVerseToChannels extends Command
                     'config_id' => $config->id,
                     'feature_key' => $featureKey,
                     'bot_id' => null,
+                    'api_response' => $failDetail,
                 ]);
             }
         } catch (\Throwable $e) {
@@ -201,5 +203,32 @@ class PostDailyVerseToChannels extends Command
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * خلاصه‌ی پاسخ API (Telegram/Bale/Eitaa) برای لاگ خطا: دلیل دقیق رد شدن (chat not found / TOKEN_HASH_INVALID / ...).
+     */
+    private function describeMessengerResponse(mixed $response): string
+    {
+        if (is_array($response)) {
+            $str = json_encode($response, JSON_UNESCAPED_UNICODE);
+            return mb_substr($str, 0, 500);
+        }
+
+        if (is_object($response)) {
+            $parts = [];
+            foreach (['ok', 'error_code', 'description', 'error'] as $key) {
+                if (isset($response->$key) && is_scalar($response->$key)) {
+                    $parts[$key] = $response->$key;
+                }
+            }
+            if ($parts) {
+                $str = json_encode($parts, JSON_UNESCAPED_UNICODE);
+                return mb_substr($str, 0, 500);
+            }
+            return get_class($response);
+        }
+
+        return is_string($response) ? mb_substr($response, 0, 500) : gettype($response);
     }
 }
