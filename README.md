@@ -95,12 +95,34 @@ graph LR
 | **📊 Smart Quran Report** | Quran bot `/report` adds anonymized 7-day cohort comparison + optional LLM analysis (plain stats fallback) | گزارش هوشمند: مقایسه با سایر کاربران (ناشناس) + تحلیل LLM با فول‌بک آمار ساده |
 | **🌐 LLM Translation** | `TRANSLATION_DRIVER=one_api\|llm\|auto` — translate via one-api.ir, local LLM, or auto fallback | ترجمه با one-api، LLM محلی، یا خودکار (فول‌بک) |
 | **📤 Queue Control** | Channel Poster `/queue` — view pending/overdue posts, send-now/cancel from chat; `php artisan channel-poster:send-queued` | مدیریت صف: مشاهده و ارسال دستی مطالب صف از ربات یا Artisan |
+| **🔄 Content Sync** | Send a published post URL + text → auto-publish to the other tagged channels with stored post links, dedup, `/sync` reports, multi-admin | ارسال لینک یک پیام + متن → انتشار خودکار در کانال‌های مجاز دیگر با ثبت لینک، جلوگیری از تکرار، گزارش `/sync`، چند ادمین |
 | **🕵️ Watchdog** | `channel-poster:watchdog` hourly — resends overdue posts, red alerts while stuck, one green on recovery | نظارت ساعتی: ارسال مجدد مطالب عقب‌مانده، هشدار قرمز/سبز برای مدیران |
 | **📖 Weekly Read Invite** | `/weeklyinvite` wizard + `weekly-read:invite` — weekly "read post #N" channel invitation | دعوت هفتگی به مطالعهٔ یک مطلب قدیمی از کانال |
 | **💬 Motivational Post** | `/motivation` wizard + `channel-motivation:send` — LLM one-line Persian post on a schedule (daily/biweekly/weekly, staggered days) | پست انگیزشی یک‌خطی LLM بر اساس اسکدیول روز/فراوانی |
 
 Key artisan commands: `channel-poster:send-queued`, `channel-poster:watchdog --dry-run`,
-`weekly-read:invite --dry-run`, `channel-motivation:send --dry-run`.
+`weekly-read:invite --dry-run`, `channel-motivation:send --dry-run`, `content-sync:report`.
+
+### 🔄 Content Sync (Channel Poster) | همگام‌سازی چندکاناله
+
+The **Channel Poster** bot is now a full **content synchronization & archive** system across
+Eitaa, Bale, Soroush Plus and Telegram:
+
+- **Fast mode:** admin sends a published post URL (e.g. `https://eitaa.com/alirezamehran_3/1182`),
+  then the text → the bot publishes to the *other* channels sharing the tag, with a short
+  confirmation (`✅ مطلب ۱۴۸ ثبت شد | در بله ✅ | … | آماده لینک بعدی`) and no extra questions.
+- **Link archive:** every published post stores its public `post_url` + `link_status`
+  (`confirmed` / `constructed` / `unverified` / `none`) in `content_sync_versions` and
+  `channel_poster_publish_logs`. Links are never fabricated.
+- **Dedup:** a source post can be registered only once per bot
+  (`cs_contents_source_unique`); a content version per destination is unique
+  (`cs_versions_content_destination_unique`), safe for concurrent admins.
+- **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`
+  (immediate vs. queue, per admin), `/tags`, `/admin {chat_id}` (owner only).
+- **Reports:** `php artisan content-sync:report 148` (text) or `--csv` for exporting the
+  ~5000-post archive.
+- **Step-by-step live test scenario:**
+  [tests/ManualContentSyncTestScenario.md](tests/ManualContentSyncTestScenario.md)
 
 ---
 
@@ -131,7 +153,7 @@ Key artisan commands: `channel-poster:send-queued`, `channel-poster:watchdog --d
 | 14 | **📖 Blog Bot** | Connect CMS to messenger | اتصال سیستم مدیریت محتوا به پیام‌رسان |
 | 15 | **📖 Get Chat ID** | Show chat/channel/group IDs | نمایش شناسه چت، کانال و گروه |
 | 16 | **🏛️ MP Contact** | Tickets and polls for an MP office | ارتباط مردمی با نماینده مجلس |
-| 17 | **📤 Channel Poster** | Post text/photo/audio/video from Bale private chat to a channel | ارسال مطلب از خصوصی بله به کانال |
+| 17 | **📤 Channel Poster** | Post text/media from Bale private chat to a channel + multi-channel content sync & archive | ارسال مطلب از خصوصی بله به کانال + همگام‌سازی و آرشیو چندکاناله |
 
 ### 📚 Books & Media | کتاب و رسانه
 
@@ -251,6 +273,7 @@ Looking for the original README? [Click here](README_LEGACY.md)
 | [📖 Book Library Quick Start](QUICK_START_BOOK_LIBRARY.md) | Guide for setting up the Smart Book Library bot |
 | [📖 Architecture](plans/BOT_GENERATOR_ARCHITECTURE.md) | System architecture documentation |
 | [📖 Get Started](docs/GETTING-STARTED.md) | Development setup guide |
+| [🔄 Content Sync Test Scenario](tests/ManualContentSyncTestScenario.md) | Step-by-step live test for the multi-channel sync feature |
 | [📖 API Docs](docs/API_README.md) | API documentation |
 | [📖 Swagger](swagger.yaml) | API specification (OpenAPI) |
 

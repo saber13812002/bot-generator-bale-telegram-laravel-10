@@ -11,7 +11,12 @@ use App\Models\BotUserState;
 use App\Models\BotUsers;
 use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterQueue;
+use App\Models\ContentSyncAdmin;
+use App\Models\ContentSyncAdminPrefs;
+use App\Models\ContentSyncContent;
 use App\Services\ChannelPosterQueuePublishService;
+use App\Services\ContentSync\ContentSyncService;
+use App\Services\ContentSync\PostUrlParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -34,10 +39,15 @@ class ChannelPosterBotController extends Controller
     public const STATE_AWAITING_SIGN_CHANNEL = 'cp_awaiting_sign_channel';
     public const STATE_AWAITING_SIGN_LINK = 'cp_awaiting_sign_link';
 
+    // === Content Sync (همگام‌سازی چندکاناله) ===
+    public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
+    public const STATE_SYNC_AWAITING_TAG = 'cp_sync_awaiting_tag';
+
     public function __construct(
         private ChannelPosterBotService $service,
         private ChannelPosterPublisherFactory $publisherFactory,
-        private ChannelPosterQueuePublishService $queuePublishService
+        private ChannelPosterQueuePublishService $queuePublishService,
+        private ContentSyncService $contentSync
     ) {
     }
 
@@ -204,7 +214,7 @@ class ChannelPosterBotController extends Controller
         string $type,
         string $chatId
     ): void {
-        if (!$this->service->isOwner($botItem, $chatId, $type)) {
+        if (!$this->isOwnerOrAdmin($botItem, $chatId, $type)) {
             if ($this->service->claimOwnerIfEmpty($botItem, $chatId, $type)) {
                 Log::info('[ChannelPoster] Claimed empty owner', [
                     'bot_id' => $botItem->id,
@@ -245,12 +255,68 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        if (is_string($text) && ($text === '/queue' || str_starts_with($text, '/queue '))) {
+        if (is_string($text) && preg_match('#^/queue\b#', $text)) {
             $this->showQueueList($publisher, $botItem, $type, $chatId);
             return;
         }
 
+        // === دستورات همگام‌سازی (Content Sync) ===
+        if (is_string($text) && preg_match('#^/(new|reset)\b#', $text)) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_ready'));
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/(mode|queue_mode|now_mode)\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncModeCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/(status|report)\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncStatusCommand($publisher, $botItem, $type, $chatId, $text);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/retry\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncRetryCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/last\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncLastCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/sync\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncCommand($publisher, $botItem, $type, $chatId, $text);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/tags\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncTagsCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/admin\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSyncAdminCommand($publisher, $botItem, $type, $chatId, $text);
+            return;
+        }
+
         $state = $this->getState($botItem, $chatId, $type);
+
+        // === حالت همگام‌سازی: انتظار متن بعد از لینک ===
+        if ($state && $state->state === self::STATE_SYNC_AWAITING_TEXT && is_string($text) && !str_starts_with($text, '/')) {
+            $this->handleSyncText($publisher, $botItem, $type, $chatId, $text, $state);
+            return;
+        }
+
+        // === حالت همگام‌سازی: انتخاب تگ از دکمه‌ها ===
+        if ($state && $state->state === self::STATE_SYNC_AWAITING_TAG && is_string($text)
+            && preg_match('#^/sync:tag:\d+$#', trim($text))
+        ) {
+            $this->handleSyncTagChoice($publisher, $botItem, $type, $chatId, $state, (int) substr(trim($text), 10));
+            return;
+        }
 
         if ($state && is_string($text) && $this->isShortTagName($text)) {
             if ($state->state === self::STATE_AWAITING_UNTAGGED_NAME) {
@@ -288,6 +354,15 @@ class ChannelPosterBotController extends Controller
                 $this->handleExternalChatId($publisher, $botItem, $type, $chatId, $text, $state->data ?? [], ChannelPosterDestination::PLATFORM_EITAA);
                 return;
             }
+        }
+
+        // === ورودی سریع fast mode: ادمین فقط یک لینک پیام می‌فرستد ===
+        $parsedLink = $this->isAdmin($botItem, $chatId, $type)
+            ? PostUrlParser::extractFromText($text)
+            : null;
+        if ($parsedLink) {
+            $this->handleSyncLink($publisher, $botItem, $type, $chatId, (string) $text, $parsedLink);
+            return;
         }
 
         $forward = $this->service->parseChannelTarget($message);
@@ -555,6 +630,19 @@ class ChannelPosterBotController extends Controller
         }
         if (str_starts_with($data, 'cp:signchn:')) {
             $this->handleSignChannelCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        // Handle content-sync callbacks
+        if (str_starts_with($data, 'cps:tag:')) {
+            $index = (int) substr($data, 8);
+            $this->handleSyncTagCallback($publisher, $botItem, $type, $chatId, $index);
+            return;
+        }
+        if ($data === 'cps:mode:immediate' || $data === 'cps:mode:queue') {
+            $mode = $data === 'cps:mode:immediate' ? ContentSyncAdminPrefs::MODE_IMMEDIATE : ContentSyncAdminPrefs::MODE_QUEUE;
+            ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill(['publish_mode' => $mode])->save();
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_mode_set', ['mode' => $mode]));
             return;
         }
 
@@ -1189,5 +1277,392 @@ class ChannelPosterBotController extends Controller
         }
 
         $this->showQueueList($publisher, $botItem, $type, $chatId);
+    }
+
+    /* ==========================================================
+     * Content Sync — همگام‌سازی چندکاناله
+     * ========================================================== */
+
+    private function isOwnerOrAdmin(Bot $botItem, string $chatId, string $type): bool
+    {
+        return $this->service->isOwner($botItem, $chatId, $type) || $this->isAdmin($botItem, $chatId, $type);
+    }
+
+    private function isAdmin(Bot $botItem, string $chatId, string $type): bool
+    {
+        if ($this->service->isOwner($botItem, $chatId, $type)) {
+            return true;
+        }
+
+        return ContentSyncAdmin::isRegistered($botItem->id, $chatId, $type);
+    }
+
+    /**
+     * fast mode — مرحله ۱: ادمین لینک پیام مبدأ را فرستاده.
+     */
+    private function handleSyncLink(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $rawUrl,
+        array $parsed
+    ): void {
+        try {
+            $reg = $this->contentSync->registerSource($botItem, $rawUrl, $chatId, $type);
+        } catch (\InvalidArgumentException $e) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_invalid_url'));
+            return;
+        }
+
+        $content = $reg['content'];
+
+        if ($reg['duplicate']) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_duplicate', [
+                'id' => $content->id,
+                'url' => $content->source_url,
+            ]));
+            return;
+        }
+
+        if (!$this->service->hasAnyDestination($botItem->id)) {
+            $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TEXT, [
+                'content_id' => $content->id,
+                'source_destination_id' => $reg['source_destination_id'],
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_link_registered_ask_forward', [
+                'id' => $content->id,
+            ]));
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TEXT, [
+            'content_id' => $content->id,
+            'source_destination_id' => $reg['source_destination_id'],
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_link_registered', ['id' => $content->id]));
+    }
+
+    /**
+     * fast mode — مرحله ۲: متن مطلب رسید؛ تگ را تعیین کن و منتشر کن / صف بگذار.
+     */
+    private function handleSyncText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        BotUserState $state
+    ): void {
+        $content = ContentSyncContent::find((int) $state->getData('content_id', 0));
+        if (!$content || (int) $content->bot_id !== (int) $botItem->id) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_content_expired'));
+            return;
+        }
+
+        $this->contentSync->attachText($content, $text);
+        $sourceDestinationId = $state->getData('source_destination_id');
+        $sourceDestinationId = $sourceDestinationId === null ? null : (string) $sourceDestinationId;
+
+        $tagResult = $this->contentSync->resolveTag(
+            $botItem->id,
+            $sourceDestinationId,
+            null,
+            $chatId,
+            $type
+        );
+
+        if ($tagResult['status'] === 'ask') {
+            if ($tagResult['groups'] === []) {
+                $this->clearState($botItem, $chatId, $type);
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_no_targets'));
+                return;
+            }
+            $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TAG, [
+                'content_id' => $content->id,
+                'source_destination_id' => $sourceDestinationId,
+            ]);
+            $this->sendSyncTagKeyboard($publisher, $chatId, $tagResult['groups']);
+            return;
+        }
+
+        $this->syncPublish($publisher, $botItem, $type, $chatId, $content, $tagResult['tag']);
+    }
+
+    /**
+     * fast mode — انتخاب تگ از دکمه‌ها (فقط وقتی ابهام بوده).
+     */
+    private function handleSyncTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $index
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SYNC_AWAITING_TAG) {
+            return;
+        }
+
+        $content = ContentSyncContent::find((int) $state->getData('content_id', 0));
+        $groups = $this->contentSync->resolveTag($botItem->id, null, null, null, $type)['groups'];
+        $tag = $groups[$index]['key'] ?? null;
+
+        if (!$content || $tag === null) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_content_expired'));
+            return;
+        }
+
+        $this->syncPublish($publisher, $botItem, $type, $chatId, $content, $tag);
+    }
+
+    private function handleSyncTagChoice(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        BotUserState $state,
+        int $index
+    ): void {
+        $this->handleSyncTagCallback($publisher, $botItem, $type, $chatId, $index);
+    }
+
+    /**
+     * fast mode — مرحله ۳: انتشار (فوری یا صف) + تأیید کوتاه + آماده لینک بعدی.
+     */
+    private function syncPublish(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        ContentSyncContent $content,
+        string $tag
+    ): void {
+        $mode = ContentSyncAdminPrefs::getMode($botItem->id, $chatId, $type);
+
+        if ($mode === ContentSyncAdminPrefs::MODE_QUEUE) {
+            $enq = $this->contentSync->enqueueForTag($content, $tag, $chatId, $type);
+            $this->clearState($botItem, $chatId, $type);
+
+            if ($enq['version_count'] === 0) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_no_targets'));
+                return;
+            }
+
+            $time = $enq['queue']->scheduled_at->setTimezone('Asia/Tehran')->format('H:i');
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_queued_ready', [
+                'id' => $content->id,
+                'time' => $time,
+            ]));
+            return;
+        }
+
+        // انتشار فوری
+        $outcome = $this->contentSync->publishImmediate($content, $tag, $publisher, $chatId, $type);
+
+        if ($outcome['destinations']->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_no_targets'));
+            return;
+        }
+
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content->id, $outcome['results']));
+    }
+
+    private function sendSyncTagKeyboard(ChannelPosterPublisher $publisher, string $chatId, array $groups): void
+    {
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cps:tag:' . $index]];
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_ask_tag'), $rows);
+    }
+
+    /* ---------- دستورات ---------- */
+
+    private function handleSyncModeCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $mode = ContentSyncAdminPrefs::getMode($botItem->id, $chatId, $type);
+        $rows = [
+            [['text' => trans('bot.channel_sync_mode_btn_now'), 'callback_data' => 'cps:mode:immediate']],
+            [['text' => trans('bot.channel_sync_mode_btn_queue'), 'callback_data' => 'cps:mode:queue']],
+        ];
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_mode_current', ['mode' => $mode]), $rows);
+    }
+
+    private function handleSyncStatusCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text
+    ): void {
+        $arg = trim(explode(' ', $text, 2)[1] ?? '');
+
+        $content = $arg !== ''
+            ? $this->contentSync->findContent($botItem, $arg)
+            : $this->contentSync->lastContent($botItem);
+
+        if (!$content) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_not_found'));
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildReport($content));
+    }
+
+    private function handleSyncRetryCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $content = $this->contentSync->lastContent($botItem);
+        if (!$content) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_not_found'));
+            return;
+        }
+
+        $failed = $content->versions()
+            ->where('publish_status', \App\Models\ContentSyncVersion::STATUS_FAILED)
+            ->count();
+
+        if ($failed === 0) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_retry_nothing', ['id' => $content->id]));
+            return;
+        }
+
+        $pub = $this->publisherFactory->make(
+            $type === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token,
+            $type
+        );
+
+        $outcome = $this->contentSync->retryFailed($content, $pub, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content->id, $outcome['results']));
+    }
+
+    private function handleSyncLastCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $content = $this->contentSync->lastContent($botItem);
+        if (!$content) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_none'));
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildReport($content));
+    }
+
+    private function handleSyncCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text
+    ): void {
+        $arg = trim(explode(' ', $text, 2)[1] ?? '');
+        if ($arg === '') {
+            $this->handleSyncLastCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        $content = $this->contentSync->findContent($botItem, $arg);
+        if (!$content) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_not_found'));
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildReport($content));
+    }
+
+    private function handleSyncTagsCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_no_tags'));
+            return;
+        }
+
+        $lines = [trans('bot.channel_sync_tags_header')];
+        foreach ($groups as $group) {
+            $count = \App\Models\ChannelPosterDestination::where('bot_id', $botItem->id)
+                ->where('is_active', true)
+                ->where('tag', $group['key'])
+                ->count();
+            $lines[] = '• ' . $group['label'] . ' (' . $count . ')';
+        }
+
+        $lines[] = '';
+        $lines[] = trans('bot.channel_sync_last_tag', [
+            'tag' => ContentSyncAdminPrefs::where('bot_id', $botItem->id)
+                ->where('admin_chat_id', $chatId)
+                ->where('origin', $type)
+                ->value('last_tag') ?? '—',
+        ]);
+
+        $publisher->sendPrivateMessage($chatId, implode("\n", $lines));
+    }
+
+    private function handleSyncAdminCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text
+    ): void {
+        // فقط مالک می‌تواند ادمین اضافه کند
+        if (!$this->service->isOwner($botItem, $chatId, $type)) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
+            return;
+        }
+
+        $arg = trim(explode(' ', $text, 2)[1] ?? '');
+        if ($arg === '') {
+            $admins = \App\Models\ContentSyncAdmin::where('bot_id', $botItem->id)->get();
+            if ($admins->isEmpty()) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_admin_none'));
+                return;
+            }
+
+            $lines = [trans('bot.channel_sync_admin_header')];
+            foreach ($admins as $admin) {
+                $lines[] = '• ' . $admin->admin_chat_id . ' (' . $admin->origin . ')';
+            }
+            $publisher->sendPrivateMessage($chatId, implode("\n", $lines));
+            return;
+        }
+
+        if (preg_match('/^\d+$/', $arg) !== 1) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_admin_invalid'));
+            return;
+        }
+
+        \App\Models\ContentSyncAdmin::add($botItem->id, $arg, $type);
+        \App\Models\ContentSyncOperation::log(
+            $botItem->id,
+            $chatId,
+            $type,
+            null,
+            \App\Models\ContentSyncOperation::OP_ADD_ADMIN,
+            \App\Models\ContentSyncOperation::RESULT_OK
+        );
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_admin_added', ['chat_id' => $arg]));
     }
 }

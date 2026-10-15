@@ -100,6 +100,7 @@ trait UsesChannelPosterSqlite
             $table->string('status', 20)->default('pending');
             $table->string('owner_chat_id', 64)->nullable();
             $table->string('owner_origin', 20)->default('bale');
+            $table->unsignedBigInteger('content_id')->nullable();
             $table->timestamps();
         });
 
@@ -113,7 +114,101 @@ trait UsesChannelPosterSqlite
             $table->string('message_id', 128)->nullable();
             $table->text('error')->nullable();
             $table->dateTime('published_at');
+            $table->string('post_url', 512)->nullable();
+            $table->string('link_status', 20)->nullable();
+            $table->unsignedBigInteger('content_id')->nullable();
             $table->timestamps();
+        });
+
+        $this->setUpContentSyncTables();
+    }
+
+    /**
+     * جدول‌های همگام‌سازی چندکاناله (Content Sync)
+     */
+    protected function setUpContentSyncTables(): void
+    {
+        Schema::dropIfExists('content_sync_admins');
+        Schema::dropIfExists('content_sync_admin_prefs');
+        Schema::dropIfExists('content_sync_operations');
+        Schema::dropIfExists('content_sync_versions');
+        Schema::dropIfExists('content_sync_contents');
+
+        Schema::create('content_sync_contents', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->text('text')->nullable();
+            $table->char('text_hash', 64)->nullable();
+            $table->string('content_type', 20)->default('text');
+            $table->string('created_by_chat_id', 64)->nullable();
+            $table->string('created_by_origin', 20)->default('bale');
+            $table->string('source_platform', 20);
+            $table->string('source_channel_id', 128);
+            $table->string('source_message_id', 64);
+            $table->string('source_url', 512);
+            $table->string('source_url_raw', 512)->nullable();
+            $table->string('tag', 64)->nullable();
+            $table->timestamps();
+            $table->unique(
+                ['bot_id', 'source_platform', 'source_channel_id', 'source_message_id'],
+                'cs_contents_source_unique'
+            );
+        });
+
+        Schema::create('content_sync_versions', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('content_id');
+            $table->unsignedBigInteger('bot_id');
+            $table->unsignedBigInteger('destination_id')->nullable();
+            $table->string('platform', 20);
+            $table->string('channel_id', 128);
+            $table->string('channel_username', 128)->nullable();
+            $table->string('message_id', 128)->nullable();
+            $table->string('post_url', 512)->nullable();
+            $table->string('link_status', 20)->default('none');
+            $table->string('publish_status', 20)->default('pending');
+            $table->dateTime('published_at')->nullable();
+            $table->text('last_error')->nullable();
+            $table->unsignedBigInteger('queue_id')->nullable();
+            $table->integer('chunks_count')->default(1);
+            $table->timestamps();
+            $table->unique(
+                ['content_id', 'destination_id'],
+                'cs_versions_content_destination_unique'
+            );
+        });
+
+        Schema::create('content_sync_operations', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('admin_chat_id', 64)->nullable();
+            $table->string('admin_origin', 20)->default('bale');
+            $table->unsignedBigInteger('content_id')->nullable();
+            $table->string('operation', 40);
+            $table->string('result', 20)->nullable();
+            $table->text('error')->nullable();
+            $table->timestamp('attempted_at');
+            $table->timestamps();
+        });
+
+        Schema::create('content_sync_admin_prefs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('admin_chat_id', 64);
+            $table->string('origin', 20)->default('bale');
+            $table->string('last_tag', 64)->nullable();
+            $table->string('publish_mode', 20)->default('immediate');
+            $table->timestamps();
+            $table->unique(['bot_id', 'admin_chat_id', 'origin'], 'cs_prefs_admin_unique');
+        });
+
+        Schema::create('content_sync_admins', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('admin_chat_id', 64);
+            $table->string('origin', 20)->default('bale');
+            $table->timestamps();
+            $table->unique(['bot_id', 'admin_chat_id', 'origin'], 'cs_admins_unique');
         });
     }
 }

@@ -12,6 +12,8 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
     public array $callbacks = [];
     public bool $testSendSucceeds = true;
     public bool $publishSucceeds = true;
+    /** @var list<string> Platforms that should always fail to publish (e.g. ['bale']). */
+    public array $failPlatforms = [];
 
     public function sendPrivateMessage(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
     {
@@ -51,7 +53,9 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'bot_token' => $botToken,
         ];
 
-        return ['success' => $this->publishSucceeds, 'message_id' => $this->publishSucceeds ? 'fake-msg-' . count($this->publishes) : null];
+        $succeeds = $this->publishSucceeds && !in_array($platform, $this->failPlatforms, true);
+
+        return ['success' => $succeeds, 'message_id' => $succeeds ? 'fake-msg-' . count($this->publishes) : null];
     }
 
     public function answerCallback(?string $callbackId, string $text = ''): void

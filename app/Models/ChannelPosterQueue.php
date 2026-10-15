@@ -25,6 +25,7 @@ class ChannelPosterQueue extends Model
         'status',
         'owner_chat_id',
         'owner_origin',
+        'content_id',
     ];
 
     protected $casts = [

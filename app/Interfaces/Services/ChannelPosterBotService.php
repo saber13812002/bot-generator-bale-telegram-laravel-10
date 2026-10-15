@@ -90,7 +90,8 @@ interface ChannelPosterBotService
         bool $signatureEnabled,
         \Carbon\Carbon $scheduledAt,
         ?string $ownerChatId = null,
-        string $ownerOrigin = 'bale'
+        string $ownerOrigin = 'bale',
+        ?int $contentId = null
     ): \App\Models\ChannelPosterQueue;
 
     /**
@@ -103,7 +104,10 @@ interface ChannelPosterBotService
         bool $success,
         ?string $messageId = null,
         ?string $error = null,
-        ?int $queueId = null
+        ?int $queueId = null,
+        ?string $postUrl = null,
+        ?string $linkStatus = null,
+        ?int $contentId = null
     ): \App\Models\ChannelPosterPublishLog;
 
     /**

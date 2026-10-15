@@ -441,7 +441,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         bool $signatureEnabled,
         Carbon $scheduledAt,
         ?string $ownerChatId = null,
-        string $ownerOrigin = 'bale'
+        string $ownerOrigin = 'bale',
+        ?int $contentId = null
     ): ChannelPosterQueue {
         return ChannelPosterQueue::create([
             'bot_id' => $botId,
@@ -454,6 +455,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             'status' => ChannelPosterQueue::STATUS_PENDING,
             'owner_chat_id' => $ownerChatId,
             'owner_origin' => $ownerOrigin,
+            'content_id' => $contentId,
         ]);
     }
 
@@ -464,7 +466,10 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         bool $success,
         ?string $messageId = null,
         ?string $error = null,
-        ?int $queueId = null
+        ?int $queueId = null,
+        ?string $postUrl = null,
+        ?string $linkStatus = null,
+        ?int $contentId = null
     ): ChannelPosterPublishLog {
         return ChannelPosterPublishLog::create([
             'bot_id' => $botId,
@@ -475,6 +480,9 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             'message_id' => $messageId,
             'error' => $error,
             'published_at' => now(),
+            'post_url' => $postUrl,
+            'link_status' => $linkStatus,
+            'content_id' => $contentId,
         ]);
     }
 

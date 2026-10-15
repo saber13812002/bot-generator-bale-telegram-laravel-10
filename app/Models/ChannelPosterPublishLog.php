@@ -15,6 +15,9 @@ class ChannelPosterPublishLog extends Model
         'message_id',
         'error',
         'published_at',
+        'post_url',
+        'link_status',
+        'content_id',
     ];
 
     protected $casts = [

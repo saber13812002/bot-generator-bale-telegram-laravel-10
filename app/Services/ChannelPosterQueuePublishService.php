@@ -6,6 +6,7 @@ use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
 use App\Models\ChannelPosterQueue;
+use App\Models\ContentSyncVersion;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -25,6 +26,7 @@ class ChannelPosterQueuePublishService
     public function __construct(
         private ChannelPosterBotService $service,
         private ChannelPosterPublisherFactory $publisherFactory,
+        private \App\Services\ContentSync\ContentSyncService $contentSync,
     ) {
     }
 
@@ -61,6 +63,22 @@ class ChannelPosterQueuePublishService
             $destinations = $this->service->resolveByTag($bot->id, $tag);
             if ($destinations->isEmpty()) {
                 $destinations = $this->service->resolveDestinations($bot->id, 'all');
+            }
+
+            // اگر این آیتم متعلق به یک content است، فقط مقصدهای نسخه‌های queued آن منتشر می‌شوند
+            if ($item->content_id) {
+                $queuedVersionDestIds = ContentSyncVersion::where('content_id', $item->content_id)
+                    ->where('queue_id', $item->id)
+                    ->where('publish_status', ContentSyncVersion::STATUS_QUEUED)
+                    ->whereNotNull('destination_id')
+                    ->pluck('destination_id')
+                    ->all();
+
+                if ($queuedVersionDestIds !== []) {
+                    $destinations = $destinations->filter(
+                        fn ($d) => in_array($d->id, $queuedVersionDestIds, true)
+                    )->values();
+                }
             }
 
             if ($destinations->isEmpty()) {
@@ -113,6 +131,7 @@ class ChannelPosterQueuePublishService
                     'destination_id' => $destination->id,
                     'platform' => $destination->platform,
                     'success' => $ok,
+                    'message_id' => $messageId,
                 ];
 
                 if (!$ok) {
@@ -124,6 +143,18 @@ class ChannelPosterQueuePublishService
                 'status' => $allOk ? ChannelPosterQueue::STATUS_PUBLISHED : ChannelPosterQueue::STATUS_FAILED,
                 'published_at' => now(),
             ]);
+
+            // ثبت نسخه‌های همگام‌سازی (post_url + link_status)
+            if ($item->content_id) {
+                try {
+                    $this->contentSync->recordQueueResults($item, $results);
+                } catch (Throwable $e) {
+                    Log::warning('[ChannelPoster] Failed to record content versions', [
+                        'queue_id' => $item->id,
+                        'error'    => $e->getMessage(),
+                    ]);
+                }
+            }
 
             // Notify owner
             if ($notifyOwner && $item->owner_chat_id) {
