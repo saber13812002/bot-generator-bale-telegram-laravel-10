@@ -962,4 +962,8 @@ Chat ID: :chat_id',
     'channel_sync_admin_none' => 'ادمین افزوده‌ای نداری. /admin {chat_id} برای افزودن ادمین.',
     'channel_sync_admin_invalid' => 'chat_id ادمین باید عدد باشد. مثال: /admin 123456789',
     'channel_sync_admin_added' => 'ادمین :chat_id اضافه شد. /admin برای لیست ادمین‌ها.',
+    'channel_sync_channels_header' => '📡 کانال‌های متصل — برای قطع ارتباط کانال با تگ، دکمه هر کانال را بزن (حذف می‌شود، اطلاعاتش می‌ماند):',
+    'channel_sync_channels_empty' => 'کانال متصلی نداری. /start یا /add',
+    'channel_sync_channel_unlinked' => '✂️ ارتباط این کانال قطع شد: :channel'."\n"."دیگر در لیست تگ‌ها و مقاصد همگام‌سازی نیست. برای اتصال دوباره: /add",
+    'channel_sync_channels_gone' => 'این کانال پیدا نشد (شاید قبلا حذف شده).',
 ];

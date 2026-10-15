@@ -664,6 +664,10 @@ Chat ID: :chat_id',
     'channel_sync_admin_none' => 'No added admins. /admin {chat_id} to add one.',
     'channel_sync_admin_invalid' => 'The admin chat_id must be numeric. Example: /admin 123456789',
     'channel_sync_admin_added' => 'Admin :chat_id added. /admin to list admins.',
+    'channel_sync_channels_header' => '📡 Connected channels — press a channel button to sever its link to the tag (it is deactivated, not deleted):',
+    'channel_sync_channels_empty' => 'No connected channels. /start or /add',
+    'channel_sync_channel_unlinked' => '✂️ Unlinked channel: :channel'."\n"."It is no longer in tags or sync destinations. To reconnect: /add",
+    'channel_sync_channels_gone' => 'That channel was not found (it may have been removed already).',
 
     // Quran Bot — reciters & search improvements (fallback for locales without keys)
     'search' => 'Search',

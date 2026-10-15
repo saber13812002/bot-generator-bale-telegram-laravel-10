@@ -302,10 +302,24 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        if (is_string($text) && preg_match('#^/channels\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleChannelsCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
         $state = $this->getState($botItem, $chatId, $type);
 
         // === حالت همگام‌سازی: انتظار متن بعد از لینک ===
         if ($state && $state->state === self::STATE_SYNC_AWAITING_TEXT && is_string($text) && !str_starts_with($text, '/')) {
+            // اگر به‌جای متن، لینک پیام جدیدی آمده باشد، آن را «متن» قلمداد نکن؛
+            // لینک جدید یک محتوای جدید می‌سازد.
+            $pendingLink = $this->isAdmin($botItem, $chatId, $type)
+                ? PostUrlParser::extractFromText($text)
+                : null;
+            if ($pendingLink) {
+                $this->handleSyncLink($publisher, $botItem, $type, $chatId, $text, $pendingLink);
+                return;
+            }
             $this->handleSyncText($publisher, $botItem, $type, $chatId, $text, $state);
             return;
         }
@@ -643,6 +657,12 @@ class ChannelPosterBotController extends Controller
             $mode = $data === 'cps:mode:immediate' ? ContentSyncAdminPrefs::MODE_IMMEDIATE : ContentSyncAdminPrefs::MODE_QUEUE;
             ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill(['publish_mode' => $mode])->save();
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_mode_set', ['mode' => $mode]));
+            return;
+        }
+
+        // حذف کانال از لیست مقاصد (قطع ارتباط کانال با تگ)
+        if (str_starts_with($data, 'cp:unlink:')) {
+            $this->handleUnlinkCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 10));
             return;
         }
 
@@ -1664,5 +1684,78 @@ class ChannelPosterBotController extends Controller
         );
 
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_admin_added', ['chat_id' => $arg]));
+    }
+
+    /**
+     * /channels — فهرست کانال‌های متصل با دکمه حذف برای هر کدام.
+     */
+    private function handleChannelsCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $destinations = ChannelPosterDestination::where('bot_id', $botItem->id)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+
+        if ($destinations->isEmpty()) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_empty'));
+            return;
+        }
+
+        $rows = [];
+        foreach ($destinations as $dest) {
+            $label = $dest->platform
+                . ' — '
+                . ($dest->channel_title ?: $dest->channel_chat_id)
+                . ' (' . $this->service->displayTagLabel($dest->tag) . ')';
+            $rows[] = [
+                ['text' => $label, 'callback_data' => 'cp:unlink:' . $dest->id],
+            ];
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_header'), $rows);
+    }
+
+    /**
+     * دکمه «حذف» — کانال را غیرفعال می‌کند تا از تگ و مقاصد همگام‌سازی کنار برود.
+     */
+    private function handleUnlinkCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destinationId
+    ): void {
+        $destination = ChannelPosterDestination::where('bot_id', $botItem->id)
+            ->where('id', $destinationId)
+            ->first();
+
+        if (!$destination) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_gone'));
+            return;
+        }
+
+        $destination->forceFill(['is_active' => false])->save();
+        \App\Models\ContentSyncOperation::log(
+            $botItem->id,
+            $chatId,
+            $type,
+            null,
+            \App\Models\ContentSyncOperation::OP_UNLINK,
+            \App\Models\ContentSyncOperation::RESULT_OK,
+            'destination_id=' . $destination->id
+        );
+
+        $label = $destination->platform
+            . ' — '
+            . ($destination->channel_title ?: $destination->channel_chat_id)
+            . ' (' . $this->service->displayTagLabel($destination->tag) . ')';
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channel_unlinked', ['channel' => $label]));
+
+        // فهرست به‌روز را دوباره نشان بده
+        $this->handleChannelsCommand($publisher, $botItem, $type, $chatId);
     }
 }

@@ -17,6 +17,7 @@ class ContentSyncOperation extends Model
     public const OP_REPORT = 'report';
     public const OP_CSV_EXPORT = 'csv_export';
     public const OP_ADD_ADMIN = 'add_admin';
+    public const OP_UNLINK = 'unlink';
 
     public const RESULT_OK = 'ok';
     public const RESULT_FAILED = 'failed';

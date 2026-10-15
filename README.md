@@ -118,7 +118,11 @@ Eitaa, Bale, Soroush Plus and Telegram:
   (`cs_contents_source_unique`); a content version per destination is unique
   (`cs_versions_content_destination_unique`), safe for concurrent admins.
 - **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`
-  (immediate vs. queue, per admin), `/tags`, `/admin {chat_id}` (owner only).
+  (immediate vs. queue, per admin), `/tags`, `/admin {chat_id}` (owner only),
+  `/channels` (lists connected channels with a ✂️ delete button to sever a
+  channel's link to its tag — it is deactivated, not hard-deleted).
+- A **new link always starts a new content**, even if the bot is still waiting
+  for the text of the previous link (the link is never mistaken for the text).
 - **Reports:** `php artisan content-sync:report 148` (text) or `--csv` for exporting the
   ~5000-post archive.
 - **Step-by-step live test scenario:**

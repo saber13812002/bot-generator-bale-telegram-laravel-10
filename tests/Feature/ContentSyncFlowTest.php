@@ -479,6 +479,94 @@ class ContentSyncFlowTest extends TestCase
         );
     }
 
+    public function test_link_sent_while_awaiting_text_starts_new_content(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        // لینک اول ثبت می‌شود و ربات در حالت «انتظار متن» قرار می‌گیرد
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $state = $this->ownerState($bot->id);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TEXT, $state->state);
+
+        // به‌جای متن، لینک پیام جدید می‌آید — نباید «متن مطلب ۱» قلمداد شود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1183');
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_link_registered', ['id' => 2]),
+            (string) $this->publisher->lastPrivateText()
+        );
+
+        // محتوای ۱ هنوز بدون متن مانده و محتوا ۲ ثبت شده
+        $this->assertNull(ContentSyncContent::find(1)->text);
+        $content2 = ContentSyncContent::find(2);
+        $this->assertNotNull($content2);
+        $this->assertSame('https://eitaa.com/alirezamehran_3/1183', $content2->source_url);
+
+        // هنوز در انتظار متن (این‌بار برای محتوا ۲)
+        $state = $this->ownerState($bot->id);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TEXT, $state->state);
+        $this->assertSame(2, (int) $state->getData('content_id'));
+    }
+
+    public function test_channels_command_lists_destinations_and_unlink_button_deactivates(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        // فهرست کانال‌های متصل با دکمه حذف
+        $this->postText($this->ownerChatId, '/channels');
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_channels_header'),
+            $this->publisher->privateMessages[$last]['text']
+        );
+        $keyboard = $this->publisher->privateMessages[$last]['keyboard'] ?? [];
+        $this->assertIsArray($keyboard);
+        $this->assertCount(3, $keyboard);
+
+        $callbackData = $keyboard[0][0]['callback_data'];
+        $this->assertMatchesRegularExpression('#^cp:unlink:\d+$#', $callbackData);
+        $destId = (int) substr($callbackData, 10);
+
+        // حذف کانال — ارتباط آن با تگ قطع می‌شود
+        $this->postCallback($callbackData);
+        $total = count($this->publisher->privateMessages);
+        // پیام حذف + فهرست به‌روز دوباره ارسال می‌شود
+        $label = 'eitaa — Alireza (tag1)';
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_channel_unlinked', ['channel' => $label]),
+            $this->publisher->privateMessages[$total - 2]['text']
+        );
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_channels_header'),
+            $this->publisher->privateMessages[$total - 1]['text']
+        );
+
+        $this->assertFalse((bool) ChannelPosterDestination::find($destId)->is_active);
+
+        // شمارش تگ در /tags به ۲ کاهش پیدا می‌کند
+        $this->postText($this->ownerChatId, '/tags');
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('tag1 (2)', $report);
+
+        // در لیست /channels هم فقط دو کانال باقی مانده
+        $this->postText($this->ownerChatId, '/channels');
+        $last = array_key_last($this->publisher->privateMessages);
+        $keyboard = $this->publisher->privateMessages[$last]['keyboard'] ?? [];
+        $this->assertCount(2, (array) $keyboard);
+    }
+
+    public function test_unlink_unknown_destination_is_handled_gracefully(): void
+    {
+        $bot = $this->createBot();
+
+        $this->postCallback('cp:unlink:999');
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_channels_gone'),
+            (string) $this->publisher->lastPrivateText()
+        );
+    }
+
     public function test_mode_command_shows_current_mode_with_keyboard(): void
     {
         $bot = $this->createBot();

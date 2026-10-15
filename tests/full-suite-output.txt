@@ -1,0 +1,33 @@
+PHP Deprecated:  ldap_exop_sync(): Implicitly marking parameter $request_data as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\symfony\polyfill-php83\bootstrap.php on line 43
+
+Deprecated: ldap_exop_sync(): Implicitly marking parameter $request_data as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\symfony\polyfill-php83\bootstrap.php on line 43
+PHP Deprecated:  ldap_exop_sync(): Implicitly marking parameter $controls as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\symfony\polyfill-php83\bootstrap.php on line 43
+
+Deprecated: ldap_exop_sync(): Implicitly marking parameter $controls as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\symfony\polyfill-php83\bootstrap.php on line 43
+PHP Deprecated:  Termwind\style(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\nunomaduro\termwind\src\Functions.php on line 29
+
+Deprecated: Termwind\style(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\nunomaduro\termwind\src\Functions.php on line 29
+PHP Deprecated:  Termwind\ask(): Implicitly marking parameter $autocomplete as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\nunomaduro\termwind\src\Functions.php on line 61
+
+Deprecated: Termwind\ask(): Implicitly marking parameter $autocomplete as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\nunomaduro\termwind\src\Functions.php on line 61
+PHP Deprecated:  optional(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Support\helpers.php on line 190
+
+Deprecated: optional(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Support\helpers.php on line 190
+PHP Deprecated:  with(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Support\helpers.php on line 430
+
+Deprecated: with(): Implicitly marking parameter $callback as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Support\helpers.php on line 430
+PHP Deprecated:  Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::mock(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 61
+
+Deprecated: Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::mock(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 61
+PHP Deprecated:  Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::partialMock(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 73
+
+Deprecated: Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::partialMock(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 73
+PHP Deprecated:  Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::spy(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 85
+
+Deprecated: Illuminate\Foundation\Testing\Concerns\InteractsWithContainer::spy(): Implicitly marking parameter $mock as nullable is deprecated, the explicit nullable type must be used instead in C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithContainer.php on line 85
+PHPUnit 10.5.16 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.5
+Configuration: C:\Users\s.tabatabaei\Documents\saberprojects\bot-generator-bale-telegram-laravel-10\phpunit.xml
+
+.
