@@ -20,3 +20,4 @@ yarn-error.log
 /composer.lock
 /modules/*
 /public/logs/*
+logs/TelegramErrorLogger-*.txt
