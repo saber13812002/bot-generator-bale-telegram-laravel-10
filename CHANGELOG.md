@@ -2,6 +2,36 @@
 
 ## [Unreleased](https://github.com/laravel/laravel/compare/v10.0.4...10.x)
 
+### 2026-10-15 — API Token: Security Hardening + Token Management Endpoints
+
+- **Security fix (critical)**: `MissionApiController` was reading
+  `is_super_admin` and `tenant_id` from the **request body** (client-supplied),
+  allowing a tenant token to escalate to super-admin and access any tenant's
+  missions. All 6 access checks now read from `$request->api_token->type`
+  and `->tenant_id` (set by the `ApiTokenAuth` middleware, immutable by the
+  client). New `effectiveTenantId()` and `assertTenantAccess()` helpers
+  centralize the check.
+- **Security fix**: `ApiTokenAuth` middleware was merging
+  `tenant_id` from the token into the request, which **clobbered** the
+  super-admin's body `tenant_id` (set to null since super-admin tokens have
+  no tenant). Now only tenant tokens inject `tenant_id`; super-admin body
+  params are preserved.
+- **Security fix**: `POST /api-tokens/generate` is now **super-admin only**
+  (previously any valid token could create new tokens, including super_admin).
+- **New endpoints**:
+  - `POST /api/v1/missions/{id}/prompt` — update a mission's prompt text.
+  - `GET /api/v1/tokens` — list API tokens (super-admin: all; tenant: own only).
+    Never exposes `plain_token` or the hash.
+  - `DELETE /api/v1/tokens/{id}` — revoke a token (soft: `is_active=false`).
+    Super-admin can revoke any; tenant only its own.
+- **Refactor**: `MissionApiController::createMission` now creates missions
+  through `MissionRepository::create()` (constructor-injected) instead of
+  calling `Mission::create()` directly.
+- **Tests**: `tests/Feature/ApiTokenAuthTest.php` — 15 tests covering
+  privilege escalation (tenant→super_admin), cross-tenant access denial,
+  super-admin cross-tenant access, token generation auth, token listing
+  scoping, token revocation, and prompt update.
+
 ### 2026-10-15 — Channel Poster: Multi-Channel Content Sync & Archive
 
 - **Content Sync (fast mode)**: admins forward a link to an already-published

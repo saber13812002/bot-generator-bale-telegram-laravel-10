@@ -37,12 +37,19 @@ class ApiTokenAuth
         // Update last used timestamp
         $apiToken->updateLastUsed();
 
-        // Attach token info to request
-        $request->merge([
+        // Attach token info to request.
+        // tenant_id: for tenant tokens, always from the token (client cannot override).
+        // For super_admin tokens, tenant_id from the body is preserved (target tenant).
+        $merge = [
             'api_token' => $apiToken,
-            'tenant_id' => $apiToken->tenant_id,
             'is_super_admin' => $apiToken->type === 'super_admin',
-        ]);
+        ];
+
+        if ($apiToken->type !== 'super_admin' && $apiToken->tenant_id !== null) {
+            $merge['tenant_id'] = $apiToken->tenant_id;
+        }
+
+        $request->merge($merge);
 
         return $next($request);
     }

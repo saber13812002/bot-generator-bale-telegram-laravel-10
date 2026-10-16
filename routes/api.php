@@ -192,8 +192,15 @@ Route::prefix('v1/missions')->middleware('api.token')->group(function () {
     Route::get('/{id}', [\App\Http\Controllers\Api\MissionApiController::class, 'getMission']);
     Route::get('/{id}/status', [\App\Http\Controllers\Api\MissionApiController::class, 'getMissionStatus']);
     Route::post('/{id}/content', [\App\Http\Controllers\Api\MissionApiController::class, 'addContent']);
+    Route::post('/{id}/prompt', [\App\Http\Controllers\Api\MissionApiController::class, 'updatePrompt']);
     Route::post('/{id}/assign', [\App\Http\Controllers\Api\MissionApiController::class, 'assignMission']);
     Route::post('/{id}/submit', [\App\Http\Controllers\Api\MissionApiController::class, 'submitResult']);
+});
+
+// API Token Management (list / revoke — super admin or owning tenant)
+Route::prefix('v1/tokens')->middleware('api.token')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\ApiTokenController::class, 'listTokens']);
+    Route::delete('/{id}', [\App\Http\Controllers\Api\ApiTokenController::class, 'revokeToken']);
 });
 
 // Quran API Routes
