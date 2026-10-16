@@ -631,7 +631,7 @@ Chat ID: :chat_id',
     // === Content Sync (multi-channel synchronization) ===
     'channel_sync_invalid_url' => 'That is not a valid Bale/Telegram/Eitaa/Soroush post link. Send the exact post URL.',
     'channel_sync_duplicate' => '⚠️ This link was already registered (content #:id).'."\n".':url'."\n".'Use /sync :id to view its status.',
-    'channel_sync_link_registered' => 'Link registered. Content #:id'."\n".'Please send the content text now.',
+    'channel_sync_link_registered' => '✅ Content #:id link registered.'."\n".'📝 Please send the content text.'."\n".'⚙️ Change settings: /settings',
     'channel_sync_link_registered_ask_forward' => 'Link registered (content #:id) but no channel is connected yet. Send /start to link your Bale channel, then send the content text.',
     'channel_sync_content_expired' => 'That sync request expired. Send the link again or /new.',
     'channel_sync_ask_tag' => 'Which tag should I publish this content to?',
@@ -651,7 +651,7 @@ Chat ID: :chat_id',
     'channel_sync_not_found' => 'No content found with that id or URL.',
     'channel_sync_none' => 'Nothing registered yet. Send the URL of a published post.',
     'channel_sync_retry_nothing' => 'Content #:id has no failed items to retry.',
-    'channel_sync_mode_current' => 'Your current publish mode: :mode'."\n".'Pick another to change it:',
+    'channel_sync_mode_current' => 'Your current publish mode: :mode'."\n".'⚙️ To change: /settings ← ⏱ Publish time',
     'channel_sync_mode_set' => 'Your publish mode: :mode',
     'channel_sync_mode_btn_now' => '🚀 Immediate (back-to-back)',
     'channel_sync_mode_btn_queue' => '⏰ Queue (every 2 hours)',
@@ -688,27 +688,46 @@ Chat ID: :chat_id',
     'channel_sync_link_detail' => '🔗 :url (:status)',
     'channel_sync_error_detail' => '📌 Error: :error',
 
-    // === /settings ===
-    'channel_sync_settings_title' => '⚙️ Sync settings',
-    'channel_sync_settings_dedup_line' => 'Dedup: :dedup',
-    'channel_sync_settings_mode_line' => 'Publish mode: :mode',
-    'channel_sync_settings_fast_line' => 'Fast mode: :fast',
-    'channel_sync_settings_dedup_channel' => 'Source channel only (default)',
+    // === /settings (short menu + independent submenus) ===
+    'channel_sync_settings_title' => '⚙️ Jepeto settings',
+    'channel_sync_settings_dedup_line' => '🔹 Dedup: :dedup',
+    'channel_sync_settings_mode_line' => '🔹 Publish: :mode',
+    'channel_sync_settings_fast_line' => '🔹 Fast mode: :fast',
+    'channel_sync_settings_dedup_channel' => 'Source channel only',
     'channel_sync_settings_dedup_platform' => 'Whole source platform',
+    'channel_sync_settings_mode_immediate' => 'Immediate',
+    'channel_sync_settings_mode_queue' => '2-hour queue',
     'channel_sync_settings_fast_on' => 'on',
     'channel_sync_settings_fast_off' => 'off',
-    'channel_sync_settings_dedup_btn_channel' => 'Dedup: source channel only',
-    'channel_sync_settings_dedup_btn_platform' => 'Dedup: whole platform',
-    'channel_sync_settings_fast_btn_on' => 'Fast mode: on',
-    'channel_sync_settings_fast_btn_off' => 'Fast mode: off',
-    'channel_sync_settings_default_note' => '👑 Last buttons: shared default for all admins of this bot',
-    'channel_sync_settings_default_btn_dedup_channel' => 'Default for all: source channel only',
-    'channel_sync_settings_default_btn_dedup_platform' => 'Default for all: whole platform',
-    'channel_sync_settings_default_btn_mode_immediate' => 'Default for all: immediate',
-    'channel_sync_settings_default_btn_mode_queue' => 'Default for all: queue',
-    'channel_sync_settings_default_btn_fast_on' => 'Default for all: fast on',
-    'channel_sync_settings_default_btn_fast_off' => 'Default for all: fast off',
-    'channel_sync_settings_once_hint' => 'You can also change sync settings from the buttons (this question is asked only once):',
+    'channel_sync_settings_saved' => '✅ Saved: :label',
+    'channel_sync_settings_done' => '✅ Settings saved',
+    // main menu
+    'channel_sync_menu_dest' => '🎯 Publish destinations',
+    'channel_sync_menu_time' => '⏱ Publish time',
+    'channel_sync_menu_fast' => '⚡ Fast mode',
+    'channel_sync_menu_defaults' => '👑 Admin defaults',
+    'channel_sync_sub_back' => '🔙 Back',
+    // destinations submenu
+    'channel_sync_sub_dedup_title' => '🎯 Publish destinations',
+    'channel_sync_sub_dedup_channel' => 'Source channel only',
+    'channel_sync_sub_dedup_platform' => 'Whole source platform',
+    // time submenu
+    'channel_sync_sub_time_title' => '⏱ Publish time',
+    'channel_sync_sub_time_immediate' => '⚡ Immediate',
+    'channel_sync_sub_time_queue' => '⏳ 2-hour queue',
+    // fast mode submenu
+    'channel_sync_sub_fast_title' => '⚡ Fast mode',
+    'channel_sync_sub_fast_on' => 'On',
+    'channel_sync_sub_fast_off' => 'Off',
+    // owner admin defaults
+    'channel_sync_sub_defaults_title' => '👑 Admin defaults',
+    'channel_sync_sub_defaults_note' => 'Applies only to admins without personal settings.',
+    'channel_sync_sub_defaults_dedup' => 'Publish destinations',
+    'channel_sync_sub_defaults_time' => 'Publish time',
+    'channel_sync_sub_defaults_fast' => 'Fast mode',
+    'channel_sync_sub_defaults_dedup_title' => '👑 Default publish destinations',
+    'channel_sync_sub_defaults_time_title' => '👑 Default publish time',
+    'channel_sync_sub_defaults_fast_title' => '👑 Default fast mode',
 
     // === /help ===
     'channel_sync_help_title' => '📖 Multi-channel sync guide',
@@ -724,17 +743,17 @@ Chat ID: :chat_id',
         "\n" . '/status [id] — same as /sync' .
         "\n" . '/last — report of the latest content' .
         "\n" . '/retry — retry failed items of the latest content' .
-        "\n" . '/mode — view/change publish mode (immediate or queue)' .
+        "\n" . '/mode — current publish method (change it in /settings)' .
         "\n" . '/tags — list of tags' .
         "\n" . '/channels — connected channels + unlink buttons' .
-        "\n" . '/settings — dedup method, publish mode, fast mode' .
+        "\n" . '/settings — settings menu: publish destinations, publish time, fast mode (short submenus)' .
         "\n" . '/new — clear current state and get ready for the next link' .
         "\n" . '/queue — publish queue' .
         "\n" . '/help — this guide',
     'channel_sync_help_owner_commands' => 'Owner-only commands:' .
         "\n" . '/admin {chat_id} — add a sync admin (no argument: list admins)' .
         "\n" . '/sign — per-tag signature settings' .
-        "\n" . 'The “Default for all” buttons in /settings — shared defaults for every admin',
+        "\n" . 'The “👑 Admin defaults” option in /settings — shared defaults for admins without personal settings',
 
     // Quran Bot — reciters & search improvements (fallback for locales without keys)
     'search' => 'Search',

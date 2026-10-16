@@ -929,7 +929,7 @@ Chat ID: :chat_id',
     // === Content Sync (همگام‌سازی چندکاناله) ===
     'channel_sync_invalid_url' => 'این لینک یک لینک پیام معتبر بله/تلگرام/ایتا/سروش نیست. لینک دقیق پیام را بفرست.',
     'channel_sync_duplicate' => '⚠️ این لینک قبلاً ثبت شده بود (مطلب #:id).'."\n".':url'."\n".'برای مشاهده وضعیت: /sync :id',
-    'channel_sync_link_registered' => 'لینک ثبت شد. مطلب #:id'."\n".'لطفاً متن مطلب را ارسال کنید.',
+    'channel_sync_link_registered' => '✅ لینک مطلب #:id ثبت شد.'."\n".'📝 لطفاً متن مطلب را ارسال کنید.'."\n".'⚙️ تغییر تنظیمات: /settings',
     'channel_sync_link_registered_ask_forward' => 'لینک ثبت شد (مطلب #:id) ولی هنوز کانالی وصل نشده. /start بزن و کانال بله را وصل کن، بعد متن مطلب را بفرست.',
     'channel_sync_content_expired' => 'درخواست همگام‌سازی منقضی شد. دوباره لینک بفرست یا /new بزن.',
     'channel_sync_ask_tag' => 'مطلب را به کدام تگ منتشر کنم؟',
@@ -949,7 +949,7 @@ Chat ID: :chat_id',
     'channel_sync_not_found' => 'مطلبی با این شناسه یا لینک پیدا نشد.',
     'channel_sync_none' => 'هنوز مطلبی ثبت نشده. لینک یک پیام منتشرشده بفرست.',
     'channel_sync_retry_nothing' => 'مطلب #:id مورد ناموفقی برای تکرار ندارد.',
-    'channel_sync_mode_current' => 'حالت انتشار فعلی شما: :mode'."\n".'برای تغییر انتخاب کن:',
+    'channel_sync_mode_current' => 'حالت انتشار فعلی شما: :mode'."\n".'⚙️ برای تغییر: /settings ← ⏱ زمان انتشار',
     'channel_sync_mode_set' => 'حالت انتشار شما: :mode',
     'channel_sync_mode_btn_now' => '🚀 فوری (پشت سر هم)',
     'channel_sync_mode_btn_queue' => '⏰ صف (هر ۲ ساعت)',
@@ -986,27 +986,46 @@ Chat ID: :chat_id',
     'channel_sync_link_detail' => '🔗 :url (:status)',
     'channel_sync_error_detail' => '📌 خطا: :error',
 
-    // === /settings — تنظیمات ===
-    'channel_sync_settings_title' => '⚙️ تنظیمات همگام‌سازی',
-    'channel_sync_settings_dedup_line' => 'حذف تکراری: :dedup',
-    'channel_sync_settings_mode_line' => 'روش انتشار: :mode',
-    'channel_sync_settings_fast_line' => 'حالت سریع: :fast',
-    'channel_sync_settings_dedup_channel' => 'فقط کانال مبدأ (پیش‌فرض)',
+    // === /settings — منوی تنظیمات (کوتاه + زیرمنوهای مستقل) ===
+    'channel_sync_settings_title' => '⚙️ تنظیمات ژپتو',
+    'channel_sync_settings_dedup_line' => '🔹 جلوگیری از تکرار: :dedup',
+    'channel_sync_settings_mode_line' => '🔹 انتشار: :mode',
+    'channel_sync_settings_fast_line' => '🔹 حالت سریع: :fast',
+    'channel_sync_settings_dedup_channel' => 'فقط کانال مبدأ',
     'channel_sync_settings_dedup_platform' => 'کل پیام‌رسان مبدأ',
+    'channel_sync_settings_mode_immediate' => 'فوری',
+    'channel_sync_settings_mode_queue' => 'صف ۲ ساعته',
     'channel_sync_settings_fast_on' => 'روشن',
     'channel_sync_settings_fast_off' => 'خاموش',
-    'channel_sync_settings_dedup_btn_channel' => 'حذف تکراری: فقط کانال مبدأ',
-    'channel_sync_settings_dedup_btn_platform' => 'حذف تکراری: کل پیام‌رسان',
-    'channel_sync_settings_fast_btn_on' => 'حالت سریع: روشن',
-    'channel_sync_settings_fast_btn_off' => 'حالت سریع: خاموش',
-    'channel_sync_settings_default_note' => '👑 دکمه‌های آخر: پیش‌فرض مشترک همه‌ی ادمین‌های این ربات',
-    'channel_sync_settings_default_btn_dedup_channel' => 'پیش‌فرض همه: فقط کانال مبدأ',
-    'channel_sync_settings_default_btn_dedup_platform' => 'پیش‌فرض همه: کل پیام‌رسان',
-    'channel_sync_settings_default_btn_mode_immediate' => 'پیش‌فرض همه: فوری',
-    'channel_sync_settings_default_btn_mode_queue' => 'پیش‌فرض همه: صف',
-    'channel_sync_settings_default_btn_fast_on' => 'پیش‌فرض همه: سریع روشن',
-    'channel_sync_settings_default_btn_fast_off' => 'پیش‌فرض همه: سریع خاموش',
-    'channel_sync_settings_once_hint' => 'از دکمه‌ها می‌توانید تنظیمات همگام‌سازی را هم تغییر دهید (این سؤال فقط یک‌بار می‌آید):',
+    'channel_sync_settings_saved' => '✅ ذخیره شد: :label',
+    'channel_sync_settings_done' => '✅ تنظیمات ذخیره شد',
+    // منوی اصلی
+    'channel_sync_menu_dest' => '🎯 مقصدهای انتشار',
+    'channel_sync_menu_time' => '⏱ زمان انتشار',
+    'channel_sync_menu_fast' => '⚡ حالت سریع',
+    'channel_sync_menu_defaults' => '👑 پیش‌فرض ادمین‌ها',
+    'channel_sync_sub_back' => '🔙 بازگشت',
+    // زیرمنوی مقصدهای انتشار
+    'channel_sync_sub_dedup_title' => '🎯 مقصدهای انتشار',
+    'channel_sync_sub_dedup_channel' => 'فقط کانال مبدأ',
+    'channel_sync_sub_dedup_platform' => 'کل پیام‌رسان مبدأ',
+    // زیرمنوی زمان انتشار
+    'channel_sync_sub_time_title' => '⏱ زمان انتشار',
+    'channel_sync_sub_time_immediate' => '⚡ فوری',
+    'channel_sync_sub_time_queue' => '⏳ صف ۲ ساعته',
+    // زیرمنوی حالت سریع
+    'channel_sync_sub_fast_title' => '⚡ حالت سریع',
+    'channel_sync_sub_fast_on' => 'روشن',
+    'channel_sync_sub_fast_off' => 'خاموش',
+    // پیش‌فرض ادمین‌ها (فقط مالک)
+    'channel_sync_sub_defaults_title' => '👑 پیش‌فرض ادمین‌ها',
+    'channel_sync_sub_defaults_note' => 'فقط برای ادمین‌هایی که تنظیم شخصی ندارند اعمال می‌شود.',
+    'channel_sync_sub_defaults_dedup' => 'مقصدهای انتشار',
+    'channel_sync_sub_defaults_time' => 'زمان انتشار',
+    'channel_sync_sub_defaults_fast' => 'حالت سریع',
+    'channel_sync_sub_defaults_dedup_title' => '👑 پیش‌فرض مقصدهای انتشار',
+    'channel_sync_sub_defaults_time_title' => '👑 پیش‌فرض زمان انتشار',
+    'channel_sync_sub_defaults_fast_title' => '👑 پیش‌فرض حالت سریع',
 
     // === /help ===
     'channel_sync_help_title' => '📖 راهنمای همگام‌سازی چندکاناله',
@@ -1022,15 +1041,15 @@ Chat ID: :chat_id',
         "\n".'/status [id] — همان /sync'.
         "\n".'/last — گزارش آخرین مطلب'.
         "\n".'/retry — تکرار موارد ناموفقِ آخرین مطلب'.
-        "\n".'/mode — مشاهده/تغییر روش انتشار (فوری یا صف)'.
+        "\n".'/mode — نمایش روش انتشار؛ برای تغییر، /settings بزن'.
         "\n".'/tags — فهرست تگ‌ها'.
         "\n".'/channels — کانال‌های متصل + دکمه قطع ارتباط'.
-        "\n".'/settings — تنظیمات: حذف تکراری، روش انتشار، حالت سریع'.
+        "\n".'/settings — منوی تنظیمات: مقصدهای انتشار، زمان انتشار، حالت سریع (با زیرمنوی کوتاه)'.
         "\n".'/new — پاک‌سازی وضعیت فعلی و آماده لینک بعدی'.
         "\n".'/queue — فهرست صف انتشار'.
         "\n".'/help — همین راهنما',
     'channel_sync_help_owner_commands' => 'دستورات مخصوص مالک:'.
         "\n".'/admin {chat_id} — افزودن ادمین همگام‌سازی (بدون آرگومان: لیست ادمین‌ها)'.
         "\n".'/sign — تنظیم امضا برای تگ‌ها'.
-        "\n".'دکمه‌های «پیش‌فرض همه» در /settings — پیش‌فرض مشترک همه‌ی ادمین‌ها',
+        "\n".'گزینه‌ی «👑 پیش‌فرض ادمین‌ها» در /settings — پیش‌فرض مشترک برای ادمین‌هایی که تنظیم شخصی ندارند',
 ];

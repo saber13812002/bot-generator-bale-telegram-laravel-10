@@ -126,11 +126,14 @@ Eitaa, Bale, Soroush Plus and Telegram:
   Ambiguous (suspicious) matches halt that destination with a ⛔ line for admin review.
   The filter runs **before** any API call, and `/retry` applies the same rule (retry can
   never publish to the source channel). Already-published destinations are never re-sent.
-- **Settings (per admin, `/settings`):** (1) dedup method, (2) publish method
-  (immediate/queue), (3) fast mode — each admin is independent (inline buttons), the
-  one-time settings keyboard is attached to the first link-registered message and never
-  repeated; the owner can additionally set the shared bot-wide default
-  (`content_sync_bot_defaults`) which admins without personal settings inherit.
+- **Settings (per admin, `/settings`):** a short main menu (status lines for dedup,
+  publish time, fast mode) opens independent short submenus — 🎯 publish destinations,
+  ⏱ publish time, ⚡ fast mode (one button per row, ✅ marks the active choice, 🔙 back).
+  Each admin is independent; changes are saved with an inline "saved" toast (no new
+  message). The link-registration message carries **no** settings keyboard — settings
+  are always available via `/settings`. The owner additionally gets a 👑 admin-defaults
+  page (`content_sync_bot_defaults`) which admins without personal settings inherit.
+  Old callback values keep working (backward compatible).
 - **`/help`:** complete categorized Persian guide with real examples; lists only
   implemented commands; owner-only commands shown only to the owner.
 - **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`,

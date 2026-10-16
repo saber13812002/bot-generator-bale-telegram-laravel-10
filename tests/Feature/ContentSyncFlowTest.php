@@ -241,10 +241,15 @@ class ContentSyncFlowTest extends TestCase
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
 
-        // تغییر حالت به صف از دکمه‌ها
+        // تغییر حالت به صف از دکمه‌ها — فقط toast ثبت، بدون پیام جدید
+        $before = count($this->publisher->privateMessages);
         $this->postCallback('cps:mode:queue');
-        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), (string) $this->publisher->lastPrivateText());
-        $this->assertStringContainsString(trans('bot.channel_sync_mode_queue'), (string) $this->publisher->lastPrivateText());
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $lastCb = $this->publisher->callbacks[array_key_last($this->publisher->callbacks)];
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_mode_queue')]),
+            $lastCb['text']
+        );
         $this->assertSame('queue', ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
 
         $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
@@ -572,19 +577,20 @@ class ContentSyncFlowTest extends TestCase
         );
     }
 
-    public function test_mode_command_shows_current_mode_with_keyboard(): void
+    public function test_mode_command_shows_current_mode_read_only(): void
     {
         $bot = $this->createBot();
 
         $this->postText($this->ownerChatId, '/mode');
         $last = array_key_last($this->publisher->privateMessages);
         $this->assertStringContainsString(
-            trans('bot.channel_sync_mode_current', ['mode' => 'immediate']),
+            trans('bot.channel_sync_mode_current', [
+                'mode' => trans('bot.channel_sync_mode_immediate'),
+            ]),
             $this->publisher->privateMessages[$last]['text']
         );
-        $keyboard = $this->publisher->privateMessages[$last]['keyboard'] ?? null;
-        $this->assertIsArray($keyboard);
-        $this->assertNotEmpty($keyboard);
+        // /mode فقط نمایشی است؛ دکمه‌ای ندارد (تغییر از /settings)
+        $this->assertNull($this->publisher->privateMessages[$last]['keyboard'] ?? null);
     }
 
     public function test_tags_command_lists_tags(): void
@@ -831,11 +837,13 @@ class ContentSyncFlowTest extends TestCase
         $this->postText($this->ownerChatId, '/admin 222');
         $this->assertTrue(ContentSyncAdmin::isRegistered($bot->id, '222', 'bale'));
 
-        // ادمین دوم تنظیمات شخصی خود را با دکمه‌ها تغییر می‌دهد
+        // ادمین دوم تنظیمات شخصی خود را با دکمه‌ها تغییر می‌دهد — فقط toast ثبت، بدون پیام جدید
         $this->postCallbackAs('222', 'cps:mode:queue');
-        $last = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
-        $this->assertSame('222', $last['chat_id']);
-        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $last['text']);
+        $lastCb = $this->publisher->callbacks[array_key_last($this->publisher->callbacks)];
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_mode_queue')]),
+            $lastCb['text']
+        );
 
         $this->assertSame('queue', ContentSyncAdminPrefs::getMode($bot->id, '222', 'bale'));
         $this->assertSame('immediate', ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
@@ -934,32 +942,322 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), (string) $this->publisher->lastPrivateText());
     }
 
-    public function test_settings_prompt_is_shown_only_once(): void
+    public function test_links_never_show_settings_keyboard(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
 
-        // اولین لینک: کِی‌بورد تنظیمات فقط یک‌بار نمایش داده می‌شود
+        // هیچ لینکی — حتی اولین — دکمه تنظیمات نشان نمی‌دهد
         $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
         $first = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
-        $this->assertStringContainsString(trans('bot.channel_sync_settings_once_hint'), $first['text']);
-        $this->assertIsArray($first['keyboard']);
-        $this->assertCount(6, $first['keyboard']); // مالک: ۳ ردیف شخصی + ۳ ردیف پیش‌فرض مشترک
+        $this->assertStringContainsString(trans('bot.channel_sync_link_registered', ['id' => 1]), $first['text']);
+        $this->assertStringContainsString('/settings', $first['text']);
+        $this->assertNull($first['keyboard'] ?? null);
+    }
 
-        // لینک دوم: کِی‌بورد دیگر تکرار نمی‌شود
-        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1183');
-        $second = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
-        $this->assertNull($second['keyboard']);
-        $this->assertStringNotContainsString(trans('bot.channel_sync_settings_once_hint'), $second['text']);
+    // === تست‌های UX منوی جدید /settings (فاز ۳) ===
 
-        // علامت ذخیره شده و /settings همچنان کار می‌کند
-        $this->assertTrue((bool) ContentSyncAdminPrefs::forAdmin($bot->id, $this->ownerChatId, 'bale')->settings_asked);
+    /**
+     * UX-1: اولین لینک مالک — پیام کوتاه سه‌خطی بدون هیچ دکمه‌ای.
+     */
+    public function test_ux_owner_first_link_has_no_settings_buttons(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
 
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+
+        $this->assertStringContainsString('✅ لینک مطلب #1 ثبت شد.', $msg['text']);
+        $this->assertStringContainsString('📝 لطفاً متن مطلب را ارسال کنید.', $msg['text']);
+        $this->assertStringContainsString('⚙️ تغییر تنظیمات: /settings', $msg['text']);
+        $this->assertNull($msg['keyboard'] ?? null);
+    }
+
+    /**
+     * UX-2: اولین لینک ادمین (غیرمالک) — بدون دکمه تنظیمات.
+     */
+    public function test_ux_admin_first_link_has_no_settings_buttons(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+        $this->postText($this->ownerChatId, '/admin 222');
+        $this->assertTrue(ContentSyncAdmin::isRegistered($bot->id, '222', 'bale'));
+
+        $this->postText('222', 'https://eitaa.com/alirezamehran_3/1182');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+
+        $this->assertSame('222', $msg['chat_id']);
+        $this->assertStringContainsString('/settings', $msg['text']);
+        $this->assertNull($msg['keyboard'] ?? null);
+    }
+
+    /**
+     * UX-3: متن بعد از لینک — مطابق تنظیمات فعلی منتشر می‌شود (منطق انتشار تغییر نکرده).
+     */
+    public function test_ux_text_after_link_publishes_per_current_settings(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن آزمایشی فاز ۳');
+
+        $this->assertCount(2, $this->publisher->publishes);
+        $platforms = array_map(fn (array $p) => $p['platform'], $this->publisher->publishes);
+        sort($platforms);
+        $this->assertSame(['bale', 'telegram'], $platforms); // ایتا مبدأ رد شد
+
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_header', ['id' => 1]), $this->publisher->privateMessages[$last]['text']);
+    }
+
+    /**
+     * UX-4: منوی اصلی /settings — کوتاه و خوانا؛ هر دکمه در یک ردیف.
+     */
+    public function test_ux_settings_main_menu_is_short_with_one_button_per_row(): void
+    {
+        $bot = $this->createBot();
         $this->postText($this->ownerChatId, '/settings');
-        $settings = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
-        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $settings['text']);
-        $this->assertIsArray($settings['keyboard']);
-        $this->assertCount(6, $settings['keyboard']);
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $text = $msg['text'];
+
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $text);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_dedup_line', ['dedup' => trans('bot.channel_sync_settings_dedup_channel')]), $text);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_mode_line', ['mode' => trans('bot.channel_sync_mode_immediate')]), $text);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_fast_line', ['fast' => trans('bot.channel_sync_settings_fast_on')]), $text);
+
+        $rows = $msg['keyboard'];
+        $this->assertCount(5, $rows); // مالک: ۳ منوی شخصی + پیش‌فرض ادمین‌ها + بازگشت
+        $labels = array_map(fn (array $row) => $row[0]['text'], $rows);
+        $this->assertSame(
+            [
+                trans('bot.channel_sync_menu_dest'),
+                trans('bot.channel_sync_menu_time'),
+                trans('bot.channel_sync_menu_fast'),
+                trans('bot.channel_sync_menu_defaults'),
+                trans('bot.channel_sync_sub_back'),
+            ],
+            $labels
+        );
+        foreach ($rows as $row) {
+            $this->assertCount(1, $row); // هر دکمه در ردیف مستقل
+        }
+        $callbacks = array_map(fn (array $row) => $row[0]['callback_data'], $rows);
+        $this->assertSame(
+            ['cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:defaults', 'cps:back'],
+            $callbacks
+        );
+    }
+
+    /**
+     * UX-4b: منوی اصلی ادمین غیرمالک — بدون ردیف 👑.
+     */
+    public function test_ux_settings_main_menu_admin_has_no_defaults_row(): void
+    {
+        $bot = $this->createBot();
+        $this->postText($this->ownerChatId, '/admin 222');
+        $this->postText('222', '/settings');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+
+        $this->assertSame('222', $msg['chat_id']);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
+        $labels = array_map(fn (array $row) => $row[0]['text'], $msg['keyboard']);
+        $this->assertCount(4, $labels); // ۳ منوی شخصی + بازگشت
+        $this->assertNotContains(trans('bot.channel_sync_menu_defaults'), $labels);
+    }
+
+    /**
+     * UX-5: زیرمنوها — کوتاه، ✅ کنار گزینه فعال، دکمه بازگشت درست.
+     */
+    public function test_ux_submenus_are_short_mark_active_and_have_correct_back(): void
+    {
+        $bot = $this->createBot();
+
+        // زیرمنوی مقصدها (پیش‌فرض: فقط کانال مبدأ)
+        $this->postCallback('cps:sub:dedup');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_dedup_title'), $msg['text']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_dedup_channel') . ' ✅', $msg['text']);
+        $this->assertStringNotContainsString(trans('bot.channel_sync_sub_dedup_platform') . ' ✅', $msg['text']);
+        $this->assertSame(
+            ['cps:dedup:channel', 'cps:dedup:platform', 'cps:menu'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
+        );
+        $this->assertCount(3, $msg['keyboard']);
+
+        // زیرمنوی زمان انتشار (پیش‌فرض: فوری)
+        $this->postCallback('cps:sub:time');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_time_title'), $msg['text']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_time_immediate') . ' ✅', $msg['text']);
+        $this->assertStringNotContainsString(trans('bot.channel_sync_sub_time_queue') . ' ✅', $msg['text']);
+        $this->assertSame(
+            ['cps:mode:immediate', 'cps:mode:queue', 'cps:menu'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
+        );
+
+        // زیرمنوی حالت سریع (پیش‌فرض: روشن)
+        $this->postCallback('cps:sub:fast');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_fast_title'), $msg['text']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_fast_on') . ' ✅', $msg['text']);
+        $this->assertStringNotContainsString(trans('bot.channel_sync_sub_fast_off') . ' ✅', $msg['text']);
+        $this->assertSame(
+            ['cps:fast:on', 'cps:fast:off', 'cps:menu'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
+        );
+
+        // بازگشت به منوی اصلی
+        $this->postCallback('cps:menu');
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $this->publisher->privateMessages[$last]['text']);
+    }
+
+    /**
+     * UX-6: هر انتخاب مقدار در DB ذخیره می‌شود و پیام جدیدی ارسال نمی‌شود (فقط toast).
+     */
+    public function test_ux_each_selection_persists_without_new_message(): void
+    {
+        $bot = $this->createBot();
+
+        $before = count($this->publisher->privateMessages);
+        $this->postCallback('cps:dedup:platform');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertSame(ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM, ContentSyncAdminPrefs::getDedupMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postCallback('cps:mode:queue');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertSame(ContentSyncAdminPrefs::MODE_QUEUE, ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postCallback('cps:fast:off');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertFalse(ContentSyncAdminPrefs::getFastMode($bot->id, $this->ownerChatId, 'bale'));
+
+        // هر toast شامل برچسب انتخابی باشد
+        $toasts = array_map(fn (array $c) => $c['text'], $this->publisher->callbacks);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_settings_dedup_platform')]), implode("\n", $toasts));
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_mode_queue')]), implode("\n", $toasts));
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_settings_fast_off')]), implode("\n", $toasts));
+
+        // منوی اصلی حالا مقادیر تازه را نشان می‌دهد
+        $this->postText($this->ownerChatId, '/settings');
+        $last = array_key_last($this->publisher->privateMessages);
+        $text = $this->publisher->privateMessages[$last]['text'];
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_dedup_line', ['dedup' => trans('bot.channel_sync_settings_dedup_platform')]), $text);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_mode_line', ['mode' => trans('bot.channel_sync_mode_queue')]), $text);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_fast_line', ['fast' => trans('bot.channel_sync_settings_fast_off')]), $text);
+    }
+
+    /**
+     * UX-7: صفحه‌ی «👑 پیش‌فرض ادمین‌ها» فقط برای مالک.
+     */
+    public function test_ux_owner_defaults_page_is_owner_only(): void
+    {
+        $bot = $this->createBot();
+        $this->postText($this->ownerChatId, '/admin 222');
+
+        // ادمین: دکمه 👑 ندارد و اگر callback را بفرستد، رد می‌شود (بدون پیام)
+        $this->postCallbackAs('222', 'cps:sub:defaults');
+        $this->assertCount(1, $this->publisher->privateMessages); // فقط پیام /admin
+        $lastCb = $this->publisher->callbacks[array_key_last($this->publisher->callbacks)];
+        $this->assertSame(trans('bot.channel_poster_not_owner'), $lastCb['text']);
+
+        // مالک: صفحه باز می‌شود
+        $this->postCallback('cps:sub:defaults');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertSame($this->ownerChatId, $msg['chat_id']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_defaults_title'), $msg['text']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_defaults_note'), $msg['text']);
+        $this->assertSame(
+            ['cps:sub:defaults:dedup', 'cps:sub:defaults:time', 'cps:sub:defaults:fast', 'cps:menu'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
+        );
+    }
+
+    /**
+     * UX-7b: انتخاب پیش‌فرض مشترک فقط توسط مالک ذخیره می‌شود.
+     */
+    public function test_ux_owner_defaults_selection_persists_owner_only(): void
+    {
+        $bot = $this->createBot();
+        $this->postText($this->ownerChatId, '/admin 222');
+
+        $before = count($this->publisher->privateMessages);
+        $this->postCallbackAs('222', 'cps:default:mode:queue');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertSame(ContentSyncAdminPrefs::MODE_IMMEDIATE, ContentSyncAdminPrefs::botDefaultsFor($bot->id, 'bale')->publish_mode);
+
+        $this->postCallback('cps:default:mode:queue');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertSame(ContentSyncAdminPrefs::MODE_QUEUE, ContentSyncAdminPrefs::botDefaultsFor($bot->id, 'bale')->publish_mode);
+        $this->assertSame($this->ownerChatId, (string) ContentSyncAdminPrefs::botDefaultsFor($bot->id, 'bale')->set_by_chat_id);
+
+        // ادمینِ بدون تنظیم شخصی از پیش‌فرض مالک استفاده می‌کند
+        $this->assertSame(ContentSyncAdminPrefs::MODE_QUEUE, ContentSyncAdminPrefs::getMode($bot->id, '222', 'bale'));
+    }
+
+    /**
+     * UX-8: ده لینک پیاپی — هیچ‌کدام دکمه تنظیمات تکرار نمی‌کنند.
+     */
+    public function test_ux_ten_consecutive_links_show_no_settings_keyboard(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        for ($i = 1; $i <= 10; $i++) {
+            $this->postText($this->ownerChatId, "https://eitaa.com/alirezamehran_3/" . (1100 + $i));
+            $last = array_key_last($this->publisher->privateMessages);
+            $msg = $this->publisher->privateMessages[$last];
+            $this->assertNull($msg['keyboard'] ?? null, "لینک {$i} نباید کِی‌بورد داشته باشد");
+            $this->assertStringContainsString('/settings', $msg['text']);
+            $this->assertStringNotContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
+        }
+
+        // تنظیمات همواره از /settings در دسترس است
+        $this->postText($this->ownerChatId, '/settings');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
+        $this->assertIsArray($msg['keyboard']);
+        $this->assertCount(5, $msg['keyboard']);
+    }
+
+    /**
+     * UX-9: منوی تنظیمات روی مبدأ تلگرام — همان فرمت و callbackها.
+     */
+    public function test_ux_settings_works_on_telegram_origin(): void
+    {
+        $bot = $this->createBotWithTelegram();
+        $this->createDestinations($bot->id);
+
+        $this->postTextAsOrigin($this->ownerChatId, '/settings', 'telegram');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertSame($this->ownerChatId, $msg['chat_id']);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
+        $this->assertCount(5, $msg['keyboard']);
+
+        // ناوبری و انتخاب مقدار روی تلگرام
+        $this->postCallbackAsOrigin($this->ownerChatId, 'cps:sub:time', 'telegram');
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_time_title'), $this->publisher->privateMessages[$last]['text']);
+
+        $before = count($this->publisher->privateMessages);
+        $this->postCallbackAsOrigin($this->ownerChatId, 'cps:mode:queue', 'telegram');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $this->assertSame(
+            ContentSyncAdminPrefs::MODE_QUEUE,
+            ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'telegram')
+        );
     }
 
     public function test_full_real_eitaa_link_simulation(): void
@@ -1155,5 +1453,57 @@ class ContentSyncFlowTest extends TestCase
         $botUser = \App\Models\BotUsers::where('chat_id', $this->ownerChatId)->where('bot_id', $botId)->first();
 
         return $botUser ? BotUserState::where('bot_user_id', $botUser->id)->first() : null;
+    }
+
+    /**
+     * رباتی که از مبدأ تلگرام (token و owner_chat_id تلگرام) پاسخ می‌دهد.
+     */
+    private function createBotWithTelegram(): Bot
+    {
+        return Bot::create([
+            'endpoint_id' => ChannelPosterBotController::ENDPOINT_ID,
+            'bot_mother_id' => 1,
+            'language_code' => 'fa',
+            'telegram_bot_token' => '789:telegram-channel-poster-token',
+            'telegram_bot_name' => 'channel_poster_bot',
+            'telegram_bot_status' => 'Active',
+            'telegram_owner_chat_id' => (int) $this->ownerChatId,
+            'telegram_webhook_is_set' => true,
+        ]);
+    }
+
+    private function postTextAsOrigin(string $chatId, string $text, string $origin, ?string $token = null): void
+    {
+        $this->postJson(
+            '/api/webhook-channel-poster?origin='.$origin.'&token='.($token ?? '789:telegram-channel-poster-token'),
+            [
+                'update_id' => rand(1, 999999),
+                'message' => [
+                    'message_id' => rand(1, 999999),
+                    'from' => ['id' => (int) $chatId, 'is_bot' => false],
+                    'chat' => ['id' => (int) $chatId, 'type' => 'private'],
+                    'date' => time(),
+                    'text' => $text,
+                ],
+            ]
+        )->assertOk();
+    }
+
+    private function postCallbackAsOrigin(string $chatId, string $data, string $origin, ?string $token = null): void
+    {
+        $this->postJson(
+            '/api/webhook-channel-poster?origin='.$origin.'&token='.($token ?? '789:telegram-channel-poster-token'),
+            [
+                'update_id' => rand(1, 999999),
+                'callback_query' => [
+                    'id' => 'cb-' . $origin . '-' . $chatId . '-' . md5($data),
+                    'from' => ['id' => (int) $chatId],
+                    'data' => $data,
+                    'message' => [
+                        'chat' => ['id' => (int) $chatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        )->assertOk();
     }
 }
