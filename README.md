@@ -126,6 +126,38 @@ Eitaa, Bale, Soroush Plus and Telegram:
   Ambiguous (suspicious) matches halt that destination with a ⛔ line for admin review.
   The filter runs **before** any API call, and `/retry` applies the same rule (retry can
   never publish to the source channel). Already-published destinations are never re-sent.
+  Bale links are canonicalized to `ble.ir/{username}/{chat_id}/{message_id}` (lowercase,
+  no `bleh.ir`/`ble.ir.com` variants), so case- and mirror-different URLs of the same
+  channel are recognized as the same channel.
+- **One-time source identification:** if a link's channel id matches no known
+  destination, the bot asks **once** with a short keyboard ("این لینک از کدام کانال است؟"
+  + one button per active destination of that platform + «کانال دیگر»). Picking a
+  destination stores the id→destination mapping (`channel_username` + `channel_link`
+  are learned from the real link) so the same channel is auto-associated forever after —
+  no more repeated "⛔ needs review" halts. «کانال دیگر» keeps those destinations
+  suspicious (no publishing to them).
+- **Source attribution (one-time choice):** when a link from an *unknown* channel is
+ registered, the bot shows a compact one-time settings keyboard (🎯 dedup / ⏱ publish
+ time / ⚡ fast mode / 📌 source display). The admin picks how the source is credited on
+ every re-published post: `signed` (default: «📌 منبع: کانال … در …» + source link),
+ `link_only` (source link only) or `none`. Appended to the **last** chunk of the post
+ (as a separate message if the chunk would overflow); if the source link is already in
+ the text it is not repeated. The choice is stored in
+ `content_sync_admin_prefs.source_attribution` (per admin) with
+ `content_sync_bot_defaults.source_attribution` (owner's 👑 default) as fallback, and is
+ **frozen on queueing** (`channel_poster_queue.source_attribution`) so a post queued
+ today publishes with today's setting even if the admin changes it tomorrow.
+- **Tag resolution (no silent fallbacks):** the last-used tag is applied **only** when
+ the source is a known destination with exactly one tag. Unknown sources always ask
+ which tag (never guessed). A known source with several tags also asks. There is no
+ "all" destination option — publishing to every channel requires per-channel settings.
+- **`channel_username` & `/add` link input:** destinations store a trusted public
+ `channel_username` (captured from a real channel link — never fabricated from a chat
+ id), used as the reliable source for constructed `post_url`s. During `/add`,
+ Telegram/Eitaa accept a full channel link (e.g. `https://t.me/saberblog/42`) instead of
+ a chat id: the chat id (or username) is extracted, the test message is sent, and the
+ username + canonical link are stored. Bale keeps its forward-based flow (username is
+ learned later from the first matching link).
 - **Settings (per admin, `/settings`):** a short main menu (status lines for dedup,
   publish time, fast mode) opens independent short submenus — 🎯 publish destinations,
   ⏱ publish time, ⚡ fast mode (one button per row, ✅ marks the active choice, 🔙 back).

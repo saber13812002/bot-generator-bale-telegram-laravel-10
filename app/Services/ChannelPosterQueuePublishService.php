@@ -6,6 +6,8 @@ use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
 use App\Models\ChannelPosterQueue;
+use App\Models\ContentSyncAdminPrefs;
+use App\Models\ContentSyncContent;
 use App\Models\ContentSyncVersion;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -60,13 +62,12 @@ class ChannelPosterQueuePublishService
             }
 
             $tag = $item->tag ?? '';
-            $destinations = $this->service->resolveByTag($bot->id, $tag);
-            if ($destinations->isEmpty()) {
-                $destinations = $this->service->resolveDestinations($bot->id, 'all');
-            }
 
-            // اگر این آیتم متعلق به یک content است، فقط مقصدهای نسخه‌های queued آن منتشر می‌شوند
             if ($item->content_id) {
+                // §2: برای آیتم‌های content-sync هیچ fallback به «همه کانال‌ها» نداریم.
+                // فقط مقصدهای فعالِ تگ + فقط مقصدهای نسخه‌های queued این آیتم.
+                $destinations = $this->service->resolveByTag($bot->id, $tag);
+
                 $queuedVersionDestIds = ContentSyncVersion::where('content_id', $item->content_id)
                     ->where('queue_id', $item->id)
                     ->where('publish_status', ContentSyncVersion::STATUS_QUEUED)
@@ -78,6 +79,12 @@ class ChannelPosterQueuePublishService
                     $destinations = $destinations->filter(
                         fn ($d) => in_array($d->id, $queuedVersionDestIds, true)
                     )->values();
+                }
+            } else {
+                // رفتار قدیمی برای آیتم‌های صف بدون content (تغییر نکرده)
+                $destinations = $this->service->resolveByTag($bot->id, $tag);
+                if ($destinations->isEmpty()) {
+                    $destinations = $this->service->resolveDestinations($bot->id, 'all');
                 }
             }
 
@@ -91,6 +98,20 @@ class ChannelPosterQueuePublishService
                 $sig = $this->service->buildSignature($bot->id, $tag);
                 if ($sig !== '') {
                     $text .= $sig;
+                }
+            }
+
+            // §4: امضای منبع — حالتی که در لحظه صف‌بندی فریز شده بود؛ برای آیتم‌های
+            // content فقط اضافه می‌شود (روی متن ذخیره‌شده، نه ستون textِ محتوا).
+            if ($item->content_id && $text !== null && $item->source_attribution
+                && $item->source_attribution !== \App\Models\ContentSyncAdminPrefs::ATTR_NONE
+            ) {
+                $content = \App\Models\ContentSyncContent::find($item->content_id);
+                if ($content) {
+                    $suffix = $this->contentSync->buildAttributionSuffix($content, (string) $item->source_attribution);
+                    if (trim($suffix) !== '') {
+                        $text .= "\n\n" . $suffix;
+                    }
                 }
             }
 

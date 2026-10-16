@@ -93,13 +93,28 @@ class PostUrlBuilderTest extends TestCase
         $dest = $this->destination([
             'platform' => 'bale',
             'channel_chat_id' => '8995754940207167599',
-            'channel_title' => 'stackoverflow_com',
+            'channel_username' => 'stackoverflow_com',
         ]);
 
         $result = PostUrlBuilder::build($dest, '1789852322655');
 
         $this->assertSame('https://ble.ir/stackoverflow_com/8995754940207167599/1789852322655', $result['url']);
         $this->assertSame('constructed', $result['status']);
+    }
+
+    public function test_channel_title_is_never_trusted_as_username(): void
+    {
+        $dest = $this->destination([
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'channel_username' => null,
+        ]);
+
+        $result = PostUrlBuilder::build($dest, '1789852322655');
+
+        $this->assertNull($result['url']);
+        $this->assertSame('unverified', $result['status']);
     }
 
     public function test_bale_url_needs_numeric_chat_id_and_username(): void

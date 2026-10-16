@@ -19,6 +19,11 @@ class ContentSyncAdminPrefs extends Model
     public const DEDUP_SOURCE_CHANNEL = 'exclude_source_channel';
     public const DEDUP_SOURCE_PLATFORM = 'exclude_source_platform';
 
+    // روش نمایش منبع (Source Attribution)
+    public const ATTR_SIGNED = 'signed';
+    public const ATTR_LINK_ONLY = 'link_only';
+    public const ATTR_NONE = 'none';
+
     protected $table = 'content_sync_admin_prefs';
 
     protected $fillable = [
@@ -30,6 +35,7 @@ class ContentSyncAdminPrefs extends Model
         'dedup_mode',
         'fast_mode',
         'settings_asked',
+        'source_attribution',
     ];
 
     protected $casts = [
@@ -106,6 +112,54 @@ class ContentSyncAdminPrefs extends Model
     }
 
     /**
+     * روش نمایش منبع (Source Attribution): signed | link_only | none
+     * پیش‌فرض signed (برچسب + لینک منبع).
+     */
+    public static function getAttributionMode(int $botId, string $adminChatId, string $origin): string
+    {
+        $prefs = static::where('bot_id', $botId)
+            ->where('admin_chat_id', $adminChatId)
+            ->where('origin', $origin)
+            ->first();
+
+        $value = $prefs?->source_attribution ?? null;
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        $defaults = static::botDefaults($botId, $origin);
+        $value = $defaults?->source_attribution ?? null;
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        return self::ATTR_SIGNED;
+    }
+
+    /**
+     * آیا سؤالِ یک‌باره‌ی تنظیمات اولیه هنوز نشده است؟
+     * (دکمه‌های کوتاه تنظیمات فقط یک‌بار — اولین لینک — نمایش داده می‌شوند.)
+     */
+    public static function isSettingsAsked(int $botId, string $adminChatId, string $origin): bool
+    {
+        $prefs = static::where('bot_id', $botId)
+            ->where('admin_chat_id', $adminChatId)
+            ->where('origin', $origin)
+            ->first();
+
+        return $prefs !== null && (bool) $prefs->settings_asked;
+    }
+
+    public static function markSettingsAsked(int $botId, string $adminChatId, string $origin): void
+    {
+        $prefs = static::forAdmin($botId, $adminChatId, $origin);
+        if (!(bool) $prefs->settings_asked) {
+            $prefs->settings_asked = true;
+            $prefs->save();
+        }
+    }
+
+    /**
      * fast mode: با ON، تگ و روش انتخابی از عملیات‌های قبلی به خاطر سپرده می‌شود
      * و سؤال اضافه نمی‌شود؛ با OFF، هر بار که ابهام باشد دوباره سؤال می‌شود.
      */
@@ -152,6 +206,7 @@ class ContentSyncAdminPrefs extends Model
                 'publish_mode' => self::MODE_IMMEDIATE,
                 'dedup_mode' => self::DEDUP_SOURCE_CHANNEL,
                 'fast_mode' => true,
+                'source_attribution' => self::ATTR_SIGNED,
             ]
         );
     }

@@ -2,6 +2,69 @@
 
 ## [Unreleased](https://github.com/laravel/laravel/compare/v10.0.4...10.x)
 
+### 2026-10-16 — Content Sync Phase 4: Source Identification, Attribution, Reliable URLs
+
+- **One-time source-channel identification**: when a synced link's channel id
+  matches no known destination, the bot asks **once** with a short keyboard
+  (one button per active destination of that platform + «کانال دیگر»).
+  Selecting a destination persists the mapping and learns `channel_username`
+  + `channel_link` from the real link, so the same channel is auto-associated
+  on every later link (no repeated "⛔ needs review" halts). «کانال دیگر»
+  keeps those destinations suspicious (no publishing to them).
+- **Source attribution (one-time choice)**: unknown-source registration shows a
+  compact one-time settings keyboard (🎯 dedup / ⏱ publish time / ⚡ fast mode /
+  📌 source display). Modes: `signed` (default — «📌 منبع: …» label + source
+  link), `link_only` (link only), `none`. The suffix is appended to the last
+  chunk (separate message on overflow) and skipped when the source link is
+  already in the text. Stored per admin in
+  `content_sync_admin_prefs.source_attribution`, with the owner's 👑 default in
+  `content_sync_bot_defaults.source_attribution` as fallback. **Frozen on
+  queueing**: `channel_poster_queue.source_attribution` snapshots the mode at
+  queue time, so queued posts keep the attribution chosen when they were queued.
+- **No silent tag/destination fallbacks**: the last-used tag is applied only
+  when the source is a known destination with exactly one tag; unknown sources
+  always ask. The dedup submenu no longer offers an "all channels" option
+  (channel / platform only).
+- **Reliable `channel_username`**: new
+  `channel_poster_destinations.channel_username` stores the trusted public
+  username (captured from a real channel link — never fabricated from a chat
+  id) and is used as the preferred source for constructed `post_url`s.
+  `PostUrlParser::matchesDestination` compares usernames case-insensitively;
+  Bale links are canonicalized to `ble.ir/{username}/{chat_id}/{message_id}`
+  (lowercase, mirror variants collapsed) in both parser and `PostUrlBuilder`.
+- **`/add` accepts a channel link**: the Telegram/Eitaa chat-id step now also
+  accepts a full channel link (`https://t.me/saberblog/42`) — chat id/username
+  is extracted, the test message goes to the resolved channel, and username +
+  canonical link are stored. Bale stays forward-based (its username is learned
+  later from the first matching link).
+- **Migration**: `2026_10_16_200000_add_content_sync_phase4` (column-existence
+  guards, reversible).
+- **Tests**: 12 new acceptance tests — 10 in
+  `tests/Feature/ContentSyncFlowTest.php` (`test_p4_*`: one-time keyboard
+  persistence, unknown-source keyboard, pick-saves-association + re-resolve,
+  "other" keeps destinations suspicious, last-tag-not-guessed, tag+attribution
+  frozen on queue, signed suffix appended, link_only/none, queue keeps frozen
+  attribution, known-source auto-association) + 2 in
+  `tests/Feature/ChannelPosterBotWebhookTest.php` (Bale `/add` via forward
+  stores no fabricated username; Telegram `/add` with a channel link captures
+  username + canonical link). Phase-3 settings tests updated to the compact
+  keyboard (6 rows, no buttons on the link message). Full suite: 335 passed /
+  1840 assertions.
+
+### 2026-10-16 — Content Sync UX: Compact One-Time Settings (Jepeto)
+
+- Link-registration no longer carries the settings keyboard (clean
+  three-line message: registered / send text / `⚙️ تغییر تنظیمات: /settings`).
+  Unknown-source links trigger the one-time compact settings keyboard instead.
+- `/settings` is a short main menu (status lines + one button per row) opening
+  independent short submenus (🎯 / ⏱ / ⚡ / 📌 / 👑 defaults for the owner)
+  with ✅ on the active choice and 🔙 back; changes are confirmed with an
+  inline toast, no new message. Old callback values remain backward compatible.
+- `/help` rewritten as a categorized Persian guide (owner-only commands shown
+  to the owner only); every sync report ends with the `/help` footer.
+- Docs: README Content Sync section +
+  `tests/ManualContentSyncTestScenario.md` updated.
+
 ### 2026-10-15 — API Token: Security Hardening + Token Management Endpoints
 
 - **Security fix (critical)**: `MissionApiController` was reading

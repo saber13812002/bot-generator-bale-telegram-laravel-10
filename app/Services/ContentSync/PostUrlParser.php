@@ -72,7 +72,12 @@ class PostUrlParser
 
             if ($parsed !== null) {
                 $parsed['platform'] = $platform;
-                $parsed['canonical_url'] = self::canonical($platform, $parsed['channel_identifier'], $parsed['message_identifier']);
+                $parsed['canonical_url'] = self::canonical(
+                    $platform,
+                    $parsed['channel_identifier'],
+                    $parsed['message_identifier'],
+                    $parsed['channel_username'] ?? ''
+                );
 
                 return $parsed;
             }
@@ -90,6 +95,7 @@ class PostUrlParser
         ) {
             return [
                 'channel_identifier' => $segments[0],
+                'channel_username' => $segments[0],
                 'message_identifier' => ltrim($segments[1], '0') ?: '0',
             ];
         }
@@ -161,14 +167,20 @@ class PostUrlParser
 
     /**
      * لینک رسمی (canonical) هر پلتفرم — برای تطبیق و ذخیره.
+     *
+     * فرمت واقعی لینک پیام بله سه‌بخشی است: ble.ir/{username}/{chatId}/{messageId}
+     * (نمونه واقعی: https://ble.ir/Saberblog/5062926176/1461)؛ بنابراین اگر
+     * username موجود باشد در canonical هم حفظ می‌شود.
      */
-    public static function canonical(string $platform, string $channelIdentifier, string $messageId): string
+    public static function canonical(string $platform, string $channelIdentifier, string $messageId, string $channelUsername = ''): string
     {
+        $username = trim((string) $channelUsername);
+
         return match ($platform) {
-            'telegram' => $channelIdentifier === 'c' || str_starts_with($channelIdentifier, 'c/')
-                ? 'https://t.me/' . $channelIdentifier . '/' . $messageId
-                : 'https://t.me/' . $channelIdentifier . '/' . $messageId,
-            'bale' => 'https://ble.ir/' . $channelIdentifier . '/' . $messageId,
+            'telegram' => 'https://t.me/' . $channelIdentifier . '/' . $messageId,
+            'bale' => $username !== ''
+                ? 'https://ble.ir/' . $username . '/' . $channelIdentifier . '/' . $messageId
+                : 'https://ble.ir/' . $channelIdentifier . '/' . $messageId,
             'eitaa' => 'https://eitaa.com/' . $channelIdentifier . '/' . $messageId,
             'soroush' => 'https://soroush.chat/' . $channelIdentifier . '/' . $messageId,
             default => '',
@@ -177,7 +189,14 @@ class PostUrlParser
 
     /**
      * آیا مقصد (destination) با پارسِ لینک مطابقت دارد؟
-     * مقایسه بر اساس platform + channel_chat_id و/یا username کانال.
+     *
+     * تطبیق فقط بر پایه‌ی شناسه‌های واقعی (نه شباهت نام نمایشی):
+     *  - تطبیق دقیق channel_chat_id (بی‌تفاوت به upper/lower و @)
+     *  - تطبیق با username ذخیره‌شده‌ی قابل‌اعتماد (channel_username)
+     *  - تطبیق با username/شناسه‌ی درون لینک ذخیره‌شده (channel_link)
+     *
+     * برای کانال‌های خصوصی تلگرام (c/{shortId}) تطبیق فقط با chat id عددی
+     * معتبر است؛ short id با username قابل تطبیق نیست.
      */
     public static function matchesDestination(array $parsed, ChannelPosterDestination $destination): bool
     {
@@ -185,29 +204,53 @@ class PostUrlParser
             return false;
         }
 
-        $channelId = (string) $destination->channel_chat_id;
+        $linkId = self::normalizeIdentifier((string) $parsed['channel_identifier']);
+        if ($linkId === '') {
+            return false;
+        }
 
-        if ($parsed['channel_identifier'] === $channelId) {
+        $destChatId = self::normalizeIdentifier((string) $destination->channel_chat_id);
+
+        if ($destChatId !== '' && $linkId === $destChatId) {
             return true;
         }
 
-        // در تلگرام/ایتا/سروش channel_chat_id ممکن است username باشد
-        if ($channelId !== '' && preg_match('/^\d+$/', $channelId) === 0
-            && $parsed['channel_identifier'] === $channelId
-        ) {
+        // کانال خصوصی تلگرام: short id فقط با chat id عددی مقصد قابل تطبیق است
+        if ($parsed['platform'] === 'telegram' && str_starts_with((string) $parsed['channel_identifier'], 'c/')) {
+            return false;
+        }
+
+        // username ذخیره‌شده‌ی قابل‌اعتماد (برگرفته از لینک واقعی کانال هنگام اتصال)
+        $destUsername = self::normalizeIdentifier((string) ($destination->channel_username ?? ''));
+        if ($destUsername !== '' && $linkId === $destUsername) {
             return true;
         }
 
-        // کانال خصوصی تلگرام: مقصد @username دارد و لینک c/... است
-        if ($parsed['platform'] === 'telegram' && str_starts_with($parsed['channel_identifier'], 'c/')) {
-            $destUser = ltrim($channelId, '@');
-            $linkUser = trim(explode('/', $parsed['channel_identifier'])[1] ?? '', '0');
-            if ($destUser !== '' && $linkUser !== '' && $destUser === $linkUser) {
-                return false; // c/ short id قابل تطبیق با username نیست
+        // لینک ذخیره‌شده‌ی کانال (channel_link) — پارس و تطبیق شناسه‌های درون آن
+        if ($destination->channel_link) {
+            $stored = self::parse((string) $destination->channel_link);
+            if ($stored !== null) {
+                $storedId = self::normalizeIdentifier((string) $stored['channel_identifier']);
+                if ($storedId !== '' && $linkId === $storedId) {
+                    return true;
+                }
+
+                $storedUser = self::normalizeIdentifier((string) ($stored['channel_username'] ?? ''));
+                if ($storedUser !== '' && $linkId === $storedUser) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    /**
+     * نرمال‌سازی شناسه برای تطبیق: trim + حذف @ + بی‌تفاوت به upper/lower.
+     */
+    private static function normalizeIdentifier(string $value): string
+    {
+        return strtolower(ltrim(trim($value), '@'));
     }
 
     /**

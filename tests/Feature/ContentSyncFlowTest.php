@@ -451,15 +451,28 @@ class ContentSyncFlowTest extends TestCase
         $this->postText($this->ownerChatId, $longText);
 
         // هر مقصد چند قطعه دریافت کرده (هر chunk یک publish است)
-        $balePublishes = array_filter($this->publisher->publishes, fn ($p) => $p['platform'] === 'bale');
+        $balePublishes = array_values(array_filter($this->publisher->publishes, fn ($p) => $p['platform'] === 'bale'));
         $this->assertGreaterThan(1, count($balePublishes));
         foreach ($balePublishes as $p) {
             $this->assertLessThanOrEqual(3500, mb_strlen((string) $p['text']));
         }
 
-        // مجموع قطعه‌ها همان متن اصلی است
-        $joined = implode("\n", array_map(fn ($p) => (string) $p['text'], $balePublishes));
-        $this->assertSame($longText, $joined);
+        // §4: امضای منبع به انتهای آخرین قطعه می‌چسبد (برچسب + لینک مبدأ)
+        $label = trans('bot.channel_sync_source_label', [
+            'channel' => 'Alireza',
+            'platform' => trans('bot.channel_poster_sig_eitaa'),
+        ]);
+        $suffix = $label . "\n" . 'https://eitaa.com/alirezamehran_3/1182';
+        $this->assertStringEndsWith($suffix, (string) $balePublishes[count($balePublishes) - 1]['text']);
+
+        // مجموع قطعه‌ها (بدون امضای آخرین قطعه) همان متن اصلی است
+        $texts = array_map(fn (array $p) => (string) $p['text'], $balePublishes);
+        $needle = "\n\n" . $suffix;
+        $last = $texts[count($texts) - 1];
+        $texts[count($texts) - 1] = str_ends_with($last, $needle)
+            ? mb_substr($last, 0, -mb_strlen($needle))
+            : $last;
+        $this->assertSame($longText, implode("\n", $texts));
 
         $baleVersion = ContentSyncVersion::where('content_id', 1)->where('platform', 'bale')->first();
         $this->assertSame(count($balePublishes), (int) $baleVersion->chunks_count);
@@ -714,6 +727,7 @@ class ContentSyncFlowTest extends TestCase
             'platform' => 'bale',
             'channel_chat_id' => '8995754940207167599',
             'channel_title' => 'stackoverflow_com',
+            'channel_username' => 'stackoverflow_com',
             'tag' => 'tag1',
             'is_active' => true,
         ]);
@@ -732,10 +746,15 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringContainsString('در تلگرام (Saber News) — ' . trans('bot.channel_sync_report_status_published'), $report);
         $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), $report);
 
-        // نسخه‌ی مبدأ به مقصدی گره نخورده (username با شناسه‌ی ذخیره‌شده‌ی @دار دقیقاً نمی‌خواند)
-        $source = ContentSyncVersion::where('platform', 'telegram')->whereNull('destination_id')->first();
+        // §6: نسخه‌ی مبدأ به مقصدی با username دقیق گره خورده
+        $source = ContentSyncVersion::where('platform', 'telegram')
+            ->where('publish_status', ContentSyncVersion::STATUS_EXISTING_SOURCE)
+            ->first();
         $this->assertNotNull($source);
-        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
+        $this->assertSame(
+            ChannelPosterDestination::where('channel_chat_id', '@saberblog')->value('id'),
+            $source->destination_id
+        );
         $this->assertSame('https://t.me/saberblog/77', $source->post_url);
     }
 
@@ -822,8 +841,11 @@ class ContentSyncFlowTest extends TestCase
 
         $report = (string) $this->publisher->lastPrivateText();
         $this->assertStringContainsString('در ایتا (alirezamehran_3) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
-        // کانال دومِ ایتا قبل از فراخوانی API فیلتر شده و با دلیل در گزارش است
-        $this->assertStringContainsString('در ایتا (Alireza Four) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        // §3: کانال دومِ ایتا قبل از فراخوانی API فیلتر شده و در گزارش fast-mode به‌صورت خط خلاصه آمده
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_sig_eitaa') . ' (Alireza Four) — ' . trans('bot.channel_sync_report_reason_source_platform'),
+            $report
+        );
         $this->assertStringContainsString(trans('bot.channel_sync_report_reason_source_platform'), $report);
 
         $this->assertSame(2, ContentSyncVersion::count());
@@ -942,17 +964,27 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), (string) $this->publisher->lastPrivateText());
     }
 
-    public function test_links_never_show_settings_keyboard(): void
+    public function test_links_only_show_compact_settings_keyboard_once(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
 
-        // هیچ لینکی — حتی اولین — دکمه تنظیمات نشان نمی‌دهد
+        // §5: اولین لینک، کیبورد فشرده‌ی تنظیمات (۲×۲) را نشان می‌دهد
         $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
         $first = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
         $this->assertStringContainsString(trans('bot.channel_sync_link_registered', ['id' => 1]), $first['text']);
-        $this->assertStringContainsString('/settings', $first['text']);
-        $this->assertNull($first['keyboard'] ?? null);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_intro'), $first['text']);
+        $this->assertIsArray($first['keyboard'] ?? null);
+        $this->assertCount(2, $first['keyboard']);
+        $this->assertCount(2, $first['keyboard'][0]);
+        $this->assertCount(2, $first['keyboard'][1]);
+        $this->assertTrue(ContentSyncAdminPrefs::isSettingsAsked($bot->id, $this->ownerChatId, 'bale'));
+
+        // لینک دوم: کیبورد تکرار نمی‌شود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1183');
+        $second = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
+        $this->assertStringContainsString(trans('bot.channel_sync_link_registered', ['id' => 2]), $second['text']);
+        $this->assertNull($second['keyboard'] ?? null);
     }
 
     // === تست‌های UX منوی جدید /settings (فاز ۳) ===
@@ -960,7 +992,7 @@ class ContentSyncFlowTest extends TestCase
     /**
      * UX-1: اولین لینک مالک — پیام کوتاه سه‌خطی بدون هیچ دکمه‌ای.
      */
-    public function test_ux_owner_first_link_has_no_settings_buttons(): void
+    public function test_ux_owner_first_link_shows_compact_keyboard_once(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
@@ -972,13 +1004,32 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringContainsString('✅ لینک مطلب #1 ثبت شد.', $msg['text']);
         $this->assertStringContainsString('📝 لطفاً متن مطلب را ارسال کنید.', $msg['text']);
         $this->assertStringContainsString('⚙️ تغییر تنظیمات: /settings', $msg['text']);
-        $this->assertNull($msg['keyboard'] ?? null);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_intro'), $msg['text']);
+
+        // §5: کیبورد فشرده ۲×۲ با چهار گزینه‌ی اصلی
+        $this->assertIsArray($msg['keyboard'] ?? null);
+        $this->assertCount(2, $msg['keyboard']);
+        $this->assertCount(2, $msg['keyboard'][0]);
+        $this->assertCount(2, $msg['keyboard'][1]);
+        $flat = array_merge($msg['keyboard'][0], $msg['keyboard'][1]);
+        $this->assertSame(
+            ['cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:attr'],
+            array_map(fn (array $b) => $b['callback_data'], $flat)
+        );
+        $labels = implode(' | ', array_map(fn (array $b) => $b['text'], $flat));
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_dedup'), $labels);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_time'), $labels);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_fast'), $labels);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_attr'), $labels);
+
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TEXT, $this->ownerState($bot->id)->state);
+        $this->assertTrue(ContentSyncAdminPrefs::isSettingsAsked($bot->id, $this->ownerChatId, 'bale'));
     }
 
     /**
      * UX-2: اولین لینک ادمین (غیرمالک) — بدون دکمه تنظیمات.
      */
-    public function test_ux_admin_first_link_has_no_settings_buttons(): void
+    public function test_ux_admin_first_link_shows_compact_keyboard_once(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
@@ -991,7 +1042,18 @@ class ContentSyncFlowTest extends TestCase
 
         $this->assertSame('222', $msg['chat_id']);
         $this->assertStringContainsString('/settings', $msg['text']);
-        $this->assertNull($msg['keyboard'] ?? null);
+        $this->assertStringContainsString(trans('bot.channel_sync_ot_intro'), $msg['text']);
+        $this->assertIsArray($msg['keyboard'] ?? null);
+        $this->assertCount(2, $msg['keyboard']);
+        $flat = array_merge($msg['keyboard'][0], $msg['keyboard'][1]);
+        $this->assertSame(
+            ['cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:attr'],
+            array_map(fn (array $b) => $b['callback_data'], $flat)
+        );
+
+        // سؤال یک‌بار برای هر ادمین جداگانه است
+        $this->assertTrue(ContentSyncAdminPrefs::isSettingsAsked($bot->id, '222', 'bale'));
+        $this->assertFalse(ContentSyncAdminPrefs::isSettingsAsked($bot->id, $this->ownerChatId, 'bale'));
     }
 
     /**
@@ -1029,9 +1091,13 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringContainsString(trans('bot.channel_sync_settings_dedup_line', ['dedup' => trans('bot.channel_sync_settings_dedup_channel')]), $text);
         $this->assertStringContainsString(trans('bot.channel_sync_settings_mode_line', ['mode' => trans('bot.channel_sync_mode_immediate')]), $text);
         $this->assertStringContainsString(trans('bot.channel_sync_settings_fast_line', ['fast' => trans('bot.channel_sync_settings_fast_on')]), $text);
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_settings_attr_line', ['attr' => trans('bot.channel_sync_sub_attr_signed')]),
+            $text
+        );
 
         $rows = $msg['keyboard'];
-        $this->assertCount(5, $rows); // مالک: ۳ منوی شخصی + پیش‌فرض ادمین‌ها + بازگشت
+        $this->assertCount(6, $rows); // مالک: ۳ منوی شخصی + پیش‌فرض ادمین‌ها + نمایش منبع + بازگشت
         $labels = array_map(fn (array $row) => $row[0]['text'], $rows);
         $this->assertSame(
             [
@@ -1039,6 +1105,7 @@ class ContentSyncFlowTest extends TestCase
                 trans('bot.channel_sync_menu_time'),
                 trans('bot.channel_sync_menu_fast'),
                 trans('bot.channel_sync_menu_defaults'),
+                trans('bot.channel_sync_menu_attr'),
                 trans('bot.channel_sync_sub_back'),
             ],
             $labels
@@ -1048,7 +1115,7 @@ class ContentSyncFlowTest extends TestCase
         }
         $callbacks = array_map(fn (array $row) => $row[0]['callback_data'], $rows);
         $this->assertSame(
-            ['cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:defaults', 'cps:back'],
+            ['cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:defaults', 'cps:sub:attr', 'cps:back'],
             $callbacks
         );
     }
@@ -1067,8 +1134,9 @@ class ContentSyncFlowTest extends TestCase
         $this->assertSame('222', $msg['chat_id']);
         $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
         $labels = array_map(fn (array $row) => $row[0]['text'], $msg['keyboard']);
-        $this->assertCount(4, $labels); // ۳ منوی شخصی + بازگشت
+        $this->assertCount(5, $labels); // ۳ منوی شخصی + نمایش منبع + بازگشت
         $this->assertNotContains(trans('bot.channel_sync_menu_defaults'), $labels);
+        $this->assertContains(trans('bot.channel_sync_menu_attr'), $labels);
     }
 
     /**
@@ -1178,7 +1246,7 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringContainsString(trans('bot.channel_sync_sub_defaults_title'), $msg['text']);
         $this->assertStringContainsString(trans('bot.channel_sync_sub_defaults_note'), $msg['text']);
         $this->assertSame(
-            ['cps:sub:defaults:dedup', 'cps:sub:defaults:time', 'cps:sub:defaults:fast', 'cps:menu'],
+            ['cps:sub:defaults:dedup', 'cps:sub:defaults:time', 'cps:sub:defaults:fast', 'cps:sub:defaults:attr', 'cps:menu'],
             array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
         );
     }
@@ -1208,7 +1276,7 @@ class ContentSyncFlowTest extends TestCase
     /**
      * UX-8: ده لینک پیاپی — هیچ‌کدام دکمه تنظیمات تکرار نمی‌کنند.
      */
-    public function test_ux_ten_consecutive_links_show_no_settings_keyboard(): void
+    public function test_ux_ten_consecutive_links_show_keyboard_only_first(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
@@ -1217,7 +1285,13 @@ class ContentSyncFlowTest extends TestCase
             $this->postText($this->ownerChatId, "https://eitaa.com/alirezamehran_3/" . (1100 + $i));
             $last = array_key_last($this->publisher->privateMessages);
             $msg = $this->publisher->privateMessages[$last];
-            $this->assertNull($msg['keyboard'] ?? null, "لینک {$i} نباید کِی‌بورد داشته باشد");
+            if ($i === 1) {
+                // §5: کیبورد فشرده فقط روی همان لینکِ اول
+                $this->assertIsArray($msg['keyboard'] ?? null);
+                $this->assertCount(2, $msg['keyboard']);
+            } else {
+                $this->assertNull($msg['keyboard'] ?? null, "لینک {$i} نباید کِی‌بورد داشته باشد");
+            }
             $this->assertStringContainsString('/settings', $msg['text']);
             $this->assertStringNotContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
         }
@@ -1228,7 +1302,7 @@ class ContentSyncFlowTest extends TestCase
         $msg = $this->publisher->privateMessages[$last];
         $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
         $this->assertIsArray($msg['keyboard']);
-        $this->assertCount(5, $msg['keyboard']);
+        $this->assertCount(6, $msg['keyboard']);
     }
 
     /**
@@ -1244,7 +1318,7 @@ class ContentSyncFlowTest extends TestCase
         $msg = $this->publisher->privateMessages[$last];
         $this->assertSame($this->ownerChatId, $msg['chat_id']);
         $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
-        $this->assertCount(5, $msg['keyboard']);
+        $this->assertCount(6, $msg['keyboard']);
 
         // ناوبری و انتخاب مقدار روی تلگرام
         $this->postCallbackAsOrigin($this->ownerChatId, 'cps:sub:time', 'telegram');
@@ -1361,6 +1435,409 @@ class ContentSyncFlowTest extends TestCase
         $this->assertSame('published', ContentSyncVersion::where('content_id', 1)->where('platform', 'bale')->value('publish_status'));
     }
 
+    /* ------------------------------------------------------------------
+     * تست‌های پذیرش فاز ۴
+     * ------------------------------------------------------------------ */
+
+    /**
+     * P4-§5/§4: زیرمنوی «نمایش منبع» از کیبورد اولین لینک باز می‌شود و
+     * انتخاب فقط با toast ذخیره می‌شود.
+     */
+    public function test_p4_one_time_keyboard_attr_submenu_persists(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertIsArray($msg['keyboard'] ?? null);
+
+        // باز کردن زیرمنوی نمایش منبع از کیبورد همان لینک
+        $this->postCallback('cps:sub:attr');
+        $last = array_key_last($this->publisher->privateMessages);
+        $attr = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_attr_title'), $attr['text']);
+        $this->assertStringContainsString(trans('bot.channel_sync_sub_attr_signed') . ' ✅', $attr['text']);
+        $this->assertSame(
+            ['cps:attr:signed', 'cps:attr:link_only', 'cps:attr:none', 'cps:menu'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $attr['keyboard'])
+        );
+
+        // انتخاب → فقط toast، بدون پیام جدید
+        $before = count($this->publisher->privateMessages);
+        $this->postCallback('cps:attr:link_only');
+        $this->assertCount($before, $this->publisher->privateMessages);
+        $lastCb = $this->publisher->callbacks[array_key_last($this->publisher->callbacks)];
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_settings_saved', ['label' => trans('bot.channel_sync_sub_attr_link_only')]),
+            $lastCb['text']
+        );
+        $this->assertSame(
+            ContentSyncAdminPrefs::ATTR_LINK_ONLY,
+            ContentSyncAdminPrefs::getAttributionMode($bot->id, $this->ownerChatId, 'bale')
+        );
+
+        // لینک بعدی: کیبورد تکرار نمی‌شود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1183');
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertNull($this->publisher->privateMessages[$last]['keyboard'] ?? null);
+    }
+
+    /**
+     * P4-§1: کانال مبدأ ناشناخته — یک‌بار سؤال می‌شود؛ کیبورد فقط مقصدهای
+     * هم‌پلتفرم + «هیچکدام». تا نگاشت، هیچ انتشار مطمئنی نیست.
+     */
+    public function test_p4_unknown_source_asks_once_with_keyboard(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezax_one',
+            'channel_title' => 'Alireza One',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezax_two',
+            'channel_title' => 'Alireza Two',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ContentSyncAdminPrefs::markSettingsAsked($bot->id, $this->ownerChatId, 'bale');
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/unknown_channel/55');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+
+        $this->assertSame(
+            trans('bot.channel_sync_src_ask', [
+                'id' => 1,
+                'platform' => trans('bot.channel_poster_sig_eitaa'),
+            ]),
+            $msg['text']
+        );
+        $this->assertCount(3, $msg['keyboard']);
+        $this->assertSame(
+            [
+                'alirezax_one — Alireza One (tag1)',
+                'alirezax_two — Alireza Two (tag1)',
+                trans('bot.channel_sync_src_other'),
+            ],
+            array_map(fn (array $row) => $row[0]['text'], $msg['keyboard'])
+        );
+        $this->assertSame(
+            ['cps:src:0', 'cps:src:1', 'cps:src:none'],
+            array_map(fn (array $row) => $row[0]['callback_data'], $msg['keyboard'])
+        );
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_SOURCE, $this->ownerState($bot->id)->state);
+
+        // تا نگاشت انجام نشود، هیچ انتشاری نیست
+        $this->assertSame([], $this->publisher->publishes);
+    }
+
+    /**
+     * P4-§1: انتخاب مقصد، نگاشت (username + لینک) را روی مقصد ذخیره می‌کند و
+     * جریان به مرحله‌ی متن ادامه می‌یابد؛ کانال مبدأ خودکار حذف تکراری می‌شود.
+     */
+    public function test_p4_unknown_source_pick_saves_association_and_resolves(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'channel_username' => 'stackoverflow_com',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        $tg = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '-1001234567890',
+            'channel_title' => 'Saber Blog',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ContentSyncAdminPrefs::markSettingsAsked($bot->id, $this->ownerChatId, 'bale');
+
+        // لینک t.me/saberblog با مقصد عددی تلگرام نمی‌خواند → سؤال
+        $this->postText($this->ownerChatId, 'https://t.me/saberblog/77');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertCount(2, $msg['keyboard']);
+        $this->assertSame('-1001234567890 — Saber Blog (tag1)', $msg['keyboard'][0][0]['text']);
+
+        // انتخاب مقصد → نگاشت ذخیره می‌شود (toast + پیام ثبت لینک)
+        $before = count($this->publisher->privateMessages);
+        $this->postCallback('cps:src:0');
+        $lastCb = $this->publisher->callbacks[array_key_last($this->publisher->callbacks)];
+        $this->assertSame(trans('bot.channel_sync_src_saved'), $lastCb['text']);
+        $this->assertCount($before + 1, $this->publisher->privateMessages);
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_link_registered', ['id' => 1]),
+            $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)]['text']
+        );
+
+        $tg->refresh();
+        $this->assertSame('saberblog', $tg->channel_username);
+        $this->assertSame('https://t.me/saberblog/77', $tg->channel_link);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TEXT, $this->ownerState($bot->id)->state);
+
+        // متن: فقط بله (کانال مبدأ تلگرام حالا دقیقاً شناسایی شده و حذف می‌شود)
+        $this->postText($this->ownerChatId, 'متن بعد از شناسایی مبدأ');
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame(['bale'], array_column($this->publisher->publishes, 'platform'));
+        $this->assertSame('tag1', ContentSyncContent::first()->tag);
+    }
+
+    /**
+     * P4-§1: «هیچکدام» — هیچ مقصدی تغییر نمی‌کند و مبدأِ مبهم
+     * (username در مقابل chat id عددی) اجازه‌ی انتشار نمی‌دهد.
+     */
+    public function test_p4_unknown_source_none_keeps_destinations_suspicious(): void
+    {
+        $bot = $this->createBot();
+        $dest = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => '123456789',
+            'channel_title' => 'Numeric Channel',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ContentSyncAdminPrefs::markSettingsAsked($bot->id, $this->ownerChatId, 'bale');
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/someuser/9');
+        $last = array_key_last($this->publisher->privateMessages);
+        $this->assertStringContainsString(
+            trans('bot.channel_sync_src_ask', ['id' => 1, 'platform' => trans('bot.channel_poster_sig_eitaa')]),
+            $this->publisher->privateMessages[$last]['text']
+        );
+
+        $this->postCallback('cps:src:none');
+        $dest->refresh();
+        $this->assertNull($dest->channel_username);
+        $this->assertNull($dest->channel_link);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TEXT, $this->ownerState($bot->id)->state);
+
+        // متن: انتشاری نیست (مبدا مبهم)
+        $this->postText($this->ownerChatId, 'متن مبدأ مبهم');
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertStringContainsString(trans('bot.channel_sync_no_targets'), (string) $this->publisher->lastPrivateText());
+    }
+
+    /**
+     * P4-§1/§2: last_tag ادمین فقط وقتی مبدأ دقیقاً شناسایی شده به‌کار می‌رود؛
+     * برای مبدأ ناشناخته سؤال تگ دوباره پرسیده می‌شود.
+     */
+    public function test_p4_last_tag_not_used_for_unknown_source(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezax_one',
+            'channel_title' => 'Alireza One',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@sabernews',
+            'channel_title' => 'Saber News',
+            'tag' => 'tag2',
+            'is_active' => true,
+        ]);
+        ContentSyncAdminPrefs::markSettingsAsked($bot->id, $this->ownerChatId, 'bale');
+        ContentSyncAdminPrefs::rememberTag($bot->id, $this->ownerChatId, 'bale', 'tag2');
+
+        // مبدأ ناشناخته + last_tag=tag2 → میان‌بُری last_tag به‌کار نمی‌رود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/otheruser/99');
+        $this->postCallback('cps:src:none');
+        $this->postText($this->ownerChatId, 'متن مبدأ ناشناخته');
+
+        $this->assertStringContainsString(trans('bot.channel_sync_ask_tag'), (string) $this->publisher->lastPrivateText());
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TAG, $this->ownerState($bot->id)->state);
+
+        // انتخاب tag2 (ردیف دوم) → فقط کانال تگِ انتخابی
+        $this->postCallback('cps:tag:1');
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame(['telegram'], array_column($this->publisher->publishes, 'platform'));
+        $this->assertSame('@sabernews', $this->publisher->publishes[0]['channel_chat_id']);
+        $this->assertSame('tag2', ContentSyncContent::first()->tag);
+    }
+
+    /**
+     * P4-§2/§4: تگ و روش نمایش منبع در لحظه‌ی صف‌گذاری روی آیتم صف منجمد می‌شود.
+     */
+    public function test_p4_tag_and_attribution_frozen_on_queue(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postCallback('cps:mode:queue');
+        $this->assertSame(ContentSyncAdminPrefs::MODE_QUEUE, ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن با تگ و امضای منجمد');
+
+        $content = ContentSyncContent::first();
+        $this->assertSame('tag1', $content->tag);
+
+        $queue = ChannelPosterQueue::first();
+        $this->assertNotNull($queue);
+        $this->assertSame('tag1', $queue->tag);
+        $this->assertSame(ContentSyncAdminPrefs::ATTR_SIGNED, $queue->source_attribution);
+    }
+
+    /**
+     * P4-§4: حالت پیش‌فرض (signed) — «📌 منبع: ...» + لینک مبدأ به انتهای
+     * متن منتشرشده می‌چسبد؛ متن اصلی در دیتابیس دست‌نخورده می‌ماند.
+     */
+    public function test_p4_signed_attribution_appended_to_published_text(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن اصلی بدون لینک');
+
+        $this->assertCount(2, $this->publisher->publishes);
+        $label = trans('bot.channel_sync_source_label', [
+            'channel' => 'Alireza',
+            'platform' => trans('bot.channel_poster_sig_eitaa'),
+        ]);
+        $suffix = $label . "\n" . 'https://eitaa.com/alirezamehran_3/1182';
+        foreach ($this->publisher->publishes as $p) {
+            $this->assertStringEndsWith($suffix, (string) $p['text']);
+        }
+
+        // متن اصلی در دیتابیس دست‌نخورده است (امضا فقط هنگام انتشار)
+        $this->assertSame('متن اصلی بدون لینک', ContentSyncContent::first()->text);
+    }
+
+    /**
+     * P4-§4: link_only → فقط لینک مبدأ؛ none → متن دقیقاً همان‌طور منتشر می‌شود.
+     */
+    public function test_p4_link_only_then_none_attribution(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        // link_only: فقط لینک مبدأ به انتهای متن
+        $this->postCallback('cps:attr:link_only');
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1201');
+        $this->postText($this->ownerChatId, 'متن دوم');
+        $this->assertCount(2, $this->publisher->publishes);
+        foreach ($this->publisher->publishes as $p) {
+            $this->assertStringEndsWith('https://eitaa.com/alirezamehran_3/1201', (string) $p['text']);
+        }
+
+        // none: هیچ افزوده‌ای ندارد
+        $this->postCallback('cps:attr:none');
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1202');
+        $this->postText($this->ownerChatId, 'متن سوم');
+        $rest = array_slice($this->publisher->publishes, 2);
+        $this->assertCount(2, $rest);
+        foreach ($rest as $p) {
+            $this->assertSame('متن سوم', (string) $p['text']);
+        }
+    }
+
+    /**
+     * P4-§4: تغییر روش بعد از صف‌گذاری بی‌اثر است — امضا با مقدار
+     * منجمد روی آیتم صف اعمال می‌شود.
+     */
+    public function test_p4_queue_item_keeps_frozen_attribution(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postCallback('cps:mode:queue');
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1301');
+        $this->postText($this->ownerChatId, 'متن صف با امضای منجمد');
+
+        $queue = ChannelPosterQueue::first();
+        $this->assertNotNull($queue);
+        $this->assertSame(ContentSyncAdminPrefs::ATTR_SIGNED, $queue->source_attribution);
+
+        // تغییر روش بعد از صف‌گذاری
+        $this->postCallback('cps:attr:none');
+        $this->assertSame(ContentSyncAdminPrefs::ATTR_NONE, ContentSyncAdminPrefs::getAttributionMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $service = $this->app->make(ChannelPosterQueuePublishService::class);
+        $result = $service->publishItem($queue->fresh(), false);
+        $this->assertSame('published', $result['status']);
+
+        $this->assertCount(2, $this->publisher->publishes);
+        $label = trans('bot.channel_sync_source_label', [
+            'channel' => 'Alireza',
+            'platform' => trans('bot.channel_poster_sig_eitaa'),
+        ]);
+        $suffix = $label . "\n" . 'https://eitaa.com/alirezamehran_3/1301';
+        foreach ($this->publisher->publishes as $p) {
+            $this->assertStringEndsWith($suffix, (string) $p['text']);
+        }
+    }
+
+    /**
+     * P4-§6: لینک واقعی بله که با مقصد ذخیره‌شده (chat id عددی) دقیقاً
+     * می‌خواند: خودکار گره می‌خورد، username ذخیره می‌شود، کیبوردی نیست.
+     */
+    public function test_p4_known_source_auto_associates_without_keyboard(): void
+    {
+        $bot = $this->createBot();
+        $bale = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@saberblog',
+            'channel_title' => 'Saber Blog',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ContentSyncAdminPrefs::markSettingsAsked($bot->id, $this->ownerChatId, 'bale');
+
+        $this->postText($this->ownerChatId, 'https://ble.ir/stackoverflow_com/8995754940207167599/42');
+        $last = array_key_last($this->publisher->privateMessages);
+        $msg = $this->publisher->privateMessages[$last];
+        $this->assertStringContainsString(trans('bot.channel_sync_link_registered', ['id' => 1]), $msg['text']);
+        $this->assertNull($msg['keyboard'] ?? null);
+
+        // username و لینک روی مقصد ذخیره شده‌اند
+        $bale->refresh();
+        $this->assertSame('stackoverflow_com', $bale->channel_username);
+        $this->assertSame('https://ble.ir/stackoverflow_com/8995754940207167599/42', $bale->channel_link);
+
+        // نسخه‌ی مبدأ به مقصد گره خورده با لینک confirmed
+        $source = ContentSyncVersion::where('platform', 'bale')
+            ->where('publish_status', ContentSyncVersion::STATUS_EXISTING_SOURCE)
+            ->first();
+        $this->assertNotNull($source);
+        $this->assertSame($bale->id, $source->destination_id);
+        $this->assertSame('https://ble.ir/stackoverflow_com/8995754940207167599/42', $source->post_url);
+        $this->assertSame(ContentSyncVersion::LINK_CONFIRMED, $source->link_status);
+
+        // متن: فقط تلگرام (مبدأ بله حذف تکراری می‌شود)
+        $this->postText($this->ownerChatId, 'متن از بله');
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame(['telegram'], array_column($this->publisher->publishes, 'platform'));
+    }
+
     /* ------------------------------------------------------------------ */
 
     private function createBot(?string $token = null): Bot
@@ -1395,6 +1872,7 @@ class ContentSyncFlowTest extends TestCase
             'platform' => 'bale',
             'channel_chat_id' => '8995754940207167599',
             'channel_title' => 'stackoverflow_com',
+            'channel_username' => 'stackoverflow_com',
             'tag' => 'tag1',
             'is_active' => true,
         ]);

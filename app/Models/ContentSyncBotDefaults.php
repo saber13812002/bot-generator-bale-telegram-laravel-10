@@ -20,6 +20,7 @@ class ContentSyncBotDefaults extends Model
         'publish_mode',
         'dedup_mode',
         'fast_mode',
+        'source_attribution',
     ];
 
     protected $casts = [

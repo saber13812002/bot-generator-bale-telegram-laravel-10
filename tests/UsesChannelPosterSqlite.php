@@ -70,6 +70,7 @@ trait UsesChannelPosterSqlite
             $table->string('channel_chat_id', 64);
             $table->string('channel_title')->nullable();
             $table->string('channel_link', 255)->nullable();
+            $table->string('channel_username', 128)->nullable();
             $table->string('tag', 64)->nullable();
             $table->string('bot_token')->nullable();
             $table->timestamp('verified_at')->nullable();
@@ -101,6 +102,7 @@ trait UsesChannelPosterSqlite
             $table->string('owner_chat_id', 64)->nullable();
             $table->string('owner_origin', 20)->default('bale');
             $table->unsignedBigInteger('content_id')->nullable();
+            $table->string('source_attribution', 20)->nullable();
             $table->timestamps();
         });
 
@@ -202,6 +204,7 @@ trait UsesChannelPosterSqlite
             $table->string('dedup_mode', 30)->default('exclude_source_channel');
             $table->boolean('fast_mode')->default(true);
             $table->boolean('settings_asked')->default(false);
+            $table->string('source_attribution', 20)->default('signed');
             $table->timestamps();
             $table->unique(['bot_id', 'admin_chat_id', 'origin'], 'cs_prefs_admin_unique');
         });
@@ -214,6 +217,7 @@ trait UsesChannelPosterSqlite
             $table->string('publish_mode', 20)->default('immediate');
             $table->string('dedup_mode', 30)->default('exclude_source_channel');
             $table->boolean('fast_mode')->default(true);
+            $table->string('source_attribution', 20)->default('signed');
             $table->timestamps();
             $table->unique(['bot_id', 'origin'], 'cs_bot_defaults_unique');
         });

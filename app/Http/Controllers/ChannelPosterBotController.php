@@ -42,6 +42,7 @@ class ChannelPosterBotController extends Controller
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
     public const STATE_SYNC_AWAITING_TAG = 'cp_sync_awaiting_tag';
+    public const STATE_SYNC_AWAITING_SOURCE = 'cp_sync_awaiting_source';
 
     public function __construct(
         private ChannelPosterBotService $service,
@@ -565,6 +566,8 @@ class ChannelPosterBotController extends Controller
         $adminSyncCallback = (str_starts_with($data, 'cps:dedup:')
             || str_starts_with($data, 'cps:fast:')
             || str_starts_with($data, 'cps:mode:')
+            || str_starts_with($data, 'cps:attr:')
+            || str_starts_with($data, 'cps:src:')
             || str_starts_with($data, 'cps:tag:')
             || str_starts_with($data, 'cps:menu')
             || str_starts_with($data, 'cps:sub:'))
@@ -798,11 +801,20 @@ class ChannelPosterBotController extends Controller
         array $stateData,
         string $platform
     ): void {
-        $channelChatId = trim($channelChatId);
-        if ($channelChatId === '' || str_starts_with($channelChatId, '/')) {
+        $input = trim($channelChatId);
+        if ($input === '' || str_starts_with($input, '/')) {
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_invalid_chat_id'));
             return;
         }
+
+        // §6: اگر ورودی خود یک لینک کانال/پیام باشد (مثل t.me/saberblog/42 یا
+        // ble.ir/saberblog/123/4)، username و chat id هر دو را نگه می‌داریم —
+        // username قابل‌اعتماد (channel_username) فقط از لینک واقعی پارس می‌شود.
+        $parsed = PostUrlParser::parse($input);
+        $channelChatId = $parsed !== null ? (string) $parsed['channel_identifier'] : $input;
+        $channelUsername = $parsed !== null ? trim((string) ($parsed['channel_username'] ?? '')) : '';
+        $channelTitle = $channelUsername !== '' ? $channelUsername : $channelChatId;
+        $channelLink = $parsed !== null ? (string) $parsed['canonical_url'] : null;
 
         $token = (string) ($stateData['bot_token'] ?? '');
         $tag = (string) ($stateData['tag'] ?? '');
@@ -817,8 +829,21 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        $this->service->saveDestination($botItem->id, $platform, $channelChatId, null, $tag !== '' ? $tag : null, $token);
+        $this->service->saveDestination($botItem->id, $platform, $channelChatId, $channelTitle, $tag !== '' ? $tag : null, $token);
         $this->clearState($botItem, $chatId, $type);
+        if ($channelLink !== null && preg_match('#^https?://#i', (string) $input) === 1) {
+            $destination = ChannelPosterDestination::where('bot_id', $botItem->id)
+                ->where('platform', $platform)
+                ->where('channel_chat_id', $channelChatId)
+                ->first();
+            $update = ['channel_link' => $channelLink];
+            if ($channelUsername !== '') {
+                $update['channel_username'] = $channelUsername;
+            }
+            if ($destination && $update !== []) {
+                $destination->forceFill($update)->save();
+            }
+        }
         $key = $platform === ChannelPosterDestination::PLATFORM_TELEGRAM
             ? 'bot.channel_poster_telegram_connected'
             : 'bot.channel_poster_eitaa_connected';
@@ -1372,12 +1397,164 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        // §5: دکمه‌های کوتاه تنظیمات فقط یک‌بار — اولین لینک — نمایش داده می‌شوند.
+        if (!ContentSyncAdminPrefs::isSettingsAsked($botItem->id, $chatId, $type)) {
+            $this->sendOneTimeSettingsKeyboard($publisher, $botItem, $type, $chatId, $content);
+            return;
+        }
+
+        // §1: کانال مبدأ ناشناخته — یک‌بار سؤال می‌شود و نگاشت ذخیره می‌شود.
+        // تا آن‌که نگاشت نگردد، هیچ انتشار «مطمئن» انجام نمی‌شود.
+        if ($reg['source_destination_id'] === null) {
+            $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_SOURCE, [
+                'content_id' => $content->id,
+                'source_destination_id' => null,
+                'parsed' => $reg['parsed'],
+            ]);
+            $this->sendSourceChannelKeyboard($publisher, $botItem, $type, $chatId, $content, $reg['parsed']);
+            return;
+        }
+
         $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TEXT, [
             'content_id' => $content->id,
             'source_destination_id' => $reg['source_destination_id'],
         ]);
 
-        // پیام کوتاه سه‌خطی — بدون دکمه‌های تنظیمات (تنظیمات از طریق /settings)
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_link_registered', ['id' => $content->id]));
+    }
+
+    /**
+     * §5: کیبورد یک‌بارِ تنظیمات (اولین لینک) — دکمه‌های کوتاه، حداکثر ۲ در هر ردیف.
+     */
+    private function sendOneTimeSettingsKeyboard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        ContentSyncContent $content
+    ): void {
+        $dedup = ContentSyncAdminPrefs::getDedupMode($botItem->id, $chatId, $type);
+        $mode = ContentSyncAdminPrefs::getMode($botItem->id, $chatId, $type);
+        $fast = ContentSyncAdminPrefs::getFastMode($botItem->id, $chatId, $type);
+        $attr = ContentSyncAdminPrefs::getAttributionMode($botItem->id, $chatId, $type);
+
+        $dedupShort = $dedup === ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM ? '🌐' : '🎯';
+        $modeShort = $mode === ContentSyncAdminPrefs::MODE_QUEUE ? '⏳' : '⚡';
+        $fastShort = $fast ? '⚡✅' : '⚡';
+        $attrShort = $attr === ContentSyncAdminPrefs::ATTR_LINK_ONLY ? '🔗' : ($attr === ContentSyncAdminPrefs::ATTR_NONE ? '🚫' : '📌');
+
+        $rows = [
+            [
+                ['text' => $dedupShort . ' ' . trans('bot.channel_sync_ot_dedup'), 'callback_data' => 'cps:sub:dedup'],
+                ['text' => $modeShort . ' ' . trans('bot.channel_sync_ot_time'), 'callback_data' => 'cps:sub:time'],
+            ],
+            [
+                ['text' => $fastShort . ' ' . trans('bot.channel_sync_ot_fast'), 'callback_data' => 'cps:sub:fast'],
+                ['text' => $attrShort . ' ' . trans('bot.channel_sync_ot_attr'), 'callback_data' => 'cps:sub:attr'],
+            ],
+        ];
+
+        ContentSyncAdminPrefs::markSettingsAsked($botItem->id, $chatId, $type);
+        $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TEXT, [
+            'content_id' => $content->id,
+            'source_destination_id' => null,
+        ]);
+
+        $publisher->sendPrivateMessage(
+            $chatId,
+            trans('bot.channel_sync_link_registered', ['id' => $content->id]) . "\n" . trans('bot.channel_sync_ot_intro'),
+            $rows
+        );
+    }
+
+    /**
+     * §1: سؤال یک‌باره‌ی کانال مبدأ (وقتی شناسه‌ی لینک با هیچ مقصد ثبت‌شده‌ای
+     * جور در نمی‌آید). پاسخ فقط نگاشت شناسه را ذخیره می‌کند — انتشار نامطمئن نیست.
+     */
+    private function sendSourceChannelKeyboard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        ContentSyncContent $content,
+        array $parsed
+    ): void {
+        $platform = (string) ($parsed['platform'] ?? '');
+        $rows = [];
+        $destinations = ChannelPosterDestination::where('bot_id', $botItem->id)
+            ->where('is_active', true)
+            ->where('platform', $platform)
+            ->get();
+        $index = 0;
+        foreach ($destinations as $destination) {
+            $title = trim((string) $destination->channel_title);
+            $info = $title !== '' ? " — {$title}" : '';
+            $tag = trim((string) $destination->tag);
+            $tagInfo = $tag !== '' ? " ({$tag})" : '';
+            $rows[] = [['text' => "{$destination->channel_chat_id}{$info}{$tagInfo}", 'callback_data' => 'cps:src:' . $index]];
+            $index++;
+        }
+        $rows[] = [['text' => trans('bot.channel_sync_src_other'), 'callback_data' => 'cps:src:none']];
+
+        $publisher->sendPrivateMessage(
+            $chatId,
+            trans('bot.channel_sync_src_ask', [
+                'id' => $content->id,
+                'platform' => $this->contentSync->platformLabels()[$platform] ?? $platform,
+            ]),
+            $rows
+        );
+    }
+
+    /**
+     * §1: پاسخ سؤال کانال مبدأ — نگاشت ذخیره می‌شود و جریان fast mode ادامه می‌یابد.
+     */
+    private function handleSyncSourceCallback(
+        ChannelPosterPublisher $publisher,
+        ?string $callbackId,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SYNC_AWAITING_SOURCE) {
+            return;
+        }
+
+        $content = ContentSyncContent::find((int) $state->getData('content_id', 0));
+        if (!$content || (int) $content->bot_id !== (int) $botItem->id) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $parsed = $state->getData('parsed');
+        if (!is_array($parsed)) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $sourceDestinationId = null;
+        if (str_starts_with($data, 'cps:src:') && $data !== 'cps:src:none') {
+            $index = (int) substr($data, 8);
+            $destinations = ChannelPosterDestination::where('bot_id', $botItem->id)
+                ->where('is_active', true)
+                ->where('platform', (string) ($parsed['platform'] ?? ''))
+                ->get();
+            $sourceDestinationId = $destinations->values()->get($index)?->id;
+        }
+
+        if ($sourceDestinationId !== null) {
+            $this->contentSync->recordSourceAssociation($sourceDestinationId, $parsed);
+        }
+
+        $publisher->answerCallback($callbackId, trans('bot.channel_sync_src_saved'));
+
+        $this->setState($botItem, $chatId, $type, self::STATE_SYNC_AWAITING_TEXT, [
+            'content_id' => $content->id,
+            'source_destination_id' => $sourceDestinationId,
+        ]);
+
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_link_registered', ['id' => $content->id]));
     }
 
@@ -1481,6 +1658,9 @@ class ChannelPosterBotController extends Controller
         string $tag
     ): void {
         $mode = ContentSyncAdminPrefs::getMode($botItem->id, $chatId, $type);
+
+        // §2: تگ نهایی روی خود محتوا ثبت می‌شود — گزارش و صف فقط همین تگ را می‌بینند.
+        $content->forceFill(['tag' => $tag])->save();
 
         if ($mode === ContentSyncAdminPrefs::MODE_QUEUE) {
             $enq = $this->contentSync->enqueueForTag($content, $tag, $chatId, $type);
@@ -1611,12 +1791,16 @@ class ChannelPosterBotController extends Controller
                 trans('bot.channel_sync_settings_fast_line', [
                     'fast' => $defaults->fast_mode ? trans('bot.channel_sync_settings_fast_on') : trans('bot.channel_sync_settings_fast_off'),
                 ]),
+                trans('bot.channel_sync_settings_attr_line', [
+                    'attr' => $this->attributionLabel((string) ($defaults->source_attribution ?: ContentSyncAdminPrefs::ATTR_SIGNED)),
+                ]),
                 trans('bot.channel_sync_sub_defaults_note'),
             ];
             $rows = [
                 [['text' => trans('bot.channel_sync_sub_defaults_dedup'), 'callback_data' => 'cps:sub:defaults:dedup']],
                 [['text' => trans('bot.channel_sync_sub_defaults_time'), 'callback_data' => 'cps:sub:defaults:time']],
                 [['text' => trans('bot.channel_sync_sub_defaults_fast'), 'callback_data' => 'cps:sub:defaults:fast']],
+                [['text' => trans('bot.channel_sync_sub_defaults_attr'), 'callback_data' => 'cps:sub:defaults:attr']],
                 [['text' => trans('bot.channel_sync_sub_back'), 'callback_data' => 'cps:menu']],
             ];
         } elseif ($screen === 'defaults:dedup') {
@@ -1667,6 +1851,38 @@ class ChannelPosterBotController extends Controller
                 [['text' => trans('bot.channel_sync_sub_fast_off'), 'callback_data' => 'cps:default:fast:off']],
                 [['text' => trans('bot.channel_sync_sub_back'), 'callback_data' => 'cps:sub:defaults']],
             ];
+        } elseif ($screen === 'attr') {
+            $attr = ContentSyncAdminPrefs::getAttributionMode($botItem->id, $chatId, $type);
+            $lines = [
+                trans('bot.channel_sync_sub_attr_title'),
+                trans('bot.channel_sync_sub_attr_signed') . ($attr === ContentSyncAdminPrefs::ATTR_SIGNED ? ' ✅' : ''),
+                trans('bot.channel_sync_sub_attr_link_only') . ($attr === ContentSyncAdminPrefs::ATTR_LINK_ONLY ? ' ✅' : ''),
+                trans('bot.channel_sync_sub_attr_none') . ($attr === ContentSyncAdminPrefs::ATTR_NONE ? ' ✅' : ''),
+            ];
+            $rows = [
+                [['text' => trans('bot.channel_sync_sub_attr_signed'), 'callback_data' => 'cps:attr:signed']],
+                [['text' => trans('bot.channel_sync_sub_attr_link_only'), 'callback_data' => 'cps:attr:link_only']],
+                [['text' => trans('bot.channel_sync_sub_attr_none'), 'callback_data' => 'cps:attr:none']],
+                [['text' => trans('bot.channel_sync_sub_back'), 'callback_data' => 'cps:menu']],
+            ];
+        } elseif ($screen === 'defaults:attr') {
+            if (!$this->service->isOwner($botItem, $chatId, $type)) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
+                return;
+            }
+            $defaults = ContentSyncAdminPrefs::botDefaultsFor($botItem->id, $type);
+            $lines = [
+                trans('bot.channel_sync_sub_defaults_attr_title'),
+                trans('bot.channel_sync_sub_attr_signed') . ($defaults->source_attribution === ContentSyncAdminPrefs::ATTR_SIGNED ? ' ✅' : ''),
+                trans('bot.channel_sync_sub_attr_link_only') . ($defaults->source_attribution === ContentSyncAdminPrefs::ATTR_LINK_ONLY ? ' ✅' : ''),
+                trans('bot.channel_sync_sub_attr_none') . ($defaults->source_attribution === ContentSyncAdminPrefs::ATTR_NONE ? ' ✅' : ''),
+            ];
+            $rows = [
+                [['text' => trans('bot.channel_sync_sub_attr_signed'), 'callback_data' => 'cps:default:attr:signed']],
+                [['text' => trans('bot.channel_sync_sub_attr_link_only'), 'callback_data' => 'cps:default:attr:link_only']],
+                [['text' => trans('bot.channel_sync_sub_attr_none'), 'callback_data' => 'cps:default:attr:none']],
+                [['text' => trans('bot.channel_sync_sub_back'), 'callback_data' => 'cps:sub:defaults']],
+            ];
         } else {
             // منوی اصلی /settings
             $dedup = ContentSyncAdminPrefs::getDedupMode($botItem->id, $chatId, $type);
@@ -1688,6 +1904,9 @@ class ChannelPosterBotController extends Controller
                 trans('bot.channel_sync_settings_fast_line', [
                     'fast' => $fast ? trans('bot.channel_sync_settings_fast_on') : trans('bot.channel_sync_settings_fast_off'),
                 ]),
+                trans('bot.channel_sync_settings_attr_line', [
+                    'attr' => $this->attributionLabel(ContentSyncAdminPrefs::getAttributionMode($botItem->id, $chatId, $type)),
+                ]),
             ];
 
             $rows = [
@@ -1700,6 +1919,7 @@ class ChannelPosterBotController extends Controller
                 $rows[] = [['text' => trans('bot.channel_sync_menu_defaults'), 'callback_data' => 'cps:sub:defaults']];
             }
 
+            $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];
             $rows[] = [['text' => trans('bot.channel_sync_sub_back'), 'callback_data' => 'cps:back']];
         }
 
@@ -1724,6 +1944,7 @@ class ChannelPosterBotController extends Controller
             || $data === 'cps:sub:dedup'
             || $data === 'cps:sub:time'
             || $data === 'cps:sub:fast'
+            || $data === 'cps:sub:attr'
         ) {
             $screen = 'menu';
             if ($data === 'cps:sub:dedup') {
@@ -1735,6 +1956,9 @@ class ChannelPosterBotController extends Controller
             if ($data === 'cps:sub:fast') {
                 $screen = 'fast';
             }
+            if ($data === 'cps:sub:attr') {
+                $screen = 'attr';
+            }
             $publisher->answerCallback($callbackId);
             $this->sendSettingsScreen($publisher, $botItem, $type, $chatId, $screen);
             return;
@@ -1745,6 +1969,7 @@ class ChannelPosterBotController extends Controller
             || $data === 'cps:sub:defaults:dedup'
             || $data === 'cps:sub:defaults:time'
             || $data === 'cps:sub:defaults:fast'
+            || $data === 'cps:sub:defaults:attr'
         ) {
             if (!$this->service->isOwner($botItem, $chatId, $type)) {
                 $publisher->answerCallback($callbackId, trans('bot.channel_poster_not_owner'));
@@ -1759,6 +1984,9 @@ class ChannelPosterBotController extends Controller
             }
             if ($data === 'cps:sub:defaults:fast') {
                 $screen = 'defaults:fast';
+            }
+            if ($data === 'cps:sub:defaults:attr') {
+                $screen = 'defaults:attr';
             }
             $publisher->answerCallback($callbackId);
             $this->sendSettingsScreen($publisher, $botItem, $type, $chatId, $screen);
@@ -1803,6 +2031,16 @@ class ChannelPosterBotController extends Controller
                 ? trans('bot.channel_sync_mode_queue')
                 : trans('bot.channel_sync_mode_immediate');
             $publisher->answerCallback($callbackId, trans('bot.channel_sync_settings_saved', ['label' => $label]));
+            return;
+        }
+
+        // §4: روش نمایش منبع (شخصی)
+        if ($data === 'cps:attr:signed' || $data === 'cps:attr:link_only' || $data === 'cps:attr:none') {
+            $value = $data === 'cps:attr:signed'
+                ? ContentSyncAdminPrefs::ATTR_SIGNED
+                : ($data === 'cps:attr:link_only' ? ContentSyncAdminPrefs::ATTR_LINK_ONLY : ContentSyncAdminPrefs::ATTR_NONE);
+            ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill(['source_attribution' => $value])->save();
+            $publisher->answerCallback($callbackId, trans('bot.channel_sync_settings_saved', ['label' => $this->attributionLabel($value)]));
             return;
         }
 
@@ -1853,6 +2091,25 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
+        // §4: روش نمایش منبع (پیش‌فرض مشترک) — فقط مالک
+        if (str_starts_with($data, 'cps:default:attr:')) {
+            $value = str_ends_with($data, ':link_only')
+                ? ContentSyncAdminPrefs::ATTR_LINK_ONLY
+                : (str_ends_with($data, ':none') ? ContentSyncAdminPrefs::ATTR_NONE : ContentSyncAdminPrefs::ATTR_SIGNED);
+            ContentSyncAdminPrefs::botDefaultsFor($botItem->id, $type)->forceFill([
+                'source_attribution' => $value,
+                'set_by_chat_id' => $chatId,
+            ])->save();
+            $publisher->answerCallback($callbackId, trans('bot.channel_sync_settings_saved', ['label' => $this->attributionLabel($value)]));
+            return;
+        }
+
+        // §1: پاسخ سؤال کانال مبدأ
+        if (str_starts_with($data, 'cps:src:')) {
+            $this->handleSyncSourceCallback($publisher, $callbackId, $botItem, $type, $chatId, $data);
+            return;
+        }
+
         // انتخاب تگ (جریان fast mode)
         if (str_starts_with($data, 'cps:tag:')) {
             $publisher->answerCallback($callbackId);
@@ -1869,6 +2126,18 @@ class ChannelPosterBotController extends Controller
         }
 
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_ask_tag'), $rows);
+    }
+
+    /**
+     * §4: برچسب خوانای روش نمایش منبع (Source Attribution).
+     */
+    private function attributionLabel(string $mode): string
+    {
+        return match ($mode) {
+            ContentSyncAdminPrefs::ATTR_LINK_ONLY => trans('bot.channel_sync_sub_attr_link_only'),
+            ContentSyncAdminPrefs::ATTR_NONE => trans('bot.channel_sync_sub_attr_none'),
+            default => trans('bot.channel_sync_sub_attr_signed'),
+        };
     }
 
     /* ---------- دستورات ---------- */

@@ -13,6 +13,7 @@ use App\Models\ContentSyncOperation;
 use App\Models\ContentSyncVersion;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -62,6 +63,13 @@ class ContentSyncService
 
         // مقصدی که این لینک به آن مربوط می‌شود (برای استثنی‌سازی و پیشنهاد تگ)
         $sourceDestinationId = $this->matchDestination($bot->id, $parsed);
+
+        // §1: اگر مقصد با شناسه عددی ذخیره شده ولی لینک username عمومی دارد
+        // (یا بالعکس)، این ارتباط معتبر هر دو شناسه را ثبت می‌کنیم — برای بارهای بعدی
+        // تگ به‌صورت خودکار تشخیص داده می‌شود و هیچ سؤالی تکرار نمی‌شود.
+        if ($sourceDestinationId) {
+            $this->recordSourceAssociation($sourceDestinationId, $parsed);
+        }
 
         if ($existing) {
             ContentSyncOperation::log(
@@ -203,8 +211,9 @@ class ContentSyncService
             return $this->tagOk($botId, $adminChatId, $origin, $adminHintTag, $groups);
         }
 
-        // 4) آخرین تگ این ادمین (فقط در حالت سریع؛ در غیر این صورت دوباره سؤال می‌شود)
-        if ($useFast && $adminChatId !== null) {
+        // 4) آخرین تگ این ادمین — فقط وقتی کانال مبدأ به‌طور دقیق شناسایی شده
+        // (§1: استفاده از last_tag برای کانال ناشناخته باعث انتشار در تگ اشتباه می‌شد)
+        if ($useFast && $adminChatId !== null && $sourceDestinationId !== null) {
             $last = ContentSyncAdminPrefs::where('bot_id', $botId)
                 ->where('admin_chat_id', $adminChatId)
                 ->where('origin', $origin)
@@ -257,10 +266,11 @@ class ContentSyncService
         ?string $adminChatId = null,
         string $origin = 'bale'
     ): array {
-        $destinations = $this->service->resolveByTag($content->bot_id, $tag);
-        if ($destinations->isEmpty()) {
-            $destinations = $this->service->resolveDestinations($content->bot_id, 'all');
-        }
+        // §2: فقط مقصدهای فعالِ تگ انتخاب‌شده. هیچ fallback به همه‌ی کانال‌ها نداریم —
+        // اگر تگ خالی یا بدون مقصد باشد، انتشاری انجام نمی‌شود (مبلغ «no targets»).
+        $destinations = $tag === 'all'
+            ? collect()
+            : $this->service->resolveByTag($content->bot_id, $tag);
 
         $dedupMode = ContentSyncAdminPrefs::getDedupMode(
             $content->bot_id,
@@ -324,8 +334,9 @@ class ContentSyncService
 
         $sourceChannel = trim((string) $content->source_channel_id);
         $destChatId = trim((string) $destination->channel_chat_id);
+        $destUsername = ltrim(trim((string) ($destination->channel_username ?? '')), '@');
 
-        if ($sourceChannel === '' || $destChatId === '') {
+        if ($sourceChannel === '') {
             return null;
         }
 
@@ -356,11 +367,13 @@ class ContentSyncService
         }
 
         // مقایسه username (تلگرام/ایتا/سروش) — بی‌تفاوت به uppercase/lowercase و @
+        // (username معتبر مقصد از ستون channel_username یا خود channel_chat_id گرفته می‌شود)
         $sourceUser = ltrim($sourceChannel, '@');
-        if (preg_match('/^[A-Za-z][A-Za-z0-9_]{2,}$/', $sourceUser) === 1
-            && preg_match('/^@?[A-Za-z][A-Za-z0-9_]{2,}$/', $destChatId) === 1
+        $destUserRaw = ltrim($destUsername !== '' ? $destUsername : $destChatId, '@');
+        if (preg_match('/^[A-Za-z][A-Za-z0-9_\-]{2,}$/', $sourceUser) === 1
+            && preg_match('/^[A-Za-z][A-Za-z0-9_\-]{2,}$/', $destUserRaw) === 1
         ) {
-            return strcasecmp(ltrim($sourceUser, '@'), ltrim($destChatId, '@')) === 0;
+            return strcasecmp($sourceUser, $destUserRaw) === 0;
         }
 
         // فرمت‌ها با هم جور در نمی‌آیند (مثلاً username در مقابل chat id عددی)
@@ -386,6 +399,52 @@ class ContentSyncService
         return null;
     }
 
+    /**
+     * §1: ثبت ارتباط معتبر شناسه‌های یک کانال (username عمومی ↔ chat id عددی).
+     *
+     * اگر مقصد با یک فرمت شناسه ذخیره شده و لینک مبدأ فرمت دیگری از همان
+     * کانال را نشان می‌دهد، هر دو شناسه در مقصد نگه داشته می‌شوند تا در
+     * فراخوانی‌های بعدی تطبیق دقیق و خودکار انجام شود.
+     */
+    public function recordSourceAssociation(int $destinationId, array $parsed): void
+    {
+        $destination = ChannelPosterDestination::find($destinationId);
+        if (!$destination) {
+            return;
+        }
+
+        $linkUsername = trim((string) ($parsed['channel_username'] ?? ''));
+        $linkIdentifier = trim((string) ($parsed['channel_identifier'] ?? ''));
+
+        $update = [];
+
+        // username معتبر لینک — اگر در مقصد ذخیره نیست، ثبت می‌شود
+        if ($linkUsername !== ''
+            && preg_match('/^[A-Za-z0-9_\-]+$/', $linkUsername) === 1
+            && trim((string) ($destination->channel_username ?? '')) === ''
+        ) {
+            $update['channel_username'] = $linkUsername;
+        }
+
+        // لینک اصلی (بهترین مرجع تطبیق بعدی) — اگر خالی است، ثبت می‌شود
+        if (trim((string) ($destination->channel_link ?? '')) === '' && !empty($parsed['canonical_url'])) {
+            $update['channel_link'] = $parsed['canonical_url'];
+        }
+
+        // در بله: اگر مقصد با username ذخیره شده ولی لینک chat id عددی دارد
+        // (یا بالعکس)، chat id عددی در مقصد تکمیل می‌شود
+        if ($parsed['platform'] === ChannelPosterDestination::PLATFORM_BALE && ctype_digit($linkIdentifier)) {
+            $destChatId = trim((string) $destination->channel_chat_id);
+            if (!ctype_digit($destChatId)) {
+                $update['channel_chat_id'] = $linkIdentifier;
+            }
+        }
+
+        if ($update !== []) {
+            $destination->forceFill($update)->save();
+        }
+    }
+
     /* ------------------------------------------------------------------
      * 5) انتشار فوری (fast mode — step 4)
      * ------------------------------------------------------------------ */
@@ -404,6 +463,17 @@ class ContentSyncService
         $chunks = TextChunker::split((string) $content->text);
         $results = [];
 
+        // §4: امضای منبع — از تنظیمات زنده، فقط هنگام ارسال به انتها اضافه می‌شود
+        // (ستون text دست‌نخورده می‌ماند و در retry تکرار نمی‌شود).
+        $attributionSuffix = $this->buildAttributionSuffix(
+            $content,
+            ContentSyncAdminPrefs::getAttributionMode(
+                $content->bot_id,
+                (string) ($adminChatId ?? ''),
+                $origin
+            )
+        );
+
         foreach ($targets as $destination) {
             // سروش هنوز publisher ندارد — به‌جای ارسال اشتباه، skip با دلیل روشن
             if ($destination->platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
@@ -421,34 +491,21 @@ class ContentSyncService
                 continue;
             }
 
-            $lastMessageId = null;
-            $ok = true;
-            $error = null;
-
             try {
-                foreach ($chunks as $chunk) {
-                    $result = $publisher->publish(
-                        $destination->channel_chat_id,
-                        ContentSyncContent::CONTENT_TYPE_TEXT,
-                        $chunk,
-                        null,
-                        $destination->platform,
-                        $destination->bot_token
-                    );
-                    if (!($result['success'] ?? false)) {
-                        $ok = false;
-                        $error = $result['error'] ?? trans('bot.channel_sync_publish_failed');
-                        break;
-                    }
-                    $lastMessageId = $result['message_id'] ?? $lastMessageId;
-                }
+                [$ok, $lastMessageId, $error] = $this->publishChunks(
+                    $publisher,
+                    $destination,
+                    $chunks,
+                    $attributionSuffix
+                );
             } catch (Throwable $e) {
                 $ok = false;
+                $lastMessageId = null;
                 $error = $e->getMessage();
             }
 
             $urlInfo = $ok
-                ? PostUrlBuilder::build($destination, $lastMessageId)
+                ? PostUrlBuilder::build($destination, $lastMessageId, (string) ($destination->channel_username ?? ''))
                 : ['url' => null, 'status' => ContentSyncVersion::LINK_NONE];
 
             $version = $this->upsertVersion($content, $destination, [
@@ -532,6 +589,16 @@ class ContentSyncService
             $content->id
         );
 
+        // §4: حالت امضای منبع در لحظه صف‌بندی «فریز» می‌شود تا انتشار بعدی از
+        // صف دقیقاً همان رفتاری داشته باشد که هنگام ثبت انتخاب شده بود.
+        $queue->forceFill([
+            'source_attribution' => ContentSyncAdminPrefs::getAttributionMode(
+                $content->bot_id,
+                $adminChatId,
+                $origin
+            ),
+        ])->save();
+
         $count = 0;
         foreach ($targets as $destination) {
             $this->upsertVersion($content, $destination, [
@@ -583,7 +650,7 @@ class ContentSyncService
             $ok = (bool) ($result['success'] ?? false);
             $messageId = $result['message_id'] ?? null;
             $urlInfo = $ok
-                ? PostUrlBuilder::build($destination, $messageId)
+                ? PostUrlBuilder::build($destination, $messageId, (string) ($destination->channel_username ?? ''))
                 : ['url' => null, 'status' => ContentSyncVersion::LINK_NONE];
 
             $this->upsertVersion($content, $destination, [
@@ -655,34 +722,39 @@ class ContentSyncService
                 continue;
             }
 
-            $lastMessageId = null;
-            $ok = true;
-            $error = null;
+            // §4: retry دقیقاً مثل انتشار اولیه رفتار می‌کند — امضای منبع (از حالت
+            // فریز‌شده‌ی صف اگر صف داشته باشد، وگرنه از تنظیمات فعلی) فقط یک‌بار و در انتها.
+            $frozenMode = null;
+            if ($version->queue_id) {
+                $frozenMode = ChannelPosterQueue::find($version->queue_id)?->source_attribution;
+            }
+            $retrySuffix = $this->buildAttributionSuffix(
+                $content,
+                $frozenMode ?: ContentSyncAdminPrefs::getAttributionMode(
+                    $content->bot_id,
+                    (string) ($adminChatId ?? ''),
+                    $origin
+                )
+            );
 
             try {
-                foreach ($chunks as $chunk) {
-                    $result = $publisher->publish(
-                        $destination->channel_chat_id,
-                        ContentSyncContent::CONTENT_TYPE_TEXT,
-                        $chunk,
-                        null,
-                        $destination->platform,
-                        $destination->bot_token
-                    );
-                    if (!($result['success'] ?? false)) {
-                        $ok = false;
-                        $error = trans('bot.channel_sync_publish_failed');
-                        break;
-                    }
-                    $lastMessageId = $result['message_id'] ?? $lastMessageId;
+                [$ok, $lastMessageId, $error] = $this->publishChunks(
+                    $publisher,
+                    $destination,
+                    $chunks,
+                    $retrySuffix
+                );
+                if (!$ok && $error === null) {
+                    $error = trans('bot.channel_sync_publish_failed');
                 }
             } catch (Throwable $e) {
                 $ok = false;
+                $lastMessageId = null;
                 $error = $e->getMessage();
             }
 
             $urlInfo = $ok
-                ? PostUrlBuilder::build($destination, $lastMessageId)
+                ? PostUrlBuilder::build($destination, $lastMessageId, (string) ($destination->channel_username ?? ''))
                 : ['url' => null, 'status' => ContentSyncVersion::LINK_NONE];
 
             $this->upsertVersion($content, $destination, [
@@ -773,21 +845,24 @@ class ContentSyncService
     }
 
     /**
-     * گزارش کامل /sync — همه نسخه‌ها + وضعیت لینک + مقصدهای حذف‌شده با دلیل.
+     * گزارش کامل /sync — نسخه‌ها + وضعیت لینک + مقصدهای حذف‌شده (جزئی).
      */
     public function buildReport(ContentSyncContent $content): string
     {
-        return implode("\n", array_merge($this->reportLines($content), [
+        return implode("\n", array_merge($this->reportLines($content, true), [
             $this->helpFooter(),
         ]));
     }
 
     /**
-     * پاسخ fast mode: گزارش کامل + «آماده لینک بعدی» + فوتر راهنما.
+     * پاسخ fast mode: گزارش کوتاه (خلاصه) + «آماده لینک بعدی» + فوتر راهنما.
+     *
+     * §3: در جواب لینک، خلاصه‌ی کوتاه نمایش داده می‌شود؛ جزئیات کامل فقط
+     * با /sync {id} قابل مشاهده است.
      */
     public function buildFastConfirmation(ContentSyncContent $content): string
     {
-        return implode("\n", array_merge($this->reportLines($content), [
+        return implode("\n", array_merge($this->reportLines($content, false), [
             trans('bot.channel_sync_ready'),
             $this->helpFooter(),
         ]));
@@ -796,9 +871,14 @@ class ContentSyncService
     /**
      * خطوط گزارش (بدون فوتر راهنما):
      * هدر، خط مبدأ، شناسه مشترک مطلب، هر نسخه با آیکون وضعیت + جزئیات،
-     * و مقصدهایی که قبل از هر فراخوانی API فیلتر شده‌اند (با دلیل).
+     * و مقصدهایی که قبل از هر فراخوانی API فیلتر شده‌اند.
+     *
+     * §3: حالت کوتاه (fast) — مقصدهای حذف‌شده به‌صورت جمع‌بندی‌شده هرگز برای
+     * هر مقصد یک خط تکراری نمی‌آید؛ حالت جزئی (/sync) — هر مقصد با دلیل جدا.
+     *
+     * @param bool $detailed گزارش جزئی (true: /sync) یا خلاصه (false: fast)
      */
-    private function reportLines(ContentSyncContent $content): array
+    private function reportLines(ContentSyncContent $content, bool $detailed): array
     {
         $content->load('versions');
         $platforms = $this->platformLabels();
@@ -864,49 +944,106 @@ class ContentSyncService
             }
         }
 
-        // مقصدهایی که فیلتر شدند ولی هنوز نسخه‌ای برای آن‌ها ساخته نشده
-        // (مثلاً قبل از فراخوانی API یا در صف شناسایی و حذف شده‌اند)
-        $plan = $this->resolveTargetsDetailed(
-            $content,
-            (string) ($content->tag ?: 'all'),
-            $content->created_by_chat_id,
-            (string) $content->created_by_origin
-        );
+        // مقصدهایی که فیلتر شدند ولی هنوز نسخه‌ای برای آن‌ها ساخته نشده.
+        // §2: فقط روی تگ ثبت‌شده‌ی خود محتوا بررسی می‌شود (هیچ fallback به
+        // 'all' نیست — تگ خالی یعنی هیچ طرح انتشاری در کار نیست).
+        if (trim((string) $content->tag) !== '') {
+            $plan = $this->resolveTargetsDetailed(
+                $content,
+                (string) $content->tag,
+                $content->created_by_chat_id,
+                (string) $content->created_by_origin
+            );
 
-        foreach ($plan['excluded'] as [$destination, $reason]) {
-            if (in_array($destination->id, $versionedDestinationIds, true)) {
-                continue;
+            // §3: هر مقصد حداکثر یک‌بار؛ در حالت fast گروه‌بندی و خلاصه.
+            $reasonMeta = [
+                'source_channel' => ['⏭', trans('bot.channel_sync_report_reason_source_channel')],
+                'source_platform' => ['⏭', trans('bot.channel_sync_report_reason_source_platform')],
+                'suspicious' => ['⛔', trans('bot.channel_sync_report_reason_suspicious')],
+                'already_published' => ['⏭', trans('bot.channel_sync_report_reason_already_published')],
+            ];
+
+            $newExcluded = [];
+            foreach ($plan['excluded'] as [$destination, $reason]) {
+                if (in_array($destination->id, $versionedDestinationIds, true)) {
+                    continue;
+                }
+                $newExcluded[] = [$destination, $reason];
             }
 
-            $platform = $platforms[$destination->platform] ?? $destination->platform;
-            $title = trim((string) $destination->channel_title);
-            $titlePart = $title !== '' ? " ({$title})" : '';
+            if ($newExcluded === []) {
+                return $lines;
+            }
 
-            [$icon, $statusLabel, $detail] = match ($reason) {
-                'source_channel' => [
-                    '⏭',
-                    trans('bot.channel_sync_report_status_existing_source'),
-                    trans('bot.channel_sync_report_reason_source_channel'),
-                ],
-                'source_platform' => [
-                    '⏭',
-                    trans('bot.channel_sync_report_status_existing_source'),
-                    trans('bot.channel_sync_report_reason_source_platform'),
-                ],
-                'suspicious' => [
-                    '⛔',
-                    trans('bot.channel_sync_report_status_suspicious'),
-                    trans('bot.channel_sync_report_reason_suspicious'),
-                ],
-                default => [
-                    '⏭',
-                    trans('bot.channel_sync_report_status_skipped'),
-                    trans('bot.channel_sync_report_reason_already_published'),
-                ],
-            };
+            if (!$detailed) {
+                // خلاصه: یک خط برای هر (پلتفرم، دلیل)
+                $buckets = [];
+                $names = [];
+                foreach ($newExcluded as [$destination, $reason]) {
+                    $platform = $platforms[$destination->platform] ?? $destination->platform;
+                    $key = $destination->platform . '|' . $reason;
+                    if (!isset($buckets[$key])) {
+                        $buckets[$key] = ['platform' => $platform, 'reason' => $reason, 'count' => 0];
+                    }
+                    $buckets[$key]['count']++;
+                    $title = trim((string) $destination->channel_title);
+                    if ($title !== '' && count($names[$key] ?? []) < 4) {
+                        $names[$key][] = $title;
+                    }
+                }
 
-            $lines[] = "{$icon} {$platform}{$titlePart} — {$statusLabel}";
-            $lines[] = "  {$detail}";
+                foreach ($buckets as $key => $bucket) {
+                    [$icon, $detail] = $reasonMeta[$bucket['reason']]
+                        ?? ['⏭', trans('bot.channel_sync_report_reason_already_published')];
+                    if ($bucket['count'] > 1) {
+                        $lines[] = trans('bot.channel_sync_report_aggregate', [
+                            'icon' => $icon,
+                            'count' => $bucket['count'],
+                            'platform' => $bucket['platform'],
+                            'reason' => $detail,
+                        ]);
+                    } else {
+                        $namesStr = isset($names[$key]) ? ' (' . implode('، ', $names[$key]) . ')' : '';
+                        $lines[] = "{$icon} {$bucket['platform']}{$namesStr} — {$detail}";
+                    }
+                }
+
+                Log::info('ContentSync: excluded destinations summary', [
+                    'content_id' => $content->id,
+                    'excluded' => array_map(
+                        fn (array $pair) => ['id' => $pair[0]->id, 'reason' => $pair[1]],
+                        $newExcluded
+                    ),
+                ]);
+
+                return $lines;
+            }
+
+            // جزئی: هر مقصد جدا + دلیل (و ثبت در لاگ برای عیب‌یابی)
+            foreach ($newExcluded as [$destination, $reason]) {
+                $platform = $platforms[$destination->platform] ?? $destination->platform;
+                $title = trim((string) $destination->channel_title);
+                $titlePart = $title !== '' ? " ({$title})" : '';
+
+                [$icon, $detail] = $reasonMeta[$reason]
+                    ?? ['⏭', trans('bot.channel_sync_report_reason_already_published')];
+
+                $lines[] = "{$icon} {$platform}{$titlePart} — {$detail}";
+            }
+
+            Log::info('ContentSync: excluded destinations detail', [
+                'content_id' => $content->id,
+                'excluded' => array_map(
+                    fn (array $pair) => [
+                        'id' => $pair[0]->id,
+                        'platform' => $pair[0]->platform,
+                        'title' => (string) $pair[0]->channel_title,
+                        'chat_id' => (string) $pair[0]->channel_chat_id,
+                        'reason' => $pair[1],
+                    ],
+                    $newExcluded
+                ),
+            ]);
         }
 
         if (mb_strlen(implode("\n", $lines)) > 3500) {
@@ -945,6 +1082,140 @@ class ContentSyncService
     }
 
     /* ------------------------------------------------------------------
+     * §4) امضای منبع (Source Attribution)
+     * ------------------------------------------------------------------ */
+
+    /**
+     * متن امضای منبع بر اساس حالت انتخاب‌شده:
+     *  - signed: «📌 منبع: کانال ... در ...» + لینک مبدأ
+     *  - link_only: فقط لینک مبدأ (بدون لینک، برچسب)
+     *  - none: خالی
+     *
+     * اگر لینک مبدأ قبلاً در خود متن هست، تکرار نمی‌شود.
+     */
+    public function buildAttributionSuffix(ContentSyncContent $content, string $mode): string
+    {
+        if ($mode === ContentSyncAdminPrefs::ATTR_NONE) {
+            return '';
+        }
+
+        [$label, $url] = $this->attributionParts($content);
+
+        if ($mode === ContentSyncAdminPrefs::ATTR_LINK_ONLY) {
+            return $url !== '' ? $url : $label;
+        }
+
+        return $url !== '' ? "{$label}\n{$url}" : $label;
+    }
+
+    /**
+     * برچسب و لینک مبدأ از داده‌های واقعی ثبت‌شده (هرگز ساختگی).
+     *
+     * @return array{0: string, 1: string} [label, url]
+     */
+    private function attributionParts(ContentSyncContent $content): array
+    {
+        $sourceName = '';
+        $sourceUrl = (string) $content->source_url;
+
+        $sourceVersion = null;
+        foreach ($content->versions as $version) {
+            if ($version->publish_status === ContentSyncVersion::STATUS_EXISTING_SOURCE) {
+                $sourceVersion = $version;
+                break;
+            }
+        }
+
+        if ($sourceVersion && $sourceVersion->destination_id) {
+            $dest = ChannelPosterDestination::find($sourceVersion->destination_id);
+            if ($dest) {
+                $sourceName = trim((string) ($dest->channel_title ?? ''));
+            }
+        }
+        if ($sourceName === '') {
+            $sourceName = trim((string) ($sourceVersion?->channel_username ?? ''));
+        }
+        if ($sourceName === '') {
+            $sourceName = trim((string) $content->source_channel_id);
+        }
+
+        $platform = $this->platformLabels()[$content->source_platform] ?? $content->source_platform;
+        $label = trans('bot.channel_sync_source_label', [
+            'channel' => $sourceName !== '' ? $sourceName : '?',
+            'platform' => $platform,
+        ]);
+
+        // اگر لینک مبدأ در متن هست، دیگر در امضا تکرار نمی‌شود
+        if ($sourceUrl !== '' && (string) $content->text !== '' && str_contains((string) $content->text, $sourceUrl)) {
+            $sourceUrl = '';
+        }
+
+        return [$label, $sourceUrl];
+    }
+
+    /**
+     * ارسال قطعه‌ها + افزودن امضای منبع به آخرین قطعه (یا پیام جدا اگر جا نشود).
+     *
+     * @param string[] $chunks
+     * @return array{0: bool, 1: string|null, 2: string|null} success, lastMessageId, error
+     */
+    private function publishChunks(
+        ChannelPosterPublisher $publisher,
+        ChannelPosterDestination $destination,
+        array $chunks,
+        string $attributionSuffix
+    ): array {
+        $lastMessageId = null;
+        $suffix = trim($attributionSuffix);
+
+        $toSend = $chunks === [] ? [''] : $chunks;
+        $separateSuffix = false;
+
+        if ($suffix !== '') {
+            $last = (string) end($toSend);
+            $candidate = $last === '' ? $suffix : $last . "\n\n" . $suffix;
+            if (mb_strlen($candidate) <= TextChunker::MAX_LENGTH) {
+                $toSend = array_slice($toSend, 0, -1);
+                $toSend[] = $candidate;
+            } else {
+                $separateSuffix = true;
+            }
+        }
+
+        foreach ($toSend as $chunk) {
+            $result = $publisher->publish(
+                $destination->channel_chat_id,
+                ContentSyncContent::CONTENT_TYPE_TEXT,
+                $chunk,
+                null,
+                $destination->platform,
+                $destination->bot_token
+            );
+            if (!($result['success'] ?? false)) {
+                return [false, $lastMessageId, $result['error'] ?? trans('bot.channel_sync_publish_failed')];
+            }
+            $lastMessageId = $result['message_id'] ?? $lastMessageId;
+        }
+
+        if ($separateSuffix) {
+            $result = $publisher->publish(
+                $destination->channel_chat_id,
+                ContentSyncContent::CONTENT_TYPE_TEXT,
+                $suffix,
+                null,
+                $destination->platform,
+                $destination->bot_token
+            );
+            if (!($result['success'] ?? false)) {
+                return [false, $lastMessageId, $result['error'] ?? trans('bot.channel_sync_publish_failed')];
+            }
+            $lastMessageId = $result['message_id'] ?? $lastMessageId;
+        }
+
+        return [true, $lastMessageId, null];
+    }
+
+    /* ------------------------------------------------------------------
      * helpers
      * ------------------------------------------------------------------ */
 
@@ -961,7 +1232,8 @@ class ContentSyncService
             'bot_id' => $content->bot_id,
             'platform' => $destination->platform,
             'channel_id' => (string) $destination->channel_chat_id,
-            'channel_username' => $destination->channel_title,
+            // §6: نام معتبر (username واقعی) در اولویت؛ اگر نبود نام نمایشی برای خوانایی
+            'channel_username' => $destination->channel_username ?: $destination->channel_title,
             'destination_id' => $destination->id,
         ];
 

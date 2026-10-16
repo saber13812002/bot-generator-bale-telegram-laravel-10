@@ -379,6 +379,134 @@ class ChannelPosterBotWebhookTest extends TestCase
         );
     }
 
+    /**
+     * §6: /add برای کانال بله — اتصال با forward انجام می‌شود و forwardusername
+     * عمومی ندارد؛ channel_username هرگز ساختگی پر نمی‌شود. username بله بعدا
+     * از اولین لینک ble.irِ مطابقت‌خورده به‌صورت خودکار یاد گرفته می‌شود
+     * (تستِ مربوطه در ContentSyncFlowTest::test_p4_known_source_auto_associates_without_keyboard).
+     */
+    public function test_bale_add_via_forward_stores_no_fabricated_username(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '4476004639',
+            'channel_title' => 'شراب بهشتی',
+            'tag' => 'شراب بهشتی',
+            'is_active' => true,
+            'verified_at' => now(),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/add')
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 8,
+                'callback_query' => [
+                    'id' => 'cb-add',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:addtag:0',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 9,
+                'callback_query' => [
+                    'id' => 'cb-bale',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:plat:bale',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+        // اتصال با forward از کانال جدید
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateForwardUpdate($this->ownerChatId, 777000, 'channel', 'New Bale Channel')
+        );
+
+        $dest = ChannelPosterDestination::where('bot_id', $bot->id)
+            ->where('platform', 'bale')
+            ->where('channel_chat_id', '777000')
+            ->first();
+        $this->assertNotNull($dest);
+        $this->assertSame('New Bale Channel', $dest->channel_title);
+        $this->assertSame('شراب بهشتی', $dest->tag);
+        $this->assertNull($dest->channel_username);
+    }
+
+    /**
+     * §6: /add برای کانال تلگرام — به‌جای chat id، لینک کانال ارسال می‌شود؛
+     * chat id (username) استخراج و username معتبر + لینک اصلی ذخیره می‌شود.
+     */
+    public function test_telegram_add_accepts_channel_link_and_captures_username(): void
+    {
+        $bot = $this->createBot();
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '/add')
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 8,
+                'callback_query' => [
+                    'id' => 'cb-add',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:addtag:0',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            [
+                'update_id' => 9,
+                'callback_query' => [
+                    'id' => 'cb-tg',
+                    'from' => ['id' => (int) $this->ownerChatId],
+                    'data' => 'cp:plat:telegram',
+                    'message' => [
+                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                    ],
+                ],
+            ]
+        );
+        // گام ۱: token
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, '123456789:AAHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
+        );
+        // گام ۲: لینک کانال به‌جای chat id
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateTextUpdate($this->ownerChatId, 'https://t.me/saberblog/42')
+        );
+
+        $telegram = ChannelPosterDestination::where('bot_id', $bot->id)->where('platform', 'telegram')->first();
+        $this->assertNotNull($telegram);
+        $this->assertSame('saberblog', $telegram->channel_chat_id);
+        $this->assertSame('saberblog', $telegram->channel_username);
+        $this->assertSame('https://t.me/saberblog/42', $telegram->channel_link);
+        $this->assertCount(1, $this->publisher->testMessages);
+        $this->assertSame('telegram', $this->publisher->testMessages[0]['platform']);
+        $this->assertSame('saberblog', $this->publisher->testMessages[0]['channel_chat_id']);
+    }
+
     private function createBot(): Bot
     {
         return Bot::create([

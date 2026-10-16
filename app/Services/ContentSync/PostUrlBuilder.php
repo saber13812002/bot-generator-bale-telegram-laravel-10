@@ -28,18 +28,21 @@ class PostUrlBuilder
         $platform = $destination->platform;
         $chatId = (string) $destination->channel_chat_id;
 
-        // username فقط از منبع قابل‌اعتماد (لینک/مقدار ارسالی) گرفته می‌شود؛
-        // channel_title برای تلگرام/ایتا نام نمایشی است و نمی‌تواند username باشد.
+        // username فقط از منابع قابل‌اعتماد گرفته می‌شود:
+        // ۱) ستون channel_username (ثبت‌شده از لینک واقعی کانال)
+        // ۲) مقدار ارسالی هنگام ثبت مقصد (hint)
+        // نام نمایشی (channel_title) هرگز به‌عنوان username استفاده نمی‌شود.
+        $colUsername = ltrim(trim((string) ($destination->channel_username ?? '')), '@');
+        if (preg_match('/^[A-Za-z0-9_\-]+$/', $colUsername) !== 1) {
+            $colUsername = '';
+        }
         $username = ltrim(trim((string) $channelUsernameHint), '@');
-        if (preg_match('/^[A-Za-z0-9_]+$/', $username) !== 1) {
+        if (preg_match('/^[A-Za-z0-9_\-]+$/', $username) !== 1) {
             $username = '';
         }
-
-        // در بله، نام نمایشی کانال همان username آدرس کانال است (بر اساس نمونه واقعی
-        // ble.ir/stackoverflow_com/8995754940207167599/1789852322655)؛ بنابراین فقط
-        // برای بله اجازه استفاده از title را می‌دهیم.
-        $title = trim((string) ($destination->channel_title ?? ''));
-        $titleUsername = preg_match('/^[A-Za-z0-9_]+$/', $title) === 1 ? $title : '';
+        if ($colUsername !== '') {
+            $username = $colUsername;
+        }
 
         switch ($platform) {
             case 'telegram':
@@ -78,12 +81,11 @@ class PostUrlBuilder
             case 'bale':
                 // فرمت ble.ir/{username}/{chatId}/{messageId}
                 $numId = preg_match('/^\d+$/', $chatId) ? $chatId : '';
-                $user = $username !== '' ? $username : $titleUsername;
-                if ($numId === '' || $user === '') {
+                if ($numId === '' || $username === '') {
                     return ['url' => null, 'status' => 'unverified'];
                 }
                 return [
-                    'url' => 'https://ble.ir/' . $user . '/' . $numId . '/' . $messageId,
+                    'url' => 'https://ble.ir/' . $username . '/' . $numId . '/' . $messageId,
                     'status' => 'constructed',
                 ];
 
