@@ -15,6 +15,11 @@ class ContentSyncVersion extends Model
     public const STATUS_PUBLISHED = 'published';
     public const STATUS_FAILED = 'failed';
     public const STATUS_SKIPPED = 'skipped';
+    /**
+     * نسخه‌ی خودِ پیام مبدأ (لینکی که ادمین فرستاد): از قبل در کانال مبدأ
+     * منتشرشده است؛ هرگز دوباره ارسال یا «failed» نشدن — فقط مرجع ارجاع.
+     */
+    public const STATUS_EXISTING_SOURCE = 'existing_source';
 
     public const LINK_CONFIRMED = 'confirmed';
     public const LINK_CONSTRUCTED = 'constructed';

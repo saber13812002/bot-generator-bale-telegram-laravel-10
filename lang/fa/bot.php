@@ -966,4 +966,71 @@ Chat ID: :chat_id',
     'channel_sync_channels_empty' => 'کانال متصلی نداری. /start یا /add',
     'channel_sync_channel_unlinked' => '✂️ ارتباط این کانال قطع شد: :channel'."\n"."دیگر در لیست تگ‌ها و مقاصد همگام‌سازی نیست. برای اتصال دوباره: /add",
     'channel_sync_channels_gone' => 'این کانال پیدا نشد (شاید قبلا حذف شده).',
+
+    // === فوتر راهنما (گزارش‌ها و پیام‌های اصلی) ===
+    'channel_sync_help_footer' => '📖 راهنمای دستورات: /help',
+
+    // === گزارش جزئی ===
+    'channel_sync_report_content_id' => '📊 شناسه مشترک مطلب: :id',
+    'channel_sync_report_status_existing_source' => 'رد شد؛ از قبل موجود است (کانال مبدأ)',
+    'channel_sync_report_status_published' => 'منتشر شد',
+    'channel_sync_report_status_queued' => 'در صف انتشار',
+    'channel_sync_report_status_failed' => 'ناموفق',
+    'channel_sync_report_status_skipped' => 'رد شد',
+    'channel_sync_report_status_suspicious' => 'متوقف شد؛ نیاز به بررسی',
+    'channel_sync_report_reason_source' => '📌 لینک اصلی این مطلب — از قبل در کانال مبدأ منتشرشده است',
+    'channel_sync_report_reason_source_channel' => '📌 کانال مبدأ این لینک — از قبل موجود است',
+    'channel_sync_report_reason_source_platform' => '📌 کل پیام‌رسان مبدأ — طبق تنظیم «حذف تکراری: کل پیام‌رسان»',
+    'channel_sync_report_reason_already_published' => '📌 قبلا برای همین مطلب انتشار رفته',
+    'channel_sync_report_reason_suspicious' => '📌 تطبیق شناسه مبهم بود — برای جلوگیری از ارسال تکراری، ارسال به این مقصد متوقف شد. شناسه کانال را با /channels بررسی کنید',
+    'channel_sync_link_detail' => '🔗 :url (:status)',
+    'channel_sync_error_detail' => '📌 خطا: :error',
+
+    // === /settings — تنظیمات ===
+    'channel_sync_settings_title' => '⚙️ تنظیمات همگام‌سازی',
+    'channel_sync_settings_dedup_line' => 'حذف تکراری: :dedup',
+    'channel_sync_settings_mode_line' => 'روش انتشار: :mode',
+    'channel_sync_settings_fast_line' => 'حالت سریع: :fast',
+    'channel_sync_settings_dedup_channel' => 'فقط کانال مبدأ (پیش‌فرض)',
+    'channel_sync_settings_dedup_platform' => 'کل پیام‌رسان مبدأ',
+    'channel_sync_settings_fast_on' => 'روشن',
+    'channel_sync_settings_fast_off' => 'خاموش',
+    'channel_sync_settings_dedup_btn_channel' => 'حذف تکراری: فقط کانال مبدأ',
+    'channel_sync_settings_dedup_btn_platform' => 'حذف تکراری: کل پیام‌رسان',
+    'channel_sync_settings_fast_btn_on' => 'حالت سریع: روشن',
+    'channel_sync_settings_fast_btn_off' => 'حالت سریع: خاموش',
+    'channel_sync_settings_default_note' => '👑 دکمه‌های آخر: پیش‌فرض مشترک همه‌ی ادمین‌های این ربات',
+    'channel_sync_settings_default_btn_dedup_channel' => 'پیش‌فرض همه: فقط کانال مبدأ',
+    'channel_sync_settings_default_btn_dedup_platform' => 'پیش‌فرض همه: کل پیام‌رسان',
+    'channel_sync_settings_default_btn_mode_immediate' => 'پیش‌فرض همه: فوری',
+    'channel_sync_settings_default_btn_mode_queue' => 'پیش‌فرض همه: صف',
+    'channel_sync_settings_default_btn_fast_on' => 'پیش‌فرض همه: سریع روشن',
+    'channel_sync_settings_default_btn_fast_off' => 'پیش‌فرض همه: سریع خاموش',
+    'channel_sync_settings_once_hint' => 'از دکمه‌ها می‌توانید تنظیمات همگام‌سازی را هم تغییر دهید (این سؤال فقط یک‌بار می‌آید):',
+
+    // === /help ===
+    'channel_sync_help_title' => '📖 راهنمای همگام‌سازی چندکاناله',
+    'channel_sync_help_flow' => 'جریان کار:'.
+        "\n".'۱. لینکِ یک پیام منتشرشده را بفرست (بله/تلگرام/ایتا/سروش) — پیام مبدأ به‌عنوان «از قبل موجود» ثبت می‌شود'.
+        "\n".'۲. متن مطلب را بفرست'.
+        "\n".'۳. ربات به همه‌ی کانال‌های همان تگ — به‌جز کانال مبدأ — انتشار می‌دهد و گزارش جداگانه برای هر کانال می‌فرستد'.
+        "\n".'۴. آماده لینک بعدی است',
+    'channel_sync_help_commands' => 'دستورات:'.
+        "\n".'/start — اتصال کانال بله و شروع'.
+        "\n".'/add — اتصال کانال تلگرام یا ایتا به یک تگ'.
+        "\n".'/sync [id یا لینک] — گزارش کامل یک مطلب (بدون آرگومان: آخرین مطلب)'.
+        "\n".'/status [id] — همان /sync'.
+        "\n".'/last — گزارش آخرین مطلب'.
+        "\n".'/retry — تکرار موارد ناموفقِ آخرین مطلب'.
+        "\n".'/mode — مشاهده/تغییر روش انتشار (فوری یا صف)'.
+        "\n".'/tags — فهرست تگ‌ها'.
+        "\n".'/channels — کانال‌های متصل + دکمه قطع ارتباط'.
+        "\n".'/settings — تنظیمات: حذف تکراری، روش انتشار، حالت سریع'.
+        "\n".'/new — پاک‌سازی وضعیت فعلی و آماده لینک بعدی'.
+        "\n".'/queue — فهرست صف انتشار'.
+        "\n".'/help — همین راهنما',
+    'channel_sync_help_owner_commands' => 'دستورات مخصوص مالک:'.
+        "\n".'/admin {chat_id} — افزودن ادمین همگام‌سازی (بدون آرگومان: لیست ادمین‌ها)'.
+        "\n".'/sign — تنظیم امضا برای تگ‌ها'.
+        "\n".'دکمه‌های «پیش‌فرض همه» در /settings — پیش‌فرض مشترک همه‌ی ادمین‌ها',
 ];

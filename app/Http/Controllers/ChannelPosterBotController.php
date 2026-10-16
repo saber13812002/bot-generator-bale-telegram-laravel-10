@@ -263,7 +263,7 @@ class ChannelPosterBotController extends Controller
         // === دستورات همگام‌سازی (Content Sync) ===
         if (is_string($text) && preg_match('#^/(new|reset)\b#', $text)) {
             $this->clearState($botItem, $chatId, $type);
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_ready'));
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_ready') . "\n" . $this->contentSync->helpFooter());
             return;
         }
 
@@ -304,6 +304,16 @@ class ChannelPosterBotController extends Controller
 
         if (is_string($text) && preg_match('#^/channels\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
             $this->handleChannelsCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/settings\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleSettingsCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/help\b#', $text)) {
+            $this->handleHelpCommand($publisher, $botItem, $type, $chatId);
             return;
         }
 
@@ -550,7 +560,14 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        if (!$this->service->isOwner($botItem, $chatId, $type)) {
+        // دکمه‌های تنظیمات و تگ‌های همگام‌سازی برای ادمین‌های غیرمالک هم باز است
+        $adminSyncCallback = (str_starts_with($data, 'cps:dedup:')
+            || str_starts_with($data, 'cps:fast:')
+            || str_starts_with($data, 'cps:mode:')
+            || str_starts_with($data, 'cps:tag:'))
+            && $this->isAdmin($botItem, $chatId, $type);
+
+        if (!$this->service->isOwner($botItem, $chatId, $type) && !$adminSyncCallback) {
             $publisher->answerCallback($callbackId, trans('bot.channel_poster_not_owner'));
             return;
         }
@@ -653,10 +670,64 @@ class ChannelPosterBotController extends Controller
             $this->handleSyncTagCallback($publisher, $botItem, $type, $chatId, $index);
             return;
         }
+        if ($data === 'cps:dedup:channel' || $data === 'cps:dedup:platform') {
+            ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill([
+                'dedup_mode' => $data === 'cps:dedup:channel'
+                    ? ContentSyncAdminPrefs::DEDUP_SOURCE_CHANNEL
+                    : ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM,
+            ])->save();
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if ($data === 'cps:fast:on' || $data === 'cps:fast:off') {
+            ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill([
+                'fast_mode' => $data === 'cps:fast:on',
+            ])->save();
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
         if ($data === 'cps:mode:immediate' || $data === 'cps:mode:queue') {
             $mode = $data === 'cps:mode:immediate' ? ContentSyncAdminPrefs::MODE_IMMEDIATE : ContentSyncAdminPrefs::MODE_QUEUE;
             ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type)->forceFill(['publish_mode' => $mode])->save();
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_mode_set', ['mode' => $mode]));
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        // پیش‌فرض مشترک ربات — فقط مالک
+        if (str_starts_with($data, 'cps:default:') && !$this->service->isOwner($botItem, $chatId, $type)) {
+            return;
+        }
+
+        if (str_starts_with($data, 'cps:default:dedup:')) {
+            ContentSyncAdminPrefs::botDefaultsFor($botItem->id, $type)->forceFill([
+                'dedup_mode' => str_ends_with($data, ':channel')
+                    ? ContentSyncAdminPrefs::DEDUP_SOURCE_CHANNEL
+                    : ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM,
+                'set_by_chat_id' => $chatId,
+            ])->save();
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (str_starts_with($data, 'cps:default:mode:')) {
+            ContentSyncAdminPrefs::botDefaultsFor($botItem->id, $type)->forceFill([
+                'publish_mode' => str_ends_with($data, ':immediate')
+                    ? ContentSyncAdminPrefs::MODE_IMMEDIATE
+                    : ContentSyncAdminPrefs::MODE_QUEUE,
+                'set_by_chat_id' => $chatId,
+            ])->save();
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (str_starts_with($data, 'cps:default:fast:')) {
+            ContentSyncAdminPrefs::botDefaultsFor($botItem->id, $type)->forceFill([
+                'fast_mode' => str_ends_with($data, ':on'),
+                'set_by_chat_id' => $chatId,
+            ])->save();
+            $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
             return;
         }
 
@@ -1360,7 +1431,21 @@ class ChannelPosterBotController extends Controller
             'content_id' => $content->id,
             'source_destination_id' => $reg['source_destination_id'],
         ]);
-        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_link_registered', ['id' => $content->id]));
+
+        // سؤالِ یک‌بارِ تنظیمات: با اولین لینک، دکمه‌ها همراه پیامِ ثبت نمایش داده
+        // می‌شود و بعد از آن دیگر تکرار نمی‌شود (جریان بلاک نمی‌شود).
+        $prefs = ContentSyncAdminPrefs::forAdmin($botItem->id, $chatId, $type);
+        $rows = null;
+        if (!$prefs->settings_asked) {
+            $prefs->forceFill(['settings_asked' => true])->save();
+            $rows = $this->settingsKeyboardRows($botItem, $type, $chatId);
+        }
+
+        $message = trans('bot.channel_sync_link_registered', ['id' => $content->id]);
+        if ($rows !== null) {
+            $message .= "\n" . trans('bot.channel_sync_settings_once_hint');
+        }
+        $publisher->sendPrivateMessage($chatId, $message, $rows);
     }
 
     /**
@@ -1385,12 +1470,14 @@ class ChannelPosterBotController extends Controller
         $sourceDestinationId = $state->getData('source_destination_id');
         $sourceDestinationId = $sourceDestinationId === null ? null : (string) $sourceDestinationId;
 
+        $useFast = ContentSyncAdminPrefs::getFastMode($botItem->id, $chatId, $type);
         $tagResult = $this->contentSync->resolveTag(
             $botItem->id,
             $sourceDestinationId,
             null,
             $chatId,
-            $type
+            $type,
+            $useFast
         );
 
         if ($tagResult['status'] === 'ask') {
@@ -1475,7 +1562,7 @@ class ChannelPosterBotController extends Controller
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_queued_ready', [
                 'id' => $content->id,
                 'time' => $time,
-            ]));
+            ]) . "\n" . $this->contentSync->helpFooter());
             return;
         }
 
@@ -1489,7 +1576,115 @@ class ChannelPosterBotController extends Controller
         }
 
         $this->clearState($botItem, $chatId, $type);
-        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content->id, $outcome['results']));
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content));
+    }
+
+    private function handleSettingsCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $this->sendSettingsScreen($publisher, $botItem, $type, $chatId);
+    }
+
+    /**
+     * /help — راهنمای کامل دسته‌بندی‌شده؛ دستورات فقط‌مالک فقط به مالک.
+     */
+    private function handleHelpCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $lines = [
+            trans('bot.channel_sync_help_title'),
+            '',
+            trans('bot.channel_sync_help_flow'),
+            '',
+            trans('bot.channel_sync_help_commands'),
+        ];
+
+        if ($this->service->isOwner($botItem, $chatId, $type)) {
+            $lines[] = '';
+            $lines[] = trans('bot.channel_sync_help_owner_commands');
+        }
+
+        $publisher->sendPrivateMessage($chatId, implode("\n", $lines));
+    }
+
+    private function sendSettingsScreen(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $dedup = ContentSyncAdminPrefs::getDedupMode($botItem->id, $chatId, $type);
+        $mode = ContentSyncAdminPrefs::getMode($botItem->id, $chatId, $type);
+        $fast = ContentSyncAdminPrefs::getFastMode($botItem->id, $chatId, $type);
+
+        $lines = [
+            trans('bot.channel_sync_settings_title'),
+            trans('bot.channel_sync_settings_dedup_line', [
+                'dedup' => $dedup === ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM
+                    ? trans('bot.channel_sync_settings_dedup_platform')
+                    : trans('bot.channel_sync_settings_dedup_channel'),
+            ]),
+            trans('bot.channel_sync_settings_mode_line', [
+                'mode' => $mode === ContentSyncAdminPrefs::MODE_QUEUE
+                    ? trans('bot.channel_sync_mode_queue')
+                    : trans('bot.channel_sync_mode_immediate'),
+            ]),
+            trans('bot.channel_sync_settings_fast_line', [
+                'fast' => $fast ? trans('bot.channel_sync_settings_fast_on') : trans('bot.channel_sync_settings_fast_off'),
+            ]),
+        ];
+
+        if ($this->service->isOwner($botItem, $chatId, $type)) {
+            $lines[] = '';
+            $lines[] = trans('bot.channel_sync_settings_default_note');
+        }
+
+        $publisher->sendPrivateMessage(
+            $chatId,
+            implode("\n", $lines),
+            $this->settingsKeyboardRows($botItem, $type, $chatId)
+        );
+    }
+
+    private function settingsKeyboardRows(Bot $botItem, string $type, string $chatId): array
+    {
+        $rows = [
+            [
+                ['text' => trans('bot.channel_sync_settings_dedup_btn_channel'), 'callback_data' => 'cps:dedup:channel'],
+                ['text' => trans('bot.channel_sync_settings_dedup_btn_platform'), 'callback_data' => 'cps:dedup:platform'],
+            ],
+            [
+                ['text' => trans('bot.channel_sync_mode_btn_now'), 'callback_data' => 'cps:mode:immediate'],
+                ['text' => trans('bot.channel_sync_mode_btn_queue'), 'callback_data' => 'cps:mode:queue'],
+            ],
+            [
+                ['text' => trans('bot.channel_sync_settings_fast_btn_on'), 'callback_data' => 'cps:fast:on'],
+                ['text' => trans('bot.channel_sync_settings_fast_btn_off'), 'callback_data' => 'cps:fast:off'],
+            ],
+        ];
+
+        if ($this->service->isOwner($botItem, $chatId, $type)) {
+            $rows[] = [
+                ['text' => trans('bot.channel_sync_settings_default_btn_dedup_channel'), 'callback_data' => 'cps:default:dedup:channel'],
+                ['text' => trans('bot.channel_sync_settings_default_btn_dedup_platform'), 'callback_data' => 'cps:default:dedup:platform'],
+            ];
+            $rows[] = [
+                ['text' => trans('bot.channel_sync_settings_default_btn_mode_immediate'), 'callback_data' => 'cps:default:mode:immediate'],
+                ['text' => trans('bot.channel_sync_settings_default_btn_mode_queue'), 'callback_data' => 'cps:default:mode:queue'],
+            ];
+            $rows[] = [
+                ['text' => trans('bot.channel_sync_settings_default_btn_fast_on'), 'callback_data' => 'cps:default:fast:on'],
+                ['text' => trans('bot.channel_sync_settings_default_btn_fast_off'), 'callback_data' => 'cps:default:fast:off'],
+            ];
+        }
+
+        return $rows;
     }
 
     private function sendSyncTagKeyboard(ChannelPosterPublisher $publisher, string $chatId, array $groups): void
@@ -1567,7 +1762,7 @@ class ChannelPosterBotController extends Controller
         );
 
         $outcome = $this->contentSync->retryFailed($content, $pub, $chatId, $type);
-        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content->id, $outcome['results']));
+        $publisher->sendPrivateMessage($chatId, $this->contentSync->buildFastConfirmation($content->fresh()));
     }
 
     private function handleSyncLastCommand(

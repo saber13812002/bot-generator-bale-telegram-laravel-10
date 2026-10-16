@@ -130,6 +130,7 @@ trait UsesChannelPosterSqlite
     {
         Schema::dropIfExists('content_sync_admins');
         Schema::dropIfExists('content_sync_admin_prefs');
+        Schema::dropIfExists('content_sync_bot_defaults');
         Schema::dropIfExists('content_sync_operations');
         Schema::dropIfExists('content_sync_versions');
         Schema::dropIfExists('content_sync_contents');
@@ -198,8 +199,23 @@ trait UsesChannelPosterSqlite
             $table->string('origin', 20)->default('bale');
             $table->string('last_tag', 64)->nullable();
             $table->string('publish_mode', 20)->default('immediate');
+            $table->string('dedup_mode', 30)->default('exclude_source_channel');
+            $table->boolean('fast_mode')->default(true);
+            $table->boolean('settings_asked')->default(false);
             $table->timestamps();
             $table->unique(['bot_id', 'admin_chat_id', 'origin'], 'cs_prefs_admin_unique');
+        });
+
+        Schema::create('content_sync_bot_defaults', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('bot_id');
+            $table->string('origin', 20)->default('bale');
+            $table->string('set_by_chat_id', 64)->nullable();
+            $table->string('publish_mode', 20)->default('immediate');
+            $table->string('dedup_mode', 30)->default('exclude_source_channel');
+            $table->boolean('fast_mode')->default(true);
+            $table->timestamps();
+            $table->unique(['bot_id', 'origin'], 'cs_bot_defaults_unique');
         });
 
         Schema::create('content_sync_admins', function (Blueprint $table) {

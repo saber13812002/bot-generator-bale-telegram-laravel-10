@@ -109,16 +109,32 @@ The **Channel Poster** bot is now a full **content synchronization & archive** s
 Eitaa, Bale, Soroush Plus and Telegram:
 
 - **Fast mode:** admin sends a published post URL (e.g. `https://eitaa.com/alirezamehran_3/1182`),
-  then the text → the bot publishes to the *other* channels sharing the tag, with a short
-  confirmation (`✅ مطلب ۱۴۸ ثبت شد | در بله ✅ | … | آماده لینک بعدی`) and no extra questions.
+  then the text → the bot publishes to the *other* channels sharing the tag, with a detailed
+  per-channel report (`✅ منتشر شد / ⏳ در صف / ❌ ناموفق / ⏭ رد شد؛ از قبل موجود است`
+  with 📌 reasons, 🔗 links of published versions only, 📊 shared content id,
+  «آماده لینک بعدی» and the `📖 راهنمای دستورات: /help` footer) and no extra questions.
 - **Link archive:** every published post stores its public `post_url` + `link_status`
   (`confirmed` / `constructed` / `unverified` / `none`) in `content_sync_versions` and
-  `channel_poster_publish_logs`. Links are never fabricated.
-- **Dedup:** a source post can be registered only once per bot
-  (`cs_contents_source_unique`); a content version per destination is unique
-  (`cs_versions_content_destination_unique`), safe for concurrent admins.
-- **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`
-  (immediate vs. queue, per admin), `/tags`, `/admin {chat_id}` (owner only),
+  `channel_poster_publish_logs`. Links are never fabricated. The source link itself is
+  recorded as a version with status `existing_source` (keeps the original `post_url` +
+  `message_id`; never deleted, never failed, never re-sent).
+- **Precise dedup (default: `exclude_source_channel`):** channel identity is canonicalized
+  from the link (platform / channel id / message id, incl. Telegram private
+  `t.me/c/{short}` → `-(1000+short)` chat-id math) before comparison — only the *exact*
+  source channel is excluded, so a second channel of the same platform (e.g. two Eitaa
+  channels) IS published. `exclude_source_platform` excludes the whole platform.
+  Ambiguous (suspicious) matches halt that destination with a ⛔ line for admin review.
+  The filter runs **before** any API call, and `/retry` applies the same rule (retry can
+  never publish to the source channel). Already-published destinations are never re-sent.
+- **Settings (per admin, `/settings`):** (1) dedup method, (2) publish method
+  (immediate/queue), (3) fast mode — each admin is independent (inline buttons), the
+  one-time settings keyboard is attached to the first link-registered message and never
+  repeated; the owner can additionally set the shared bot-wide default
+  (`content_sync_bot_defaults`) which admins without personal settings inherit.
+- **`/help`:** complete categorized Persian guide with real examples; lists only
+  implemented commands; owner-only commands shown only to the owner.
+- **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`,
+  `/settings` (admin), `/help`, `/tags`, `/admin {chat_id}` (owner only),
   `/channels` (lists connected channels with a ✂️ delete button to sever a
   channel's link to its tag — it is deactivated, not hard-deleted).
 - A **new link always starts a new content**, even if the bot is still waiting

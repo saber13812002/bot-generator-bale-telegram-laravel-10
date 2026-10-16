@@ -79,12 +79,15 @@ class ContentSyncFlowTest extends TestCase
         sort($platforms);
         $this->assertSame(['bale', 'telegram'], $platforms);
 
-        // تأیید کوتاه fast mode — بدون سؤال اضافی و آماده لینک بعدی
+        // گزارش fast mode — بدون سؤال اضافی + آماده لینک بعدی + فوتر راهنما
         $confirmation = (string) $this->publisher->lastPrivateText();
-        $this->assertStringContainsString(trans('bot.channel_sync_registered', ['id' => 1]), $confirmation);
-        $this->assertStringContainsString('در بله ✅', $confirmation);
-        $this->assertStringContainsString('در تلگرام ✅', $confirmation);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_header', ['id' => 1]), $confirmation);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_content_id', ['id' => 1]), $confirmation);
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), $confirmation);
+        $this->assertStringContainsString('در تلگرام (Saber Blog) — ' . trans('bot.channel_sync_report_status_published'), $confirmation);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_status_existing_source'), $confirmation);
         $this->assertStringContainsString(trans('bot.channel_sync_ready'), $confirmation);
+        $this->assertStringContainsString(trans('bot.channel_sync_help_footer'), $confirmation);
 
         // state پاک شده
         $this->assertNull($this->ownerState($bot->id));
@@ -111,9 +114,10 @@ class ContentSyncFlowTest extends TestCase
         $this->assertSame('confirmed', $telegram->link_status);
 
         $source = ContentSyncVersion::where('content_id', 1)->where('platform', 'eitaa')->first();
-        $this->assertSame('published', $source->publish_status);
+        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
         $this->assertSame('confirmed', $source->link_status);
         $this->assertSame('https://eitaa.com/alirezamehran_3/1182', $source->post_url);
+        $this->assertSame('1182', $source->message_id);
 
         // لاگ انتشار با post_url + content_id
         $this->assertSame(2, ChannelPosterPublishLog::count());
@@ -239,7 +243,8 @@ class ContentSyncFlowTest extends TestCase
 
         // تغییر حالت به صف از دکمه‌ها
         $this->postCallback('cps:mode:queue');
-        $this->assertStringContainsString(trans('bot.channel_sync_mode_set', ['mode' => 'queue']), (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString(trans('bot.channel_sync_mode_queue'), (string) $this->publisher->lastPrivateText());
         $this->assertSame('queue', ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
 
         $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
@@ -304,7 +309,7 @@ class ContentSyncFlowTest extends TestCase
         $this->assertSame(trans('bot.channel_sync_soroush_not_ready'), $soroush->last_error);
         $this->assertNull($soroush->post_url);
 
-        $this->assertStringContainsString('در سروش ⚠️', (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString('در سروش (Soroush Channel) — ' . trans('bot.channel_sync_report_status_skipped'), (string) $this->publisher->lastPrivateText());
     }
 
     public function test_failed_publish_can_be_retried(): void
@@ -318,7 +323,7 @@ class ContentSyncFlowTest extends TestCase
 
         $bale = ContentSyncVersion::where('content_id', 1)->where('platform', 'bale')->first();
         $this->assertSame('failed', $bale->publish_status);
-        $this->assertStringContainsString('در بله ❌', (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_failed'), (string) $this->publisher->lastPrivateText());
 
         // حالا بله درست می‌شود و /retry
         $this->publisher->failPlatforms = [];
@@ -327,7 +332,7 @@ class ContentSyncFlowTest extends TestCase
         $bale->refresh();
         $this->assertSame('published', $bale->publish_status);
         $this->assertNotNull($bale->post_url);
-        $this->assertStringContainsString('در بله ✅', (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), (string) $this->publisher->lastPrivateText());
 
         // عملیات retry ثبت شده
         $this->assertContains(ContentSyncOperation::OP_RETRY, ContentSyncOperation::where('content_id', 1)->pluck('operation')->all());
@@ -597,15 +602,476 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringContainsString(trans('bot.channel_sync_last_tag', ['tag' => 'tag1']), $report);
     }
 
+    /* =================== تست‌های فاز دوم: dedup + گزارش + تنظیمات =================== */
+
+    public function test_single_source_channel_sends_nothing(): void
+    {
+        $bot = $this->createBot();
+        // تنها مقصد، خودِ کانال مبدأ است
+        $sourceDest = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_3',
+            'channel_title' => 'Alireza',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن بدون مقصد');
+
+        // هیچ جایی ارسال نشده
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertStringContainsString(trans('bot.channel_sync_no_targets'), (string) $this->publisher->lastPrivateText());
+
+        // فقط نسخه‌ی خودِ مبدأ (existing_source) ثبت شده
+        $this->assertSame(1, ContentSyncVersion::count());
+        $source = ContentSyncVersion::first();
+        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
+        $this->assertSame($sourceDest->id, $source->destination_id);
+        $this->assertSame('1182', $source->message_id);
+
+        $this->assertNull($this->ownerState($bot->id));
+    }
+
+    public function test_two_eitaa_channels_second_channel_published(): void
+    {
+        $bot = $this->createBot();
+        $sourceDest = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_3',
+            'channel_title' => 'Alireza',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_4',
+            'channel_title' => 'Alireza Four',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن دوکاناله ایتا');
+
+        // فقط کانال دومِ ایتا و بله انتشار می‌گیرند (ترتیب انتشار مهم نیست)
+        $this->assertCount(2, $this->publisher->publishes);
+        $channels = array_column($this->publisher->publishes, 'channel_chat_id');
+        sort($channels);
+        $this->assertSame(['8995754940207167599', 'alirezamehran_4'], $channels);
+
+        // گزارش: تمایز کانال مبدأ (⏭) از کانال دوم (✅)
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('در ایتا (alirezamehran_3) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        $this->assertStringContainsString('در ایتا (Alireza Four) — ' . trans('bot.channel_sync_report_status_published'), $report);
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), $report);
+
+        $this->assertSame(3, ContentSyncVersion::count());
+        $source = ContentSyncVersion::where('platform', 'eitaa')->where('destination_id', $sourceDest->id)->first();
+        $this->assertNotNull($source);
+        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
+        $this->assertSame('published', ContentSyncVersion::where('platform', 'eitaa')->where('channel_username', 'Alireza Four')->value('publish_status'));
+    }
+
+    public function test_two_telegram_channels_second_channel_published(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@saberblog',
+            'channel_title' => 'Saber Blog',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@sabernews',
+            'channel_title' => 'Saber News',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        $this->postText($this->ownerChatId, 'https://t.me/saberblog/77');
+        $this->postText($this->ownerChatId, 'متن دوکاناله تلگرام');
+
+        // کانال مبدأ (@saberblog) دوباره ارسال نمی‌شود (ترتیب انتشار مهم نیست)
+        $this->assertCount(2, $this->publisher->publishes);
+        $channels = array_column($this->publisher->publishes, 'channel_chat_id');
+        sort($channels);
+        $this->assertSame(['8995754940207167599', '@sabernews'], $channels);
+
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('در تلگرام (saberblog) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        $this->assertStringContainsString('در تلگرام (Saber News) — ' . trans('bot.channel_sync_report_status_published'), $report);
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), $report);
+
+        // نسخه‌ی مبدأ به مقصدی گره نخورده (username با شناسه‌ی ذخیره‌شده‌ی @دار دقیقاً نمی‌خواند)
+        $source = ContentSyncVersion::where('platform', 'telegram')->whereNull('destination_id')->first();
+        $this->assertNotNull($source);
+        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
+        $this->assertSame('https://t.me/saberblog/77', $source->post_url);
+    }
+
+    public function test_visually_different_url_of_same_channel_is_not_republished(): void
+    {
+        $bot = $this->createBot();
+
+        // بخش ۱: کانال خصوصی تلگرام — لینک c/{shortId} در مقابل chat id عددی ذخیره‌شده
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '-1001234567890',
+            'channel_title' => 'Private Channel',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        $this->postText($this->ownerChatId, 'https://t.me/c/1234567890/42');
+        $this->postText($this->ownerChatId, 'متن کانال خصوصی');
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertStringContainsString(trans('bot.channel_sync_no_targets'), (string) $this->publisher->lastPrivateText());
+
+        // بخش ۲: ایتا — لینک با upper/lower متفاوت برای همان username (بات جدا با توکن جدا)
+        $bot2 = $this->createBot('456:second-channel-poster-token');
+        ChannelPosterDestination::create([
+            'bot_id' => $bot2->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'SomeUser',
+            'channel_title' => 'Some User',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/SOMEUSER/5', '456:second-channel-poster-token');
+        $this->postText($this->ownerChatId, 'متن با اختلاف upper/lower', '456:second-channel-poster-token');
+
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertSame(2, ContentSyncContent::count());
+        $this->assertSame(
+            [ContentSyncVersion::STATUS_EXISTING_SOURCE, ContentSyncVersion::STATUS_EXISTING_SOURCE],
+            ContentSyncVersion::orderBy('id')->pluck('publish_status')->all()
+        );
+    }
+
+    public function test_platform_dedup_mode_excludes_whole_platform(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_3',
+            'channel_title' => 'Alireza',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_4',
+            'channel_title' => 'Alireza Four',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@saberblog',
+            'channel_title' => 'Saber Blog',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        // فعال‌سازی «حذف تکراری: کل پیام‌رسان»
+        $this->postCallback('cps:dedup:platform');
+        $this->assertSame(ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM, ContentSyncAdminPrefs::getDedupMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن حذف تکراری کل پیام‌رسان');
+
+        // هر دو کانال ایتا حذف می‌شوند؛ فقط تلگرام انتشار می‌گیرد
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame(['telegram'], array_column($this->publisher->publishes, 'platform'));
+        $this->assertSame(['@saberblog'], array_column($this->publisher->publishes, 'channel_chat_id'));
+
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('در ایتا (alirezamehran_3) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        // کانال دومِ ایتا قبل از فراخوانی API فیلتر شده و با دلیل در گزارش است
+        $this->assertStringContainsString('در ایتا (Alireza Four) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_reason_source_platform'), $report);
+
+        $this->assertSame(2, ContentSyncVersion::count());
+        $this->assertSame(1, ContentSyncVersion::where('platform', 'eitaa')->count());
+    }
+
+    public function test_settings_persist_per_admin_and_owner_default_inherited(): void
+    {
+        $bot = $this->createBot();
+
+        $this->postText($this->ownerChatId, '/admin 222');
+        $this->assertTrue(ContentSyncAdmin::isRegistered($bot->id, '222', 'bale'));
+
+        // ادمین دوم تنظیمات شخصی خود را با دکمه‌ها تغییر می‌دهد
+        $this->postCallbackAs('222', 'cps:mode:queue');
+        $last = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
+        $this->assertSame('222', $last['chat_id']);
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $last['text']);
+
+        $this->assertSame('queue', ContentSyncAdminPrefs::getMode($bot->id, '222', 'bale'));
+        $this->assertSame('immediate', ContentSyncAdminPrefs::getMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postCallbackAs('222', 'cps:dedup:platform');
+        $this->assertSame(ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM, ContentSyncAdminPrefs::getDedupMode($bot->id, '222', 'bale'));
+        $this->assertSame(ContentSyncAdminPrefs::DEDUP_SOURCE_CHANNEL, ContentSyncAdminPrefs::getDedupMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postCallbackAs('222', 'cps:fast:off');
+        $this->assertFalse(ContentSyncAdminPrefs::getFastMode($bot->id, '222', 'bale'));
+        $this->assertTrue(ContentSyncAdminPrefs::getFastMode($bot->id, $this->ownerChatId, 'bale'));
+
+        // پیش‌فرض مشترک (تنظیم‌شده توسط مالک) برای ادمین‌های جدید به ارث می‌رسد
+        $this->postCallback('cps:default:dedup:platform');
+        $this->assertSame(
+            ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM,
+            ContentSyncAdminPrefs::botDefaults($bot->id, 'bale')->dedup_mode
+        );
+
+        $this->postText($this->ownerChatId, '/admin 333');
+        $this->assertSame(
+            ContentSyncAdminPrefs::DEDUP_SOURCE_PLATFORM,
+            ContentSyncAdminPrefs::getDedupMode($bot->id, '333', 'bale')
+        );
+    }
+
+    public function test_help_lists_active_commands_and_owner_section_is_conditional(): void
+    {
+        $bot = $this->createBot();
+        $this->postText($this->ownerChatId, '/admin 222');
+
+        // مالک: راهنمای کامل + دستورات مخصوص مالک
+        $this->postText($this->ownerChatId, '/help');
+        $ownerHelp = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString(trans('bot.channel_sync_help_title'), $ownerHelp);
+        $this->assertStringContainsString(trans('bot.channel_sync_help_flow'), $ownerHelp);
+        $this->assertStringContainsString(trans('bot.channel_sync_help_commands'), $ownerHelp);
+        $this->assertStringContainsString(trans('bot.channel_sync_help_owner_commands'), $ownerHelp);
+
+        // ادمین دوم: بدون بخش مالک
+        $this->postText('222', '/help');
+        $adminHelp = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString(trans('bot.channel_sync_help_commands'), $adminHelp);
+        $this->assertStringNotContainsString(trans('bot.channel_sync_help_owner_commands'), $adminHelp);
+
+        // غیرادمین: اجازه ندارند
+        $this->postText('333', '/help');
+        $this->assertStringContainsString(trans('bot.channel_poster_not_owner'), (string) $this->publisher->lastPrivateText());
+    }
+
+    public function test_failed_destination_does_not_corrupt_other_results(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+        $this->publisher->failPlatforms = ['bale'];
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن با خطا در یکی از مقصدها');
+
+        // بله ناموفق؛ تلگرام سالم منتشر شده
+        $this->assertSame('failed', ContentSyncVersion::where('platform', 'bale')->value('publish_status'));
+        $this->assertSame('published', ContentSyncVersion::where('platform', 'telegram')->value('publish_status'));
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_failed'), $report);
+        $this->assertStringContainsString('در تلگرام (Saber Blog) — ' . trans('bot.channel_sync_report_status_published'), $report);
+
+        // خطا برطرف شد و /retry — فقط مقصدِ ناموفق دوباره ارسال می‌شود
+        $this->publisher->failPlatforms = [];
+        $this->postText($this->ownerChatId, '/retry');
+
+        $this->assertSame('published', ContentSyncVersion::where('platform', 'bale')->value('publish_status'));
+        $this->assertCount(1, array_filter($this->publisher->publishes, fn ($p) => $p['platform'] === 'telegram'));
+        $this->assertCount(2, array_filter($this->publisher->publishes, fn ($p) => $p['platform'] === 'bale'));
+        $this->assertStringContainsString(
+            'در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'),
+            (string) $this->publisher->lastPrivateText()
+        );
+    }
+
+    public function test_reports_end_with_help_footer(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->postText($this->ownerChatId, 'متن فوتر');
+
+        // تأیید fast mode با فوتر /help تمام می‌شود
+        $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), (string) $this->publisher->lastPrivateText());
+
+        // گزارش /sync و /last هم با همان فوتر تمام می‌شوند
+        $this->postText($this->ownerChatId, '/sync 1');
+        $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), (string) $this->publisher->lastPrivateText());
+
+        $this->postText($this->ownerChatId, '/last');
+        $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), (string) $this->publisher->lastPrivateText());
+    }
+
+    public function test_settings_prompt_is_shown_only_once(): void
+    {
+        $bot = $this->createBot();
+        $this->createDestinations($bot->id);
+
+        // اولین لینک: کِی‌بورد تنظیمات فقط یک‌بار نمایش داده می‌شود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $first = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_once_hint'), $first['text']);
+        $this->assertIsArray($first['keyboard']);
+        $this->assertCount(6, $first['keyboard']); // مالک: ۳ ردیف شخصی + ۳ ردیف پیش‌فرض مشترک
+
+        // لینک دوم: کِی‌بورد دیگر تکرار نمی‌شود
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1183');
+        $second = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
+        $this->assertNull($second['keyboard']);
+        $this->assertStringNotContainsString(trans('bot.channel_sync_settings_once_hint'), $second['text']);
+
+        // علامت ذخیره شده و /settings همچنان کار می‌کند
+        $this->assertTrue((bool) ContentSyncAdminPrefs::forAdmin($bot->id, $this->ownerChatId, 'bale')->settings_asked);
+
+        $this->postText($this->ownerChatId, '/settings');
+        $settings = $this->publisher->privateMessages[array_key_last($this->publisher->privateMessages)];
+        $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $settings['text']);
+        $this->assertIsArray($settings['keyboard']);
+        $this->assertCount(6, $settings['keyboard']);
+    }
+
+    public function test_full_real_eitaa_link_simulation(): void
+    {
+        $bot = $this->createBot();
+        $sourceDest = ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'eitaa',
+            'channel_chat_id' => 'alirezamehran_3',
+            'channel_title' => 'Alireza',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '8995754940207167599',
+            'channel_title' => 'stackoverflow_com',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@saberblog',
+            'channel_title' => 'Saber Blog',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+
+        // شبیه‌سازی لینک واقعی ایتا: لینک پیامی که در کانال مبدأ منتشر شده
+        $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
+        $this->assertStringContainsString(trans('bot.channel_sync_link_registered', ['id' => 1]), (string) $this->publisher->lastPrivateText());
+        $this->postText($this->ownerChatId, 'متن واقعی مطلب از کانال ایتا');
+
+        // به ایتای مبدأ دوباره‌ای ارسال نمی‌شود؛ فقط بله و تلگرام
+        $this->assertCount(2, $this->publisher->publishes);
+        $platforms = array_column($this->publisher->publishes, 'platform');
+        sort($platforms);
+        $this->assertSame(['bale', 'telegram'], $platforms);
+        $this->assertNotContains('eitaa', $platforms);
+
+        // تنها نسخه‌ی ایتا، نسخه‌ی خودِ مبدأ است (post_url و message_id اصل حفظ می‌شود)
+        $source = ContentSyncVersion::where('content_id', 1)->where('platform', 'eitaa')->first();
+        $this->assertNotNull($source);
+        $this->assertSame(ContentSyncVersion::STATUS_EXISTING_SOURCE, $source->publish_status);
+        $this->assertSame('https://eitaa.com/alirezamehran_3/1182', $source->post_url);
+        $this->assertSame('1182', $source->message_id);
+        $this->assertSame('confirmed', $source->link_status);
+        $this->assertSame($sourceDest->id, $source->destination_id);
+
+        // همه‌ی نسخه‌ها به یک محتوای مشترک تعلق دارند
+        $versions = ContentSyncVersion::all();
+        $this->assertCount(3, $versions);
+        $this->assertTrue($versions->every(fn ($v) => (int) $v->content_id === 1));
+
+        $report = (string) $this->publisher->lastPrivateText();
+        $this->assertStringContainsString('در ایتا (alirezamehran_3) — ' . trans('bot.channel_sync_report_status_existing_source'), $report);
+        $this->assertStringContainsString('در بله (stackoverflow_com) — ' . trans('bot.channel_sync_report_status_published'), $report);
+        $this->assertStringContainsString('در تلگرام (Saber Blog) — ' . trans('bot.channel_sync_report_status_published'), $report);
+        $this->assertStringContainsString(trans('bot.channel_sync_report_content_id', ['id' => 1]), $report);
+        $this->assertStringEndsWith(trans('bot.channel_sync_help_footer'), $report);
+    }
+
+    public function test_fast_mode_off_asks_tag_again_when_ambiguous(): void
+    {
+        $bot = $this->createBot();
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'bale',
+            'channel_chat_id' => '111111',
+            'channel_title' => 'Bale One',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+        ChannelPosterDestination::create([
+            'bot_id' => $bot->id,
+            'platform' => 'telegram',
+            'channel_chat_id' => '@sabernews',
+            'channel_title' => 'Saber News',
+            'tag' => 'tag2',
+            'is_active' => true,
+        ]);
+
+        // خاموش کردن حالت سریع: آخرین تگ ادمین دیگر به‌کار نمی‌رود
+        $this->postCallback('cps:fast:off');
+        $this->assertFalse(ContentSyncAdminPrefs::getFastMode($bot->id, $this->ownerChatId, 'bale'));
+
+        $this->postText($this->ownerChatId, 'https://eitaa.com/otheruser/99');
+        $this->postText($this->ownerChatId, 'متن با حالت سریع خاموش');
+
+        // با دو تگ، دوباره سؤال می‌شود و هنوز منتشر نشده
+        $this->assertStringContainsString(trans('bot.channel_sync_ask_tag'), (string) $this->publisher->lastPrivateText());
+        $this->assertSame([], $this->publisher->publishes);
+        $this->assertSame(ChannelPosterBotController::STATE_SYNC_AWAITING_TAG, $this->ownerState($bot->id)->state);
+
+        // انتخاب tag1 → فقط بله
+        $this->postCallback('cps:tag:0');
+        $this->assertCount(1, $this->publisher->publishes);
+        $this->assertSame(['bale'], array_column($this->publisher->publishes, 'platform'));
+        $this->assertSame('published', ContentSyncVersion::where('content_id', 1)->where('platform', 'bale')->value('publish_status'));
+    }
+
     /* ------------------------------------------------------------------ */
 
-    private function createBot(): Bot
+    private function createBot(?string $token = null): Bot
     {
         return Bot::create([
             'endpoint_id' => ChannelPosterBotController::ENDPOINT_ID,
             'bot_mother_id' => 1,
             'language_code' => 'fa',
-            'bale_bot_token' => $this->token,
+            'bale_bot_token' => $token ?? $this->token,
             'bale_bot_name' => 'channel_poster_bot',
             'bale_bot_status' => 'Active',
             'bale_owner_chat_id' => (int) $this->ownerChatId,
@@ -644,10 +1110,10 @@ class ContentSyncFlowTest extends TestCase
         ]);
     }
 
-    private function postText(string $chatId, string $text): void
+    private function postText(string $chatId, string $text, ?string $token = null): void
     {
         $this->postJson(
-            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            '/api/webhook-channel-poster?origin=bale&token='.($token ?? $this->token),
             [
                 'update_id' => rand(1, 999999),
                 'message' => [
@@ -663,16 +1129,21 @@ class ContentSyncFlowTest extends TestCase
 
     private function postCallback(string $data): void
     {
+        $this->postCallbackAs($this->ownerChatId, $data);
+    }
+
+    private function postCallbackAs(string $chatId, string $data): void
+    {
         $this->postJson(
             '/api/webhook-channel-poster?origin=bale&token='.$this->token,
             [
                 'update_id' => rand(1, 999999),
                 'callback_query' => [
-                    'id' => 'cb-' . md5($data),
-                    'from' => ['id' => (int) $this->ownerChatId],
+                    'id' => 'cb-' . $chatId . '-' . md5($data),
+                    'from' => ['id' => (int) $chatId],
                     'data' => $data,
                     'message' => [
-                        'chat' => ['id' => (int) $this->ownerChatId, 'type' => 'private'],
+                        'chat' => ['id' => (int) $chatId, 'type' => 'private'],
                     ],
                 ],
             ]

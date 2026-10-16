@@ -669,6 +669,73 @@ Chat ID: :chat_id',
     'channel_sync_channel_unlinked' => '✂️ Unlinked channel: :channel'."\n"."It is no longer in tags or sync destinations. To reconnect: /add",
     'channel_sync_channels_gone' => 'That channel was not found (it may have been removed already).',
 
+    // === Help footer (reports & main admin messages) ===
+    'channel_sync_help_footer' => '📖 Command guide: /help',
+
+    // === Detailed report ===
+    'channel_sync_report_content_id' => '📊 Shared content id: :id',
+    'channel_sync_report_status_existing_source' => 'skipped; already exists (source channel)',
+    'channel_sync_report_status_published' => 'published',
+    'channel_sync_report_status_queued' => 'queued for publish',
+    'channel_sync_report_status_failed' => 'failed',
+    'channel_sync_report_status_skipped' => 'skipped',
+    'channel_sync_report_status_suspicious' => 'halted; needs review',
+    'channel_sync_report_reason_source' => '📌 The original link of this content — already published in the source channel',
+    'channel_sync_report_reason_source_channel' => '📌 Source channel of this link — already exists',
+    'channel_sync_report_reason_source_platform' => '📌 Whole source platform — per “dedup: whole platform” setting',
+    'channel_sync_report_reason_already_published' => '📌 Already published for this content',
+    'channel_sync_report_reason_suspicious' => '📌 Channel identity was ambiguous — sending was halted to avoid duplicates. Check the channel ids via /channels',
+    'channel_sync_link_detail' => '🔗 :url (:status)',
+    'channel_sync_error_detail' => '📌 Error: :error',
+
+    // === /settings ===
+    'channel_sync_settings_title' => '⚙️ Sync settings',
+    'channel_sync_settings_dedup_line' => 'Dedup: :dedup',
+    'channel_sync_settings_mode_line' => 'Publish mode: :mode',
+    'channel_sync_settings_fast_line' => 'Fast mode: :fast',
+    'channel_sync_settings_dedup_channel' => 'Source channel only (default)',
+    'channel_sync_settings_dedup_platform' => 'Whole source platform',
+    'channel_sync_settings_fast_on' => 'on',
+    'channel_sync_settings_fast_off' => 'off',
+    'channel_sync_settings_dedup_btn_channel' => 'Dedup: source channel only',
+    'channel_sync_settings_dedup_btn_platform' => 'Dedup: whole platform',
+    'channel_sync_settings_fast_btn_on' => 'Fast mode: on',
+    'channel_sync_settings_fast_btn_off' => 'Fast mode: off',
+    'channel_sync_settings_default_note' => '👑 Last buttons: shared default for all admins of this bot',
+    'channel_sync_settings_default_btn_dedup_channel' => 'Default for all: source channel only',
+    'channel_sync_settings_default_btn_dedup_platform' => 'Default for all: whole platform',
+    'channel_sync_settings_default_btn_mode_immediate' => 'Default for all: immediate',
+    'channel_sync_settings_default_btn_mode_queue' => 'Default for all: queue',
+    'channel_sync_settings_default_btn_fast_on' => 'Default for all: fast on',
+    'channel_sync_settings_default_btn_fast_off' => 'Default for all: fast off',
+    'channel_sync_settings_once_hint' => 'You can also change sync settings from the buttons (this question is asked only once):',
+
+    // === /help ===
+    'channel_sync_help_title' => '📖 Multi-channel sync guide',
+    'channel_sync_help_flow' => 'Workflow:' .
+        "\n" . '1. Send the link of a published post (Bale/Telegram/Eitaa/Soroush) — the source post is stored as "already exists"' .
+        "\n" . '2. Send the content text' .
+        "\n" . '3. The bot publishes to every channel in the tag except the source channel, with a per-channel report' .
+        "\n" . '4. Ready for the next link',
+    'channel_sync_help_commands' => 'Commands:' .
+        "\n" . '/start — connect your Bale channel and start' .
+        "\n" . '/add — connect a Telegram or Eitaa channel to a tag' .
+        "\n" . '/sync [id or link] — full report of a content (no argument: latest)' .
+        "\n" . '/status [id] — same as /sync' .
+        "\n" . '/last — report of the latest content' .
+        "\n" . '/retry — retry failed items of the latest content' .
+        "\n" . '/mode — view/change publish mode (immediate or queue)' .
+        "\n" . '/tags — list of tags' .
+        "\n" . '/channels — connected channels + unlink buttons' .
+        "\n" . '/settings — dedup method, publish mode, fast mode' .
+        "\n" . '/new — clear current state and get ready for the next link' .
+        "\n" . '/queue — publish queue' .
+        "\n" . '/help — this guide',
+    'channel_sync_help_owner_commands' => 'Owner-only commands:' .
+        "\n" . '/admin {chat_id} — add a sync admin (no argument: list admins)' .
+        "\n" . '/sign — per-tag signature settings' .
+        "\n" . 'The “Default for all” buttons in /settings — shared defaults for every admin',
+
     // Quran Bot — reciters & search improvements (fallback for locales without keys)
     'search' => 'Search',
     'search prompt' => '🔍 Send the phrase you want to search for in the Quran.',
