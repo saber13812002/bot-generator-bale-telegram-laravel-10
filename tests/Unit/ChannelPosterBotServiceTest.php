@@ -141,6 +141,141 @@ class ChannelPosterBotServiceTest extends TestCase
         ])['type']);
     }
 
+    /**
+     * MP3 از طریق message.audio — نام و MIME اصلی باید حفظ شود.
+     */
+    public function test_extract_media_audio_key_preserves_name_and_mime(): void
+    {
+        $media = $this->service->extractMedia([
+            'caption' => 'آهنگ تست',
+            'audio' => [
+                'file_id' => 'audio-id-1',
+                'file_name' => 'song.mp3',
+                'mime_type' => 'audio/mpeg',
+            ],
+        ]);
+
+        $this->assertSame('audio', $media['type']);
+        $this->assertSame('audio-id-1', $media['file_id']);
+        $this->assertSame('آهنگ تست', $media['text']);
+        $this->assertSame('song.mp3', $media['file_name']);
+        $this->assertSame('audio/mpeg', $media['mime_type']);
+    }
+
+    /**
+     * MP3 از طریق message.document با MIME معتبر audio/mpeg → نوع audio.
+     */
+    public function test_extract_media_document_mp3_with_mime_is_audio(): void
+    {
+        $media = $this->service->extractMedia([
+            'document' => [
+                'file_id' => 'doc-id-1',
+                'file_name' => 'podcast.mp3',
+                'mime_type' => 'audio/mpeg',
+                'file_size' => 123456,
+            ],
+        ]);
+
+        $this->assertSame('audio', $media['type']);
+        $this->assertSame('doc-id-1', $media['file_id']);
+        $this->assertSame('podcast.mp3', $media['file_name']);
+        $this->assertSame('audio/mpeg', $media['mime_type']);
+    }
+
+    /**
+     * MP3 از طریق document بدون MIME + پسوند معتبر .mp3 → همچنان audio
+     * (اما فقط وقتی MIME به‌وضوح نوع دیگری نباشد).
+     */
+    public function test_extract_media_document_mp3_extension_without_mime_is_audio(): void
+    {
+        $media = $this->service->extractMedia([
+            'document' => [
+                'file_id' => 'doc-id-2',
+                'file_name' => 'track.MP3',
+            ],
+        ]);
+
+        $this->assertSame('audio', $media['type']);
+        $this->assertSame('track.MP3', $media['file_name']);
+        $this->assertNull($media['mime_type']);
+    }
+
+    /**
+     * PDF از طریق document → نوع document با حفظ نام و MIME.
+     */
+    public function test_extract_media_document_pdf_is_document(): void
+    {
+        $media = $this->service->extractMedia([
+            'caption' => 'مستندات',
+            'document' => [
+                'file_id' => 'doc-id-3',
+                'file_name' => 'report.pdf',
+                'mime_type' => 'application/pdf',
+            ],
+        ]);
+
+        $this->assertSame('document', $media['type']);
+        $this->assertSame('doc-id-3', $media['file_id']);
+        $this->assertSame('report.pdf', $media['file_name']);
+        $this->assertSame('application/pdf', $media['mime_type']);
+        $this->assertSame('مستندات', $media['text']);
+    }
+
+    /**
+     * نام کاذب .mp3 با MIME واضحِ غیرصوتی: به پسوند سمت کلاینت اعتماد نمی‌شود.
+     */
+    public function test_extract_media_document_fake_mp3_name_with_other_mime_not_audio(): void
+    {
+        $media = $this->service->extractMedia([
+            'document' => [
+                'file_id' => 'doc-id-4',
+                'file_name' => 'fake.mp3',
+                'mime_type' => 'image/png',
+            ],
+        ]);
+
+        $this->assertSame('document', $media['type']);
+    }
+
+    /**
+     * MP3 با کپشن → کپسن همراه نوع audio حفظ می‌شود.
+     */
+    public function test_extract_media_document_mp3_with_caption_keeps_caption(): void
+    {
+        $media = $this->service->extractMedia([
+            'caption' => 'برنامه رادیویی',
+            'document' => [
+                'file_id' => 'doc-id-5',
+                'file_name' => 'radio.mp3',
+                'mime_type' => 'audio/mpeg',
+            ],
+        ]);
+
+        $this->assertSame('audio', $media['type']);
+        $this->assertSame('برنامه رادیویی', $media['text']);
+        $this->assertSame('radio.mp3', $media['file_name']);
+    }
+
+    /**
+     * صدای غیرMP3 (مثلا FLAC) از طریق document → audio_unsupported
+     * (تا پیام خطای مشخص ارسال شود، نه رد بی‌صدا).
+     */
+    public function test_extract_media_document_unsupported_audio_is_flagged(): void
+    {
+        $media = $this->service->extractMedia([
+            'document' => [
+                'file_id' => 'doc-id-6',
+                'file_name' => 'song.flac',
+                'mime_type' => 'audio/flac',
+            ],
+        ]);
+
+        $this->assertSame('audio_unsupported', $media['type']);
+        $this->assertSame('doc-id-6', $media['file_id']);
+        $this->assertSame('song.flac', $media['file_name']);
+        $this->assertSame('audio/flac', $media['mime_type']);
+    }
+
     public function test_resolve_destinations_all_and_bale(): void
     {
         $bot = Bot::create([

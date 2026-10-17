@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\TokenHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
@@ -43,13 +44,15 @@ class ChannelPosterQueuePublishService
     public function publishItem(ChannelPosterQueue $item, bool $notifyOwner = true): array
     {
         $fail = function (?string $error = null) use ($item): array {
+            // متن خطا ممکن است شامل توکن/URL باشد؛ همیشه قبل از لاگ/بازگردانی ماسک می‌شود
+            $safeError = is_string($error) && $error !== '' ? TokenHelper::redactTokens($error) : $error;
             $item->update(['status' => ChannelPosterQueue::STATUS_FAILED]);
             Log::warning('[ChannelPoster] Queue item failed', [
                 'queue_id' => $item->id,
-                'error'    => $error,
+                'error'    => $safeError,
             ]);
 
-            return ['status' => 'failed', 'error' => $error, 'results' => [], 'destinations_count' => 0];
+            return ['status' => 'failed', 'error' => $safeError, 'results' => [], 'destinations_count' => 0];
         };
 
         try {
@@ -158,7 +161,9 @@ class ChannelPosterQueuePublishService
                     $item->file_id,
                     $destination->platform,
                     $destination->bot_token,
-                    $item->media_path
+                    $item->media_path,
+                    $item->file_name,
+                    $item->mime_type
                 );
                 $ok = $result['success'] ?? false;
                 $messageId = $result['message_id'] ?? null;
@@ -206,7 +211,7 @@ class ChannelPosterQueuePublishService
                 } catch (Throwable $e) {
                     Log::warning('[ChannelPoster] Failed to record content versions', [
                         'queue_id' => $item->id,
-                        'error'    => $e->getMessage(),
+                        'error'    => TokenHelper::redactTokens($e->getMessage()),
                     ]);
                 }
             }
@@ -223,7 +228,7 @@ class ChannelPosterQueuePublishService
                 } catch (Throwable $e) {
                     Log::warning('[ChannelPoster] Failed to notify owner', [
                         'queue_id' => $item->id,
-                        'error'    => $e->getMessage(),
+                        'error'    => TokenHelper::redactTokens($e->getMessage()),
                     ]);
                 }
             }
@@ -241,12 +246,13 @@ class ChannelPosterQueuePublishService
                 'destinations_count' => $destinations->count(),
             ];
         } catch (Throwable $e) {
+            $safeError = TokenHelper::redactTokens($e->getMessage());
             Log::error('[ChannelPoster] Queue processing failed', [
                 'queue_id' => $item->id,
-                'error'    => $e->getMessage(),
+                'error'    => $safeError,
             ]);
 
-            return $fail($e->getMessage());
+            return $fail($safeError);
         }
     }
 }

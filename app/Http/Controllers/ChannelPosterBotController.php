@@ -131,8 +131,9 @@ class ChannelPosterBotController extends Controller
 
             return response()->json(['status' => 'ok'], 200);
         } catch (Throwable $e) {
+            // متن خطا ممکن است URL شامل توکن ربات باشد؛ همیشه قبل از لاگ ماسک می‌شود
             Log::error('[ChannelPoster] Webhook error', [
-                'error' => $e->getMessage(),
+                'error' => TokenHelper::redactTokens($e->getMessage()),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
@@ -406,11 +407,26 @@ class ChannelPosterBotController extends Controller
         }
 
         $media = $this->service->extractMedia($message);
+        $this->logMediaDiagnostic($message, $media);
         if (!$media) {
             if (is_string($text) && str_starts_with($text, '/')) {
                 return;
             }
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_unsupported'));
+            return;
+        }
+
+        // فایل صوتی با قالب ناپشتیبانی‌شده: به‌جای بی‌صدا رد شدن، پیام خطای
+        // مشخصی ارسال می‌شود (سیاست: هرگز silent fail برای صدا).
+        if (($media['type'] ?? '') === 'audio_unsupported') {
+            Log::info('[ChannelPoster] Unsupported audio format rejected', [
+                'bot_id' => $botItem->id,
+                'mime_type' => $media['mime_type'] ?? null,
+                'extension' => is_string($media['file_name'] ?? null)
+                    ? strtolower(pathinfo($media['file_name'], PATHINFO_EXTENSION))
+                    : null,
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_audio_unsupported'));
             return;
         }
 
@@ -421,6 +437,60 @@ class ChannelPosterBotController extends Controller
         }
 
         $this->offerOrPublishContent($publisher, $botItem, $type, $chatId, $media);
+    }
+
+    /**
+     * Diagnostic امن برای ورودی رسانه‌ای وب‌هوک.
+     *
+     * فقط نام کلیدهای پیام و (در صورت وجود) نام فایل، پسوند، MIME و حجم
+     * را لاگ می‌کند تا مشخص باشد بله فایل MP3 را به‌صورت message.audio یا
+     * message.document فرستاده است. هرگز توکن، URL یا محتوای فایل ثبت
+     * نمی‌شود.
+     */
+    private function logMediaDiagnostic(array $message, ?array $media): void
+    {
+        $hasMedia = isset(
+            $message['photo'],
+            $message['video'],
+            $message['voice'],
+            $message['audio'],
+            $message['document'],
+            $message['caption']
+        );
+
+        if (!$hasMedia) {
+            return;
+        }
+
+        try {
+            $log = [
+                'message_keys' => array_keys($message),
+                'resolved_type' => $media['type'] ?? null,
+            ];
+
+            if (is_array($message['document'] ?? null)) {
+                $doc = $message['document'];
+                $log['document_present'] = true;
+                $log['document_file_name'] = $doc['file_name'] ?? null;
+                $log['document_extension'] = is_string($doc['file_name'] ?? null)
+                    ? strtolower(pathinfo($doc['file_name'], PATHINFO_EXTENSION))
+                    : null;
+                $log['document_mime_type'] = $doc['mime_type'] ?? null;
+                $log['document_file_size'] = $doc['file_size'] ?? null;
+            }
+
+            if (is_array($message['audio'] ?? null)) {
+                $audio = $message['audio'];
+                $log['audio_present'] = true;
+                $log['audio_file_name'] = $audio['file_name'] ?? null;
+                $log['audio_mime_type'] = $audio['mime_type'] ?? null;
+                $log['audio_file_size'] = $audio['file_size'] ?? null;
+            }
+
+            Log::info('[ChannelPoster][diag] incoming media', $log);
+        } catch (Throwable) {
+            // خطای لاگ نباید پردازش وب‌هوک را مختل کند
+        }
     }
 
     private function handleStart(ChannelPosterPublisher $publisher, Bot $botItem, string $type, string $chatId): void
@@ -887,7 +957,10 @@ class ChannelPosterBotController extends Controller
                     $originToken,
                     (string) $media['file_id'],
                     $type,
-                    (string) $media['type']
+                    (string) $media['type'],
+                    is_string($media['file_name'] ?? null) && $media['file_name'] !== ''
+                        ? (string) $media['file_name']
+                        : null
                 );
             }
         }
@@ -897,6 +970,12 @@ class ChannelPosterBotController extends Controller
             'text' => $media['text'],
             'file_id' => $media['file_id'],
             'media_path' => $mediaPath,
+            'file_name' => is_string($media['file_name'] ?? null) && $media['file_name'] !== ''
+                ? (string) $media['file_name']
+                : null,
+            'mime_type' => is_string($media['mime_type'] ?? null) && $media['mime_type'] !== ''
+                ? (string) $media['mime_type']
+                : null,
             'tag_keys' => array_map(fn (array $group) => $group['key'], $groups),
         ];
 
@@ -970,6 +1049,8 @@ class ChannelPosterBotController extends Controller
         $text = $state->getData('text');
         $fileId = $state->getData('file_id');
         $mediaPath = $state->getData('media_path');
+        $fileName = $state->getData('file_name');
+        $mimeType = $state->getData('mime_type');
         $signatureEnabled = (bool) $state->getData('signature_enabled', false);
         $enqueue = (bool) $state->getData('enqueue', false);
 
@@ -1005,7 +1086,9 @@ class ChannelPosterBotController extends Controller
                 $chatId,
                 $type,
                 $state?->getData('content_id') !== null ? (int) $state->getData('content_id') : null,
-                is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null
+                is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null,
+                is_string($fileName) && $fileName !== '' ? $fileName : null,
+                is_string($mimeType) && $mimeType !== '' ? $mimeType : null
             );
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage(
@@ -1030,7 +1113,9 @@ class ChannelPosterBotController extends Controller
                 is_string($fileId) ? $fileId : null,
                 $destination->platform,
                 $destination->bot_token,
-                $localPath
+                $localPath,
+                is_string($fileName) && $fileName !== '' ? $fileName : null,
+                is_string($mimeType) && $mimeType !== '' ? $mimeType : null
             );
             $ok = $result['success'] ?? false;
             $messageId = $result['message_id'] ?? null;

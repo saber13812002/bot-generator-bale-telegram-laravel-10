@@ -20,7 +20,9 @@ interface ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null,
-        ?string $localPath = null
+        ?string $localPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): array;
 
     public function answerCallback(?string $callbackId, string $text = ''): void;

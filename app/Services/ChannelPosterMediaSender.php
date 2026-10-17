@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\TokenHelper;
 use App\Models\ChannelPosterDestination;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -38,15 +39,24 @@ class ChannelPosterMediaSender
         string $channelChatId,
         string $contentType,
         string $localPath,
-        ?string $caption = null
+        ?string $caption = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): array {
         $opId = substr(bin2hex(random_bytes(4)), 0, 8);
         $size = is_file($localPath) ? filesize($localPath) : 0;
+
+        // نام/مایم اصلی فایل (اگر از سمت مبدأ رسیده) — برای حفظ هویت فایل در مقصد
+        $attachName = $this->attachName($localPath, $fileName);
+        $mime = (is_string($mimeType) && str_contains($mimeType, '/'))
+            ? strtolower(trim($mimeType))
+            : $this->mimeFor($contentType, $localPath);
 
         $this->log($opId, 'upload-start', [
             'platform'  => $platform,
             'media'     => $contentType,
             'bytes'     => $size,
+            'mime'      => $mime,
             'caption'   => $caption !== null && $caption !== '',
         ]);
 
@@ -59,7 +69,7 @@ class ChannelPosterMediaSender
         }
 
         try {
-            $response = $this->doUpload($token, $platform, $channelChatId, $contentType, $localPath, (string) $caption);
+            $response = $this->doUpload($token, $platform, $channelChatId, $contentType, $localPath, (string) $caption, $attachName, $mime);
 
             $result = $this->parseResponse($response, $platform, $contentType, $size);
             $this->log($opId, $result['success'] ? 'upload-ok' : 'upload-failed', [
@@ -69,8 +79,23 @@ class ChannelPosterMediaSender
 
             return $result;
         } catch (\Throwable $e) {
-            return $this->fail($opId, $e->getMessage(), $platform, $contentType, $size);
+            return $this->fail($opId, TokenHelper::redactTokens($e->getMessage()), $platform, $contentType, $size);
         }
+    }
+
+    /**
+     * نام امن فایل برای آپلود: نام اصلی (اگر معتبر باشد) وگرنه نام روی دیسک.
+     */
+    private function attachName(string $localPath, ?string $fileName): string
+    {
+        if (is_string($fileName) && $fileName !== '') {
+            $base = basename(str_replace('\\', '/', $fileName));
+            if ($base !== '' && $base !== '.' && $base !== '..' && mb_strlen($base) <= 255) {
+                return $base;
+            }
+        }
+
+        return basename($localPath);
     }
 
     /**
@@ -82,7 +107,9 @@ class ChannelPosterMediaSender
         string $channelChatId,
         string $contentType,
         string $localPath,
-        string $caption
+        string $caption,
+        string $attachName,
+        string $mime
     ): Response {
         $contents = (string) file_get_contents($localPath);
 
@@ -94,8 +121,8 @@ class ChannelPosterMediaSender
             return Http::asMultipart()
                 ->withHeaders(['Accept' => 'application/json'])
                 ->timeout(300)
-                ->attach('file', $contents, basename($localPath), [
-                    'Content-Type' => $this->mimeFor($contentType, $localPath),
+                ->attach('file', $contents, $attachName, [
+                    'Content-Type' => $mime,
                 ])
                 ->post($base . '/sendFile', [
                     'chat_id' => $channelChatId,
@@ -107,14 +134,14 @@ class ChannelPosterMediaSender
             $field = $this->mediaField($contentType);
             $base = 'https://tapi.bale.ai/bot' . $token;
 
-            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $localPath, $contents, $caption);
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
         }
 
         if ($platform === ChannelPosterDestination::PLATFORM_TELEGRAM) {
             $field = $this->mediaField($contentType);
             $base = 'https://api.telegram.org/bot' . $token;
 
-            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $localPath, $contents, $caption);
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
         }
 
         throw new \InvalidArgumentException('unsupported platform: ' . $platform);
@@ -129,9 +156,10 @@ class ChannelPosterMediaSender
         string $token,
         string $channelChatId,
         string $contentType,
-        string $localPath,
         string $contents,
-        string $caption
+        string $caption,
+        string $attachName,
+        string $mime
     ): Response {
         $endpoint = match ($field) {
             'photo'    => 'sendPhoto',
@@ -149,8 +177,8 @@ class ChannelPosterMediaSender
         return Http::asMultipart()
             ->withHeaders(['Accept' => 'application/json'])
             ->timeout(300)
-            ->attach($field, $contents, basename($localPath), [
-                'Content-Type' => $this->mimeFor($contentType, $localPath),
+            ->attach($field, $contents, $attachName, [
+                'Content-Type' => $mime,
             ])
             ->post($base . '/' . $endpoint, $form);
     }

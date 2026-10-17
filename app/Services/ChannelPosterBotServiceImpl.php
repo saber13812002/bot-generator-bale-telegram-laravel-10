@@ -162,6 +162,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                     'type' => 'photo',
                     'text' => $caption,
                     'file_id' => $fileId,
+                    'file_name' => null,
+                    'mime_type' => null,
                 ];
             }
         }
@@ -171,6 +173,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 'type' => 'video',
                 'text' => $caption,
                 'file_id' => $message['video']['file_id'],
+                'file_name' => null,
+                'mime_type' => null,
             ];
         }
 
@@ -179,15 +183,82 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 'type' => 'voice',
                 'text' => $caption,
                 'file_id' => $message['voice']['file_id'],
+                'file_name' => null,
+                'mime_type' => null,
             ];
         }
 
         if (!empty($message['audio']['file_id'])) {
+            $audio = $message['audio'];
+
             return [
                 'type' => 'audio',
                 'text' => $caption,
                 'file_id' => $message['audio']['file_id'],
+                'file_name' => is_array($audio) ? ($audio['file_name'] ?? null) : null,
+                'mime_type' => is_array($audio) ? ($audio['mime_type'] ?? null) : null,
             ];
+        }
+
+        // بله/تلگرام ممکن است MP3 (و سایر فایل‌ها) را به‌جای message.audio در
+        // message.document بفرستند. طبق سیاست محصول:
+        //  1) اگر MIME معتبر audio/mpeg باشد → نوع audio (معتبرترین نشانه)
+        //  2) وگرنه اگر پسوند معتبر .mp3 باشد و MIME به‌وضوح نوع دیگری نباشد
+        //     (مثلا text/* یا image/* یا application/pdf) → نوع audio
+        //  3) اگر audio/* باشد ولی نه mpeg/MP3 → audio_unsupported
+        //     (خطای مشخص به کاربر، هرگز بی‌صدا)
+        //  4) در غیر این صورت → نوع document (سند عمومی)
+        if (is_array($message['document'] ?? null)) {
+            $doc = $message['document'];
+            $fileId = $doc['file_id'] ?? null;
+
+            if ($fileId) {
+                $fileName = $doc['file_name'] ?? null;
+                $docMime = $doc['mime_type'] ?? null;
+
+                $normalizedMime = is_string($docMime) ? strtolower(trim($docMime)) : '';
+                $docExt = $this->documentExtension($fileName);
+
+                // MIME که به‌وضوح نوع محتوای غیرصوتی را نشان می‌دهد؛ در این
+                // صورت به پسوند سمت کلاینت اعتماد نمی‌کنیم (تغییرنام کاذب).
+                $mimeIsOtherKind = str_starts_with($normalizedMime, 'text/')
+                    || str_starts_with($normalizedMime, 'image/')
+                    || str_starts_with($normalizedMime, 'video/')
+                    || (str_starts_with($normalizedMime, 'application/') && $normalizedMime !== 'application/octet-stream');
+
+                $isAudio = $normalizedMime === 'audio/mpeg'
+                    || ($docExt === 'mp3' && !$mimeIsOtherKind);
+
+                if ($isAudio) {
+                    return [
+                        'type' => 'audio',
+                        'text' => $caption,
+                        'file_id' => $fileId,
+                        'file_name' => is_string($fileName) ? $fileName : null,
+                        'mime_type' => $normalizedMime !== '' ? $normalizedMime : null,
+                    ];
+                }
+
+                // فایل صوتی با قالب ناپشتیبانی‌شده: به‌جای بی‌صدا رد کردن،
+                // نوع مشخصی برمی‌گردانیم تا پیام خطای مشخصی ارسال شود.
+                if (str_starts_with($normalizedMime, 'audio/')) {
+                    return [
+                        'type' => 'audio_unsupported',
+                        'text' => $caption,
+                        'file_id' => $fileId,
+                        'file_name' => is_string($fileName) ? $fileName : null,
+                        'mime_type' => $normalizedMime,
+                    ];
+                }
+
+                return [
+                    'type' => 'document',
+                    'text' => $caption,
+                    'file_id' => $fileId,
+                    'file_name' => is_string($fileName) ? $fileName : null,
+                    'mime_type' => $normalizedMime !== '' ? $normalizedMime : null,
+                ];
+            }
         }
 
         $text = $message['text'] ?? null;
@@ -196,10 +267,38 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 'type' => 'text',
                 'text' => $text,
                 'file_id' => null,
+                'file_name' => null,
+                'mime_type' => null,
             ];
         }
 
         return null;
+    }
+
+    /**
+     * استخراج پسوند امن از نام فایل (حروف کوچک، 1 تا 5 حرف اعداد/حروف).
+     *
+     * @return string|null
+     */
+    private function documentExtension(?string $fileName): ?string
+    {
+        if (!is_string($fileName) || $fileName === '') {
+            return null;
+        }
+
+        // از مسیر کامل فقط بخش نام فایل را در نظر بگیر
+        $base = basename(str_replace('\\', '/', $fileName));
+        $dot = strrpos($base, '.');
+        if ($dot === false || $dot === 0 || $dot === strlen($base) - 1) {
+            return null;
+        }
+
+        $ext = strtolower(substr($base, $dot + 1));
+        if (preg_match('/^[a-z0-9]{1,5}$/', $ext) !== 1) {
+            return null;
+        }
+
+        return $ext;
     }
 
     public function getActiveBaleDestination(int $botId): ?ChannelPosterDestination
@@ -443,7 +542,9 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         ?string $ownerChatId = null,
         string $ownerOrigin = 'bale',
         ?int $contentId = null,
-        ?string $mediaPath = null
+        ?string $mediaPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): ChannelPosterQueue {
         return ChannelPosterQueue::create([
             'bot_id' => $botId,
@@ -452,6 +553,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             'text' => $text,
             'file_id' => $fileId,
             'media_path' => $mediaPath,
+            'file_name' => $fileName,
+            'mime_type' => $mimeType,
             'signature_enabled' => $signatureEnabled,
             'scheduled_at' => $scheduledAt,
             'status' => ChannelPosterQueue::STATUS_PENDING,

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\TokenHelper;
 use App\Models\ChannelPosterQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -30,7 +31,8 @@ class ChannelPosterMediaStore
         string $token,
         string $fileId,
         string $origin,
-        string $mediaType
+        string $mediaType,
+        ?string $fileName = null
     ): ?string {
         if ($token === '' || $fileId === '') {
             Log::warning('[ChannelPoster][media] fetch-skipped', [
@@ -52,7 +54,7 @@ class ChannelPosterMediaStore
                 return $this->fetchFailed('getFile failed or no file_path', $origin, $mediaType, $fileId);
             }
 
-            $extension = $this->extensionFor($mediaType, $url);
+            $extension = $this->extensionFor($mediaType, $url, $fileName);
             $name = 'cpm-' . now()->format('Ymd-His') . '-' . Str::random(8) . '.' . $extension;
             $path = storage_path('app/channel-poster-media/' . $name);
 
@@ -88,7 +90,7 @@ class ChannelPosterMediaStore
 
             return $path;
         } catch (\Throwable $e) {
-            return $this->fetchFailed($e->getMessage(), $origin, $mediaType, $fileId);
+            return $this->fetchFailed(TokenHelper::redactTokens($e->getMessage()), $origin, $mediaType, $fileId);
         }
     }
 
@@ -305,19 +307,59 @@ class ChannelPosterMediaStore
         }
     }
 
-    private function extensionFor(string $mediaType, string $url): string
+    /**
+     * انتخاب پسوند فایل ذخیره‌شده — اولویت:
+     *  1) پسوند نام اصلی فایل (اگر معتبر و شناخته‌شده باشد) تا نام/پسوند واقعی
+     *     هنگام آپلود به مقصد حفظ شود
+     *  2) پسوند URL دانلود
+     *  3) پسوند پیش‌فرض هر نوع رسانه
+     */
+    private function extensionFor(string $mediaType, string $url, ?string $fileName = null): string
     {
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mp3', 'ogg', 'm4a', 'wav', 'flac', 'mov', 'pdf'];
+
+        $extFromName = $this->safeExtension($fileName);
+        if ($extFromName !== null && in_array($extFromName, $allowed, true)) {
+            return $extFromName;
+        }
+
         $extFromUrl = strtolower(pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-        if (in_array($extFromUrl, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mp3', 'ogg', 'mov', 'pdf'], true)) {
+        if (in_array($extFromUrl, $allowed, true)) {
             return $extFromUrl;
         }
 
         return match ($mediaType) {
-            'photo'  => 'jpg',
-            'video'  => 'mp4',
-            'voice'  => 'ogg',
-            'audio'  => 'mp3',
-            default  => 'bin',
+            'photo'     => 'jpg',
+            'video'     => 'mp4',
+            'voice'     => 'ogg',
+            'audio'     => 'mp3',
+            'document'  => $extFromName ?? 'bin',
+            default     => 'bin',
         };
+    }
+
+    /**
+     * استخراج پسوند امن از نام فایل (حروف کوچک، 1 تا 5 حرف اعداد/حروف).
+     *
+     * @return string|null
+     */
+    private function safeExtension(?string $fileName): ?string
+    {
+        if (!is_string($fileName) || $fileName === '') {
+            return null;
+        }
+
+        $base = basename(str_replace('\\', '/', $fileName));
+        $dot = strrpos($base, '.');
+        if ($dot === false || $dot === 0 || $dot === strlen($base) - 1) {
+            return null;
+        }
+
+        $ext = strtolower(substr($base, $dot + 1));
+        if (preg_match('/^[a-z0-9]{1,5}$/', $ext) !== 1) {
+            return null;
+        }
+
+        return $ext;
     }
 }

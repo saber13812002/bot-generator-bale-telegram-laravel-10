@@ -10,8 +10,11 @@ use App\Models\BotUserState;
 use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterPublishLog;
 use App\Models\ChannelPosterQueue;
+use App\Services\ChannelPosterMediaSender;
 use App\Services\ChannelPosterMediaStore;
+use App\Services\TelegramChannelPosterPublisher;
 use App\Services\TelegramChannelPosterPublisherFactory;
+use Telegram;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Mockery;
@@ -402,7 +405,7 @@ class ChannelPosterMediaPublishTest extends TestCase
         $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
         $store->shouldReceive('fetchAndStore')
             ->once()
-            ->with($this->token, 'photo-file-id-123', 'bale', 'photo')
+            ->with($this->token, 'photo-file-id-123', 'bale', 'photo', null)
             ->andReturn($mediaPath);
         $this->app->instance(ChannelPosterMediaStore::class, $store);
 
@@ -453,7 +456,7 @@ class ChannelPosterMediaPublishTest extends TestCase
         $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
         $store->shouldReceive('fetchAndStore')
             ->once()
-            ->with($this->token, 'photo-file-id-123', 'bale', 'photo')
+            ->with($this->token, 'photo-file-id-123', 'bale', 'photo', null)
             ->andReturn($mediaPath);
         $store->shouldReceive('delete')->never();
         $this->app->instance(ChannelPosterMediaStore::class, $store);
@@ -486,6 +489,322 @@ class ChannelPosterMediaPublishTest extends TestCase
 
         // در صف‌بندی فایل باید روی دیسک بماند (برای ارسال در موعد مقرر)
         $this->assertFileExists($mediaPath);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 3b) MP3/آهنگ از وب‌ه‌ک (document) — دانلود، انتشار به ۳ پلتفرم،
+    //     حفظ نام واقعی + MIME، پاک‌سازی، و جلوگیری از موفقیت کاذب
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_mp3_document_webhook_publishes_to_bale_telegram_eitaa(): void
+    {
+        $bot = $this->createBot($this->token, ChannelPosterBotController::ENDPOINT_ID);
+        $this->createDestination($bot->id, 'bale', 'channel-bale-1', $this->token);
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+        $this->createDestination($bot->id, 'eitaa', 'channel-eitaa', 'eitaa-token');
+
+        // نام واقعی فایل (podcast.mp3) با نام موقت دانلود متفاوت است تا ثابت
+        // شود نام واقعی در آپلود حفظ می‌شود (نه basenameِ فایل موقت).
+        $mediaPath = $this->makeTempFile('tmp-podcast-xyz.mp3', 'podcast-bytes');
+        $contents = 'podcast-bytes';
+
+        $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
+        $store->shouldReceive('fetchAndStore')
+            ->once()
+            ->with($this->token, 'mp3-file-id-1', 'bale', 'audio', 'podcast.mp3')
+            ->andReturn($mediaPath);
+        $this->app->instance(ChannelPosterMediaStore::class, $store);
+
+        $this->app->instance(
+            ChannelPosterPublisherFactory::class,
+            new FakeChannelPosterPublisherFactory($this->realPublisherWithMockedVendor($this->token))
+        );
+
+        Http::fake([
+            'tapi.bale.ai*'     => Http::response(['ok' => true, 'result' => ['message_id' => 11]]),
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 22]]),
+            'eitaayar.ir*'      => Http::response(['ok' => true, 'result' => ['message_id' => 33]]),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateDocumentUpdate($this->ownerChatId, 'mp3-file-id-1', 'podcast.mp3', 'audio/mpeg', 'کپشن پادکست')
+        )->assertOk();
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->callbackUpdate('cb-mp3', 'cp:now', $this->ownerChatId)
+        )->assertOk();
+
+        Http::assertSentCount(3);
+
+        // بله: sendAudio با نام واقعی فایل
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://tapi.bale.ai/bot'.$this->token.'/sendAudio'
+                && $request->isMultipart()
+                && $request->hasFile('audio', $contents, 'podcast.mp3')
+                && ($this->multipartData($request)['chat_id'] ?? null) === 'channel-bale-1';
+        });
+
+        // تلگرام: sendAudio با نام واقعی فایل
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://api.telegram.org/bot999:tg/sendAudio'
+                && $request->isMultipart()
+                && $request->hasFile('audio', $contents, 'podcast.mp3')
+                && ($this->multipartData($request)['chat_id'] ?? null) === 'channel-tg';
+        });
+
+        // ایتایار: sendFile با فیلد file
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://eitaayar.ir/api/eitaa-token/sendFile'
+                && $request->isMultipart()
+                && $request->hasFile('file', $contents, 'podcast.mp3')
+                && ($this->multipartData($request)['chat_id'] ?? null) === 'channel-eitaa';
+        });
+
+        // انتشار فوری = فایل موقت پاک می‌شود + بدون ردیف صف
+        $this->assertFileDoesNotExist($mediaPath);
+        $this->assertSame(0, ChannelPosterQueue::count());
+        $this->assertSame(0, BotUserState::count());
+
+        $this->assertSame(3, ChannelPosterPublishLog::where('bot_id', $bot->id)->where('success', true)->count());
+        $this->assertDatabaseHas('channel_poster_publish_logs', ['bot_id' => $bot->id, 'platform' => 'telegram', 'success' => true]);
+        $this->assertDatabaseHas('channel_poster_publish_logs', ['bot_id' => $bot->id, 'platform' => 'bale', 'success' => true]);
+        $this->assertDatabaseHas('channel_poster_publish_logs', ['bot_id' => $bot->id, 'platform' => 'eitaa', 'success' => true]);
+    }
+
+    public function test_immediate_publish_audio_cleans_up_temp_file(): void
+    {
+        $bot = $this->createBot($this->token, ChannelPosterBotController::ENDPOINT_ID);
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+
+        $mediaPath = $this->makeTempFile('webhook-audio.mp3', 'audio-bytes');
+
+        $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
+        $store->shouldReceive('fetchAndStore')
+            ->once()
+            ->with($this->token, 'audio-file-id-7', 'bale', 'audio', 'webhook-audio.mp3')
+            ->andReturn($mediaPath);
+        $this->app->instance(ChannelPosterMediaStore::class, $store);
+
+        $this->app->instance(
+            ChannelPosterPublisherFactory::class,
+            new FakeChannelPosterPublisherFactory($this->realPublisherWithMockedVendor($this->token))
+        );
+
+        Http::fake([
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 44]]),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateDocumentUpdate($this->ownerChatId, 'audio-file-id-7', 'webhook-audio.mp3', 'audio/mpeg', 'کپشن صدا')
+        )->assertOk();
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->callbackUpdate('cb-audio', 'cp:now', $this->ownerChatId)
+        )->assertOk();
+
+        // فایل دانلودشده پس از انتشار فوری باید از دیسک حذف شده باشد
+        $this->assertFileDoesNotExist($mediaPath);
+
+        $this->assertDatabaseHas('channel_poster_publish_logs', [
+            'bot_id' => $bot->id,
+            'queue_id' => null,
+            'platform' => 'telegram',
+            'success' => true,
+        ]);
+    }
+
+    public function test_audio_download_failure_no_fake_success(): void
+    {
+        $bot = $this->createBot($this->token, ChannelPosterBotController::ENDPOINT_ID);
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+
+        // دانلود فایل صوتی ناموفق است (fetchAndStore → null)؛ نباید موفقیت
+        // کاذب (انتشار فقط‌متن) رخ دهد.
+        $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
+        $store->shouldReceive('fetchAndStore')
+            ->once()
+            ->with($this->token, 'mp3-file-id-9', 'bale', 'audio', 'podcast.mp3')
+            ->andReturnNull();
+        $this->app->instance(ChannelPosterMediaStore::class, $store);
+
+        $this->app->instance(
+            ChannelPosterPublisherFactory::class,
+            new FakeChannelPosterPublisherFactory($this->realPublisherWithMockedVendor($this->token))
+        );
+
+        Http::fake([
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]]),
+            'tapi.bale.ai*'     => Http::response(['ok' => true, 'result' => ['message_id' => 1]]),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateDocumentUpdate($this->ownerChatId, 'mp3-file-id-9', 'podcast.mp3', 'audio/mpeg', 'کپشن')
+        )->assertOk();
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->callbackUpdate('cb-dl-fail', 'cp:now', $this->ownerChatId)
+        )->assertOk();
+
+        // انتشار باید ناموفق ثبت شود، نه موفقیت کاذب
+        $this->assertDatabaseHas('channel_poster_publish_logs', [
+            'bot_id' => $bot->id,
+            'queue_id' => null,
+            'platform' => 'telegram',
+            'success' => false,
+        ]);
+        $this->assertSame(
+            0,
+            ChannelPosterPublishLog::where('bot_id', $bot->id)->where('success', true)->count(),
+            'no fake success allowed when the media file is unavailable'
+        );
+
+        // هیچ درخواست رسانه‌ای (یا فقط‌متن از مسیر Laravel Http) ارسال نشده
+        Http::assertSentCount(0);
+    }
+
+    public function test_unsupported_audio_document_receives_specific_error(): void
+    {
+        $bot = $this->createBot($this->token, ChannelPosterBotController::ENDPOINT_ID);
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+
+        // قالب صوتی ناپشتیبانی‌شده (flac): باید پیام خطای مشخص بدهد، نه اینکه
+        // بی‌صدا رد شود. دانلود/انتشار/صف‌بندی اصلا انجام نشود.
+        $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
+        $store->shouldReceive('fetchAndStore')->never();
+        $this->app->instance(ChannelPosterMediaStore::class, $store);
+
+        $this->app->instance(
+            ChannelPosterPublisherFactory::class,
+            new FakeChannelPosterPublisherFactory($this->publisher)
+        );
+
+        Http::fake([
+            '*' => Http::response(['ok' => true, 'result' => ['message_id' => 1]]),
+        ]);
+
+        $this->postJson(
+            '/api/webhook-channel-poster?origin=bale&token='.$this->token,
+            $this->privateDocumentUpdate($this->ownerChatId, 'flac-file-id', 'song.flac', 'audio/flac', 'رادیو')
+        )->assertOk();
+
+        $this->assertSame(trans('bot.channel_poster_audio_unsupported'), $this->publisher->lastPrivateText());
+
+        $this->assertCount(0, $this->publisher->publishes);
+        $this->assertSame(0, ChannelPosterQueue::count());
+        $this->assertSame(0, BotUserState::count());
+        Http::assertSentCount(0);
+    }
+
+    public function test_queue_audio_item_published_to_all_platforms_with_name_and_mime(): void
+    {
+        $bot = $this->createBot('123:queue-origin-token');
+        $this->createDestination($bot->id, 'bale', 'channel-bale', '123:queue-origin-token');
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+        $this->createDestination($bot->id, 'eitaa', 'channel-eitaa', 'eitaa-token');
+
+        $localPath = $this->makeTempFile('song.mp3', 'song-bytes');
+        $contents = 'song-bytes';
+
+        $item = $this->createMediaQueueItem(
+            $bot->id, 'tag1', $localPath, 'bale-file-1',
+            'audio', 'song.mp3', 'audio/mpeg'
+        );
+
+        Http::fake([
+            'tapi.bale.ai*'    => Http::response(['ok' => true, 'result' => ['message_id' => 1]]),
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 2]]),
+            'eitaayar.ir*'     => Http::response(['ok' => true, 'result' => ['message_id' => 3]]),
+        ]);
+
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id])->assertSuccessful();
+
+        $item->refresh();
+        $this->assertSame(ChannelPosterQueue::STATUS_PUBLISHED, $item->status);
+        $this->assertNull($item->media_path);
+        $this->assertFileDoesNotExist($localPath);
+
+        Http::assertSentCount(3);
+
+        // بله: sendAudio با نام واقعی + MIME
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://tapi.bale.ai/bot123:queue-origin-token/sendAudio'
+                && $request->isMultipart()
+                && $request->hasFile('audio', $contents, 'song.mp3');
+        });
+
+        // تلگرام: sendAudio
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://api.telegram.org/bot999:tg/sendAudio'
+                && $request->isMultipart()
+                && $request->hasFile('audio', $contents, 'song.mp3');
+        });
+
+        // ایتایار: sendFile
+        Http::assertSent(function (Request $request) use ($contents) {
+            return $request->url() === 'https://eitaayar.ir/api/eitaa-token/sendFile'
+                && $request->isMultipart()
+                && $request->hasFile('file', $contents, 'song.mp3');
+        });
+
+        $this->assertSame(3, ChannelPosterPublishLog::where('queue_id', $item->id)->where('success', true)->count());
+    }
+
+    public function test_queue_audio_retry_does_not_republish_successful_destination(): void
+    {
+        $bot = $this->createBot('123:queue-origin-token');
+        $this->createDestination($bot->id, 'bale', 'channel-bale', '123:queue-origin-token');
+        $this->createDestination($bot->id, 'telegram', 'channel-tg', '999:tg');
+
+        $localPath = $this->makeTempFile('retry-audio.mp3', 'retry-audio-bytes');
+
+        $item = $this->createMediaQueueItem(
+            $bot->id, 'tag1', $localPath, 'bale-file-1',
+            'audio', 'retry-audio.mp3', 'audio/mpeg'
+        );
+
+        Http::fake([
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 9]]),
+            'tapi.bale.ai*' => Http::sequence()
+                ->push(['ok' => false, 'description' => 'bale down'], 400) // run 1: multipart
+                ->push(['ok' => false, 'description' => 'bale down'], 400) // run 1: file_id fallback (bale = origin)
+                ->push(['ok' => true, 'result' => ['message_id' => 55]]),    // run 2: multipart
+        ]);
+
+        // run 1: بله می‌شکند (آپلود + فالبک file_id)، تلگرام موفق
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id])->assertFailed();
+        $this->assertSame(ChannelPosterQueue::STATUS_FAILED, $item->refresh()->status);
+
+        // retry: وضعیت را برمی‌گردانیم
+        $item->update(['status' => ChannelPosterQueue::STATUS_PENDING]);
+
+        // run 2: بله تکرار و موفق؛ تلگرام باید SKIP شود
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id])->assertSuccessful();
+
+        $item->refresh();
+        $this->assertSame(ChannelPosterQueue::STATUS_PUBLISHED, $item->status);
+        $this->assertNull($item->media_path);
+        $this->assertFileDoesNotExist($localPath);
+
+        // تلگرام فقط یک‌بار (run 1) ارسال شده — در run 2 تکرار نشده
+        $telegramRequests = Http::recorded(fn (Request $request) => str_contains($request->url(), 'api.telegram.org'));
+        $this->assertCount(1, $telegramRequests);
+
+        // بله: 2 شکست در run 1 + 1 موفق در run 2
+        $baleRequests = Http::recorded(fn (Request $request) => str_contains($request->url(), 'tapi.bale.ai'));
+        $this->assertCount(3, $baleRequests);
+
+        $this->assertSame(1, ChannelPosterPublishLog::where('queue_id', $item->id)
+            ->where('platform', 'telegram')->where('success', true)->count());
+        $this->assertSame(1, ChannelPosterPublishLog::where('queue_id', $item->id)
+            ->where('platform', 'bale')->where('success', true)->count());
+        $this->assertSame(2, ChannelPosterPublishLog::where('queue_id', $item->id)
+            ->where('platform', 'bale')->count());
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -589,6 +908,21 @@ class ChannelPosterMediaPublishTest extends TestCase
         return app(TelegramChannelPosterPublisherFactory::class)->make($originToken, 'bale');
     }
 
+    /**
+     * Publisher واقعی (logic واقعی publish + آپلود multipart با Http) ولی
+     * کلاینت vendor (Telegram) ماک شده تا answerCallback/sendMessage به شبکه
+     * واقعی نزنند (تست‌های وب‌ه‌ک).
+     */
+    private function realPublisherWithMockedVendor(string $originToken): TelegramChannelPosterPublisher
+    {
+        $bot = Mockery::mock(Telegram::class);
+        $bot->shouldReceive('token')->andReturn($originToken);
+        $bot->shouldReceive('sendMessage')->andReturn(['ok' => true, 'result' => ['message_id' => 1]]);
+        $bot->shouldReceive('answerCallbackQuery')->andReturn(['ok' => true]);
+
+        return new TelegramChannelPosterPublisher($bot, 'bale', app(ChannelPosterMediaSender::class));
+    }
+
     private function makeTempFile(string $name, string $contents): string
     {
         $dir = storage_path('app/channel-poster-media-test');
@@ -666,15 +1000,20 @@ class ChannelPosterMediaPublishTest extends TestCase
         int $botId,
         string $tag,
         string $mediaPath,
-        string $fileId
+        string $fileId,
+        string $contentType = 'photo',
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): ChannelPosterQueue {
         return ChannelPosterQueue::create([
             'bot_id' => $botId,
             'tag' => $tag,
-            'content_type' => 'photo',
+            'content_type' => $contentType,
             'text' => 'کپشن صف',
             'file_id' => $fileId,
             'media_path' => $mediaPath,
+            'file_name' => $fileName,
+            'mime_type' => $mimeType,
             'scheduled_at' => now()->subHour(),
             'status' => ChannelPosterQueue::STATUS_PENDING,
             // owner_chat_id خالی = بدون اطلاع‌رسانی به مالک (vendor curl در تست اجرا نشود)
@@ -711,6 +1050,30 @@ class ChannelPosterMediaPublishTest extends TestCase
                 'caption' => $caption,
             ],
         ];
+    }
+
+    private function privateDocumentUpdate(string $chatId, string $fileId, ?string $fileName, ?string $mimeType, ?string $caption = null): array
+    {
+        $doc = ['file_id' => $fileId, 'file_unique_id' => 'du1'];
+        if ($fileName !== null) {
+            $doc['file_name'] = $fileName;
+        }
+        if ($mimeType !== null) {
+            $doc['mime_type'] = $mimeType;
+        }
+
+        $message = [
+            'message_id' => 20,
+            'from' => ['id' => (int) $chatId, 'is_bot' => false],
+            'chat' => ['id' => (int) $chatId, 'type' => 'private'],
+            'date' => time(),
+            'document' => $doc,
+        ];
+        if ($caption !== null) {
+            $message['caption'] = $caption;
+        }
+
+        return ['update_id' => 3, 'message' => $message];
     }
 
     private function callbackUpdate(string $id, string $data, string $chatId): array

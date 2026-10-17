@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\BotHelper;
+use App\Helpers\TokenHelper;
 use App\Interfaces\Services\ChannelPosterPublisher;
 use App\Models\ChannelPosterDestination;
 use Exception;
@@ -68,10 +69,11 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 
             return true;
         } catch (Exception $e) {
+            // ماسک توکن: متن خطا ممکن است URL شامل توکن ربات باشد
             Log::warning('[ChannelPoster] Test send failed', [
                 'platform' => $platform,
                 'channel_chat_id' => $channelChatId,
-                'error' => $e->getMessage(),
+                'error' => TokenHelper::redactTokens($e->getMessage()),
             ]);
 
             return false;
@@ -85,7 +87,9 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null,
-        ?string $localPath = null
+        ?string $localPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): array {
         $caption = $text ?? '';
         $size = ($localPath !== null && is_file($localPath)) ? filesize($localPath) : 0;
@@ -101,7 +105,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ]);
 
         try {
-            $isMedia = in_array($contentType, ['photo', 'video', 'voice', 'audio'], true);
+            $isMedia = in_array($contentType, ['photo', 'video', 'voice', 'audio', 'document'], true);
 
             // ── 1) فایل روی دیسک → آپلود multipart (هر سه پلتفرم) ─────────────
             // file_idِ مبدأ برای پلتفرم‌های دیگر اعتبار ندارد؛ این راه‌حل اصلی
@@ -118,7 +122,9 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     $channelChatId,
                     $contentType,
                     $localPath,
-                    $caption !== '' ? $caption : null
+                    $caption !== '' ? $caption : null,
+                    $fileName,
+                    $mimeType
                 );
 
                 if ($mediaResult['success']) {
@@ -156,6 +162,27 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 }
             }
 
+            // ── 2b) رسانه بدون فایل قابل‌استفاده برای پلتفرم مقصد ────────────────
+            // اگر رسانه باشد ولی فایل محلی موجود نباشد (دانلود ناموفق/موفق نبود)
+            // و file_id هم فقط روی مبدأ معتبر باشد، انتشار فقط‌متن یعنی «موفقیت
+            // کاذب». باید به‌طور صریح ناموفق گزارش شود تا در گزارش/ریتری ظاهر شود.
+            // (سروش رسانه ندارد؛ fallback متن برای آن مجاز است.)
+            if ($isMedia
+                && in_array($platform, [
+                    ChannelPosterDestination::PLATFORM_BALE,
+                    ChannelPosterDestination::PLATFORM_TELEGRAM,
+                    ChannelPosterDestination::PLATFORM_EITAA,
+                ], true)
+                && $platform !== $this->origin
+            ) {
+                Log::warning('[ChannelPoster][publish] publish-failed (media without usable file)', [
+                    'platform' => $platform,
+                    'media'    => $contentType,
+                ]);
+
+                return ['success' => false, 'message_id' => null, 'error' => 'media file unavailable for this platform'];
+            }
+
             // ── 3) متن خالص (یا سoroush که رسانه ندارد) ────────────────────────
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
                 $result = BotHelper::sendMessageEitaaSupport(
@@ -182,13 +209,15 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 $result
             );
         } catch (Exception $e) {
+            // ماسک توکن: متن خطا ممکن است URL شامل توکن ربات باشد
+            $safeError = TokenHelper::redactTokens($e->getMessage());
             Log::error('[ChannelPoster][publish] publish-failed (exception)', [
                 'platform'   => $platform,
                 'media'      => $contentType,
-                'error'      => $e->getMessage(),
+                'error'      => $safeError,
             ]);
 
-            return ['success' => false, 'message_id' => null, 'error' => $e->getMessage()];
+            return ['success' => false, 'message_id' => null, 'error' => $safeError];
         }
     }
 
@@ -206,7 +235,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             return null;
         }
 
-        if (!in_array($contentType, ['photo', 'video', 'voice', 'audio'], true)) {
+        if (!in_array($contentType, ['photo', 'video', 'voice', 'audio', 'document'], true)) {
             return null;
         }
 
@@ -226,11 +255,12 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             : 'https://api.telegram.org/bot' . $token;
 
         $endpoint = match ($contentType) {
-            'photo'   => 'sendPhoto',
-            'video'   => 'sendVideo',
-            'voice'   => 'sendVoice',
-            'audio'   => 'sendAudio',
-            default   => 'sendPhoto',
+            'photo'    => 'sendPhoto',
+            'video'    => 'sendVideo',
+            'voice'    => 'sendVoice',
+            'audio'    => 'sendAudio',
+            'document' => 'sendDocument',
+            default    => 'sendPhoto',
         };
 
         $form = [
@@ -296,7 +326,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             $this->bot->answerCallbackQuery($payload);
         } catch (Exception $e) {
             Log::warning('[ChannelPoster] answerCallback failed', [
-                'error' => $e->getMessage(),
+                'error' => TokenHelper::redactTokens($e->getMessage()),
             ]);
         }
     }

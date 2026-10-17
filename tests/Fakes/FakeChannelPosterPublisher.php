@@ -43,7 +43,9 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ?string $fileId,
         string $platform = 'bale',
         ?string $botToken = null,
-        ?string $localPath = null
+        ?string $localPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): array {
         $this->publishes[] = [
             'channel_chat_id' => $channelChatId,
@@ -53,6 +55,8 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'platform' => $platform,
             'bot_token' => $botToken,
             'local_path' => $localPath,
+            'file_name' => $fileName,
+            'mime_type' => $mimeType,
         ];
 
         $succeeds = $this->publishSucceeds && !in_array($platform, $this->failPlatforms, true);

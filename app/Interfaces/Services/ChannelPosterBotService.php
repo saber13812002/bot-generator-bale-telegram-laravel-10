@@ -16,6 +16,21 @@ interface ChannelPosterBotService
 
     public function parseChannelTarget(?array $message): ?array;
 
+    /**
+     * Extract publishable content from an inbound message.
+     *
+     * Returns null when the message carries no publishable content.
+     *
+     * @return array{type: string, text: ?string, file_id: ?string, file_name: ?string, mime_type: ?string}|null
+     *   type ∈ text|photo|video|voice|audio|audio_unsupported|document
+     *   - `audio_unsupported` is returned (instead of `document`) when the
+     *     source file is clearly an unsupported audio format, so the caller
+     *     can reply with a specific error instead of silently dropping it.
+     *   - `file_name` / `mime_type` are populated when the source platform
+     *     provides them (audio/document) and must be preserved through
+     *     download (MediaStore) and upload (MediaSender) to keep the real
+     *     file name, extension and MIME intact.
+     */
     public function extractMedia(?array $message): ?array;
 
     public function getActiveBaleDestination(int $botId): ?ChannelPosterDestination;
@@ -92,7 +107,9 @@ interface ChannelPosterBotService
         ?string $ownerChatId = null,
         string $ownerOrigin = 'bale',
         ?int $contentId = null,
-        ?string $mediaPath = null
+        ?string $mediaPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null
     ): \App\Models\ChannelPosterQueue;
 
     /**

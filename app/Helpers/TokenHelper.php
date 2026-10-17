@@ -43,4 +43,32 @@ class TokenHelper
         }
         return $bot_token;
     }
+
+    /**
+     * ماسک‌کردن توکن‌های ربات در متن خطا پیش از ثبت در لاگ.
+     *
+     * توکن‌ها هرگز نباید در لاگ ثبت شوند؛ حتی وقتی در URL یک خطای API
+     * (مثلاً Guzzle/Telegram client) وجود دارند.
+     *
+     * نمونه: "https://tapi.bale.ai/bot123:SECRET/sendPhoto failed"
+     *        → "https://tapi.bale.ai/bot[REDACTED]/sendPhoto failed"
+     */
+    public static function redactTokens(string $message): string
+    {
+        // 1) توکن داخل URL: bot<token>/ یا /api/<token>/
+        $message = preg_replace(
+            '#(bot|/api/)([a-zA-Z0-9:_.-]{10,128})(?=/|\?|&|"$|\s)#',
+            '$1[REDACTED]',
+            $message
+        );
+
+        // 2) توکن مستقل به شکل digits:long-secret (بله/تلگرام)
+        $message = preg_replace(
+            '#\b\d{7,10}:[a-zA-Z0-9_-]{20,}\b#',
+            '[REDACTED]',
+            $message
+        );
+
+        return $message;
+    }
 }
