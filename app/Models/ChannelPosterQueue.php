@@ -19,6 +19,7 @@ class ChannelPosterQueue extends Model
         'content_type',
         'text',
         'file_id',
+        'media_path',
         'signature_enabled',
         'scheduled_at',
         'published_at',

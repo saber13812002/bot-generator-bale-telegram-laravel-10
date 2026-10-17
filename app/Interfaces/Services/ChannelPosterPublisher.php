@@ -9,7 +9,9 @@ interface ChannelPosterPublisher
     public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool;
 
     /**
-     * @return array{success: bool, message_id: ?string}
+     * @param string|null $localPath مسیر مطلق فایل رسانه‌ای روی دیسک (برای آپلود multipart؛
+     *                              به‌جای file_id که فقط برای پلتفرم مبدأ معتبر است)
+     * @return array{success: bool, message_id: ?string, error?: string}
      */
     public function publish(
         string $channelChatId,
@@ -17,7 +19,8 @@ interface ChannelPosterPublisher
         ?string $text,
         ?string $fileId,
         string $platform = 'bale',
-        ?string $botToken = null
+        ?string $botToken = null,
+        ?string $localPath = null
     ): array;
 
     public function answerCallback(?string $callbackId, string $text = ''): void;

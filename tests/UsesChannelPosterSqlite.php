@@ -95,6 +95,7 @@ trait UsesChannelPosterSqlite
             $table->string('content_type', 20);
             $table->text('text')->nullable();
             $table->string('file_id', 512)->nullable();
+            $table->string('media_path', 1024)->nullable();
             $table->boolean('signature_enabled')->default(false);
             $table->dateTime('scheduled_at');
             $table->dateTime('published_at')->nullable();

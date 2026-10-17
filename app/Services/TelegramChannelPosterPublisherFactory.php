@@ -8,10 +8,17 @@ use Telegram;
 
 class TelegramChannelPosterPublisherFactory implements ChannelPosterPublisherFactory
 {
+    public function __construct(
+        private ?ChannelPosterMediaSender $mediaSender = null
+    ) {
+    }
+
     public function make(string $token, string $origin): ChannelPosterPublisher
     {
         $bot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
 
-        return new TelegramChannelPosterPublisher($bot, $origin);
+        $sender = $this->mediaSender ?? app(ChannelPosterMediaSender::class);
+
+        return new TelegramChannelPosterPublisher($bot, $origin, $sender);
     }
 }

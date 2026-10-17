@@ -909,6 +909,7 @@ Chat ID: :chat_id',
     // === Publish Queue ===
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
+    'channel_poster_queue_some_failed' => '⚠️ بخشی از ارسال‌های صف ناموفق بود:',
 
     // === Queue Control (/queue) ===
     'channel_poster_btn_queue_list' => '📋 صف ارسال (:count)',

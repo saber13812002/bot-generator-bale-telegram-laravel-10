@@ -91,7 +91,8 @@ interface ChannelPosterBotService
         \Carbon\Carbon $scheduledAt,
         ?string $ownerChatId = null,
         string $ownerOrigin = 'bale',
-        ?int $contentId = null
+        ?int $contentId = null,
+        ?string $mediaPath = null
     ): \App\Models\ChannelPosterQueue;
 
     /**

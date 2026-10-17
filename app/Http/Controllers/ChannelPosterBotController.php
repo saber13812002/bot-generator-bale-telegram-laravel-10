@@ -14,6 +14,7 @@ use App\Models\ChannelPosterQueue;
 use App\Models\ContentSyncAdmin;
 use App\Models\ContentSyncAdminPrefs;
 use App\Models\ContentSyncContent;
+use App\Services\ChannelPosterMediaStore;
 use App\Services\ChannelPosterQueuePublishService;
 use App\Services\ContentSync\ContentSyncService;
 use App\Services\ContentSync\PostUrlParser;
@@ -48,7 +49,8 @@ class ChannelPosterBotController extends Controller
         private ChannelPosterBotService $service,
         private ChannelPosterPublisherFactory $publisherFactory,
         private ChannelPosterQueuePublishService $queuePublishService,
-        private ContentSyncService $contentSync
+        private ContentSyncService $contentSync,
+        private ChannelPosterMediaStore $mediaStore
     ) {
     }
 
@@ -871,10 +873,30 @@ class ChannelPosterBotController extends Controller
         array $media
     ): void {
         $groups = $this->service->listTagGroups($botItem->id);
+
+        // دانلود فایل رسانه به دیسک — file_id فقط برای پلتفرم مبدأ اعتبار دارد؛
+        // برای انتشار چندکاناله (بله/تلگرام/ایتا) فایل اصلی لازم است.
+        // در صورت خطای دانلود، با همان file_id قدیمی ادامه می‌دهیم (degrade gracefully).
+        $mediaPath = null;
+        if (!empty($media['file_id'])) {
+            $originToken = $type === 'bale'
+                ? (string) $botItem->bale_bot_token
+                : (string) $botItem->telegram_bot_token;
+            if ($originToken !== '') {
+                $mediaPath = $this->mediaStore->fetchAndStore(
+                    $originToken,
+                    (string) $media['file_id'],
+                    $type,
+                    (string) $media['type']
+                );
+            }
+        }
+
         $pending = [
             'content_type' => $media['type'],
             'text' => $media['text'],
             'file_id' => $media['file_id'],
+            'media_path' => $mediaPath,
             'tag_keys' => array_map(fn (array $group) => $group['key'], $groups),
         ];
 
@@ -947,6 +969,7 @@ class ChannelPosterBotController extends Controller
         $contentType = (string) $state->getData('content_type', 'text');
         $text = $state->getData('text');
         $fileId = $state->getData('file_id');
+        $mediaPath = $state->getData('media_path');
         $signatureEnabled = (bool) $state->getData('signature_enabled', false);
         $enqueue = (bool) $state->getData('enqueue', false);
 
@@ -980,7 +1003,9 @@ class ChannelPosterBotController extends Controller
                 $signatureEnabled,
                 $nextSlot,
                 $chatId,
-                $type
+                $type,
+                $state?->getData('content_id') !== null ? (int) $state->getData('content_id') : null,
+                is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null
             );
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage(
@@ -996,6 +1021,7 @@ class ChannelPosterBotController extends Controller
         // Immediate publish with logging and report
         $results = [];
         $allOk = true;
+        $localPath = is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null;
         foreach ($destinations as $destination) {
             $result = $publisher->publish(
                 $destination->channel_chat_id,
@@ -1003,7 +1029,8 @@ class ChannelPosterBotController extends Controller
                 $finalText,
                 is_string($fileId) ? $fileId : null,
                 $destination->platform,
-                $destination->bot_token
+                $destination->bot_token,
+                $localPath
             );
             $ok = $result['success'] ?? false;
             $messageId = $result['message_id'] ?? null;
@@ -1013,13 +1040,19 @@ class ChannelPosterBotController extends Controller
                 $destination->id,
                 $destination->platform,
                 $ok,
-                $messageId
+                $messageId,
+                isset($result['error']) ? $result['error'] : null,
+                null,
+                null,
+                null,
+                $state?->getData('content_id') !== null ? (int) $state->getData('content_id') : null
             );
 
             $results[] = [
                 'destination_id' => $destination->id,
                 'platform' => $destination->platform,
                 'success' => $ok,
+                'error' => $result['error'] ?? null,
             ];
 
             if (!$ok) {
@@ -1028,6 +1061,9 @@ class ChannelPosterBotController extends Controller
         }
 
         $this->clearState($botItem, $chatId, $type);
+
+        // انتشار فوری = بدون ردیف صف؛ پس فایل رسانه پس از تکمیل پاک می‌شود
+        $this->mediaStore->delete($localPath);
         $report = $this->service->buildPublishReport($results, $destinations);
         $publisher->sendPrivateMessage($chatId, $report);
     }

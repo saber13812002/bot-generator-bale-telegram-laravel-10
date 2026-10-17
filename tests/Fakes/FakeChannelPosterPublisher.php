@@ -42,7 +42,8 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ?string $text,
         ?string $fileId,
         string $platform = 'bale',
-        ?string $botToken = null
+        ?string $botToken = null,
+        ?string $localPath = null
     ): array {
         $this->publishes[] = [
             'channel_chat_id' => $channelChatId,
@@ -51,11 +52,16 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'file_id' => $fileId,
             'platform' => $platform,
             'bot_token' => $botToken,
+            'local_path' => $localPath,
         ];
 
         $succeeds = $this->publishSucceeds && !in_array($platform, $this->failPlatforms, true);
 
-        return ['success' => $succeeds, 'message_id' => $succeeds ? 'fake-msg-' . count($this->publishes) : null];
+        return [
+            'success' => $succeeds,
+            'message_id' => $succeeds ? 'fake-msg-' . count($this->publishes) : null,
+            'error' => $succeeds ? null : 'fake publish failure (' . $platform . ')',
+        ];
     }
 
     public function answerCallback(?string $callbackId, string $text = ''): void

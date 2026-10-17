@@ -6,13 +6,17 @@ use App\Helpers\BotHelper;
 use App\Interfaces\Services\ChannelPosterPublisher;
 use App\Models\ChannelPosterDestination;
 use Exception;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Telegram;
 
 class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 {
-    public function __construct(private Telegram $bot, private string $origin = 'bale')
-    {
+    public function __construct(
+        private Telegram $bot,
+        private string $origin = 'bale',
+        private ?ChannelPosterMediaSender $sender = null
+    ) {
     }
 
     public function sendPrivateMessage(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
@@ -80,11 +84,79 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ?string $text,
         ?string $fileId,
         string $platform = 'bale',
-        ?string $botToken = null
+        ?string $botToken = null,
+        ?string $localPath = null
     ): array {
-        try {
-            $caption = $text ?? '';
+        $caption = $text ?? '';
+        $size = ($localPath !== null && is_file($localPath)) ? filesize($localPath) : 0;
 
+        // لاگ امن (بدون توکن/URL): op، پلتفرم، نوع رسانه، حجم فایل
+        Log::info('[ChannelPoster][publish] publish-start', [
+            'op'         => substr(bin2hex(random_bytes(4)), 0, 8),
+            'platform'   => $platform,
+            'media'      => $contentType,
+            'bytes'      => $size,
+            'caption'    => $caption !== '',
+            'has_file_id'=> $fileId !== null && $fileId !== '',
+        ]);
+
+        try {
+            $isMedia = in_array($contentType, ['photo', 'video', 'voice', 'audio'], true);
+
+            // ── 1) فایل روی دیسک → آپلود multipart (هر سه پلتفرم) ─────────────
+            // file_idِ مبدأ برای پلتفرم‌های دیگر اعتبار ندارد؛ این راه‌حل اصلی
+            // انتشار چندکاناله است. اگر محتوا رسانه باشد و آپلود ناموفق شود،
+            // به‌هیچ‌وجه fallback به متن نمی‌شود (جلوگیری از موفقیت کاذب).
+            if ($isMedia
+                && $localPath !== null && $localPath !== '' && is_file($localPath)
+                && $this->sender !== null
+                && $platform !== ChannelPosterDestination::PLATFORM_SOROUSH
+            ) {
+                $mediaResult = $this->sender->send(
+                    (string) $botToken,
+                    $platform,
+                    $channelChatId,
+                    $contentType,
+                    $localPath,
+                    $caption !== '' ? $caption : null
+                );
+
+                if ($mediaResult['success']) {
+                    Log::info('[ChannelPoster][publish] publish-ok (media upload)', [
+                        'platform' => $platform,
+                        'media'    => $contentType,
+                    ]);
+
+                    return $mediaResult;
+                }
+
+                // file_id برای پلتفرم مبدأ هم ممکن است (مثلاً بله → بله).
+                $fileIdResult = $this->tryFileId($fileId, $platform, $channelChatId, $contentType, $caption, $botToken);
+                if ($fileIdResult !== null) {
+                    return $fileIdResult;
+                }
+
+                Log::warning('[ChannelPoster][publish] publish-failed (media upload, no fallback)', [
+                    'platform' => $platform,
+                    'media'    => $contentType,
+                    'error'    => $mediaResult['error'],
+                ]);
+
+                return $this->withError(
+                    ['success' => false, 'message_id' => null],
+                    $mediaResult['error'] ?? 'media upload failed'
+                );
+            }
+
+            // ── 2) بدون فایل محلی: file_id فقط روی پلتفرم مبدأ معتبر است ────────
+            if ($fileId !== null && $fileId !== '') {
+                $fileIdResult = $this->tryFileId($fileId, $platform, $channelChatId, $contentType, $caption, $botToken);
+                if ($fileIdResult !== null) {
+                    return $fileIdResult;
+                }
+            }
+
+            // ── 3) متن خالص (یا سoroush که رسانه ندارد) ────────────────────────
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
                 $result = BotHelper::sendMessageEitaaSupport(
                     $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
@@ -93,38 +165,121 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     'eitaa'
                 );
 
-                return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
+                return $this->withError(
+                    ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],
+                    $result
+                );
             }
 
             $client = $this->clientFor($platform, $botToken);
-
-            if ($platform === ChannelPosterDestination::PLATFORM_BALE && $fileId) {
-                return $this->publishMedia($client, $channelChatId, $contentType, $caption, $fileId);
-            }
-
-            if ($platform === ChannelPosterDestination::PLATFORM_TELEGRAM && $fileId && in_array($contentType, ['photo', 'video', 'voice', 'audio'], true)) {
-                $mediaResult = $this->publishMedia($client, $channelChatId, $contentType, $caption, $fileId);
-                if ($mediaResult['success']) {
-                    return $mediaResult;
-                }
-            }
-
             $result = $client->sendMessage([
                 'chat_id' => $channelChatId,
                 'text' => $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
             ]);
 
-            return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
+            return $this->withError(
+                ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],
+                $result
+            );
         } catch (Exception $e) {
-            Log::error('[ChannelPoster] Publish failed', [
-                'platform' => $platform,
-                'channel_chat_id' => $channelChatId,
-                'content_type' => $contentType,
-                'error' => $e->getMessage(),
+            Log::error('[ChannelPoster][publish] publish-failed (exception)', [
+                'platform'   => $platform,
+                'media'      => $contentType,
+                'error'      => $e->getMessage(),
             ]);
 
-            return ['success' => false, 'message_id' => null];
+            return ['success' => false, 'message_id' => null, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * انتشار با file_id — فقط وقتی file_id برای همان پلتفرم معتبر است
+     * (file_id از پلتفرم مبدأ آمده؛ فقط روی پلتفرم مبدأ قابل استفاده است).
+     * در غیر این صورت null برمی‌گرداند.
+     *
+     * با Laravel Http Client (form) انجام می‌شود تا: TLS verify روشن بماند
+     * (کلینت vendor این گزینه را خاموش می‌کند) و مسیر در تست‌ها قابل فیک باشد.
+     */
+    private function tryFileId(?string $fileId, string $platform, string $channelChatId, string $contentType, string $caption, ?string $botToken): ?array
+    {
+        if ($fileId === null || $fileId === '') {
+            return null;
+        }
+
+        if (!in_array($contentType, ['photo', 'video', 'voice', 'audio'], true)) {
+            return null;
+        }
+
+        // file_id فقط روی پلتفرم مبدأ (محل دانلود فایل) معتبر است
+        if ($platform !== $this->origin) {
+            return null;
+        }
+
+        // اگر مقصد توکن خودش را نداشته، از توکن بوت مبدأ استفاده می‌شود
+        $token = ($botToken !== null && $botToken !== '') ? $botToken : $this->bot->token();
+        if (!is_string($token) || $token === '') {
+            return null;
+        }
+
+        $base = $this->origin === ChannelPosterDestination::PLATFORM_BALE
+            ? 'https://tapi.bale.ai/bot' . $token
+            : 'https://api.telegram.org/bot' . $token;
+
+        $endpoint = match ($contentType) {
+            'photo'   => 'sendPhoto',
+            'video'   => 'sendVideo',
+            'voice'   => 'sendVoice',
+            'audio'   => 'sendAudio',
+            default   => 'sendPhoto',
+        };
+
+        $form = [
+            'chat_id' => $channelChatId,
+            $contentType => $fileId,
+        ];
+        if ($caption !== '') {
+            $form['caption'] = $caption;
+        }
+
+        $response = Http::asForm()
+            ->withHeaders(['Accept' => 'application/json'])
+            ->timeout(120)
+            ->post($base . '/' . $endpoint, $form);
+
+        $data = $response->json();
+        if (is_array($data) && ($data['ok'] ?? false) === true) {
+            $messageId = $data['result']['message_id'] ?? null;
+
+            return [
+                'success'    => true,
+                'message_id' => $messageId !== null ? (string) $messageId : null,
+                'error'      => null,
+            ];
+        }
+
+        $desc = is_array($data) ? ($data['description'] ?? $data['error'] ?? null) : null;
+
+        return [
+            'success'    => false,
+            'message_id' => null,
+            'error'      => 'file_id publish failed'
+                . (is_scalar($desc) && trim((string) $desc) !== '' ? ': ' . mb_substr((string) $desc, 0, 200) : ''),
+        ];
+    }
+
+    /**
+     * افزودن error به خروجی publish (برای گزارش‌رسانی دقیق به مالک/لاگ)
+     */
+    private function withError(array $result, mixed $raw): array
+    {
+        if (!$result['success']) {
+            $result['error'] = $this->resultSummary($raw);
+            if (is_array($result['error'])) {
+                $result['error'] = json_encode($result['error'], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        return $result;
     }
 
     public function answerCallback(?string $callbackId, string $text = ''): void
@@ -144,49 +299,6 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function publishMedia(Telegram $client, string $channelChatId, string $contentType, string $caption, string $fileId): array
-    {
-        $result = null;
-        if ($contentType === 'photo') {
-            $result = $client->sendPhoto([
-                'chat_id' => $channelChatId,
-                'photo' => $fileId,
-                'caption' => $caption,
-            ]);
-        } elseif ($contentType === 'video') {
-            $result = $client->sendVideo([
-                'chat_id' => $channelChatId,
-                'video' => $fileId,
-                'caption' => $caption,
-            ]);
-        } elseif ($contentType === 'voice') {
-            $payload = [
-                'chat_id' => $channelChatId,
-                'voice' => $fileId,
-            ];
-            if ($caption !== '') {
-                $payload['caption'] = $caption;
-            }
-            $result = $client->sendVoice($payload);
-        } elseif ($contentType === 'audio') {
-            $payload = [
-                'chat_id' => $channelChatId,
-                'audio' => $fileId,
-            ];
-            if ($caption !== '') {
-                $payload['caption'] = $caption;
-            }
-            $result = $client->sendAudio($payload);
-        } else {
-            $result = $client->sendMessage([
-                'chat_id' => $channelChatId,
-                'text' => $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
-            ]);
-        }
-
-        return ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)];
     }
 
     private function clientFor(string $platform, ?string $botToken): Telegram

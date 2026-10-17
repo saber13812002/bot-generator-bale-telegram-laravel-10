@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
+use App\Models\ChannelPosterPublishLog;
 use App\Models\ChannelPosterQueue;
 use App\Models\ContentSyncAdminPrefs;
 use App\Models\ContentSyncContent;
@@ -29,6 +30,7 @@ class ChannelPosterQueuePublishService
         private ChannelPosterBotService $service,
         private ChannelPosterPublisherFactory $publisherFactory,
         private \App\Services\ContentSync\ContentSyncService $contentSync,
+        private ChannelPosterMediaStore $mediaStore,
     ) {
     }
 
@@ -127,16 +129,40 @@ class ChannelPosterQueuePublishService
             $allOk = true;
             $results = [];
             foreach ($destinations as $destination) {
+                // جلوگیری از انتشار مجدد به مقصدی که قبلا در این آیتم موفق بوده
+                // (در انتشارهای جزئی — مثلا ۲ از ۳ کانال — ریکورد «failed» می‌ماند
+                // تا فقط مقصدهای شکست‌خورده تکرار شوند).
+                if (ChannelPosterPublishLog::where('queue_id', $item->id)
+                    ->where('destination_id', $destination->id)
+                    ->where('success', true)
+                    ->exists()
+                ) {
+                    Log::info('[ChannelPoster] Queue destination already published, skipping', [
+                        'queue_id' => $item->id,
+                        'destination_id' => $destination->id,
+                    ]);
+                    $results[] = [
+                        'destination_id' => $destination->id,
+                        'platform' => $destination->platform,
+                        'success' => true,
+                        'skipped' => true,
+                        'message_id' => null,
+                    ];
+                    continue;
+                }
+
                 $result = $publisher->publish(
                     $destination->channel_chat_id,
                     $item->content_type,
                     $text,
                     $item->file_id,
                     $destination->platform,
-                    $destination->bot_token
+                    $destination->bot_token,
+                    $item->media_path
                 );
                 $ok = $result['success'] ?? false;
                 $messageId = $result['message_id'] ?? null;
+                $error = $result['error'] ?? null;
 
                 $this->service->logPublish(
                     $bot->id,
@@ -144,7 +170,7 @@ class ChannelPosterQueuePublishService
                     $destination->platform,
                     $ok,
                     $messageId,
-                    null,
+                    is_string($error) ? mb_substr($error, 0, 1000) : null,
                     $item->id
                 );
 
@@ -153,6 +179,7 @@ class ChannelPosterQueuePublishService
                     'platform' => $destination->platform,
                     'success' => $ok,
                     'message_id' => $messageId,
+                    'error' => $error,
                 ];
 
                 if (!$ok) {
@@ -164,6 +191,13 @@ class ChannelPosterQueuePublishService
                 'status' => $allOk ? ChannelPosterQueue::STATUS_PUBLISHED : ChannelPosterQueue::STATUS_FAILED,
                 'published_at' => now(),
             ]);
+
+            // پس از انتشار موفق، فایل رسانه حذف می‌شود؛ در صورت شکست برای
+            // /retry روی دیسک می‌ماند (پاک‌سازی یتیم‌ها با prune-stale).
+            if ($allOk) {
+                $this->mediaStore->delete($item->media_path);
+                $item->update(['media_path' => null]);
+            }
 
             // ثبت نسخه‌های همگام‌سازی (post_url + link_status)
             if ($item->content_id) {
@@ -181,7 +215,10 @@ class ChannelPosterQueuePublishService
             if ($notifyOwner && $item->owner_chat_id) {
                 try {
                     $report = $this->service->buildPublishReport($results, $destinations);
-                    $msg = trans('bot.channel_poster_queue_published') . "\n" . $report;
+                    $header = $allOk
+                        ? trans('bot.channel_poster_queue_published')
+                        : trans('bot.channel_poster_queue_some_failed');
+                    $msg = $header . "\n" . $report;
                     $publisher->sendPrivateMessage($item->owner_chat_id, $msg);
                 } catch (Throwable $e) {
                     Log::warning('[ChannelPoster] Failed to notify owner', [

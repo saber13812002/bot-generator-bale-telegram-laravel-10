@@ -442,7 +442,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         Carbon $scheduledAt,
         ?string $ownerChatId = null,
         string $ownerOrigin = 'bale',
-        ?int $contentId = null
+        ?int $contentId = null,
+        ?string $mediaPath = null
     ): ChannelPosterQueue {
         return ChannelPosterQueue::create([
             'bot_id' => $botId,
@@ -450,6 +451,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             'content_type' => $contentType,
             'text' => $text,
             'file_id' => $fileId,
+            'media_path' => $mediaPath,
             'signature_enabled' => $signatureEnabled,
             'scheduled_at' => $scheduledAt,
             'status' => ChannelPosterQueue::STATUS_PENDING,
@@ -501,7 +503,15 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             $platform = $platformLabels[$result['platform']] ?? $result['platform'];
             $title = $dest?->channel_title ?? $dest?->channel_chat_id ?? '';
             $icon = $result['success'] ? '✅' : '❌';
-            $lines[] = "• {$platform} — {$title} {$icon}";
+            $line = "• {$platform} — {$title} {$icon}";
+
+            // دلیل شکست (مثلا‌ خطای آپلود رسانه) برای شفافیت
+            $error = $result['error'] ?? null;
+            if (!$result['success'] && is_string($error) && trim($error) !== '') {
+                $line .= "\n   ↳ " . mb_substr(trim($error), 0, 200);
+            }
+
+            $lines[] = $line;
         }
 
         if (empty($lines)) {
