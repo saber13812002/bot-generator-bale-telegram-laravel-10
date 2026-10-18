@@ -51,6 +51,14 @@ class RssRecoveryService
     protected const HARD_LIMIT = 100;
 
     /**
+     * سقف تازگی (freshness) برای resend خودکار: رکوردهای قدیمی‌تر از این مقدار
+     * (backlog کهنه) بدون بررسی دستی resend نمی‌شوند — مطابق
+     * docs/RECOVERY_ROLLOUT_PLAN.md (محتوای بیش از ۷ روز منتشر نمی‌شود؛
+     * حداکثر تا ۴۸ ساعت). برای ردیوزیهای خاص، --since/--until یا بررسی دستی.
+     */
+    protected const MAX_RETRY_AGE_HOURS = 48;
+
+    /**
      * نشانه‌هایی در last_error که نشانه‌ی «نتیجه مبهم API» هستند
      * (ممکن است پیام رسیده باشد ولی پاسخ API دریافت نشده باشد).
      */
@@ -407,6 +415,20 @@ class RssRecoveryService
                     $out['note'] = 'status changed to ' . $fresh->status . ' since scan — skipped';
 
                     return;
+                }
+
+                // سقف تازگی: backlog کهنه (بیش از ۴۸ ساعت) بدون بررسی دستی resend نمی‌شود.
+                if ($fresh->created_at !== null) {
+                    $ageHours = abs(now()->diffInHours(Carbon::parse($fresh->created_at->toDateTimeString())));
+                    if ($ageHours > self::MAX_RETRY_AGE_HOURS) {
+                        $out['note'] = sprintf(
+                            'stale record (age %dh > %dh) — manual review required, not auto-resent',
+                            (int) $ageHours,
+                            self::MAX_RETRY_AGE_HOURS
+                        );
+
+                        return;
+                    }
                 }
 
                 // جاب خودش وضعیت را sent/error می‌کند و سرنجه تحویل را ثبت می‌کند.

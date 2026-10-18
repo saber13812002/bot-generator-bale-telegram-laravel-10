@@ -272,6 +272,34 @@ class RssRecoveryTest extends TestCase
         $this->assertCount(0, $this->sender->audios);
     }
 
+    public function test_stale_retryable_record_is_not_auto_resent(): void
+    {
+        $channelId = $this->createRssChannel('bale');
+        $staleId = $this->createRssRecord($channelId, [
+            'status' => 'error',
+            'last_error' => 'code=403 permission_denied',
+            'created_at' => now()->subDays(3), // > 48h — backlog کهنه
+        ]);
+
+        $this->setAdminEnv('SUPER_ADMIN_CHAT_ID_BALE', '424242');
+
+        $this->assertSame(0, Artisan::call('rss:recover', [
+            '--system' => 'rss',
+            '--execute' => true,
+            '--admin-chat-id' => '424242',
+        ]));
+
+        $out = Artisan::output();
+        $this->assertStringContainsString('stale record', $out);
+        $this->assertStringContainsString('manual review required', $out);
+        $this->assertStringContainsString('Executed: retried=0 ok=0 failed=0 skipped=1', $out);
+
+        // هیچ ارسال واقعی‌ای انجام نشده و رکورد دست‌نخورده مانده
+        $this->assertCount(0, $this->sender->baseMessages);
+        $this->assertCount(0, $this->sender->photos);
+        $this->assertSame('error', $this->queueRow($staleId)->status);
+    }
+
     public function test_record_id_limits_scan_to_a_single_record(): void
     {
         $channelId = $this->createRssChannel('bale');
