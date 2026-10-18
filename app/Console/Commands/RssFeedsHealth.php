@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\RssItem;
+use App\Helpers\TokenHelper;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -10,110 +11,233 @@ use Illuminate\Support\Str;
 
 class RssFeedsHealth extends Command
 {
+    /**
+     * حداقل خطاهای متوالی (probe یا fetch) برای غیرفعال‌سازی خودکار.
+     * قبل از این تغییر، یک probe خراب (مثلاً timeout لحظه‌ای) فید را برای همیشه
+     * غیرفعال می‌کرد — همان اتفاقی که ۲۰۲۶-۱۰-۱۲ برای ۴۹ فید افتاد.
+     */
+    public const DISABLE_THRESHOLD_TRANSIENT = 3;
+
+    /** برای پاسخ HTML به‌جای XML (paywall/soft-403) یک بار شانس بیشتر می‌دهیم */
+    public const DISABLE_THRESHOLD_HTML = 2;
+
     protected $signature = 'rss:feeds-health
-        {--disable-dead : فیدهای مردده را در دیتابیس غیرفعال کند (is_active=0)}
-        {--enable-all : همه فیدها را دوباره فعال کند و شمارنده خطا را صفر کند}
+        {--disable-dead : فیدهای مرده‌ی تأییدشده (بالای آستانه خطا) را غیرفعال کند}
+        {--enable-healthy : فیدهای غیرفعالِ سالم در این اجرا را دوباره فعال کند (به‌صورت تکی و کنترل‌شده)}
+        {--enable-all : [ابزار اضطراری دستی] همه فیدهای غیرفعال را فعال کند — بدون بررسی سلامت}
         {--dry-run : فقط گزارش نشان بدهد، هیچ چیزی را تغییر ندهد}
+        {--only-disabled : فقط فیدهای غیرفعال را بررسی کند (برای بازتست بعد از حادثه)}
         {--limit=100 : حداکثر تعداد فیدی که بررسی می‌شود}';
 
-    protected $description = 'بررسی سلامت فیدهای RSS: هر فید را زنده دریافت می‌کند و نتیجه را نشان می‌دهد. می‌تواند فیدهای مرده (402/403/404/timeout/HTML) را در دیتابیس غیرفعال کند';
+    protected $description = 'بررسی سلامت فیدهای RSS با retry برای خطاهای گذرا، آستانه‌ی خطا برای غیرفعال‌سازی، و بازفعال‌سازی کنترل‌شده‌ی فیدهای سالم';
 
     public function handle(): int
     {
+        // ابزار اضطراری دستی: بدون بررسی، همه را فعال می‌کند (فقط دستی، خارج از schedule)
         if ($this->option('enable-all')) {
             $updated = RssItem::query()->where('is_active', 0)->update([
                 'is_active' => 1,
                 'consecutive_failures' => 0,
                 'last_error' => null,
-                // یک روز عقب می‌بریم تا فید در همان دقیقه بعد در نوبت دریافت قرار بگیرد
                 'last_synced_at' => now()->subDay(),
             ]);
-            $this->info("Enabled {$updated} disabled feed(s).");
+            $this->warn("EMERGENCY MANUAL: Enabled {$updated} disabled feed(s) without health verification.");
             return self::SUCCESS;
         }
 
-        $feeds = RssItem::query()->orderBy('id')->limit((int) $this->option('limit'))->get();
+        $onlyDisabled = (bool) $this->option('only-disabled');
+
+        $query = RssItem::query()->orderBy('id');
+        if ($onlyDisabled) {
+            $query->where('is_active', 0);
+        }
+
+        $feeds = $query->limit((int) $this->option('limit'))->get();
 
         if ($feeds->isEmpty()) {
-            $this->warn('No RSS feeds found in the database.');
+            $this->warn('No RSS feeds to check.');
             return self::SUCCESS;
         }
 
-        $this->info("Checking {$feeds->count()} feed(s) (timeout 15s each)...");
+        $dryRun = (bool) $this->option('dry-run');
+        $disableDead = (bool) $this->option('disable-dead');
+        $enableHealthy = (bool) $this->option('enable-healthy');
+
+        $this->info(sprintf(
+            'Checking %d feed(s) — retry on transient errors, disable threshold: %d (transient) / %d (HTML) / 1 (invalid URL)%s',
+            $feeds->count(),
+            self::DISABLE_THRESHOLD_TRANSIENT,
+            self::DISABLE_THRESHOLD_HTML,
+            $dryRun ? ' [DRY RUN]' : ''
+        ));
 
         $rows = [];
-        $deadFeeds = [];
         $okCount = 0;
+        $newlyDisabled = 0;
+        $reEnabled = 0;
+        $stillDeadIds = [];
 
         foreach ($feeds as $feed) {
-            $probe = $this->probe((string) $feed->url);
+            $probe = $this->probeWithRetry((string) $feed->url);
             $verdict = $probe['verdict'];
-            $isDead = in_array($verdict, ['invalid_url', 'connection_error', 'http_error', 'html_not_xml'], true);
+
+            $wasActive = (int) $feed->is_active === 1;
+            $failuresBefore = (int) ($feed->consecutive_failures ?? 0);
+            $action = 'ok';
+
+            if ($verdict === 'ok') {
+                $okCount++;
+
+                if (!$dryRun && $failuresBefore > 0) {
+                    // probe سالم → شمارنده خطا صفر می‌شود (reset بعد از recover)
+                    $feed->consecutive_failures = 0;
+                    $feed->last_error = null;
+                    $feed->save();
+                }
+
+                if (!$wasActive && $enableHealthy && !$dryRun) {
+                    // بازفعال‌سازی کنترل‌شده: فقط اگر در همین حالا probe سالم بود
+                    $feed->is_active = 1;
+                    $feed->consecutive_failures = 0;
+                    $feed->last_error = null;
+                    $feed->last_synced_at = now()->subDay(); // بلافاصله سرِ‌وقت دریافت شود
+                    $feed->save();
+                    $reEnabled++;
+                    $action = 'RE-ENABLED';
+
+                    Log::info('rss:feeds-health: disabled feed re-enabled after healthy probe', [
+                        'rss_item_id' => $feed->id,
+                    ]);
+                } elseif (!$wasActive && $enableHealthy && $dryRun) {
+                    $action = 'would re-enable';
+                }
+            } else {
+                $failuresAfter = $failuresBefore + 1;
+                $shouldDisable = $this->shouldDisable($verdict, $failuresAfter);
+
+                if (!$dryRun) {
+                    // probe خراب → شمارنده خطا +۱ (مشترک با شمارنده fetch در RssItemService)
+                    $feed->consecutive_failures = $failuresAfter;
+                    $feed->last_error = Str::limit('rss:feeds-health probe: ' . $verdict, 250);
+
+                    if ($shouldDisable && $wasActive) {
+                        $feed->is_active = 0;
+                        // last_synced_at به الان تا بازتست خودکار ۷ روز دیگر باشد (نه زودتر)
+                        $feed->last_synced_at = now();
+                        $action = 'DISABLED';
+                        $newlyDisabled++;
+
+                        Log::warning('rss:feeds-health: feed disabled after repeated failures', [
+                            'rss_item_id' => $feed->id,
+                            'verdict' => $verdict,
+                            'failures' => $failuresAfter,
+                        ]);
+                    }
+
+                    $feed->save();
+                } elseif ($shouldDisable && $wasActive) {
+                    $action = 'would disable';
+                }
+
+                $stillDeadIds[] = (int) $feed->id;
+            }
+
+            $stateLabel = $wasActive
+                ? (($verdict !== 'ok' && $shouldDisable && !$dryRun) ? 'active→disabled' : 'active')
+                : ((!$wasActive && $verdict === 'ok' && $enableHealthy && !$dryRun) ? 'disabled→active' : 'disabled');
 
             $rows[] = [
                 $feed->id,
-                $feed->is_active ? 'active' : 'disabled',
+                $stateLabel,
                 $probe['code'],
                 $verdict,
-                Str::limit((string) $feed->url, 55),
+                $action,
+                $failuresBefore,
+                Str::limit(TokenHelper::redactTokens((string) $feed->url), 45),
             ];
+        }
 
-            if ($isDead) {
-                $deadFeeds[$feed->id] = ['feed' => $feed, 'verdict' => $verdict];
-            } else {
-                $okCount++;
+        $this->table(['ID', 'State', 'HTTP', 'Verdict', 'Action', 'Fails', 'URL'], $rows);
+
+        $this->line(sprintf(
+            'OK: %d | Dead: %d | Newly disabled: %d | Re-enabled: %d | Total: %d',
+            $okCount,
+            count($stillDeadIds),
+            $newlyDisabled,
+            $reEnabled,
+            $feeds->count()
+        ));
+
+        if ($dryRun) {
+            $this->warn('Dry run: no changes were applied.');
+        }
+
+        if (!$dryRun) {
+            Log::info('rss:feeds-health: run finished', [
+                'checked' => $feeds->count(),
+                'ok' => $okCount,
+                'dead_ids' => $stillDeadIds,
+                'newly_disabled' => $newlyDisabled,
+                're_enabled' => $reEnabled,
+            ]);
+        }
+
+        // اگر فید مرده‌ی تأییدشده وجود دارد → exit 1 تا در لاگ cron دیده شود
+        return empty($stillDeadIds) ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * آیا فید را غیرفعال کنیم؟ (قوانین P2)
+     *
+     * - invalid_url: ساختاری/داده‌ای — بلافاصله (هیچ وقت کار نمی‌کند)
+     * - html_not_xml (paywall/soft-403): بعد از DISABLE_THRESHOLD_HTML خطای متوالی
+     * - connection_error / http_error / invalid_xml (گذرا): بعد از DISABLE_THRESHOLD_TRANSIENT
+     *
+     * یک خطای لحظه‌ای دیگر هرگز فید را برای همیشه غیرفعال نمی‌کند.
+     */
+    private function shouldDisable(string $verdict, int $currentFailures): bool
+    {
+        return match ($verdict) {
+            'invalid_url' => true,
+            'html_not_xml' => $currentFailures >= self::DISABLE_THRESHOLD_HTML,
+            'connection_error', 'http_error', 'invalid_xml' => $currentFailures >= self::DISABLE_THRESHOLD_TRANSIENT,
+            default => false,
+        };
+    }
+
+    /**
+     * دریافت زنده فید با یک retry برای خطاهای گذرا (timeout/5xx).
+     * خطاها: ok | invalid_url | connection_error | http_error | html_not_xml | invalid_xml
+     *
+     * @return array{code: string, verdict: string, retried: bool}
+     */
+    protected function probeWithRetry(string $url): array
+    {
+        $first = $this->probe($url);
+
+        // retry فقط برای خطاهای گذرا و فقط یک‌بار؛ 4xx (به‌جز 408/429) retry نمی‌شود
+        if (in_array($first['verdict'], ['connection_error', 'http_error', 'invalid_xml'], true)) {
+            $isTransientHttp = $first['verdict'] === 'http_error'
+                && in_array($first['code'], ['408', '429', '500', '502', '503', '504'], true);
+
+            if ($first['verdict'] === 'connection_error' || $isTransientHttp) {
+                usleep(1_500_000); // 1.5 ثانیه
+                $second = $this->probe($url);
+
+                if ($second['verdict'] === 'ok') {
+                    return ['code' => $second['code'], 'verdict' => 'ok', 'retried' => true];
+                }
+
+                // اگر retry هم شد، verdict نهایی (با count خطا توسط caller)
+                return ['code' => $second['code'], 'verdict' => $second['verdict'], 'retried' => true];
             }
         }
 
-        $this->table(['ID', 'State', 'HTTP', 'Verdict', 'URL'], $rows);
-        $this->line("OK: {$okCount} | Dead: " . count($deadFeeds) . ' | Total: ' . $feeds->count());
-
-        if (empty($deadFeeds)) {
-            $this->info('All feeds are healthy.');
-            return self::SUCCESS;
-        }
-
-        if ($this->option('dry-run')) {
-            $this->warn('Dry run: dead feeds were NOT disabled. Run with --disable-dead to apply.');
-            return self::SUCCESS;
-        }
-
-        if (!$this->option('disable-dead')) {
-            $this->warn('Dead feeds were not disabled (no --disable-dead flag).');
-            return self::SUCCESS;
-        }
-
-        $disabled = 0;
-        foreach ($deadFeeds as $entry) {
-            /** @var RssItem $feed */
-            $feed = $entry['feed'];
-
-            if ((int) $feed->is_active !== 1) {
-                continue;
-            }
-
-            $feed->is_active = 0;
-            $feed->consecutive_failures = max((int) ($feed->consecutive_failures ?? 0), 1);
-            $feed->last_error = Str::limit('rss:feeds-health probe: ' . $entry['verdict'], 250);
-            // last_synced_at به الان می‌رسد تا تست مجدد خودکار (retest) 7 روز دیگر انجام شود
-            $feed->last_synced_at = now();
-            $feed->save();
-            $disabled++;
-        }
-
-        Log::info('rss:feeds-health: disabled dead feeds', [
-            'count' => $disabled,
-            'ids' => array_values(array_map(fn ($e) => $e['feed']->id, $deadFeeds)),
-        ]);
-
-        $this->info("Disabled {$disabled} dead feed(s). They will be re-tested automatically after 7 days.");
-        return self::SUCCESS;
+        return ['code' => $first['code'], 'verdict' => $first['verdict'], 'retried' => false];
     }
 
     /**
      * دریافت زنده فید و دسته‌بندی ساده نتیجه.
-     *
-     * verdict یکی از: ok | invalid_url | connection_error | http_error | html_not_xml | invalid_xml
      *
      * @return array{code: string, verdict: string}
      */
@@ -122,7 +246,6 @@ class RssFeedsHealth extends Command
         $url = trim($url);
 
         if (!preg_match('#^https?://#i', $url)) {
-            // مثلاً آدرس‌های خراب به شکل view-source:https://...
             return ['code' => '---', 'verdict' => 'invalid_url'];
         }
 

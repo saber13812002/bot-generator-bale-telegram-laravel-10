@@ -29,8 +29,21 @@ class Kernel extends ConsoleKernel
 //        $schedule->command(weatherWindCommand::class, ['speed=7'])->dailyAt("6:30"); //10:00 iran
         $schedule->command(TaskReminderCommand::class)->thursdays("20:27"); //23:57 iran
         $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
-        $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
+        // دریافت و ترجمه RSS هر ۱۵ دقیقه.
+        // ⚠️ withoutOverlapping الزامی است: قبلا‌ cron مستقل 19 دقیقه‌ای app:rss_read_translate
+        // به‌صورت همزمان با همین entry اجرا می‌شد (بدون قفل). حالا cron مستقل حذف شده
+        // (docs/SCHEDULER_CRON_PLAN.md) و قفل Cache داخل خود command خط دوم دفاع است.
+        $schedule->command(RssReadTranslate::class)
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
+
+        // تپش قلب scheduler: هر دقیقه ثبت می‌شود تا pipeline:status بتواند
+        // خرابی cron/schedule:run را تشخیص دهد (اگر بیش از 10 دقیقه نباشد = red).
+        // این entry سبک‌ترین entry است و قبل از بقیه schedule اجرا می‌شود.
+        $schedule->command('pipeline:heartbeat')
+            ->everyMinute()
+            ->withoutOverlapping();
         
         // ارسال گزارش‌های هفتگی نماز قضا با اینتروال‌های مختلف
         
@@ -151,9 +164,18 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
-        // بررسی هفتگی سلامت فیدهای RSS: فیدهای مرده (402/403/404/HTML/timeout) خودکار غیرفعال می‌شوند
-        $schedule->command('rss:feeds-health', ['--disable-dead'])
+        // بررسی هفتگی سلامت فیدهای RSS:
+        // - غیرفعال‌سازی فقط بعد از آستانه خطا (یک خطای گذرا دیگر فید را از بین نمی‌برد)
+        // - فیدهای غیرفعالِ سالم در همین اجرا بازفعال می‌شوند (بازتست کنترل‌شده)
+        $schedule->command('rss:feeds-health', ['--disable-dead', '--enable-healthy', '--limit=100'])
             ->weekly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پایش ساعتی خط لوله‌ی محتوا: heartbeat scheduler + عدم انتشار 24h + رشد رکوردهای error.
+        // هشدارها dedup/rate-limit شده‌اند (کلید Cache، suppress 6h) تا ادمین‌ها اسپم نشوند.
+        $schedule->command('pipeline:watch')
+            ->hourly()
             ->withoutOverlapping()
             ->onOneServer();
 

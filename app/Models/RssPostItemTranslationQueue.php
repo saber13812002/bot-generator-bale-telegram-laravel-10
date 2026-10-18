@@ -13,6 +13,11 @@ class RssPostItemTranslationQueue extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'sent_at' => 'datetime',
+        'attempts' => 'integer',
+    ];
+
     protected static function boot()
     {
         parent::boot();

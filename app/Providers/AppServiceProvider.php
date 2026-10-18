@@ -176,6 +176,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(MpContactBotService::class, MpContactBotServiceImpl::class);
         $this->app->bind(ChannelPosterBotService::class, ChannelPosterBotServiceImpl::class);
         $this->app->bind(ChannelPosterPublisherFactory::class, TelegramChannelPosterPublisherFactory::class);
+        $this->app->bind(\App\Interfaces\RssChannelMessageSender::class, \App\Services\BotRssChannelMessageSender::class);
         $this->app->bind(GrowthCompanionService::class, GrowthCompanionServiceImpl::class);
         $this->app->bind(GrowthMessengerFactory::class, TelegramGrowthMessengerFactory::class);
         $this->app->bind(GrowthLlmProvider::class, function () {
