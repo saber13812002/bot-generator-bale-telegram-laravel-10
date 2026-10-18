@@ -53,6 +53,10 @@
 
 ### مرحله ۵ — بک‌لاگ (فقط با freshness check + سقف)
 - برای رکوردهای قدیمی در صف (`status='queue'` قدیمی): **هرگز ارسال انبوه**.
+- **freshness check خودکار:** `rss:recover --execute` هرگز رکوردی با سن بیش از
+  `48 ساعت` (ثابت `MAX_RETRY_AGE_HOURS` در `RssRecoveryService`) را resend نمی‌کند —
+  خروجی `stale record ... manual review required` می‌دهد. برای بازگرداندن دستی
+  رکورد خاص، ابتدا بررسی دستی در کانال مقصد انجام شود.
 - [ ] `php artisan rss:recover` (dry-run) → دسته‌بندی ۱۸۰۵ رکورد تاریخی:
   `delivered / retryable / needs_review / insufficient_evidence`
 - [ ] فقط رکوردهای `retryable` (خطای صریح «قبل از تحویل» بدون سرنجه) با:
