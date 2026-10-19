@@ -2,6 +2,79 @@
 
 ## [Unreleased](https://github.com/laravel/laravel/compare/v10.0.4...10.x)
 
+### 2026-10-19 — Documentation Suite (Agent Handoff) + Test Suite Re-Verification
+
+- **New operational docs** (documentation-only pass, no behavior changes):
+  - `docs/AGENT_HANDOFF.md` — primary agent handoff reference: verified project
+    identity (repo, branch `15esfand1404`, production path `/home/pardisa2/bots`,
+    PHP 8.2.34, UTC timezone, `QUEUE_CONNECTION=sync`), golden rules, subsystem
+    maps (RSS pipeline / Channel Poster / Content Sync), troubleshooting flows,
+    test quality contract, security findings, known issues list.
+  - `docs/JOBS_AND_SCHEDULER.md` — official reference for all 30 scheduler
+    entries (13 data points each), concurrency locks table, UTC↔Tehran
+    conversion, cron failure diagnosis, safe-change checklist. Documents that
+    `app:rss-post-to-translate` is NOT scheduled and that 3 commands
+    (`app:task-reminder-command`, `app:users-ranking-command`,
+    `app:test-schedule-daily-into-slack`) lack `withoutOverlapping()`.
+  - `docs/PRODUCTION_RUNBOOK.md` — deploy/migrate/cron/diagnose/rollback
+    procedures derived from `deploy_commands.sh` + `DEPLOY_INSTRUCTIONS.md`,
+    with a migration rollback table for the 2026-10 migrations.
+  - `docs/ARCHITECTURE.md` — layer map, webhook catalog from `routes/api.php`,
+    data-flow diagrams for RSS / Channel Poster / Content Sync, design
+    decisions, known weaknesses.
+  - `README.md` reworked into a concise operational entry point (previously a
+    marketing-focused 380-line README); feature detail now lives in the docs
+    index.
+- **Finding (flagged in docs):** `docs/SCHEDULER_CRON_PLAN.md` references a
+  `storage:logs-cleanup` command that **does not exist** in the codebase — it
+  must never be added to crontab.
+- **Finding (flagged in docs):** `POST /api/webhook-rss` is defined twice in
+  `routes/api.php` (legacy `BotMotherController::rss` +
+  `RssPostItemTranslationController::index`); the later definition wins.
+  Intent is unverified — needs a dedicated follow-up.
+- **Test suite re-run (real, 2026-10-19, local PHP 8.5+):**
+  **399 passed / 2 skipped / 2 deprecated — 2205 assertions, 0 failures**
+  (108.41s). This supersedes the "402 tests / 2198 assertions" figure quoted in
+  commit `60880a6c`: the total number of test methods is 403 (399 passed +
+  2 skipped + 2 deprecated) and the actual assertion count is 2205. Local PHP
+  8.5+ emits deprecation noise absent on production PHP 8.2.34; the run's
+  non-zero exit code came from deprecations, not test failures.
+- **Action item (production, unverified):** the previously logged Bale token
+  leak — rotation status is unverified. See `docs/PRODUCTION_RUNBOOK.md` §7.
+
+### 2026-10-19 — RSS Recovery: 48h Freshness Guard (commits 394317b3, 13f1eca6)
+
+- `RssRecoveryService` (used by `php artisan rss:recover`) now enforces a
+  **48h freshness guard** (`MAX_RETRY_AGE_HOURS = 48`) on automatic resend:
+  queue records older than 48 hours are **never** auto-resent — they are
+  reported and require manual review (prevents bulk-spamming stale content).
+- The guard applies in the execute path of both systems (`rss` and
+  `channel-poster`), alongside the existing `lockForUpdate` + status re-check
+  safety rails.
+- `13f1eca6` documents the guard in `docs/RECOVERY_ROLLOUT_PLAN.md` (backlog
+  rollout stages use freshness checks + caps).
+
+### 2026-10-18 — RSS Pipeline Tests All Green (commit 60880a6c)
+
+- All RSS pipeline test failures resolved; the commit message records
+  "402 tests / 2198 assertions, 0 failures". Re-verified on 2026-10-19 — see
+  the 2026-10-19 entry above for the corrected real numbers (399 passed /
+  2205 assertions; 403 total methods including 2 skipped + 2 deprecated).
+
+### 2026-10-17 — Channel Poster: Real Media Upload + MP3/Document Support
+
+- `ee25f734` — real multipart media upload for **photo+caption** to
+  Bale/Telegram/Eitaa (previously media could be dropped silently depending on
+  the platform path).
+- `7cdd2d79` — **MP3/document support**: audio and document media types are
+  now carried through `ChannelPosterMediaStore` (fetch ≤ 50MB,
+  `storage/app/channel-poster-media/`) and `ChannelPosterMediaSender`
+  (multipart with the correct `photo`/`video`/`document`/`audio` field per
+  content type), fixing the silent audio-drop bug.
+- Cross-platform media rule (unchanged, now documented): a messenger `file_id`
+  is only valid on its **origin platform** — publishing to another platform
+  always re-uploads the local file via multipart.
+
 ### 2026-10-16 — Content Sync Phase 4: Source Identification, Attribution, Reliable URLs
 
 - **One-time source-channel identification**: when a synced link's channel id

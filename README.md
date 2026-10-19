@@ -1,380 +1,125 @@
-# 🤖 Bot Generator - پلتفرم ربات‌ساز چندمنظوره
+# 🤖 Bots — پلتفرم مدیریت ربات‌های پیام‌رسان (Laravel 10)
 
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Bot%20Generator&fontSize=60&fontAlignY=35&animation=fadeIn&desc=Multi-Messenger%20Bot%20Platform%20%7C%20پلتفرم%20چندمنظوره%20ربات‌ساز&descAlignY=55"/>
-</p>
-
-<p align="center">
-  <a href="https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10/stargazers">
-    <img src="https://img.shields.io/github/stars/saber13812002/bot-generator-bale-telegram-laravel-10?style=for-the-badge&logo=github" alt="Stars"/>
-  </a>
-  <a href="https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10/network">
-    <img src="https://img.shields.io/github/forks/saber13812002/bot-generator-bale-telegram-laravel-10?style=for-the-badge&logo=github" alt="Forks"/>
-  </a>
-  <a href="https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10/issues">
-    <img src="https://img.shields.io/github/issues/saber13812002/bot-generator-bale-telegram-laravel-10?style=for-the-badge&logo=github" alt="Issues"/>
-  </a>
-  <a href="https://hamibash.com/quran_hefz_bale_telegram_bot">
-    <img src="https://img.shields.io/badge/❤️_Donate-Hamibash-red?style=for-the-badge" alt="Donate"/>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://bots.pardisania.ir">🌐 Live Demo</a>
-  ·
-  <a href="https://saber-tabatabaee.medium.com">📝 Medium Blog</a>
-  ·
-  <a href="https://vrgl.ir/hp4xr">📖 Virgool Blog</a>
-</p>
+> **نقطهٔ ورود عملیاتی** برای انسان‌ها و agentها. این فایل خلاصه است؛ جزئیات در مستندات زیر.
+> اگر agent هستی: **اول [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) را بخوان.**
 
 ---
 
-## 🌟 The Vision | چشمانداز
+## ⚡ این پروژه چیست؟
 
-> **"One Codebase, Every Messenger, Infinite Possibilities"**
-> 
-> **"یک سورس کد، همه پیام‌رسان‌ها، امکانات نامحدود"**
+یک سامانهٔ Laravel 10 روی **یک سرور cPanel** که کارهای زیر را انجام می‌دهد:
 
-This project isn't just another bot framework. It's a **complete bot-generation ecosystem** that allows anyone — from a student in Tehran to a developer in Berlin — to create, deploy, and scale messenger bots without writing a single line of code.
+| زیرسیستم | کاری که می‌کند |
+|---|---|
+| **Bot Mother** | ساخت/پیکربندی ~37 نوع ربات پیام‌رسان از طریق چت یا وب |
+| **Channel Poster** | انتشار چندکاناله محتوا (بله، تلگرام، ایطلا، سoroush) با صف، رسانه، watchdog و ریکاوری |
+| **Content Sync** | همگام‌سازی یک پست منتشرشده به سایر کانال‌های تگ‌شده با dedup و attribution |
+| **RSS Pipeline** | خواندن فیدها، ترجمه و انتشار خودکار در کانال‌های RSS (هر 15 دقیقه) + ریکاوری |
+| **ربات‌های تخصصی** | قرآن، حدیث، نماز، آب‌وهوا، کتاب، مأموریت، … (کاتالوگ: [`.agents/AGENTS.md`](.agents/AGENTS.md)) |
 
-این پروژه فقط یک فریمورک ربات نیست. یک **اکوسیستم کامل ربات‌ساز** است که به هر کسی اجازه می‌دهد بدون نوشتن حتی یک خط کد، ربات‌های پیام‌رسان بسازد، راه‌اندازی کند و مقیاس‌پذیر کند.
-
-### 🎯 What Makes This Special? | چه چیزی این را ویژه می‌کند؟
-
-| 🇮🇷 فارسی | 🇬🇧 English |
-|-----------|-------------|
-| 🤖 **ربات مادر هوشمند** - رباتی که خودش ربات می‌سازد! | 🤖 **Intelligent Mother Bot** - A bot that builds bots! |
-| 🌐 **چهار پیام‌رسان** - تلگرام، بله، گپ، ایتا با یک کد | 🌐 **Four Messengers** - Telegram, Bale, Gap, Eitaa in one codebase |
-| 🎨 **۳۷ نوع ربات** - از قرآن تا هواشناسی، ارسال به کانال و رشدیار | 🎨 **37 Bot Types** - From Quran to Weather, Channel Poster and Growth Companion |
-| 🔐 **احراز هویت OTP** - امنیت با کد یکبارمصرف بله | 🔐 **OTP Authentication** - Secure Bale OTP verification |
-| 🌍 **۱۸ زبان زنده** - پشتیبانی از ۱۸ زبان دنیا | 🌍 **18 Languages** - Multi-language support |
-| 🆓 **Pro System** - رایگان با قابلیت ارتقا | 🆓 **Pro System** - Free with upgrade options |
-| 📊 **Nova Admin Panel** - مدیریت حرفه‌ای با Laravel Nova | 📊 **Nova Admin Panel** - Professional management |
-| 🚀 **یک دستور کلیک** - مستقرسازی در چند ثانیه | 🚀 **One-Click Deploy** - Deploy in seconds |
+**زیرساخت:** PHP 8.2.34 · MySQL · `QUEUE_CONNECTION=sync` (بدون worker) · cron واحد `schedule:run` هر دقیقه · timezone اپلیکیشن **UTC**.
 
 ---
 
-## 💝 Support The Vision | حمایت از چشمانداز
-
-<p align="center">
-  <a href="https://hamibash.com/quran_hefz_bale_telegram_bot">
-    <img src="https://img.shields.io/badge/❤️_Donate_on_Hamibash-FF6B6B?style=for-the-badge&logo=heart&logoColor=white" alt="Donate"/>
-  </a>
-</p>
-
-Your donation helps keep this platform free and open-source for everyone.  
-حمایت شما به ادامه‌ی این پروژه به صورت رایگان و متن‌باز برای همه کمک می‌کند.
-
----
-
-## 🤖 Bot Mother | ربات مادر
-
-The heart of this platform is **Bot Mother** — a bot that creates, configures, and deploys new bots automatically. Just provide a token from BotFather and choose your bot type!
-
-قلب این پلتفرم **ربات مادر** است - رباتی که ربات‌های جدید را به صورت خودکار می‌سازد، تنظیم می‌کند و مستقر می‌کند. فقط کافیست توکن خود را از BotFather دریافت کنید و نوع ربات خود را انتخاب کنید!
-
-```mermaid
-graph LR
-    A[User] -->|/start| B[Bot Mother]
-    B -->|Select Type| C{37 Bot Types}
-    C -->|Enter Token| D[Create Bot]
-    D -->|Set Webhook| E[✅ Bot Ready!]
-```
-
-### Two Ways to Create | دو روش ساخت
-
-1. **🤖 Via Bot Mother** (Telegram/Bale) - Interactive wizard in chat
-2. **🌐 Via Web Panel** ([bots.pardisania.ir/bots](https://bots.pardisania.ir/bots)) - Web interface with Pro features
-
----
-
-## 🆕 LLM & Automation Features | قابلیت‌های LLM و اتوماسیون
-
-| Feature | 🇬🇧 | 🇮🇷 |
-|---------|----|----|
-| **📊 Smart Quran Report** | Quran bot `/report` adds anonymized 7-day cohort comparison + optional LLM analysis (plain stats fallback) | گزارش هوشمند: مقایسه با سایر کاربران (ناشناس) + تحلیل LLM با فول‌بک آمار ساده |
-| **🌐 LLM Translation** | `TRANSLATION_DRIVER=one_api\|llm\|auto` — translate via one-api.ir, local LLM, or auto fallback | ترجمه با one-api، LLM محلی، یا خودکار (فول‌بک) |
-| **📤 Queue Control** | Channel Poster `/queue` — view pending/overdue posts, send-now/cancel from chat; `php artisan channel-poster:send-queued` | مدیریت صف: مشاهده و ارسال دستی مطالب صف از ربات یا Artisan |
-| **🔄 Content Sync** | Send a published post URL + text → auto-publish to the other tagged channels with stored post links, dedup, `/sync` reports, multi-admin | ارسال لینک یک پیام + متن → انتشار خودکار در کانال‌های مجاز دیگر با ثبت لینک، جلوگیری از تکرار، گزارش `/sync`، چند ادمین |
-| **🕵️ Watchdog** | `channel-poster:watchdog` hourly — resends overdue posts, red alerts while stuck, one green on recovery | نظارت ساعتی: ارسال مجدد مطالب عقب‌مانده، هشدار قرمز/سبز برای مدیران |
-| **📖 Weekly Read Invite** | `/weeklyinvite` wizard + `weekly-read:invite` — weekly "read post #N" channel invitation | دعوت هفتگی به مطالعهٔ یک مطلب قدیمی از کانال |
-| **💬 Motivational Post** | `/motivation` wizard + `channel-motivation:send` — LLM one-line Persian post on a schedule (daily/biweekly/weekly, staggered days) | پست انگیزشی یک‌خطی LLM بر اساس اسکدیول روز/فراوانی |
-
-Key artisan commands: `channel-poster:send-queued`, `channel-poster:watchdog --dry-run`,
-`weekly-read:invite --dry-run`, `channel-motivation:send --dry-run`, `content-sync:report`.
-
-### 🔄 Content Sync (Channel Poster) | همگام‌سازی چندکاناله
-
-The **Channel Poster** bot is now a full **content synchronization & archive** system across
-Eitaa, Bale, Soroush Plus and Telegram:
-
-- **Fast mode:** admin sends a published post URL (e.g. `https://eitaa.com/alirezamehran_3/1182`),
-  then the text → the bot publishes to the *other* channels sharing the tag, with a detailed
-  per-channel report (`✅ منتشر شد / ⏳ در صف / ❌ ناموفق / ⏭ رد شد؛ از قبل موجود است`
-  with 📌 reasons, 🔗 links of published versions only, 📊 shared content id,
-  «آماده لینک بعدی» and the `📖 راهنمای دستورات: /help` footer) and no extra questions.
-- **Link archive:** every published post stores its public `post_url` + `link_status`
-  (`confirmed` / `constructed` / `unverified` / `none`) in `content_sync_versions` and
-  `channel_poster_publish_logs`. Links are never fabricated. The source link itself is
-  recorded as a version with status `existing_source` (keeps the original `post_url` +
-  `message_id`; never deleted, never failed, never re-sent).
-- **Precise dedup (default: `exclude_source_channel`):** channel identity is canonicalized
-  from the link (platform / channel id / message id, incl. Telegram private
-  `t.me/c/{short}` → `-(1000+short)` chat-id math) before comparison — only the *exact*
-  source channel is excluded, so a second channel of the same platform (e.g. two Eitaa
-  channels) IS published. `exclude_source_platform` excludes the whole platform.
-  Ambiguous (suspicious) matches halt that destination with a ⛔ line for admin review.
-  The filter runs **before** any API call, and `/retry` applies the same rule (retry can
-  never publish to the source channel). Already-published destinations are never re-sent.
-  Bale links are canonicalized to `ble.ir/{username}/{chat_id}/{message_id}` (lowercase,
-  no `bleh.ir`/`ble.ir.com` variants), so case- and mirror-different URLs of the same
-  channel are recognized as the same channel.
-- **One-time source identification:** if a link's channel id matches no known
-  destination, the bot asks **once** with a short keyboard ("این لینک از کدام کانال است؟"
-  + one button per active destination of that platform + «کانال دیگر»). Picking a
-  destination stores the id→destination mapping (`channel_username` + `channel_link`
-  are learned from the real link) so the same channel is auto-associated forever after —
-  no more repeated "⛔ needs review" halts. «کانال دیگر» keeps those destinations
-  suspicious (no publishing to them).
-- **Source attribution (one-time choice):** when a link from an *unknown* channel is
- registered, the bot shows a compact one-time settings keyboard (🎯 dedup / ⏱ publish
- time / ⚡ fast mode / 📌 source display). The admin picks how the source is credited on
- every re-published post: `signed` (default: «📌 منبع: کانال … در …» + source link),
- `link_only` (source link only) or `none`. Appended to the **last** chunk of the post
- (as a separate message if the chunk would overflow); if the source link is already in
- the text it is not repeated. The choice is stored in
- `content_sync_admin_prefs.source_attribution` (per admin) with
- `content_sync_bot_defaults.source_attribution` (owner's 👑 default) as fallback, and is
- **frozen on queueing** (`channel_poster_queue.source_attribution`) so a post queued
- today publishes with today's setting even if the admin changes it tomorrow.
-- **Tag resolution (no silent fallbacks):** the last-used tag is applied **only** when
- the source is a known destination with exactly one tag. Unknown sources always ask
- which tag (never guessed). A known source with several tags also asks. There is no
- "all" destination option — publishing to every channel requires per-channel settings.
-- **`channel_username` & `/add` link input:** destinations store a trusted public
- `channel_username` (captured from a real channel link — never fabricated from a chat
- id), used as the reliable source for constructed `post_url`s. During `/add`,
- Telegram/Eitaa accept a full channel link (e.g. `https://t.me/saberblog/42`) instead of
- a chat id: the chat id (or username) is extracted, the test message is sent, and the
- username + canonical link are stored. Bale keeps its forward-based flow (username is
- learned later from the first matching link).
-- **Settings (per admin, `/settings`):** a short main menu (status lines for dedup,
-  publish time, fast mode) opens independent short submenus — 🎯 publish destinations,
-  ⏱ publish time, ⚡ fast mode (one button per row, ✅ marks the active choice, 🔙 back).
-  Each admin is independent; changes are saved with an inline "saved" toast (no new
-  message). The link-registration message carries **no** settings keyboard — settings
-  are always available via `/settings`. The owner additionally gets a 👑 admin-defaults
-  page (`content_sync_bot_defaults`) which admins without personal settings inherit.
-  Old callback values keep working (backward compatible).
-- **`/help`:** complete categorized Persian guide with real examples; lists only
-  implemented commands; owner-only commands shown only to the owner.
-- **Commands:** `/sync {id|url}`, `/last`, `/status`, `/retry`, `/new`, `/mode`,
-  `/settings` (admin), `/help`, `/tags`, `/admin {chat_id}` (owner only),
-  `/channels` (lists connected channels with a ✂️ delete button to sever a
-  channel's link to its tag — it is deactivated, not hard-deleted).
-- A **new link always starts a new content**, even if the bot is still waiting
-  for the text of the previous link (the link is never mistaken for the text).
-- **Reports:** `php artisan content-sync:report 148` (text) or `--csv` for exporting the
-  ~5000-post archive.
-- **Step-by-step live test scenario:**
-  [tests/ManualContentSyncTestScenario.md](tests/ManualContentSyncTestScenario.md)
-
----
-
-## 📋 Complete Bot Catalog | کاتالوگ کامل ربات‌ها
-
-### 📖 Quran & Religious | قرآن و مذهبی
-
-| # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
-|---|----------|-----------------|------------|
-| 1 | **📖 Quran Bot** | Read, memorize & search the Holy Quran in 18 languages | مطالعه، حفظ و جستجو در قرآن با ۱۸ زبان |
-| 2 | **📜 Hadith Bot** | Advanced search in Shia Hadith books | جستجوی پیشرفته در کتب حدیث شیعه |
-| 3 | **📚 Nahj al-Balagha Bot** | Explore sermons, letters & wisdom of Imam Ali (AS) | خطبه‌ها، نامه‌ها و حکمت‌های نهج البلاغه |
-| 4 | **🕌 Prayer Qadha Bot** | Track missed prayers with smart detection | ثبت و پیگیری هوشمند نماز قضا |
-| 5 | **🍷 Sharabe Beheshti** | Daily audio content: Quran, Dua, Nahj | پخش روزانه محتوای صوتی مذهبی |
-| 6 | **🕋 Mawkib Finder** | Find Arbaeen processions with OTP auth | یافتن موکب‌های اربعین با احراز هویت |
-
-### 🌤️ Utilities | ابزارهای کاربردی
-
-| # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
-|---|----------|-----------------|------------|
-| 7 | **🌤️ Weather Bot** | 16-hour forecast with customizable alerts | پیش‌بینی ۱۶ ساعته با هشدار قابل تنظیم |
-| 8 | **🎤 Presenter Bot** | Sequential content delivery for courses | ارائه محتوای ترتیبی برای دوره‌های آموزشی |
-| 9 | **⭐ Rating Bot** | Collect 1-5 ratings from users | نظر سنجی با امتیاز ۱ تا ۵ |
-| 10 | **🧠 Psychology Test Bot** | Create & take psychology tests | تست روانشناسی با سوالات ۵ گزینه‌ای |
-| 11 | **📋 List Bot** | Tree menu with inline buttons | منوی درختی با دکمه‌های شیشه‌ای |
-| 12 | **📝 Content Submission** | Submit content → approve → publish | دریافت محتوا، تایید گروهی، انتشار در کانال |
-| 13 | **📰 RSS Feed Bot** | Auto-publish RSS feeds with translation | انتشار خودکار فیدهای RSS با ترجمه |
-| 14 | **📖 Blog Bot** | Connect CMS to messenger | اتصال سیستم مدیریت محتوا به پیام‌رسان |
-| 15 | **📖 Get Chat ID** | Show chat/channel/group IDs | نمایش شناسه چت، کانال و گروه |
-| 16 | **🏛️ MP Contact** | Tickets and polls for an MP office | ارتباط مردمی با نماینده مجلس |
-| 17 | **📤 Channel Poster** | Post text/media from Bale private chat to a channel + multi-channel content sync & archive | ارسال مطلب از خصوصی بله به کانال + همگام‌سازی و آرشیو چندکاناله |
-
-### 📚 Books & Media | کتاب و رسانه
-
-| # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
-|---|----------|-----------------|------------|
-| 18 | **📚 Smart Book Library** | AI Book Coach, audio summaries, plans | کتابخانه هوشمند با خلاصه صوتی |
-| 19 | **📖 Book Library Reader** | Dedicated reader bot for book delivery | ربات کتابخوان اختصاصی |
-| 20 | **📖 Book Pixel** | Share book pages one by one | اشتراک‌گذاری صفحه به صفحه کتاب |
-| 21 | **📖 Poem Bot** | Poetry & music management | مدیریت شعر و موسیقی |
-| 22 | **📖 Audio Book Bot** | Audio book management | مدیریت کتاب‌های صوتی |
-| 23 | **🎵 Song Sara Bot** | Music & playlist management | مدیریت موسیقی و پلی‌لیست |
-
-### 👔 Business & Admin | کسب و کار و مدیریت
-
-| # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
-|---|----------|-----------------|------------|
-| 24 | **👔 Personnel Registration** | Register personnel via bot | ثبت‌نام پرسنل از طریق ربات |
-| 25 | **👨‍💼 Personnel Admin** | View & manage registrations | مدیریت ثبت‌نام پرسنل |
-| 26 | **🎯 Mission Bot** | Task & mission management | مدیریت ماموریت‌ها و وظایف |
-| 27 | **🎬 Mission Media** | Educational media upload | آپلود مدیاهای آموزشی |
-| 28 | **✅ Task Approval** | Approve/reject tasks | تایید و رد وظایف |
-| 29 | **🤖 Admin Bots** | Personal bot management | مدیریت ربات‌های شخصی |
-| 30 | **📢 Admin Daily Channel** | Auto-post verse/hadith/nahj daily | ارسال خودکار محتوای دینی روزانه |
-| 31 | **📺 Admin Channel Media Queue** | Dynamic media queue scheduling | صف رسانه پویا |
-
-### 🛠️ Advanced | پیشرفته
-
-| # | Bot Name | 🇬🇧 Description | 🇮🇷 توضیحات |
-|---|----------|-----------------|------------|
-| 32 | **🌐 Social Bot** | Cross-platform social media posting | انتشار در شبکه‌های اجتماعی |
-| 33 | **🤖 Bot Kids** | Child bot management | مدیریت ربات‌های فرزند |
-| 34 | **📢 Admin Bot** | Multi-messenger admin panel | پنل مدیریت چندپیام‌رسانه |
-| 35 | **✅ RSS Admin Bot** | RSS feed management for admins | مدیریت فید RSS ادمین |
-| 36 | **📱 Social Publish** | Chrome Extension integration | یکپارچه‌سازی با افزونه کروم |
-| 37 | **🌱 Growth Companion** | Daily topic board with checkboxes, intensity budget, weekly review | رشدیار: تختهٔ روزانه با چک‌باکس، بودجهٔ شدت سؤال، مرور هفته |
-
----
-
-## 🏗️ Architecture | معماری
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Messenger Layer                    │
-│  ┌─────────┐  ┌──────┐  ┌─────┐  ┌───────┐        │
-│  │ Telegram│  │ Bale │  │ Gap │  │ Eitaa │        │
-│  └────┬────┘  └──┬───┘  └──┬──┘  └───┬───┘        │
-└───────┼──────────┼─────────┼──────────┼────────────┘
-        │          │         │          │
-┌───────┴──────────┴─────────┴──────────┴────────────┐
-│                 Bot Mother (Core)                    │
-│  ┌──────────────────────────────────────────────┐   │
-│  │         BotCreationWorkflowService             │   │
-│  │  ┌─────────┐  ┌──────────┐  ┌─────────────┐  │   │
-│  │  │Chat     │  │Web       │  │Field        │  │   │
-│  │  │Renderer │  │Renderer  │  │Registry     │  │   │
-│  │  └─────────┘  └──────────┘  └─────────────┘  │   │
-│  └──────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────┘
-        │
-┌───────┴────────────────────────────────────────────┐
-│              30+ Bot Controllers                     │
-│  Quran │ Weather │ Prayer │ Hadith │ ...            │
-└─────────────────────────────────────────────────────┘
-```
-
-### Tech Stack | تکنولوژی‌ها
-
-| لایه | تکنولوژی |
-|------|----------|
-| **Backend** | Laravel 10 + PHP 8.1+ |
-| **Database** | MySQL + Fulltext Search |
-| **Admin Panel** | Laravel Nova |
-| **Messengers** | Telegram Bot API, Bale Bot API |
-| **OTP Service** | Bale OTP (Safir) |
-| **Translation** | OneAPI Translation Service |
-| **Weather APIs** | OpenWeatherMap, Tomorrow.io |
-| **Search** | Laravel Fulltext + MySQL FULLTEXT |
-
----
-
-## 🚀 Quick Start | شروع سریع
+## 🚀 شروع سریع
 
 ```bash
-# Clone
-git clone https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10.git
+# محلی
+git clone https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10
 cd bot-generator-bale-telegram-laravel-10
+git checkout 15esfand1404
 
-# Install
 composer install
-cp .env.example .env
+cp .env.example .env        # پر کردن DB_*, APP_KEY, tokenها
 php artisan key:generate
-
-# Database
 php artisan migrate
-php artisan db:seed
 
-# Run
-php artisan serve
+php artisan serve           # محلی
+php artisan test --compact  # تست‌ها
 ```
 
----
-
-## 📜 Legacy Version | نسخه قدیمی
-
-Looking for the original README? [Click here](README_LEGACY.md)
-نسخه قبلی README را می‌خواهید؟ [اینجا کلیک کنید](README_LEGACY.md)
-
----
-
-## � Documentation | مستندات
-
-| Document | Description |
-|----------|-------------|
-| [📖 Bot Creation Guide](docs/BOT_CREATION_GUIDE.md) | Step-by-step guide to create new bots |
-| [📖 Bot Types Guide](docs/BOT_TYPES_GUIDE.md) | Complete list of bot endpoints |
-| [📖 Complete Bot Guide](docs/BOTS_COMPLETE_GUIDE.md) | Detailed instructions for all 37 bots |
-| [📖 Book Library Quick Start](QUICK_START_BOOK_LIBRARY.md) | Guide for setting up the Smart Book Library bot |
-| [📖 Architecture](plans/BOT_GENERATOR_ARCHITECTURE.md) | System architecture documentation |
-| [📖 Get Started](docs/GETTING-STARTED.md) | Development setup guide |
-| [🔄 Content Sync Test Scenario](tests/ManualContentSyncTestScenario.md) | Step-by-step live test for the multi-channel sync feature |
-| [📖 API Docs](docs/API_README.md) | API documentation |
-| [📖 Swagger](swagger.yaml) | API specification (OpenAPI) |
+### Production (cPanel)
+- مسیر: `/home/pardisa2/bots`
+- **deploy:** [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md) §2 (اسکریپت آماده: [`deploy_commands.sh`](deploy_commands.sh))
+- **cron (فقط همین یک خط):** `* * * * * cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1`
+- **تست سلامت:** `php artisan pipeline:status` (exit 1 = مشکل)
 
 ---
 
-## 🤝 How to Contribute | مشارکت
+## 📚 نقشهٔ مستندات
 
-1. Fork this repository
-2. Create a new bot following [BOT_CREATION_GUIDE.md](docs/BOT_CREATION_GUIDE.md)
-3. Submit a Pull Request
+| سند | برای چه؟ |
+|---|---|
+| **[`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md)** | ⭐ **مرجع اصلی agent** — هویت پروژه، قوانین طلایی، نقشهٔ زیرسیستم‌ها، عیب‌یابی، قرارداد تست، امنیت |
+| **[`docs/JOBS_AND_SCHEDULER.md`](docs/JOBS_AND_SCHEDULER.md)** | مرجع رسمی همهٔ 30 job/cron entry (13 داده برای هرکدام)، قفل‌های همزمانی، تبدیل UTC↔تهران |
+| **[`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md)** | deploy / migrate / cron / diagnose / rollback روی سرور |
+| **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** | معماری، لایه‌ها، جریان داده، تصمیمات معماری، نقاط ضعف |
+| [`docs/features/`](docs/features/) | مستندات فیچر-به-فیچر + سناریوی تست (قانون: هر فیچر جدید باید اینجا مستند شود — [`.agents/rules/DOCUMENTATION_RULE.md`](.agents/rules/DOCUMENTATION_RULE.md)) |
+| [`DEPLOY_INSTRUCTIONS.md`](DEPLOY_INSTRUCTIONS.md) · [`deploy_commands.sh`](deploy_commands.sh) | دستورالعمل/اسکریپت deploy |
+| [`CHANGELOG.md`](CHANGELOG.md) | تاریخچهٔ تغییرات |
+| [`docs/SCHEDULER_CRON_PLAN.md`](docs/SCHEDULER_CRON_PLAN.md) | برنامهٔ اولیهٔ cron (⚠️ مرجع `storage:logs-cleanup` منسوخ — command وجود ندارد) |
+| [`docs/RECOVERY_ROLLOUT_PLAN.md`](docs/RECOVERY_ROLLOUT_PLAN.md) | رول‌اوت مرحله‌ای محتوا + rollback |
+| [`.agents/AGENTS.md`](.agents/AGENTS.md) | دانش‌نامهٔ پروژه (کاتالوگ 37 ربات، ساختار، env names، APIها) |
+| [`docs/API_README.md`](docs/API_README.md) + Swagger | مستندات REST API (`/api/v1/quran`, missions با `api.token`, metadata) |
 
 ---
 
-## 📊 Project Status | وضعیت پروژه
+## 🔌 Webhook‌ها و API
 
-```mermaid
-pie title Bot Types by Category
-    "Quran & Religious" : 6
-    "Utilities" : 11
-    "Books & Media" : 6
-    "Business & Admin" : 8
-    "Advanced" : 5
+- همهٔ webhook ربات‌ها زیر `/api/webhook-*` تعریف‌اند → [`routes/api.php`](routes/api.php) (کاتالوگ کامل در [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §3)
+- مهم‌ترین‌ها: `/api/webhook-channel-poster` (کانال‌پوستر)، `/api/webhook-bot-mother`، `/api/webhook-rss`، `/api/webhook-prayer-bot`، `/api/webhook-quran-word`
+- REST: `/api/v1/quran/*`، `/api/v1/missions/*` (نیاز به `api.token`)، `/api/v1/metadata`
+
+---
+
+## 🧪 قرارداد تست
+
+```bash
+php artisan test --compact
 ```
 
----
-
-## 📞 Contact | ارتباط
-
-- **Developer:** Saber Tabatabaee
-- **Medium:** [@saber-tabatabaee](https://saber-tabatabaee.medium.com)
-- **Platform:** [https://bots.pardisania.ir](https://bots.pardisania.ir)
+- آخرین اجرا (2026-10-19): **399 passed / 2 skipped / 2 deprecated — 2205 assertions، 0 failure** (PHP محلی 8.5+ نویز deprecation دارد؛ پراکشن 8.2.34)
+- هرگز `php -l` را به‌عنوان مدرک رفتار نده؛ هرگز ادعای اجرای تستی را نده که اجرا نشده است.
 
 ---
 
-## ⚖️ License | مجوز
+## ⚠️ هشدارهای امن (فقط برای agent/توسعه‌دهنده)
 
-This project is open-source under the MIT License.
+1. **هیچ secret/توکن در مستند، commit یا لاگ.** لاگ‌های token-bearing باید از [`TokenHelper::redactTokens`](app/Helpers/TokenHelper.php) رد شوند.
+2. **توکن Bale لیک‌شده در لاگ قدیمی:** آیا rotate شده **تأییدنشده** → اقدام پراکشن: [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md) §7.
+3. **cron جدید اضافه نکن** بدون آپدیت همزمان `docs/JOBS_AND_SCHEDULER.md`؛ فقط یک خط `schedule:run` مجاز است.
+4. **موفقیت جعلی ممنوع:** status `sent`/`published` فقط با پاسخ واقعی پیام‌رسان.
+5. **اسلات‌های `daily-channel:post` (00/06/12/18 UTC) دست‌نخورده** — watchdog وابسته به آن‌هاست.
+
+---
+
+## 📂 ساختار کلیدی
+
+```
+app/Console/Kernel.php          # ⭐ 30 entry scheduler
+app/Services/                   # ~85 service (قلب منطق) + ContentSync/
+app/Http/Controllers/           # 73 controller (webhook ربات‌ها + Api)
+app/Jobs/                       # 12 job (sync queue → inline)
+app/Models/                     # 119 model
+routes/api.php                  # webhook‌ها + REST API
+docs/                           # ⭐ مستندات عملیاتی (بالا)
+tests/                          # Feature/Unit
+```
+
+جزئیات: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
 <p align="center">
-  <a href="https://hamibash.com/quran_hefz_bale_telegram_bot">
-    <img src="https://img.shields.io/badge/❤️_Support_this_Project-Hamibash-FF6B6B?style=for-the-badge&logo=heart&logoColor=white" alt="Donate"/>
-  </a>
+  <a href="https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10">GitHub</a>
+  · <a href="https://bots.pardisania.ir">🌐 Live</a>
+  · <a href="https://saber-tabatabaee.medium.com">📝 Medium</a>
+  · <a href="https://vrgl.ir/hp4xr">📖 Virgool</a>
+  · <a href="https://hamibash.com/quran_hefz_bale_telegram_bot">❤️ Hamibash</a>
 </p>
 
-<p align="center">
-  <sub>Made with ❤️ for the open-source community | ساخته شده با عشق برای جامعه متن‌باز</sub>
-</p>
+---
+
+## ⚖️ License
+
+فایل `LICENSE` در مخزن وجود ندارد؛ مالکیت: Saber Tabatabaei — تماس از طریق پروفایل‌های بالا. (افزودن فایل License یک action item باز است.)
