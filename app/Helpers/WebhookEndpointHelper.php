@@ -75,7 +75,13 @@ class WebhookEndpointHelper
         
         // اضافه کردن پارامترهای مورد نیاز
         if ($endpoint['requires_token']) {
-            $token = $type == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            // Phase 4: هر پلتفرم ستون توکن خاص خودش را دارد
+            $token = match ($type) {
+                'bale' => $botItem->bale_bot_token,
+                'soroush' => $botItem->soroush_bot_token,
+                'rubika' => $botItem->rubika_bot_token,
+                default => $botItem->telegram_bot_token,
+            };
             $params['token'] = $token;
         }
         
@@ -107,8 +113,18 @@ class WebhookEndpointHelper
         
         // برای webhook-bot-children پارامترهای خاص لازم است
         if ($endpointId === 'webhook-bot-children') {
-            $params['bot_user_name'] = $botItem->bale_bot_name ?? $botItem->telegram_bot_name;
-            $params['bot_token'] = $type == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            $params['bot_user_name'] = match ($type) {
+                'bale' => $botItem->bale_bot_name,
+                'soroush' => $botItem->soroush_bot_name,
+                'rubika' => $botItem->rubika_bot_name,
+                default => $botItem->telegram_bot_name,
+            };
+            $params['bot_token'] = match ($type) {
+                'bale' => $botItem->bale_bot_token,
+                'soroush' => $botItem->soroush_bot_token,
+                'rubika' => $botItem->rubika_bot_token,
+                default => $botItem->telegram_bot_token,
+            };
         }
         
         if (!empty($params)) {

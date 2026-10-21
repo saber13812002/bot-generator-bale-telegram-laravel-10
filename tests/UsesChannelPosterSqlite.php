@@ -41,6 +41,19 @@ trait UsesChannelPosterSqlite
             $table->string('telegram_bot_status')->nullable();
             $table->bigInteger('telegram_owner_chat_id')->nullable();
             $table->boolean('telegram_webhook_is_set')->default(false);
+            // Phase 4/5: ستون‌های soroush/rubika (با migration 2026_10_20_000001 مطابقت دارد)
+            $table->bigInteger('soroush_owner_chat_id')->nullable();
+            $table->string('soroush_bot_name')->nullable();
+            $table->string('soroush_bot_token')->nullable();
+            $table->json('soroush_get_me_api_response')->nullable();
+            $table->string('soroush_bot_status')->nullable();
+            $table->boolean('soroush_webhook_is_set')->default(false);
+            $table->bigInteger('rubika_owner_chat_id')->nullable();
+            $table->string('rubika_bot_name')->nullable();
+            $table->string('rubika_bot_token')->nullable();
+            $table->json('rubika_get_me_api_response')->nullable();
+            $table->string('rubika_bot_status')->nullable();
+            $table->boolean('rubika_webhook_is_set')->default(false);
             $table->timestamps();
         });
 

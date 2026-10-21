@@ -25,7 +25,10 @@ class BotRequest extends FormRequest
         return [
             'origin' => [
                 'required',
-                Rule::in(['bale', 'telegram', 'soroosh', 'gap']),
+                // Phase 4: soroush و rubika به عنوان origin مجاز اضافه شدند.
+                // «soroosh» (قدیمی/مغایر) تا فاز ۶ نگه داشته شده تا رفتار
+                // موجود خراب نشود؛ نرمال‌سازی آن در فاز ۶ انجام می‌شود.
+                Rule::in(['bale', 'telegram', 'soroosh', 'gap', 'soroush', 'rubika']),
             ],
             'token' => 'required',
             'language' => 'in:fa,en,ar-IQ,zh-CN,fr,de-DE,ru,es,tr,ur,he,az,bs,it,id,sw,pt-BR,pt-PT',

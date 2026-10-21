@@ -18,6 +18,14 @@ class TokenHelper
             // توکن بله می‌تواند 7-10 رقم قبل از : و 35-45 کاراکتر بعد از : داشته باشد
             // فرمت انعطاف‌پذیر برای پشتیبانی از انواع توکن‌های بله
             $check = preg_match("/^[0-9]{7,10}:[a-zA-Z0-9_-]{30,50}$/", $text);
+        } elseif ($type == 'soroush') {
+            // توکن سoroush پلاس طبق مستندات رسمی، دقیقاً هم‌فرمت تلگرام است:
+            // 7-10 رقم + ":" + حداقل 30 کاراکتر
+            $check = preg_match("/^[0-9]{7,10}:[a-zA-Z0-9_-]{30,}/", $text);
+        } elseif ($type == 'rubika') {
+            // فرمت توکن ربات روبیکا در مستندات رسمی اعلام نشده (opaque)؛
+            // فقط بررسی سنجشی (sanity) کاراکترهای مجاز انجام می‌شود.
+            $check = preg_match("/^[a-zA-Z0-9_-]{8,200}$/", $text);
         } else {
             // توکن تلگرام: 7-10 رقم و حداقل 30 کاراکتر
             $check = preg_match("/^[0-9]{7,10}:[a-zA-Z0-9_-]{30,}/", $text);
@@ -55,6 +63,16 @@ class TokenHelper
      */
     public static function redactTokens(string $message): string
     {
+        // 0) روبیکا: توکن داخل URL به شکل botapi.rubika.ir/v3/<token>/<method>
+        //    این الگو حتماً باید قبل از الگوی 1 اجرا شود، زیرا الگوی 1 با «bot»ِ
+        //    دامنه botapi.rubika.ir مطابقت می‌دهد و به‌جای توکن، دامنه را ماسک
+        //    می‌کند و توکن واقعی را بیرون می‌گذارد.
+        $message = preg_replace(
+            '#(botapi\.rubika\.ir/v3/)([^\s/?&"\'\\#]{8,200})(?=/|\s|$)#',
+            '$1[REDACTED]',
+            $message
+        );
+
         // 1) توکن داخل URL: bot<token>/ یا /api/<token>/
         $message = preg_replace(
             '#(bot|/api/)([a-zA-Z0-9:_.-]{10,128})(?=/|\?|&|"$|\s)#',

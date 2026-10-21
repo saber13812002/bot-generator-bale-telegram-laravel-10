@@ -15,9 +15,9 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
 {
     public function isOwner(Bot $bot, string $chatId, string $origin): bool
     {
-        $ownerChatId = $origin === 'bale'
-            ? $bot->bale_owner_chat_id
-            : $bot->telegram_owner_chat_id;
+        // Phase 5: config-driven — ستون owner از رجیستری sync_platforms
+        // (قبل از Phase 5، soroush/rubika اشتباهاً ستون telegram را می‌خواندند).
+        $ownerChatId = $bot->{SyncPlatformRegistry::ownerColumn($origin)};
 
         if ($ownerChatId === null || $ownerChatId === '') {
             return false;
@@ -28,7 +28,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
 
     public function claimOwnerIfEmpty(Bot $bot, string $chatId, string $origin): bool
     {
-        $field = $origin === 'bale' ? 'bale_owner_chat_id' : 'telegram_owner_chat_id';
+        $field = SyncPlatformRegistry::ownerColumn($origin);
         $current = $bot->{$field};
         if ($current !== null && $current !== '') {
             return false;
@@ -486,6 +486,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
             ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
             ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
         ];
 
         $lines = [];
@@ -598,6 +599,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
             ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
             ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
         ];
 
         $lines = [];

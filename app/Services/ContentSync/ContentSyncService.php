@@ -475,22 +475,6 @@ class ContentSyncService
         );
 
         foreach ($targets as $destination) {
-            // سروش هنوز publisher ندارد — به‌جای ارسال اشتباه، skip با دلیل روشن
-            if ($destination->platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
-                $version = $this->upsertVersion($content, $destination, [
-                    'publish_status' => ContentSyncVersion::STATUS_SKIPPED,
-                    'last_error' => trans('bot.channel_sync_soroush_not_ready'),
-                ]);
-                $results[] = [
-                    'destination_id' => $destination->id,
-                    'platform' => $destination->platform,
-                    'success' => false,
-                    'skipped' => true,
-                    'message_id' => null,
-                ];
-                continue;
-            }
-
             try {
                 [$ok, $lastMessageId, $error] = $this->publishChunks(
                     $publisher,
@@ -716,13 +700,7 @@ class ContentSyncService
                 }
             }
 
-            if ($destination->platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
-                $version->update(['publish_status' => ContentSyncVersion::STATUS_SKIPPED, 'last_error' => trans('bot.channel_sync_soroush_not_ready')]);
-                $results[] = ['destination_id' => $destination->id, 'platform' => $destination->platform, 'success' => false, 'skipped' => true, 'message_id' => null];
-                continue;
-            }
-
-            // §4: retry دقیقاً مثل انتشار اولیه رفتار می‌کند — امضای منبع (از حالت
+            // §4: retry دقیقا‌ً مثل انتشار اولیه رفتار می‌کند — امضای منبع (از حالت
             // فریز‌شده‌ی صف اگر صف داشته باشد، وگرنه از تنظیمات فعلی) فقط یک‌بار و در انتها.
             $frozenMode = null;
             if ($version->queue_id) {
@@ -1078,6 +1056,7 @@ class ContentSyncService
             'telegram' => trans('bot.channel_poster_sig_telegram'),
             'eitaa' => trans('bot.channel_poster_sig_eitaa'),
             'soroush' => trans('bot.channel_poster_sig_soroush'),
+            'rubika' => trans('bot.channel_poster_sig_rubika'),
         ];
     }
 

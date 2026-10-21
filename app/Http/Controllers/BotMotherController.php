@@ -6,6 +6,7 @@ use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
+use App\Modules\BotRegistration\Contracts\BotRegistrationServiceInterface;
 use App\Helpers\MultiPlatformChannelWizardHelper;
 use App\Helpers\TokenHelper;
 use App\Helpers\WebhookEndpointHelper;
@@ -32,6 +33,8 @@ use App\Models\PsychologyTestQuestion;
 use App\Models\PsychologyTestBotAdmin;
 use App\Services\BotMessageBroadcastService;
 use App\Services\ContentBotMotherService;
+use App\Services\RubikaBotClient;
+use App\Services\SoroushBotClient;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +47,8 @@ use Gap\SDP\Api as GapBot;
 class BotMotherController extends Controller
 {
     public function __construct(
-        private ContentBotMotherService $contentBotMotherService
+        private ContentBotMotherService $contentBotMotherService,
+        private BotRegistrationServiceInterface $registrationService
     ) {}
 
     /**
@@ -64,6 +68,11 @@ class BotMotherController extends Controller
             'bot_mother_id' => $botMotherId,
             'has_token' => $request->has('token'),
         ]);
+
+        // Phase 4: soroush/rubika mother bots use the native clients (no vendor SDK).
+        if (in_array($type, ['soroush', 'rubika'], true)) {
+            return $this->botMotherWebhookNative($request, $type);
+        }
 
         if ($type == 'bale') {
             $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE");
@@ -405,6 +414,335 @@ class BotMotherController extends Controller
                 $message .= "برای مشاهده لیست ربات‌های غیر فعال، /inactive را ارسال کنید.";
                 BotHelper::sendMessage($bot, $message);
             }
+    }
+
+    /**
+     * Phase 4 — mother-bot webhook for Soroush Plus / Rubika.
+     *
+     * Uses the native clients (SoroushBotClient / RubikaBotClient) instead of
+     * the vendor Telegram SDK: the mother bot token comes from the reserved
+     * env vars SOROUSH_BOT_TOKEN / RUBIKA_BOT_TOKEN (the platform pushes its
+     * own token in the webhook URL). Only plain-text updates are supported;
+     * everything else is acknowledged silently (200).
+     *
+     * @throws Exception
+     */
+    private function botMotherWebhookNative(BotRequest $request, string $type)
+    {
+        $client = $this->nativeMotherClient($type);
+        if (!$client) {
+            return response()->json(['ok' => false, 'error' => 'mother bot token not configured'], 200);
+        }
+
+        $update = $request->json()->all() ?: $request->all();
+        $client->setData(is_array($update) ? $update : []);
+
+        $chatId = $this->extractNativeChatId($update ?? [], $type);
+        if ($chatId === null) {
+            // Update types we do not handle (e.g. rubika StartedBot) —
+            // acknowledge only.
+            return response()->json(['ok' => true]);
+        }
+
+        // لاگ کردن update (به‌همان‌سبک مسير telegram/bale) — با try/catch تا
+        // مشکل در لاگ، پاسخ webhook را خراب نکند.
+        try {
+            LogHelper::log($request, $type, $client);
+        } catch (Exception $e) {
+            Log::warning('BotMother native log failed', [
+                'type' => $type,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+            ]);
+        }
+
+        try {
+            $this->handleNativeMotherFlow($client, $type, $chatId, $request->input('bot_mother_id'));
+        } catch (Exception $e) {
+            Log::error('BotMother native webhook error', [
+                'type' => $type,
+                'chat_id' => $chatId,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+            ]);
+            BotHelper::sendMessage($client, trans('bot-owner.bot_creation_failed'));
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Build the native mother client from the reserved env token.
+     *
+     * @return SoroushBotClient|RubikaBotClient|null
+     */
+    private function nativeMotherClient(string $type)
+    {
+        $token = $type === 'soroush' ? env('SOROUSH_BOT_TOKEN') : env('RUBIKA_BOT_TOKEN');
+
+        if (!$token) {
+            Log::error('BotMother native mother token missing', [
+                'env' => $type === 'soroush' ? 'SOROUSH_BOT_TOKEN' : 'RUBIKA_BOT_TOKEN',
+            ]);
+
+            return null;
+        }
+
+        return $type === 'soroush' ? new SoroushBotClient($token) : new RubikaBotClient($token);
+    }
+
+    /**
+     * Extract the sender chat id from a soroush/rubika webhook payload.
+     * Returns null for update types that are not text messages.
+     */
+    private function extractNativeChatId(array $update, string $type): mixed
+    {
+        if ($type === 'soroush') {
+            $message = $update['message'] ?? $update['edited_message'] ?? null;
+            if ($message) {
+                return $message['chat']['id'] ?? null;
+            }
+
+            if (isset($update['callback_query'])) {
+                return $update['callback_query']['message']['chat']['id']
+                    ?? $update['callback_query']['from']['id']
+                    ?? null;
+            }
+
+            return null;
+        }
+
+        // rubika: {"update":{"type":"NewMessage","chat_id":...,"new_message":{...}}}
+        $u = $update['update'] ?? [];
+        if (($u['type'] ?? null) !== 'NewMessage') {
+            return null;
+        }
+
+        return $u['chat_id'] ?? $u['new_message']['chat_id'] ?? null;
+    }
+
+    /**
+     * Phase 4 native mother flow: /start → endpoint → language (if needed)
+     * → child token → BotRegistrationService. Admin-gated, text-only,
+     * state keys are origin-scoped ('soroush:123') so they never collide
+     * with the legacy telegram/bale state keys.
+     */
+    private function handleNativeMotherFlow(object $client, string $type, mixed $chatId, mixed $botMotherIdRaw): void
+    {
+        $stateKey = $type . ':' . $chatId;
+        $text = trim((string) $client->Text());
+
+        if (!AdminHelper::isAdmin($chatId)) {
+            BotHelper::sendMessage($client, '⛔ شما دسترسی به این ربات را ندارید.');
+            BotMotherStateHelper::clearState($stateKey);
+            return;
+        }
+
+        $botMotherId = (int) ($botMotherIdRaw ?? 1);
+
+        // Stateful steps
+        $currentState = BotMotherStateHelper::getCurrentState($stateKey);
+        $stateData = BotMotherStateHelper::getData($stateKey);
+        $stateData['bot_mother_id'] = $botMotherId;
+        $stateData['type'] = $type;
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
+            $this->handleNativeMotherEndpointSelection($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_LANGUAGE) {
+            $this->handleNativeMotherLanguageSelection($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_TOKEN) {
+            $this->handleNativeMotherTokenInput($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        // Stateless commands
+        if ($text === '/start' || $text === '/new' || $text === 'new' || $text === 'ساختن') {
+            $this->nativeMotherShowStartMenu($client, $type, $stateKey, $botMotherId);
+            return;
+        }
+
+        if ($text === '/help') {
+            BotHelper::sendMessage($client, $this->nativeMotherHelpMessage($type));
+            return;
+        }
+
+        // Unknown plain text → menu
+        $this->nativeMotherShowStartMenu($client, $type, $stateKey, $botMotherId);
+    }
+
+    /**
+     * /start (or unknown text): clear state, show endpoint list, wait for a number.
+     */
+    private function nativeMotherShowStartMenu(object $client, string $type, string $stateKey, int $botMotherId): void
+    {
+        BotMotherStateHelper::clearState($stateKey);
+
+        $message = "🤖 ربات‌ساز " . $this->platformLabel($type) . "\n\n";
+        $message .= WebhookEndpointHelper::getEndpointsListMessage();
+        $message .= "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "💡 برای مشاهده لیست کامل دستورات: /help";
+        BotHelper::sendMessage($client, $message);
+
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Short command list for /help.
+     */
+    private function nativeMotherHelpMessage(string $type): string
+    {
+        $message = "📖 راهنمای ربات‌ساز " . $this->platformLabel($type) . "\n\n";
+        $message .= "/start — شروع ساخت ربات جدید\n";
+        $message .= "/help — همین پیام\n";
+
+        return $message;
+    }
+
+    /**
+     * Platform display label.
+     */
+    private function platformLabel(string $type): string
+    {
+        return match ($type) {
+            'soroush' => 'سروش پلاس',
+            'rubika' => 'روبیکا',
+            default => $type,
+        };
+    }
+
+    /**
+     * Number → endpoint; then language (if the endpoint needs one) or straight
+     * to the child-token step.
+     */
+    private function handleNativeMotherEndpointSelection(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $endpoints = WebhookEndpointHelper::getAvailableEndpoints();
+
+        if (!is_numeric($text)) {
+            BotHelper::sendMessage($client, '❌ لطفاً شماره endpoint را ارسال کنید (مثلا: 1)');
+            return;
+        }
+
+        $selectedIndex = (int) $text - 1;
+        if ($selectedIndex < 0 || $selectedIndex >= count($endpoints)) {
+            BotHelper::sendMessage($client, '❌ شماره نامعتبر است. لطفاً شماره صحیح را ارسال کنید.');
+            return;
+        }
+
+        $endpoint = $endpoints[$selectedIndex];
+
+        $message = "✅ Endpoint انتخاب شد:\n\n";
+        $message .= "📝 نام: {$endpoint['name']}\n";
+        $message .= "🔗 Route: {$endpoint['route']}\n";
+        $message .= "📄 توضیحات: {$endpoint['description']}\n\n";
+
+        if ($endpoint['requires_language']) {
+            $message .= "زبان ربات را انتخاب کنید:\n";
+            $languages = $this->getSupportedLanguages();
+            $i = 1;
+            foreach ($languages as $code => $name) {
+                $message .= "{$i}. {$name} ({$code})\n";
+                $i++;
+            }
+            $message .= "\nشماره یا کد زبان را ارسال کنید:";
+            BotHelper::sendMessage($client, $message);
+            BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_LANGUAGE, array_merge($stateData, [
+                'endpoint' => $endpoint,
+            ]));
+            return;
+        }
+
+        // No language needed → straight to token.
+        $message .= "لطفاً توکن ربات " . $this->platformLabel($type) . " خود را ارسال کنید:";
+        BotHelper::sendMessage($client, $message);
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+            'endpoint' => $endpoint,
+            'language' => 'fa',
+        ]));
+    }
+
+    /**
+     * Language selection (number or code, case-insensitive) → token step.
+     */
+    private function handleNativeMotherLanguageSelection(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $languages = $this->getSupportedLanguages();
+        $selectedLanguage = null;
+
+        if (isset($languages[$text])) {
+            $selectedLanguage = $text;
+        } else {
+            foreach ($languages as $code => $name) {
+                if (strcasecmp($code, $text) === 0) {
+                    $selectedLanguage = $code;
+                    break;
+                }
+            }
+            if ($selectedLanguage === null && is_numeric($text) && (int) $text >= 1 && (int) $text <= count($languages)) {
+                $selectedLanguage = array_keys($languages)[(int) $text - 1];
+            }
+        }
+
+        if ($selectedLanguage === null) {
+            BotHelper::sendMessage($client, '❌ زبان نامعتبر است. لطفاً شماره یا کد زبان را ارسال کنید.');
+            return;
+        }
+
+        $endpoint = $stateData['endpoint'] ?? [];
+        $languageName = $languages[$selectedLanguage] ?? $selectedLanguage;
+        $message = "✅ زبان انتخاب شد: {$languageName}\n\n";
+        $message .= "لطفاً توکن ربات " . $this->platformLabel($type) . " خود را ارسال کنید:";
+        BotHelper::sendMessage($client, $message);
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+            'endpoint' => $endpoint,
+            'language' => $selectedLanguage,
+        ]));
+    }
+
+    /**
+     * Child token → registerBot (getMe → DB → setWebhook/updateBotEndpoints).
+     */
+    private function handleNativeMotherTokenInput(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $endpoint = $stateData['endpoint'] ?? [];
+        $endpointId = (string) ($endpoint['id'] ?? '');
+        $language = (string) ($stateData['language'] ?? 'fa');
+        $botMotherId = (int) ($stateData['bot_mother_id'] ?? 1);
+        $chatId = $client->ChatID();
+
+        if (!TokenHelper::isToken($text, $type)) {
+            BotHelper::sendMessage($client, trans('bot-owner.invalid_token'));
+            return;
+        }
+
+        $result = $this->registrationService->registerBot(
+            $text,
+            $endpointId,
+            $type,
+            $language,
+            $botMotherId,
+            null,
+            (string) $chatId
+        );
+
+        BotMotherStateHelper::clearState($stateKey);
+
+        if (!($result['success'] ?? false)) {
+            BotHelper::sendMessage($client, '❌ ' . ($result['message'] ?? trans('bot-owner.bot_creation_failed')));
+            return;
+        }
+
+        BotHelper::sendMessage($client, '✅ ' . $result['message']);
+        if ($type === 'rubika') {
+            BotHelper::sendMessage($client, 'ℹ️ endpoint وب‌هوک ربات در روبیکا ثبت شد؛ خوانش/تأیید webhook در روبیکا API ندارد (BLOCKED).');
+        }
     }
 
     /**

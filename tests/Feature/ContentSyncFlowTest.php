@@ -288,7 +288,7 @@ class ContentSyncFlowTest extends TestCase
         $this->assertStringStartsWith('https://t.me/saberblog/', $telegram->post_url);
     }
 
-    public function test_soroush_destination_is_skipped_with_clear_reason(): void
+    public function test_soroush_destination_is_published_like_other_platforms(): void
     {
         $bot = $this->createBot();
         $this->createDestinations($bot->id);
@@ -304,17 +304,18 @@ class ContentSyncFlowTest extends TestCase
         $this->postText($this->ownerChatId, 'https://eitaa.com/alirezamehran_3/1182');
         $this->postText($this->ownerChatId, 'متن با سروش');
 
-        // سروش publisher ندارد — ارسال نمی‌شود ولی نسخه ثبت می‌شود
+        // Phase 3: سروش دیگر skip نمی‌شود — مثل بقیه پلتفرم‌ها publish می‌شود
         $platforms = array_column($this->publisher->publishes, 'platform');
-        $this->assertNotContains('soroush', $platforms);
+        $this->assertContains('soroush', $platforms);
 
         $soroush = ContentSyncVersion::where('content_id', 1)->where('platform', 'soroush')->first();
         $this->assertNotNull($soroush);
-        $this->assertSame('skipped', $soroush->publish_status);
-        $this->assertSame(trans('bot.channel_sync_soroush_not_ready'), $soroush->last_error);
+        $this->assertSame('published', $soroush->publish_status);
+        $this->assertNotNull($soroush->message_id);
+        // فرمت لینک پست سروش در دسترس نیست (unverified) — post_url نمی‌سازد
         $this->assertNull($soroush->post_url);
 
-        $this->assertStringContainsString('در سروش (Soroush Channel) — ' . trans('bot.channel_sync_report_status_skipped'), (string) $this->publisher->lastPrivateText());
+        $this->assertStringContainsString('در سروش (Soroush Channel) — ' . trans('bot.channel_sync_report_status_published'), (string) $this->publisher->lastPrivateText());
     }
 
     public function test_failed_publish_can_be_retried(): void

@@ -51,6 +51,57 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 return $this->isOk($result);
             }
 
+            if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
+                if (! is_string($botToken) || $botToken === '') {
+                    Log::warning('[ChannelPoster] Test send failed', [
+                        'platform' => 'soroush',
+                        'error' => 'missing soroush bot token',
+                    ]);
+
+                    return false;
+                }
+
+                $result = (new SoroushBotClient($botToken))->sendMessage($channelChatId, $text);
+
+                if (! SoroushBotClient::isOk($result)) {
+                    Log::warning('[ChannelPoster] Test send failed', [
+                        'platform' => 'soroush',
+                        'channel_chat_id' => $channelChatId,
+                        'result' => $this->resultSummary($result),
+                    ]);
+
+                    return false;
+                }
+
+                return true;
+            }
+
+            if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+                if (! is_string($botToken) || $botToken === '') {
+                    Log::warning('[ChannelPoster] Test send failed', [
+                        'platform' => 'rubika',
+                        'error' => 'missing rubika bot token',
+                    ]);
+
+                    return false;
+                }
+
+                $client = new RubikaBotClient($botToken);
+                $result = $client->sendMessage($channelChatId, $text);
+
+                if (! $client->hasMessageId($result)) {
+                    Log::warning('[ChannelPoster] Test send failed', [
+                        'platform' => 'rubika',
+                        'channel_chat_id' => $channelChatId,
+                        'result' => $this->resultSummary($result),
+                    ]);
+
+                    return false;
+                }
+
+                return true;
+            }
+
             $client = $this->clientFor($platform, $botToken);
             $result = $client->sendMessage([
                 'chat_id' => $channelChatId,
@@ -114,7 +165,6 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             if ($isMedia
                 && $localPath !== null && $localPath !== '' && is_file($localPath)
                 && $this->sender !== null
-                && $platform !== ChannelPosterDestination::PLATFORM_SOROUSH
             ) {
                 $mediaResult = $this->sender->send(
                     (string) $botToken,
@@ -166,12 +216,13 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             // اگر رسانه باشد ولی فایل محلی موجود نباشد (دانلود ناموفق/موفق نبود)
             // و file_id هم فقط روی مبدأ معتبر باشد، انتشار فقط‌متن یعنی «موفقیت
             // کاذب». باید به‌طور صریح ناموفق گزارش شود تا در گزارش/ریتری ظاهر شود.
-            // (سروش رسانه ندارد؛ fallback متن برای آن مجاز است.)
             if ($isMedia
                 && in_array($platform, [
                     ChannelPosterDestination::PLATFORM_BALE,
                     ChannelPosterDestination::PLATFORM_TELEGRAM,
                     ChannelPosterDestination::PLATFORM_EITAA,
+                    ChannelPosterDestination::PLATFORM_SOROUSH,
+                    ChannelPosterDestination::PLATFORM_RUBIKA,
                 ], true)
                 && $platform !== $this->origin
             ) {
@@ -183,7 +234,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 return ['success' => false, 'message_id' => null, 'error' => 'media file unavailable for this platform'];
             }
 
-            // ── 3) متن خالص (یا سoroush که رسانه ندارد) ────────────────────────
+            // ── 3) متن خالص ──────────────────────────────────────────────
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
                 $result = BotHelper::sendMessageEitaaSupport(
                     $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
@@ -196,6 +247,58 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],
                     $result
                 );
+            }
+
+            if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
+                // سoroush پلاس: آدرس پایه و پاکت پاسخ هم‌فرمت تلگرام —
+                // کلاینت مستقل SoroushBotClient (HTTP خام با Http facade).
+                if (! is_string($botToken) || $botToken === '') {
+                    return ['success' => false, 'message_id' => null, 'error' => 'missing soroush bot token'];
+                }
+
+                $result = (new SoroushBotClient($botToken))->sendMessage(
+                    $channelChatId,
+                    $caption !== '' ? $caption : trans('bot.channel_poster_empty_text')
+                );
+
+                $ok = SoroushBotClient::isOk($result);
+                if (! $ok) {
+                    Log::warning('[ChannelPoster][publish] publish-failed (soroush text)', [
+                        'platform' => 'soroush',
+                        'result' => $this->resultSummary($result),
+                    ]);
+                }
+
+                return $this->withError(
+                    ['success' => $ok, 'message_id' => $this->extractMessageId($result)],
+                    $result
+                );
+            }
+
+            if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+                // روبیکا: پاکت پاسخ مستند نشده — موفقیت یعنی وجود message_id.
+                if (! is_string($botToken) || $botToken === '') {
+                    return ['success' => false, 'message_id' => null, 'error' => 'missing rubika bot token'];
+                }
+
+                $client = new RubikaBotClient($botToken);
+                $result = $client->sendMessage(
+                    $channelChatId,
+                    $caption !== '' ? $caption : trans('bot.channel_poster_empty_text')
+                );
+
+                $ok = $client->hasMessageId($result);
+                if (! $ok) {
+                    Log::warning('[ChannelPoster][publish] publish-failed (rubika text)', [
+                        'platform' => 'rubika',
+                        'result' => $this->resultSummary($result),
+                    ]);
+                }
+
+                return [
+                    'success' => $ok,
+                    'message_id' => $client->extractMessageId($result),
+                ] + ($ok ? [] : ['error' => 'rubika: no message_id in sendMessage response']);
             }
 
             $client = $this->clientFor($platform, $botToken);
@@ -239,6 +342,12 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             return null;
         }
 
+        // روبیکا: ارسال رسانه با file_id به‌صورت مستقیم (typed) وجود ندارد —
+        // تنها مسیر روبیکا آپلود سه‌مرحله‌ای از فایل محلی است (ChannelPosterMediaSender).
+        if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+            return null;
+        }
+
         // file_id فقط روی پلتفرم مبدأ (محل دانلود فایل) معتبر است
         if ($platform !== $this->origin) {
             return null;
@@ -250,9 +359,11 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             return null;
         }
 
-        $base = $this->origin === ChannelPosterDestination::PLATFORM_BALE
-            ? 'https://tapi.bale.ai/bot' . $token
-            : 'https://api.telegram.org/bot' . $token;
+        $base = match ($this->origin) {
+            ChannelPosterDestination::PLATFORM_BALE => 'https://tapi.bale.ai/bot' . $token,
+            ChannelPosterDestination::PLATFORM_SOROUSH => 'https://api.splus.ir/bot' . $token,
+            default => 'https://api.telegram.org/bot' . $token,
+        };
 
         $endpoint = match ($contentType) {
             'photo'    => 'sendPhoto',
@@ -396,6 +507,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'ok' => $normalized['ok'] ?? null,
                 'description' => $normalized['description'] ?? null,
                 'error_code' => $normalized['error_code'] ?? null,
+                'message_id' => $normalized['message_id'] ?? $normalized['result']['message_id'] ?? null,
             ];
         }
 

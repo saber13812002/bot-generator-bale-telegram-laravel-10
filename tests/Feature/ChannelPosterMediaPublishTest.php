@@ -186,6 +186,252 @@ class ChannelPosterMediaPublishTest extends TestCase
         });
     }
 
+    // ── Phase 3: Soroush Plus + Rubika (MOCK_TESTED با Http::fake) ──────────
+
+    public function test_soroush_receives_real_file_as_multipart_with_caption(): void
+    {
+        $localPath = $this->makeTempFile('soroush-photo.jpg', 'soroush-photo-bytes');
+        $contents = 'soroush-photo-bytes';
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.splus.ir*' => Http::response(['ok' => true, 'result' => ['message_id' => 666]]),
+        ]);
+
+        $result = $publisher->publish(
+            'soroush-channel-1',
+            'photo',
+            'کپشن عکس برای سروش',
+            'bale-origin-file-id',
+            'soroush',
+            '654321:SOROUSH-DEST-TOKEN-0123456789ABCDEF',
+            $localPath
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('666', $result['message_id']);
+        $this->assertNull($result['error']);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request) use ($contents, $localPath) {
+            $data = $this->multipartData($request);
+
+            return $request->url() === 'https://api.splus.ir/bot654321:SOROUSH-DEST-TOKEN-0123456789ABCDEF/sendPhoto'
+                && $request->isMultipart()
+                && $request->hasFile('photo', $contents, basename($localPath))
+                && ($data['chat_id'] ?? null) === 'soroush-channel-1'
+                && ($data['caption'] ?? null) === 'کپشن عکس برای سروش';
+        });
+    }
+
+    public function test_soroush_failed_upload_does_not_publish_text_only(): void
+    {
+        $localPath = $this->makeTempFile('soroush-fail.jpg', 'soroush-fail-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.splus.ir*' => Http::response(['ok' => false, 'description' => 'chat not found'], 400),
+        ]);
+
+        $result = $publisher->publish(
+            'soroush-channel-1',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'soroush',
+            '654321:SOROUSH-DEST-TOKEN-0123456789ABCDEF',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertSame('HTTP 400', $result['error']);
+
+        // فقط یک درخواست آپلود — هیچ fallback (file_id/متن) نشده
+        Http::assertSentCount(1);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'sendMessage'));
+    }
+
+    public function test_soroush_text_publish_uses_splus_api(): void
+    {
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.splus.ir*' => Http::response(['ok' => true, 'result' => ['message_id' => 7]]),
+        ]);
+
+        $result = $publisher->publish(
+            'soroush-channel-1',
+            'text',
+            'متن سروش',
+            null,
+            'soroush',
+            '654321:SOROUSH-DEST-TOKEN-0123456789ABCDEF'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('7', $result['message_id']);
+
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://api.splus.ir/bot654321:SOROUSH-DEST-TOKEN-0123456789ABCDEF/sendMessage'
+                && $request->data()['chat_id'] === 'soroush-channel-1'
+                && $request->data()['text'] === 'متن سروش';
+        });
+    }
+
+    public function test_rubika_uploads_file_in_three_steps(): void
+    {
+        $localPath = $this->makeTempFile('rubika-photo.jpg', 'rubika-photo-bytes');
+        $contents = 'rubika-photo-bytes';
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            // مرحله ۱: requestSendFile → upload_url
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/123',
+            ]),
+            // مرحله ۲: آپلود multipart → file_id
+            'upload.rubika.example*' => Http::response(['file_id' => 'f-900']),
+            // مرحله ۳: sendFile → message_id
+            'botapi.rubika.ir*/sendFile' => Http::response(['message_id' => 'm-42']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن عکس برای روبیکا',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('m-42', $result['message_id']);
+        $this->assertNull($result['error']);
+
+        Http::assertSentCount(3);
+
+        // مرحله ۱: type=Image برای contentType photo
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/requestSendFile'
+                && $request->data()['type'] === 'Image';
+        });
+
+        // مرحله ۲: multipart با فیلد file
+        Http::assertSent(function (Request $request) use ($contents, $localPath) {
+            return $request->url() === 'https://upload.rubika.example/u/123'
+                && $request->isMultipart()
+                && $request->hasFile('file', $contents, basename($localPath));
+        });
+
+        // مرحله ۳: file_id + text
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/sendFile'
+                && ($data['chat_id'] ?? null) === '@rubika_channel'
+                && ($data['file_id'] ?? null) === 'f-900'
+                && ($data['text'] ?? null) === 'کپشن عکس برای روبیکا';
+        });
+    }
+
+    public function test_rubika_sendfile_without_message_id_is_failure(): void
+    {
+        $localPath = $this->makeTempFile('rubika-nomsg.jpg', 'rubika-nomsg-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/9',
+            ]),
+            'upload.rubika.example*' => Http::response(['file_id' => 'f-1']),
+            // پاکت پاسخ تعریف نشده (BLOCKED) — بدون message_id = ناموفق
+            'botapi.rubika.ir*/sendFile' => Http::response(['some' => 'payload']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertSame('rubika: no message_id in sendFile response', $result['error']);
+    }
+
+    public function test_rubika_video_maps_to_video_file_type(): void
+    {
+        $localPath = $this->makeTempFile('rubika-video.mp4', 'rubika-video-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/77',
+            ]),
+            'upload.rubika.example*' => Http::response(['file_id' => 'f-2']),
+            'botapi.rubika.ir*/sendFile' => Http::response(['message_id' => 'm-2']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'video',
+            null,
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath,
+            'rubika-video.mp4',
+            'video/mp4'
+        );
+
+        $this->assertTrue($result['success']);
+
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/requestSendFile'
+                && $request->data()['type'] === 'Video';
+        });
+    }
+
+    public function test_rubika_text_publish_uses_v3_api_and_message_id(): void
+    {
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response(['message_id' => 'm-1']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'text',
+            'متن روبیکا',
+            null,
+            'rubika',
+            'rubika-dest-token-1'
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('m-1', $result['message_id']);
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/sendMessage'
+                && ($data['chat_id'] ?? null) === '@rubika_channel'
+                && ($data['text'] ?? null) === 'متن روبیکا';
+        });
+    }
+
     public function test_failed_upload_does_not_publish_text_only(): void
     {
         // مبدأ بله → مقصد تلگرام: file_id برای تلگرام اعتبار ندارد؛

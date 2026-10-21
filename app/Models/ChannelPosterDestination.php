@@ -10,6 +10,7 @@ class ChannelPosterDestination extends Model
     public const PLATFORM_TELEGRAM = 'telegram';
     public const PLATFORM_EITAA = 'eitaa';
     public const PLATFORM_SOROUSH = 'soroush';
+    public const PLATFORM_RUBIKA = 'rubika';
 
     protected $fillable = [
         'bot_id',

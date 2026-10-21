@@ -144,7 +144,69 @@ class ChannelPosterMediaSender
             return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
         }
 
+        if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
+            // سند رسمی سoroush پلاس: هم‌فرمت تلگرام — https://api.splus.ir/bot<token>/<method>
+            // با multipart-formdata و فیلد نام‌دار رسانه (photo/video/…).
+            $field = $this->mediaField($contentType);
+            $base = 'https://api.splus.ir/bot' . $token;
+
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
+        }
+
+        if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+            // روبیکا: ارسال مستقیم فایل وجود ندارد — سه مرحله‌ای:
+            // requestSendFile(type) → upload_url → multipart upload → file_id
+            // → sendFile(chat_id, file_id, text).
+            return $this->doUploadRubika($token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
+        }
+
         throw new \InvalidArgumentException('unsupported platform: ' . $platform);
+    }
+
+    /**
+     * آپلود سه‌مرحله‌ای روبیکا (requestSendFile → upload → sendFile).
+     *
+     * محدودیت‌های حجمی مستند شده: Image 10MB، Video 50MB، File 50MB.
+     * پاسخ خام sendFile برگردانده می‌شود تا parseResponse یکپارچه آن را
+     * بررسی کند (موفقیت فقط با وجود message_id).
+     */
+    private function doUploadRubika(
+        string $token,
+        string $channelChatId,
+        string $contentType,
+        string $contents,
+        string $caption,
+        string $attachName,
+        string $mime
+    ): Response {
+        $fileType = RubikaBotClient::fileTypeFor($contentType);
+        $size = strlen($contents);
+
+        $limit = match ($fileType) {
+            'Image' => 10 * 1024 * 1024,
+            'Video', 'File' => 50 * 1024 * 1024,
+            default => null,
+        };
+
+        if ($limit !== null && $size > $limit) {
+            throw new \RuntimeException(sprintf(
+                'rubika: file size %d bytes exceeds documented %s limit (%d bytes)',
+                $size,
+                $fileType,
+                $limit
+            ));
+        }
+
+        $client = new RubikaBotClient($token);
+
+        // مرحله ۱: دریافت آدرس آپلود
+        $uploadUrl = $client->requestUploadUrl($fileType);
+
+        // مرحله ۲: آپلود فایل
+        $fileId = $client->uploadFile($uploadUrl, $contents, $attachName, $mime);
+
+        // مرحله ۳: ارسال فایل به چت
+        return $client->sendFile($channelChatId, $fileId, $caption !== '' ? $caption : null);
     }
 
     /**
@@ -205,6 +267,24 @@ class ChannelPosterMediaSender
                 'success'    => false,
                 'message_id' => null,
                 'error'      => 'invalid JSON response (HTTP ' . $response->status() . ')',
+            ];
+        }
+
+        // روبیکا: پاکت پاسخ در مستندات تعریف نشده (BLOCKED) — موفقیت یعنی
+        // HTTP 2xx + وجود message_id غیرخالی در پاسخ sendFile.
+        if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+            if (RubikaBotClient::hasMessageId($data)) {
+                return [
+                    'success'    => true,
+                    'message_id' => RubikaBotClient::extractMessageId($data),
+                    'error'      => null,
+                ];
+            }
+
+            return [
+                'success'    => false,
+                'message_id' => null,
+                'error'      => 'rubika: no message_id in sendFile response',
             ];
         }
 

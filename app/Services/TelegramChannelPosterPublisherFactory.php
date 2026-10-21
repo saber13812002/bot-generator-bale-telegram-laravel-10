@@ -15,9 +15,15 @@ class TelegramChannelPosterPublisherFactory implements ChannelPosterPublisherFac
 
     public function make(string $token, string $origin): ChannelPosterPublisher
     {
-        $bot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
-
         $sender = $this->mediaSender ?? app(ChannelPosterMediaSender::class);
+
+        // Phase 5: config-driven — پلتفرم‌های native (soroush/rubika)
+        // کلاینت داخلی دارند؛ publisher مبدأ آن‌ها NativeChannelPosterPublisher است.
+        if (SyncPlatformRegistry::publisher($origin) === 'native') {
+            return new NativeChannelPosterPublisher($token, $origin, $sender);
+        }
+
+        $bot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
 
         return new TelegramChannelPosterPublisher($bot, $origin, $sender);
     }

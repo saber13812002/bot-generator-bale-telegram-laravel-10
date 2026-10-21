@@ -18,6 +18,7 @@ use App\Services\ChannelPosterMediaStore;
 use App\Services\ChannelPosterQueuePublishService;
 use App\Services\ContentSync\ContentSyncService;
 use App\Services\ContentSync\PostUrlParser;
+use App\Services\SyncPlatformRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -36,6 +37,10 @@ class ChannelPosterBotController extends Controller
     public const STATE_AWAITING_TELEGRAM_CHAT_ID = 'cp_awaiting_telegram_chat_id';
     public const STATE_AWAITING_EITAA_TOKEN = 'cp_awaiting_eitaa_token';
     public const STATE_AWAITING_EITAA_CHAT_ID = 'cp_awaiting_eitaa_chat_id';
+    public const STATE_AWAITING_SOROUSH_TOKEN = 'cp_awaiting_soroush_token';
+    public const STATE_AWAITING_SOROUSH_CHAT_ID = 'cp_awaiting_soroush_chat_id';
+    public const STATE_AWAITING_RUBIKA_TOKEN = 'cp_awaiting_rubika_token';
+    public const STATE_AWAITING_RUBIKA_CHAT_ID = 'cp_awaiting_rubika_chat_id';
     public const STATE_AWAITING_SIGN_TAG = 'cp_awaiting_sign_tag';
     public const STATE_AWAITING_SIGN_CHANNEL = 'cp_awaiting_sign_channel';
     public const STATE_AWAITING_SIGN_LINK = 'cp_awaiting_sign_link';
@@ -89,7 +94,7 @@ class ChannelPosterBotController extends Controller
             Log::info('[ChannelPoster] Bot resolved', [
                 'bot_id' => $botItem->id,
                 'endpoint_id' => $botItem->endpoint_id,
-                'owner' => $type === 'bale' ? $botItem->bale_owner_chat_id : $botItem->telegram_owner_chat_id,
+                'owner' => $botItem->{SyncPlatformRegistry::ownerColumn($type)},
                 'update_keys' => array_keys($update),
             ]);
 
@@ -147,10 +152,11 @@ class ChannelPosterBotController extends Controller
         $token = $request->input('token');
         $botId = $request->input('bot_id');
 
+        // Phase 5: config-driven — ستون توکن از رجیستری پلتفرم‌ها (sync_platforms)
+        $tokenColumn = SyncPlatformRegistry::tokenColumn($type);
+
         if ($token) {
-            $botItem = $type === 'bale'
-                ? Bot::where('bale_bot_token', $token)->first()
-                : Bot::where('telegram_bot_token', $token)->first();
+            $botItem = Bot::where($tokenColumn, $token)->first();
 
             if ($botItem) {
                 return [$botItem, $token];
@@ -162,7 +168,7 @@ class ChannelPosterBotController extends Controller
             if (!$botItem) {
                 return null;
             }
-            $dbToken = $type === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            $dbToken = $botItem->{$tokenColumn};
             if (!$dbToken) {
                 return null;
             }
@@ -203,12 +209,77 @@ class ChannelPosterBotController extends Controller
             if (isset($data['chat']) && (isset($data['message_id']) || isset($data['from']))) {
                 return ['message' => $data];
             }
+            // Phase 5: روبیکا — shape { "update": { "type": "NewMessage", ... } }
+            $normalized = self::normalizeRubikaUpdate($data);
+            if ($normalized !== null) {
+                return $normalized;
+            }
         }
 
         $fallback = $candidates[0] ?? [];
         unset($fallback['origin'], $fallback['token'], $fallback['bot_id'], $fallback['bot_mother_id'], $fallback['language']);
 
         return is_array($fallback) ? $fallback : [];
+    }
+
+    /**
+     * Phase 5: نرمال‌سازی update روبیکا به shape عمومی موتور.
+     *
+     * روبیکا POST JSON با این شکل می‌فرستد (مستندات رسمی،
+     * docs/features/platform-api-research.md):
+     *   { "update": { "type": "NewMessage", "chat_id": "...",
+     *                 "new_message": { "message_id", "text", "time",
+     *                                   "sender_type": "User"|"Bot",
+     *                                   "sender_id", ... } } }
+     *
+     * فقط NewMessage با sender_type=User به message تبدیل می‌شود؛ سایر
+     * typeها (UpdatedMessage/RemovedMessage/StartedBot/StoppedBot/EventData)
+     * و پیام‌های خودِ ربات نادیده گرفته می‌شوند (null → 200 ok بی‌عمل).
+     */
+    private static function normalizeRubikaUpdate(array $data): ?array
+    {
+        $u = $data['update'] ?? null;
+        if (!is_array($u)) {
+            return null;
+        }
+
+        if (($u['type'] ?? null) !== 'NewMessage') {
+            return null;
+        }
+
+        $msg = $u['new_message'] ?? null;
+        if (!is_array($msg)) {
+            return null;
+        }
+
+        $senderType = (string) ($msg['sender_type'] ?? '');
+        if ($senderType !== 'User') {
+            return null;
+        }
+
+        $chatId = (string) ($u['chat_id'] ?? $msg['chat_id'] ?? '');
+        $senderId = (string) ($msg['sender_id'] ?? $chatId);
+        if ($chatId === '' && $senderId === '') {
+            return null;
+        }
+
+        $normalized = [
+            'message' => [
+                'message_id' => $msg['message_id'] ?? null,
+                'chat' => [
+                    'id' => $chatId !== '' ? $chatId : $senderId,
+                    'type' => 'private',
+                ],
+                'from' => ['id' => $senderId !== '' ? $senderId : $chatId],
+            ],
+        ];
+
+        $text = $msg['text'] ?? null;
+        if (is_string($text)) {
+            $normalized['message']['text'] = $text;
+        }
+
+        return $normalized;
     }
 
     private function handlePrivateMessage(
@@ -228,7 +299,7 @@ class ChannelPosterBotController extends Controller
                 Log::warning('[ChannelPoster] Not owner', [
                     'bot_id' => $botItem->id,
                     'chat_id' => $chatId,
-                    'owner' => $type === 'bale' ? $botItem->bale_owner_chat_id : $botItem->telegram_owner_chat_id,
+                    'owner' => $botItem->{SyncPlatformRegistry::ownerColumn($type)},
                 ]);
                 $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_owner'));
                 return;
@@ -380,6 +451,22 @@ class ChannelPosterBotController extends Controller
             }
             if ($state->state === self::STATE_AWAITING_EITAA_CHAT_ID) {
                 $this->handleExternalChatId($publisher, $botItem, $type, $chatId, $text, $state->data ?? [], ChannelPosterDestination::PLATFORM_EITAA);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_SOROUSH_TOKEN) {
+                $this->handleSoroushToken($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_SOROUSH_CHAT_ID) {
+                $this->handleExternalChatId($publisher, $botItem, $type, $chatId, $text, $state->data ?? [], ChannelPosterDestination::PLATFORM_SOROUSH);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_RUBIKA_TOKEN) {
+                $this->handleRubikaToken($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_RUBIKA_CHAT_ID) {
+                $this->handleExternalChatId($publisher, $botItem, $type, $chatId, $text, $state->data ?? [], ChannelPosterDestination::PLATFORM_RUBIKA);
                 return;
             }
         }
@@ -799,11 +886,6 @@ class ChannelPosterBotController extends Controller
         string $platform,
         string $tag
     ): void {
-        if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_soroush_soon'));
-            return;
-        }
-
         if ($platform === ChannelPosterDestination::PLATFORM_BALE) {
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_BALE_FORWARD, ['tag' => $tag]);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_bale_forward'));
@@ -819,6 +901,18 @@ class ChannelPosterBotController extends Controller
         if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_EITAA_TOKEN, ['tag' => $tag]);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_eitaa_token'));
+            return;
+        }
+
+        if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SOROUSH_TOKEN, ['tag' => $tag]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_soroush_token'));
+            return;
+        }
+
+        if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_RUBIKA_TOKEN, ['tag' => $tag]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_rubika_token'));
         }
     }
 
@@ -862,6 +956,50 @@ class ChannelPosterBotController extends Controller
             'bot_token' => $token,
         ]);
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_eitaa_chat_id'));
+    }
+
+    private function handleSoroushToken(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $token,
+        array $stateData
+    ): void {
+        $token = trim($token);
+        // توکن سoroush پلاس طبق مستندات رسمی هم‌فرمت تلگرام است.
+        if (!TokenHelper::isToken($token, 'soroush')) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_invalid_token'));
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SOROUSH_CHAT_ID, [
+            'tag' => $stateData['tag'] ?? '',
+            'bot_token' => $token,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_soroush_chat_id'));
+    }
+
+    private function handleRubikaToken(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $token,
+        array $stateData
+    ): void {
+        $token = trim($token);
+        // فرمت توکن روبیکا در مستندات اعلام نشده (opaque) — بررسی سنجشی.
+        if (!TokenHelper::isToken($token, 'rubika')) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_invalid_token'));
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_RUBIKA_CHAT_ID, [
+            'tag' => $stateData['tag'] ?? '',
+            'bot_token' => $token,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_rubika_chat_id'));
     }
 
     private function handleExternalChatId(
@@ -916,9 +1054,12 @@ class ChannelPosterBotController extends Controller
                 $destination->forceFill($update)->save();
             }
         }
-        $key = $platform === ChannelPosterDestination::PLATFORM_TELEGRAM
-            ? 'bot.channel_poster_telegram_connected'
-            : 'bot.channel_poster_eitaa_connected';
+        $key = match ($platform) {
+            ChannelPosterDestination::PLATFORM_TELEGRAM => 'bot.channel_poster_telegram_connected',
+            ChannelPosterDestination::PLATFORM_SOROUSH => 'bot.channel_poster_soroush_connected',
+            ChannelPosterDestination::PLATFORM_RUBIKA => 'bot.channel_poster_rubika_connected',
+            default => 'bot.channel_poster_eitaa_connected',
+        };
         $publisher->sendPrivateMessage($chatId, trans($key, ['tag' => $tag !== '' ? $tag : trans('bot.channel_poster_untagged')]));
     }
 
@@ -948,10 +1089,13 @@ class ChannelPosterBotController extends Controller
         // برای انتشار چندکاناله (بله/تلگرام/ایتا) فایل اصلی لازم است.
         // در صورت خطای دانلود، با همان file_id قدیمی ادامه می‌دهیم (degrade gracefully).
         $mediaPath = null;
-        if (!empty($media['file_id'])) {
-            $originToken = $type === 'bale'
-                ? (string) $botItem->bale_bot_token
-                : (string) $botItem->telegram_bot_token;
+        if (!empty($media['file_id']) && SyncPlatformRegistry::canDownloadMediaFromOrigin($type)) {
+            // Phase 5: data-driven skip — دانلود رسانه از API مبدأ فقط وقتی
+            // مستند و تأییدشده است (bale/telegram). برای soroush/rubika جریان
+            // با همان file_id ادامه می‌یابد؛ انتشار هم‌پلتفرم با file_id
+            // انجام می‌شود و انتشار بین‌پلتفرم رسانه‌ای به‌صورت صریح خطا
+            // گزارش می‌شود (هرگز موفقیت کاذب).
+            $originToken = (string) $botItem->{SyncPlatformRegistry::tokenColumn($type)};
             if ($originToken !== '') {
                 $mediaPath = $this->mediaStore->fetchAndStore(
                     $originToken,
@@ -1172,6 +1316,10 @@ class ChannelPosterBotController extends Controller
                 'text' => trans('bot.channel_poster_btn_soroush'),
                 'callback_data' => 'cp:plat:soroush',
             ]],
+            [[
+                'text' => trans('bot.channel_poster_btn_rubika'),
+                'callback_data' => 'cp:plat:rubika',
+            ]],
         ];
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_platform', ['tag' => $tag]), $rows);
     }
@@ -1308,6 +1456,7 @@ class ChannelPosterBotController extends Controller
             ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
             ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
             ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
         ];
 
         $rows = [];
@@ -2320,7 +2469,7 @@ class ChannelPosterBotController extends Controller
         }
 
         $pub = $this->publisherFactory->make(
-            $type === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token,
+            (string) $botItem->{SyncPlatformRegistry::tokenColumn($type)},
             $type
         );
 

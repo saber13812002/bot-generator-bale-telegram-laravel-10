@@ -93,6 +93,10 @@ class PostUrlBuilder
                 // هنوز نمونه واقعی لینک سروش نداریم — unverified
                 return ['url' => null, 'status' => 'unverified'];
 
+            case 'rubika':
+                // فرمت لینک پست روبیکا در مستندات اعلام نشده (BLOCKED) — unverified
+                return ['url' => null, 'status' => 'unverified'];
+
             default:
                 return ['url' => null, 'status' => 'unverified'];
         }

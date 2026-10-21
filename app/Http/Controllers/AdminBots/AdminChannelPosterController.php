@@ -34,7 +34,7 @@ class AdminChannelPosterController extends Controller
      * Add a new destination.
      * Expected payload:
      *  - tag: string
-     *  - platforms: array of ['platform' => 'bale|telegram|eitaa|soroush', 'channel_chat_id' => string, 'channel_title' => string, 'bot_token' => string]
+     *  - platforms: array of ['platform' => 'bale|telegram|eitaa|soroush|rubika', 'channel_chat_id' => string, 'channel_title' => string, 'bot_token' => string]
      */
     public function addDestination(Request $request)
     {
@@ -45,7 +45,7 @@ class AdminChannelPosterController extends Controller
         $validated = $request->validate([
             'tag' => 'required|string|unique:channel_poster_destinations,tag',
             'platforms' => 'required|array|min:1',
-            'platforms.*.platform' => 'required|in:bale,telegram,eitaa,soroush',
+            'platforms.*.platform' => 'required|in:bale,telegram,eitaa,soroush,rubika',
             'platforms.*.channel_chat_id' => 'required|string',
             'platforms.*.channel_title' => 'required|string',
             'platforms.*.bot_token' => 'required|string',
