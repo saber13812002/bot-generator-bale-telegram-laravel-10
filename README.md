@@ -55,6 +55,8 @@ php artisan test --compact  # تست‌ها
 | **[`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md)** | deploy / migrate / cron / diagnose / rollback روی سرور |
 | **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** | معماری، لایه‌ها، جریان داده، تصمیمات معماری، نقاط ضعف |
 | [`docs/features/`](docs/features/) | مستندات فیچر-به-فیچر + سناریوی تست (قانون: هر فیچر جدید باید اینجا مستند شود — [`.agents/rules/DOCUMENTATION_RULE.md`](.agents/rules/DOCUMENTATION_RULE.md)) |
+| [`docs/features/TEST_PREVIEW_POST.md`](docs/features/TEST_PREVIEW_POST.md) | 🧪 **پست تستی/پیش‌نمایش** — ارسال متن/عکس/صوت/ویدیو با کپشن به چت تستی از همان متدهای production (`app:send-test-preview`) |
+| [`docs/features/LINKED_SIGNATURE.md`](docs/features/LINKED_SIGNATURE.md) | 🔗 **امضای لینک‌دار** — لینک کانال در امضا به‌صورت قابل‌کلیک با نگارش مخصوص هر پیام‌رسان (ایتا/تلگرام HTML، بله مارک‌داون، سروش/روبیکا ساده) + تست اختصاصی دو روش (لینک داخل متن + دکمه URL) با `app:test-signature-link` |
 | [`DEPLOY_INSTRUCTIONS.md`](DEPLOY_INSTRUCTIONS.md) · [`deploy_commands.sh`](deploy_commands.sh) | دستورالعمل/اسکریپت deploy |
 | [`CHANGELOG.md`](CHANGELOG.md) | تاریخچهٔ تغییرات |
 | [`docs/SCHEDULER_CRON_PLAN.md`](docs/SCHEDULER_CRON_PLAN.md) | برنامهٔ اولیهٔ cron (⚠️ مرجع `storage:logs-cleanup` منسوخ — command وجود ندارد) |

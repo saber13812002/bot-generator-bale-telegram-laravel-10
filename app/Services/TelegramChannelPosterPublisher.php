@@ -6,6 +6,7 @@ use App\Helpers\BotHelper;
 use App\Helpers\TokenHelper;
 use App\Interfaces\Services\ChannelPosterPublisher;
 use App\Models\ChannelPosterDestination;
+use App\Helpers\ProductLinkMessageHelper;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -140,7 +141,8 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ?string $botToken = null,
         ?string $localPath = null,
         ?string $fileName = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?string $parseMode = null
     ): array {
         $caption = $text ?? '';
         $size = ($localPath !== null && is_file($localPath)) ? filesize($localPath) : 0;
@@ -236,12 +238,13 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 
             // ── 3) متن خالص ──────────────────────────────────────────────
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
-                $result = BotHelper::sendMessageEitaaSupport(
-                    $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
-                    (string) $botToken,
-                    $channelChatId,
-                    'eitaa'
-                );
+                $text = $caption !== '' ? $caption : trans('bot.channel_poster_empty_text');
+                $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa', $parseMode);
+                if ($parseMode !== null && ! $this->isOk($result)) {
+                    // HTML خراب (مثلاً < یا & در متن) → retry خودکار بدون parse_mode
+                    Log::info('[ChannelPoster][publish] parse_mode retry (eitaa)');
+                    $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa');
+                }
 
                 return $this->withError(
                     ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],
@@ -302,10 +305,17 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             }
 
             $client = $this->clientFor($platform, $botToken);
-            $result = $client->sendMessage([
-                'chat_id' => $channelChatId,
-                'text' => $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
-            ]);
+            $text = $caption !== '' ? $caption : trans('bot.channel_poster_empty_text');
+            $content = ['chat_id' => $channelChatId, 'text' => $text];
+            if ($parseMode !== null && $parseMode !== '') {
+                $content['parse_mode'] = $parseMode;
+            }
+            $result = $client->sendMessage($content);
+            if ($parseMode !== null && $parseMode !== '' && ! $this->isOk($result)) {
+                // مارک‌آپ خراب (مثلاً [ یا < در متن) → retry خودکار بدون parse_mode
+                Log::info('[ChannelPoster][publish] parse_mode retry (' . $platform . ')');
+                $result = $client->sendMessage(['chat_id' => $channelChatId, 'text' => $text]);
+            }
 
             return $this->withError(
                 ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],

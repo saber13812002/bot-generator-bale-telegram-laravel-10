@@ -1207,14 +1207,10 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        // Append signature if enabled
+        // متن پایه — امضای لینک‌دار به‌صورت per-destination در حلقه‌ی
+        // انتشار فوری اضافه می‌شود؛ در حالت صف‌بانی، صف‌بانی خودش اضافه می‌کند
+        // (جلوگیری از دوبرابر شدن امضا).
         $finalText = is_string($text) ? $text : null;
-        if ($signatureEnabled && $finalText !== null) {
-            $sig = $this->service->buildSignature($botItem->id, $tagKey);
-            if ($sig !== '') {
-                $finalText .= $sig;
-            }
-        }
 
         // Enqueue instead of immediate publish
         if ($enqueue) {
@@ -1250,16 +1246,28 @@ class ChannelPosterBotController extends Controller
         $allOk = true;
         $localPath = is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null;
         foreach ($destinations as $destination) {
+            // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن
+            $destText = $finalText;
+            $destParseMode = null;
+            if ($signatureEnabled && $destText !== null) {
+                $sig = $this->service->buildSignature($botItem->id, $tagKey, $destination->platform);
+                if ($sig['text'] !== '') {
+                    $destText .= $sig['text'];
+                    $destParseMode = $sig['parse_mode'];
+                }
+            }
+
             $result = $publisher->publish(
                 $destination->channel_chat_id,
                 $contentType,
-                $finalText,
+                $destText,
                 is_string($fileId) ? $fileId : null,
                 $destination->platform,
                 $destination->bot_token,
                 $localPath,
                 is_string($fileName) && $fileName !== '' ? $fileName : null,
-                is_string($mimeType) && $mimeType !== '' ? $mimeType : null
+                is_string($mimeType) && $mimeType !== '' ? $mimeType : null,
+                $destParseMode
             );
             $ok = $result['success'] ?? false;
             $messageId = $result['message_id'] ?? null;

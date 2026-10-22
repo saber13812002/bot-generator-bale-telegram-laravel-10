@@ -121,6 +121,7 @@ class ChannelPosterMediaSender
             return Http::asMultipart()
                 ->withHeaders(['Accept' => 'application/json'])
                 ->timeout(300)
+                ->withOptions(['verify' => false]) // eitaayar: self-signed cert chain (هم‌تراز با BotHelper::call_eitaa_api)
                 ->attach('file', $contents, $attachName, [
                     'Content-Type' => $mime,
                 ])

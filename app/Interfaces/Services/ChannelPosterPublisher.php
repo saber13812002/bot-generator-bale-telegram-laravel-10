@@ -22,7 +22,8 @@ interface ChannelPosterPublisher
         ?string $botToken = null,
         ?string $localPath = null,
         ?string $fileName = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?string $parseMode = null
     ): array;
 
     public function answerCallback(?string $callbackId, string $text = ''): void;

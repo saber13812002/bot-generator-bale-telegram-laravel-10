@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\ProductLinkMessageHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
@@ -469,17 +470,16 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         return $destination;
     }
 
-    public function buildSignature(int $botId, string $tag): string
+    public function buildSignature(int $botId, string $tag, ?string $platform = null): array
     {
         $destinations = $this->resolveByTag($botId, $tag);
         $withLinks = $destinations->filter(fn (ChannelPosterDestination $d) => !empty($d->channel_link));
 
         if ($withLinks->isEmpty()) {
-            return '';
+            return ['text' => '', 'parse_mode' => null];
         }
 
         $items = $withLinks->values()->toArray();
-        shuffle($items);
 
         $platformLabels = [
             ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
@@ -489,13 +489,38 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
         ];
 
+        // ── حالت پلتفرم‌آگاه: فقط لینک خود همان مقصد، با نگارش مخصوص آن پلتفرم ──
+        if ($platform !== null && $platform !== '') {
+            $link = null;
+            foreach ($items as $item) {
+                if ($item['platform'] === $platform) {
+                    $link = $item['channel_link'];
+                    break;
+                }
+            }
+
+            if ($link === null) {
+                return ['text' => '', 'parse_mode' => null];
+            }
+
+            $label = $platformLabels[$platform] ?? $platform;
+            $line = $label . ":\n" . ProductLinkMessageHelper::signatureLink($link, $platform);
+
+            return [
+                'text' => "\n\n" . $line,
+                'parse_mode' => ProductLinkMessageHelper::parseModeForPlatform($platform),
+            ];
+        }
+
+        // ── حالت قدیمی (مقصد نامشخص): همه کانال‌ها، خودرسان، ترتیب تصادفی ──
+        shuffle($items);
         $lines = [];
         foreach ($items as $item) {
             $label = $platformLabels[$item['platform']] ?? $item['platform'];
             $lines[] = $label . ":\n" . $item['channel_link'];
         }
 
-        return "\n\n" . implode("\n\n", $lines);
+        return ['text' => "\n\n" . implode("\n\n", $lines), 'parse_mode' => null];
     }
 
     public function getNextSlot(int $botId, string $tag): Carbon

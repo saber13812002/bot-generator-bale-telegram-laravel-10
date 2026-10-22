@@ -97,17 +97,12 @@ class ChannelPosterQueuePublishService
                 return $fail('no destinations resolved');
             }
 
-            // Append signature if needed
+            // متن پایه — امضای لینک‌دار به‌صورت per-destination داخل حلقه اضافه می‌شود
             $text = $item->text;
-            if ($item->signature_enabled && $text !== null) {
-                $sig = $this->service->buildSignature($bot->id, $tag);
-                if ($sig !== '') {
-                    $text .= $sig;
-                }
-            }
 
-            // §4: امضای منبع — حالتی که در لحظه صف‌بندی فریز شده بود؛ برای آیتم‌های
-            // content فقط اضافه می‌شود (روی متن ذخیره‌شده، نه ستون textِ محتوا).
+            // §4: امضای منبع — متن ساده و مستقل از پلتفرم؛ یک‌بار محاسبه
+            // (حالتی که در لحظه صف‌بندی فریز شد) و در حلقه به هر مقصد اضافه می‌شود.
+            $attributionSuffix = '';
             if ($item->content_id && $text !== null && $item->source_attribution
                 && $item->source_attribution !== \App\Models\ContentSyncAdminPrefs::ATTR_NONE
             ) {
@@ -115,7 +110,7 @@ class ChannelPosterQueuePublishService
                 if ($content) {
                     $suffix = $this->contentSync->buildAttributionSuffix($content, (string) $item->source_attribution);
                     if (trim($suffix) !== '') {
-                        $text .= "\n\n" . $suffix;
+                        $attributionSuffix = $suffix;
                     }
                 }
             }
@@ -154,16 +149,31 @@ class ChannelPosterQueuePublishService
                     continue;
                 }
 
+                // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن
+                $destText = $text;
+                $destParseMode = null;
+                if ($item->signature_enabled && $destText !== null) {
+                    $sig = $this->service->buildSignature($bot->id, $tag, $destination->platform);
+                    if ($sig['text'] !== '') {
+                        $destText .= $sig['text'];
+                        $destParseMode = $sig['parse_mode'];
+                    }
+                }
+                if ($destText !== null && $attributionSuffix !== '') {
+                    $destText .= "\n\n" . $attributionSuffix;
+                }
+
                 $result = $publisher->publish(
                     $destination->channel_chat_id,
                     $item->content_type,
-                    $text,
+                    $destText,
                     $item->file_id,
                     $destination->platform,
                     $destination->bot_token,
                     $item->media_path,
                     $item->file_name,
-                    $item->mime_type
+                    $item->mime_type,
+                    $destParseMode
                 );
                 $ok = $result['success'] ?? false;
                 $messageId = $result['message_id'] ?? null;

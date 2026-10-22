@@ -78,9 +78,14 @@ interface ChannelPosterBotService
     public function updateChannelLink(int $destinationId, string $link): \App\Models\ChannelPosterDestination;
 
     /**
-     * Build a signature block with channel links in random order.
+     * Build a signature block with channel links.
+     *
+     * - بدون $platform : فرمت قدیمی خودرسان (همه کانال‌ها، ترتیب تصادفی).
+     * - با $platform    : فقط لینک خود آن مقصد، با نگارش (parse) مخصوص پلتفرم.
+     *
+     * @return array{text: string, parse_mode: ?string}
      */
-    public function buildSignature(int $botId, string $tag): string;
+    public function buildSignature(int $botId, string $tag, ?string $platform = null): array;
 
     /**
      * Calculate the next available queue slot for this bot+tag.
