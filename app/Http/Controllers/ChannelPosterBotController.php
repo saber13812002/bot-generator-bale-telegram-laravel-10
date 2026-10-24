@@ -424,9 +424,14 @@ class ChannelPosterBotController extends Controller
             }
             if ($state->state === self::STATE_AWAITING_TAG_NAME) {
                 $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_PLATFORM, ['tag' => trim($text)]);
-                $this->sendPlatformKeyboard($publisher, $chatId, trim($text));
+                $this->sendPlatformKeyboard($publisher, $chatId, $type, trim($text));
                 return;
             }
+        }
+
+        if ($state && $state->state === self::STATE_AWAITING_PLATFORM && is_string($text) && !str_starts_with($text, '/')) {
+            $this->handlePlatformByText($publisher, $botItem, $type, $chatId, $text);
+            return;
         }
 
         if ($state && is_string($text) && !str_starts_with($text, '/')) {
@@ -624,7 +629,7 @@ class ChannelPosterBotController extends Controller
         $groups = $this->service->listTagGroups($botItem->id);
         if ($groups === []) {
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_TAG_NAME);
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_tag_name'));
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_tag_name') . $this->nativeInputHint($type));
             return;
         }
 
@@ -643,7 +648,7 @@ class ChannelPosterBotController extends Controller
         $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_TAG_NAME, [
             'tag_keys' => array_map(fn (array $group) => $group['key'], $groups),
         ]);
-        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_new_or_existing_tag'), $rows);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_new_or_existing_tag') . $this->nativeInputHint($type), $rows);
     }
 
     private function handleBaleForward(
@@ -771,7 +776,7 @@ class ChannelPosterBotController extends Controller
                 return;
             }
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_PLATFORM, ['tag' => $tag]);
-            $this->sendPlatformKeyboard($publisher, $chatId, $tag);
+            $this->sendPlatformKeyboard($publisher, $chatId, $type, $tag);
             return;
         }
 
@@ -914,6 +919,48 @@ class ChannelPosterBotController extends Controller
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_RUBIKA_TOKEN, ['tag' => $tag]);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_rubika_token'));
         }
+    }
+
+    /**
+     * ورودی متنی جایگزین دکمه‌ها — برای مبدأ‌های soroush/rubika که کیبورد inline
+     * را نمی‌گیرند (و در همه مبدأها به‌عنوان fallback). نام پلتفرم با alias فارسی/انگلیسی
+     * شناسایی می‌شود و سپس همان مسیر handlePlatformChoice (دکمه) طی می‌شود.
+     */
+    private function handlePlatformByText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text
+    ): void {
+        $platform = match (mb_strtolower(trim($text))) {
+            'bale', 'بله' => ChannelPosterDestination::PLATFORM_BALE,
+            'telegram', 'تلگرام' => ChannelPosterDestination::PLATFORM_TELEGRAM,
+            'eitaa', 'ایتا' => ChannelPosterDestination::PLATFORM_EITAA,
+            'soroush', 'سروش' => ChannelPosterDestination::PLATFORM_SOROUSH,
+            'rubika', 'روبیکا' => ChannelPosterDestination::PLATFORM_RUBIKA,
+            default => null,
+        };
+
+        if ($platform === null) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_platform_invalid'));
+            return; // state حفظ می‌شود — کاربر می‌تواند دوباره امتحان کند
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+        $tag = (string) ($state?->getData('tag') ?? '');
+        $this->handlePlatformChoice($publisher, $botItem, $type, $chatId, $platform, $tag);
+    }
+
+    /**
+     * یادآوری فقط برای مبدأ‌های native (soroush/rubika) — کیبورد inline آن‌ها
+     * ارسال نمی‌شود، پس کاربر باید انتخاب را تایپ کند.
+     */
+    private function nativeInputHint(string $type): string
+    {
+        return in_array($type, ['soroush', 'rubika'], true)
+            ? "\n\n" . trans('bot.channel_poster_platform_native_hint')
+            : '';
     }
 
     private function handleTelegramToken(
@@ -1305,7 +1352,7 @@ class ChannelPosterBotController extends Controller
         $publisher->sendPrivateMessage($chatId, $report);
     }
 
-    private function sendPlatformKeyboard(ChannelPosterPublisher $publisher, string $chatId, string $tag): void
+    private function sendPlatformKeyboard(ChannelPosterPublisher $publisher, string $chatId, string $type, string $tag): void
     {
         $rows = [
             [[
@@ -1329,7 +1376,7 @@ class ChannelPosterBotController extends Controller
                 'callback_data' => 'cp:plat:rubika',
             ]],
         ];
-        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_platform', ['tag' => $tag]), $rows);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ask_platform', ['tag' => $tag]) . $this->nativeInputHint($type), $rows);
     }
 
     private function isShortTagName(string $text): bool
