@@ -128,7 +128,33 @@ php artisan app:test-signature-link \
 
 ⚠️ برای **بله** رندر واقعی دکمه/لینک را باید یک‌بار چشمی در اپلیکیشن بررسی کنید (سند رسمی ندارد). برای **تلگرام** هر دو روش رسمی و تأییدشده‌اند.
 
+## ✍️ امضای پیشرفته (اکتبر ۲۰۲۶) — ذخیره‌سازی معنایی + رندرر
+
+فاز بعدی امضا (مأموریت «مدیریت پیشرفتهٔ امضا») همین مبنای لینک‌دار را ساختار یافت:
+
+- **ذخیره‌سازی معنایی** در `channel_poster_destinations`: `channel_link` + `signature_label` +
+  `signature_type` (plain/raw/inline/button/composite/none) + `signature_enabled`
+  (nullable: `null` = legacy «لینک ذخیره = فعال»، `false` = غیرفعال، `true` = فعال).
+  هیچ خروجی پیش‌رندر (HTML/Markdown) در دیتابیس ذخیره **نمی‌شود**.
+- **ویزارد ۳ قدم `/sign`**: لینک → برچسب نمایشی (یا «بدون») → سؤال «آیا می‌خواهید این لینک
+  به‌عنوان امضای انتهای پست‌ها اضافه شود؟» (بله/خیر/بازگشت — دکمه‌ای + معادل متنی برای
+  سروش/روبیکا). ذخیره از طریق `ChannelPosterBotService::updateSignatureSettings()`.
+- **رندرر در زمان انتشار**: [`SignatureRenderer`](../../app/Services/ChannelPoster/SignatureRenderer.php)
+  بر اساس [`SignatureCapability`](../../app/Services/ChannelPoster/SignatureCapability.php)
+  خروجی هر پلتفرم را می‌سازد (telegram/eitaa = `<a href>` + `parse_mode=html`؛ bale = Markdown
+  لینک با فال‌بک امن؛ soroush/rubika = plain) — همان جدول فرمت‌دهی بخش اول این سند، حالا
+  در یک کلاس واحد و تست‌شده.
+- **دکمهٔ URL** (`type=button`): فقط تلگرام/بله (capability matrix)؛ بقیه → فال‌بک به inline + پرچم `fallback`.
+- **guard کپشن**: اگر امضا طول caption را از 1024 عبور دهد، امضا حذف و متن اصلی دست‌نخورده می‌ماند.
+- **retry صف**: مقصدهای موفق (طبق `channel_poster_publish_logs`) دوباره ارسال نمی‌شوند → امضای دوتایی در retry رخ نمی‌دهد.
+- **سازگاری معکوس**: ردیف‌های legacy (`signature_enabled = null`) با `renderLegacy` بایت‌به‌بایت
+  مثل فرمت قدیمی `buildSignature` رندر می‌شوند.
+
+مستندات کامل فرمت‌ها، وضعیت‌ها (OFFICIAL_CONFIRMED … OFFICIAL_DOC_NOT_FOUND) و منابع رسمی/جامعه:
+[`PLATFORM_LINK_FORMAT_COMPATIBILITY.md`](PLATFORM_LINK_FORMAT_COMPATIBILITY.md) و
+[`SIGNATURE_GAP_ANALYSIS.md`](SIGNATURE_GAP_ANALYSIS.md).
+
 ## ✅ وضعیت تست خودکار
 
-- `php artisan test --filter="ChannelPosterBotServiceTest|ChannelPosterQueueSendTest|ChannelPosterBotWebhookTest|ChannelPosterOriginWebhookTest|ChannelPosterMediaPublishTest|PostOverdueWatchdogTest"` → **69 passed (344 assertions)**.
+- `php artisan test --filter="SignatureRendererTest|ChannelPosterSignatureManagementTest|ChannelPosterBotWebhookTest|ChannelPosterQueueSendTest|ChannelPosterNativeAddWizardTest|ChannelPosterRubikaTestSendTest|RubikaBotClientTest|ChannelPosterMediaPublishTest"` → **129 passed (654 assertions)** (2026-10-25).
 - تمام فایل‌های تغییرکرده `php -l` clean.

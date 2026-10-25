@@ -122,14 +122,16 @@ class ProductLinkMessageHelper
      * روش ۲: URL Button (دکمه لینک‌دار زیر پیام) — پشتیبانی هر پیام‌رسان.
      *
      * - telegram : پشتیبانی رسمی (InlineKeyboardButton.url — مستندات رسمی)
-     * - eitaa    : سازگاری با API تلگرام (غیرتأییدشده رسمی — آزمایش عملی)
+     * - eitaa    : UNSUPPORTED — کلاینت ایتا reply_markup نمی‌فرستد و
+     *               sendSignatureLinkPreview مسیر ایتا را فقط‌متن پیاده‌سازی کرده
+     *               (مستندات LINKED_SIGNATURE.md: ⛔)؛ قبلا نادرست true بود.
      * - bale     : SDK بله (buildInlineKeyboardButton) — غیرتأییدشده رسمی
      * - soroush/rubika : در API فعلی کلاینت، inline keyboard مستند نیست
      */
     public static function signatureButtonSupported(?string $platformSlug): bool
     {
         return match ($platformSlug) {
-            'telegram', 'eitaa', 'bale' => true,
+            'telegram', 'bale' => true,
             default => false,
         };
     }

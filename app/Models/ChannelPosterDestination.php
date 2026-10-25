@@ -18,6 +18,9 @@ class ChannelPosterDestination extends Model
         'channel_chat_id',
         'channel_title',
         'channel_link',
+        'signature_label',
+        'signature_type',
+        'signature_enabled',
         'channel_username',
         'tag',
         'bot_token',
@@ -28,6 +31,7 @@ class ChannelPosterDestination extends Model
     protected $casts = [
         'verified_at' => 'datetime',
         'is_active' => 'boolean',
+        'signature_enabled' => 'boolean',
     ];
 
     /**

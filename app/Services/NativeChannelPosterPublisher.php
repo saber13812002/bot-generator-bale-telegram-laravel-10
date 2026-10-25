@@ -97,7 +97,8 @@ class NativeChannelPosterPublisher implements ChannelPosterPublisher
         ?string $localPath = null,
         ?string $fileName = null,
         ?string $mimeType = null,
-        ?string $parseMode = null
+        ?string $parseMode = null,
+        ?array $replyMarkup = null
     ): array {
         return $this->delegate()->publish(
             $channelChatId,
@@ -109,7 +110,8 @@ class NativeChannelPosterPublisher implements ChannelPosterPublisher
             $localPath,
             $fileName,
             $mimeType,
-            $parseMode
+            $parseMode,
+            $replyMarkup
         );
     }
 

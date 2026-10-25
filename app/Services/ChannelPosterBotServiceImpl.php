@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\ProductLinkMessageHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
+use App\Services\ChannelPoster\SignatureRenderer;
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterPublishLog;
@@ -470,13 +471,32 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         return $destination;
     }
 
+    public function updateSignatureSettings(
+        int $destinationId,
+        string $link,
+        ?string $label,
+        string $type,
+        bool $enabled
+    ): ChannelPosterDestination {
+        $destination = ChannelPosterDestination::findOrFail($destinationId);
+        $destination->channel_link = $link;
+        $destination->signature_label = $label !== null && trim($label) !== '' ? mb_substr(trim($label), 0, 255) : null;
+        $destination->signature_type = $type;
+        $destination->signature_enabled = $enabled;
+        $destination->save();
+
+        return $destination;
+    }
+
     public function buildSignature(int $botId, string $tag, ?string $platform = null): array
     {
+        $empty = ['text' => '', 'parse_mode' => null, 'button' => null];
+
         $destinations = $this->resolveByTag($botId, $tag);
         $withLinks = $destinations->filter(fn (ChannelPosterDestination $d) => !empty($d->channel_link));
 
         if ($withLinks->isEmpty()) {
-            return ['text' => '', 'parse_mode' => null];
+            return $empty;
         }
 
         $items = $withLinks->values()->toArray();
@@ -489,38 +509,66 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
         ];
 
-        // ── حالت پلتفرم‌آگاه: فقط لینک خود همان مقصد، با نگارش مخصوص آن پلتفرم ──
+        // ── حالت پلتفرم‌آگاه: فقط لینک خود همان مقصد، رندر شده با SignatureRenderer ──
+        // امزا فقط وقتی ساخته می‌شود که فعال باشد:
+        //   signature_enabled = null  → legacy (قدیمی: لینک ذخیره ⇒ فعال)
+        //   signature_enabled = true  → فعال (ویزارد جدید)
+        //   signature_enabled = false → غیرفعال (ویزارد جدید)
         if ($platform !== null && $platform !== '') {
-            $link = null;
+            $dest = null;
             foreach ($items as $item) {
                 if ($item['platform'] === $platform) {
-                    $link = $item['channel_link'];
+                    $dest = $item;
                     break;
                 }
             }
 
-            if ($link === null) {
-                return ['text' => '', 'parse_mode' => null];
+            if ($dest === null || $dest['signature_enabled'] === false) {
+                return $empty;
             }
 
-            $label = $platformLabels[$platform] ?? $platform;
-            $line = $label . ":\n" . ProductLinkMessageHelper::signatureLink($link, $platform);
+            $type = in_array($dest['signature_type'] ?? null, [
+                SignatureRenderer::TYPE_INLINE,
+                SignatureRenderer::TYPE_RAW,
+                SignatureRenderer::TYPE_PLAIN,
+                SignatureRenderer::TYPE_BUTTON,
+                SignatureRenderer::TYPE_COMPOSITE,
+                SignatureRenderer::TYPE_NONE,
+            ], true) ? (string) $dest['signature_type'] : SignatureRenderer::TYPE_INLINE;
+
+            // برچسب کاربر (ویزارد جدید) یا برچسب پیش‌فرض پلتفرم (legacy)
+            $label = !empty($dest['signature_label'])
+                ? (string) $dest['signature_label']
+                : ($platformLabels[$platform] ?? $platform);
+
+            $rendered = SignatureRenderer::render($platform, (string) $dest['channel_link'], $type, $label);
 
             return [
-                'text' => "\n\n" . $line,
-                'parse_mode' => ProductLinkMessageHelper::parseModeForPlatform($platform),
+                'text' => $rendered['text'],
+                'parse_mode' => $rendered['parse_mode'],
+                'button' => $rendered['button'],
             ];
         }
 
         // ── حالت قدیمی (مقصد نامشخص): همه کانال‌ها، خودرسان، ترتیب تصادفی ──
+        // فرمت دقیقاً هم‌سان خروجی legacy (renderLegacy) تا رفتار تغییر نکند؛
+        // مقصدهای صریح‌غیرفعال (signature_enabled = false) حذف می‌شوند.
         shuffle($items);
         $lines = [];
         foreach ($items as $item) {
+            if ($item['signature_enabled'] === false) {
+                continue;
+            }
+
             $label = $platformLabels[$item['platform']] ?? $item['platform'];
-            $lines[] = $label . ":\n" . $item['channel_link'];
+            $lines[] = SignatureRenderer::renderLegacy($item['platform'], $item['channel_link'], $label);
         }
 
-        return ['text' => "\n\n" . implode("\n\n", $lines), 'parse_mode' => null];
+        if ($lines === []) {
+            return $empty;
+        }
+
+        return ['text' => "\n\n" . implode("\n\n", $lines), 'parse_mode' => null, 'button' => null];
     }
 
     public function getNextSlot(int $botId, string $tag): Carbon

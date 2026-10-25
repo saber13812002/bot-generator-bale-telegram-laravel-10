@@ -16,6 +16,7 @@ use App\Models\ContentSyncAdminPrefs;
 use App\Models\ContentSyncContent;
 use App\Services\ChannelPosterMediaStore;
 use App\Services\ChannelPosterQueuePublishService;
+use App\Services\ChannelPoster\SignatureRenderer;
 use App\Services\ContentSync\ContentSyncService;
 use App\Services\ContentSync\PostUrlParser;
 use App\Services\SyncPlatformRegistry;
@@ -44,6 +45,8 @@ class ChannelPosterBotController extends Controller
     public const STATE_AWAITING_SIGN_TAG = 'cp_awaiting_sign_tag';
     public const STATE_AWAITING_SIGN_CHANNEL = 'cp_awaiting_sign_channel';
     public const STATE_AWAITING_SIGN_LINK = 'cp_awaiting_sign_link';
+    public const STATE_AWAITING_SIGN_LABEL = 'cp_awaiting_sign_label';
+    public const STATE_AWAITING_SIGN_CONFIRM = 'cp_awaiting_sign_confirm';
 
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
@@ -437,6 +440,15 @@ class ChannelPosterBotController extends Controller
         if ($state && is_string($text) && !str_starts_with($text, '/')) {
             if ($state->state === self::STATE_AWAITING_SIGN_LINK) {
                 $this->handleSignLink($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_SIGN_LABEL) {
+                $this->handleSignLabel($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+            if ($state->state === self::STATE_AWAITING_SIGN_CONFIRM) {
+                // دکمه در مبدأهای native (soroush/rubika) حذف می‌شود → معادل متنی
+                $this->handleSignConfirmText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
         }
@@ -837,6 +849,10 @@ class ChannelPosterBotController extends Controller
         }
         if (str_starts_with($data, 'cp:signchn:')) {
             $this->handleSignChannelCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:signconf:')) {
+            $this->handleSignConfirmCallback($publisher, $botItem, $type, $chatId, $data);
             return;
         }
 
@@ -1293,14 +1309,28 @@ class ChannelPosterBotController extends Controller
         $allOk = true;
         $localPath = is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null;
         foreach ($destinations as $destination) {
-            // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن
+            // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن (+ دکمهٔ button-type)
             $destText = $finalText;
             $destParseMode = null;
+            $destReplyMarkup = null;
             if ($signatureEnabled && $destText !== null) {
                 $sig = $this->service->buildSignature($botItem->id, $tagKey, $destination->platform);
-                if ($sig['text'] !== '') {
-                    $destText .= $sig['text'];
-                    $destParseMode = $sig['parse_mode'];
+                if ($sig['text'] !== '' || (is_array($sig['button'] ?? null) && $sig['button'] !== [])) {
+                    // guard طول caption (فقط رسانه) — هرگز متن اصلی کوتاه نمی‌شود
+                    if ($contentType !== 'text'
+                        && $destText !== ''
+                        && !SignatureRenderer::fitsCaption(mb_strlen($destText), mb_strlen($sig['text'] ?? ''))
+                    ) {
+                        Log::warning('[ChannelPoster] Signature dropped: caption would exceed limit', [
+                            'platform' => $destination->platform,
+                            'base_length' => mb_strlen($destText),
+                            'signature_length' => mb_strlen($sig['text'] ?? ''),
+                        ]);
+                    } else {
+                        $destText .= $sig['text'];
+                        $destParseMode = $sig['parse_mode'];
+                        $destReplyMarkup = $sig['button'] ?? null;
+                    }
                 }
             }
 
@@ -1314,7 +1344,8 @@ class ChannelPosterBotController extends Controller
                 $localPath,
                 is_string($fileName) && $fileName !== '' ? $fileName : null,
                 is_string($mimeType) && $mimeType !== '' ? $mimeType : null,
-                $destParseMode
+                $destParseMode,
+                $destReplyMarkup
             );
             $ok = $result['success'] ?? false;
             $messageId = $result['message_id'] ?? null;
@@ -1577,9 +1608,158 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        $this->service->updateChannelLink($destId, $link);
+        // ویزارد جدید: لینک → برچسب → تأیید. ذخیره در دیتابیس تا مرحلهٔ تأیید
+        // (updateSignatureSettings) به‌تأخیر انجام می‌شود تا «خیر» بدون اثر باقی بماند.
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_LABEL, [
+            'destination_id' => $destId,
+            'tag' => (string) ($stateData['tag'] ?? ''),
+            'link' => $link,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_ask_label', [
+            'link' => $link,
+            'none' => trans('bot.channel_poster_sign_label_none'),
+        ]));
+    }
+
+    private function handleSignLabel(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $label,
+        array $stateData
+    ): void {
+        $destId = (int) ($stateData['destination_id'] ?? 0);
+        $link = (string) ($stateData['link'] ?? '');
+        if ($destId <= 0 || $link === '') {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $label = trim($label);
+        if ($label === '' || $label === trans('bot.channel_poster_sign_label_none')) {
+            $label = null; // بدون برچسب کاربر → برچسب پیش‌فرض پلتفرم در زمان رندر
+        } else {
+            $label = mb_substr($label, 0, 255);
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_CONFIRM, [
+            'destination_id' => $destId,
+            'tag' => (string) ($stateData['tag'] ?? ''),
+            'link' => $link,
+            'label' => $label,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_ask_confirm', [
+            'link' => $link,
+            'label' => $label !== null ? $label : trans('bot.channel_poster_sign_label_default_hint'),
+        ]), [
+            [
+                ['text' => trans('bot.channel_poster_sign_conf_yes'), 'callback_data' => 'cp:signconf:yes'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_sign_conf_no'), 'callback_data' => 'cp:signconf:no'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_sign_conf_back'), 'callback_data' => 'cp:signconf:back'],
+            ],
+        ]);
+    }
+
+    private function handleSignConfirmCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_AWAITING_SIGN_CONFIRM) {
+            return;
+        }
+        $choice = substr($data, strlen('cp:signconf:'));
+        $d = $state->data ?? [];
+
+        if ($choice === 'back') {
+            // بازگشت به مرحلهٔ برچسب (لینک حفظ می‌شود)
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_LABEL, [
+                'destination_id' => (int) ($d['destination_id'] ?? 0),
+                'tag' => (string) ($d['tag'] ?? ''),
+                'link' => (string) ($d['link'] ?? ''),
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_ask_label', [
+                'link' => (string) ($d['link'] ?? ''),
+                'none' => trans('bot.channel_poster_sign_label_none'),
+            ]));
+            return;
+        }
+
+        $this->saveSignConfirmation($publisher, $botItem, $type, $chatId, $d, $choice === 'yes');
+    }
+
+    /**
+     * معادل متنی مرحلهٔ تأیید — دکمه در مبدأهای native (soroush/rubika) حذف
+     * می‌شود (NativeChannelPosterPublisher)، پس کاربر می‌تواند بله/خیر/بازگشت
+     * را تایپ کند (برای همهٔ مبدأها کار می‌کند).
+     */
+    private function handleSignConfirmText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $stateData
+    ): void {
+        $choice = mb_strtolower(trim($text));
+        $yes = in_array($choice, ['بله', 'بره', 'yes', 'y'], true);
+        $no = in_array($choice, ['خیر', 'نه', 'no', 'n'], true);
+        $back = in_array($choice, ['بازگشت', 'back'], true);
+
+        if (!$yes && !$no && !$back) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_confirm_invalid'));
+            return;
+        }
+
+        if ($back) {
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_SIGN_LABEL, [
+                'destination_id' => (int) ($stateData['destination_id'] ?? 0),
+                'tag' => (string) ($stateData['tag'] ?? ''),
+                'link' => (string) ($stateData['link'] ?? ''),
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_ask_label', [
+                'link' => (string) ($stateData['link'] ?? ''),
+                'none' => trans('bot.channel_poster_sign_label_none'),
+            ]));
+            return;
+        }
+
+        $this->saveSignConfirmation($publisher, $botItem, $type, $chatId, $stateData, $yes);
+    }
+
+    /**
+     * ذخیرهٔ نهایی تنظیمات امزا (بله/خیر) — نقطهٔ تنها ورودی به دیتابیس در
+     * ویزارد جدید. type همواره inline است؛ انتخاب نوع امزا جزوی از این
+     * مأموریت نیست ولی در مدل/مایگریشن پشتیبانی می‌شود (G4).
+     */
+    private function saveSignConfirmation(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d,
+        bool $enabled
+    ): void {
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $link = (string) ($d['link'] ?? '');
+        if ($destId <= 0 || $link === '') {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $this->service->updateSignatureSettings($destId, $link, $d['label'] ?? null, SignatureRenderer::TYPE_INLINE, $enabled);
         $this->clearState($botItem, $chatId, $type);
-        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_sign_link_saved', ['link' => $link]));
+
+        $key = $enabled ? 'channel_poster_sign_enabled' : 'channel_poster_sign_disabled';
+        $publisher->sendPrivateMessage($chatId, trans('bot.' . $key, ['link' => $link]));
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -163,28 +164,76 @@ class RubikaBotClient
         ]));
     }
 
-    /** آیا پاسخ حاوی message_id غیرخالی است (معیار موفقیت روبیکا)؟ */
+    /**
+     * آیا پاسخ حاوی message_id غیرخالی است (معیار موفقیت روبیکا)؟
+     *
+     * مستندات رسمی خروجی sendMessage فقط فیلد «message_id» را تعریف می‌کند،
+     * اما پاسخ‌های واقعی روبیکا (مشاهده‌شده در تولید) گاهی فیلد را با نام‌های
+     * هم‌معنا برمی‌گردانند — چون شکل پاسخ در مستندات رسمی تعریف نشده
+     * (OFFICIAL_DOC_NOT_FOUND برای پاکت پاسخ)، هم‌معناهای رایج تلگرام
+     * (id / chat_id) هم پذیرفته می‌شوند تا خطای کاذب «admin نیست» رخ ندهد.
+     */
     public static function hasMessageId(array $response): bool
     {
-        $id = $response['message_id'] ?? null;
-
-        return is_string($id) ? $id !== '' : is_int($id) && $id > 0;
+        return self::extractMessageId($response) !== null;
     }
 
-    /** استخراج message_id از پاسخ (string) در صورت موجود بودن. */
+    /**
+     * استخراج message_id از پاسخ (string) در صورت موجود بودن.
+     *
+     * اولویت: message_id (مستند) → id → chat_id (هم‌معناهای غیرمستند).
+     */
     public static function extractMessageId(array $response): ?string
     {
-        $id = $response['message_id'] ?? null;
+        foreach (['message_id', 'id', 'chat_id'] as $key) {
+            $id = $response[$key] ?? null;
 
-        if (is_string($id) && $id !== '') {
-            return $id;
-        }
+            if (is_string($id) && $id !== '') {
+                return $id;
+            }
 
-        if (is_int($id)) {
-            return (string) $id;
+            if (is_int($id) && $id > 0) {
+                return (string) $id;
+            }
         }
 
         return null;
+    }
+
+    /**
+     * تشخیص ساختار پاسخ برای لاگ امن (بدون body خام — body ممکن است شامل
+     * chat_id مقصد یا دادهٔ حساس باشد؛ فقط کلیدها و وضعیت‌ها ثبت می‌شوند).
+     *
+     * خروجی: ['shape' => [...], 'has_message_id' => bool, 'error_keys' => [...]]
+     */
+    public static function diagnose(array $response): array
+    {
+        $shape = [];
+        $errorKeys = [];
+
+        foreach (array_keys($response) as $key) {
+            $shape[(string) $key] = gettype($response[$key]);
+            // «message_id» خودش فیلد موفقیت است و نباید به‌عنوان کلید خطا شمرده شود.
+            if (str_contains(strtolower((string) $key), 'error')
+                || str_contains(strtolower((string) $key), 'code')) {
+                $errorKeys[] = (string) $key;
+            }
+        }
+
+        return [
+            'shape' => $shape,
+            'keys_count' => count($shape),
+            'has_message_id' => self::hasMessageId($response),
+            'error_keys' => $errorKeys,
+        ];
+    }
+
+    /**
+     * شناسهٔ یگانهٔ همبسته برای دنبال‌کردن رویدادها در لاگ (بدون دادهٔ حساس).
+     */
+    public static function correlationId(): string
+    {
+        return Str::uuid()->toString();
     }
 
     /**

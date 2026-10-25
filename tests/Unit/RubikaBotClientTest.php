@@ -143,6 +143,78 @@ class RubikaBotClientTest extends TestCase
         $this->assertNull(RubikaBotClient::extractMessageId([]));
     }
 
+    // پاسخ واقعی روبیکا گاهی 2xx بدون message_id برمی‌گرداند (مستندات رسمی
+    // فقط message_id را تعریف می‌کند؛ پاکت پاسخ OFFICIAL_DOC_NOT_FOUND).
+    // هم‌معناهای غیرمستند id / chat_id هم پذیرفته می‌شوند.
+
+    public function test_extract_message_id_accepts_undocumented_aliases(): void
+    {
+        $this->assertSame('9002', RubikaBotClient::extractMessageId(['id' => '9002']));
+        $this->assertSame('77', RubikaBotClient::extractMessageId(['id' => 77]));
+        $this->assertSame('chat-abc', RubikaBotClient::extractMessageId(['chat_id' => 'chat-abc']));
+    }
+
+    public function test_extract_message_id_prefers_documented_message_id_over_aliases(): void
+    {
+        $this->assertSame(
+            'doc',
+            RubikaBotClient::extractMessageId(['message_id' => 'doc', 'id' => 'alias', 'chat_id' => 'chat'])
+        );
+
+        // message_id خالی/غیرمعتبر → به هم‌معناهای بعدی ادامه می‌دهد
+        $this->assertSame('alias', RubikaBotClient::extractMessageId(['message_id' => '', 'id' => 'alias']));
+        $this->assertSame('chat', RubikaBotClient::extractMessageId(['message_id' => 0, 'chat_id' => 'chat']));
+    }
+
+    public function test_has_message_id_follows_extract_message_id(): void
+    {
+        $this->assertTrue(RubikaBotClient::hasMessageId(['id' => '9002']));
+        $this->assertTrue(RubikaBotClient::hasMessageId(['chat_id' => 'x']));
+        $this->assertFalse(RubikaBotClient::hasMessageId(['code' => 403, 'error' => 'denied']));
+        $this->assertFalse(RubikaBotClient::hasMessageId([]));
+    }
+
+    public function test_diagnose_reports_shape_and_error_keys_without_leaking_values(): void
+    {
+        $diag = RubikaBotClient::diagnose([
+            'code' => 403,
+            'error' => 'access denied for chat',
+            'description' => 'cannot post to this chat',
+        ]);
+
+        $this->assertFalse($diag['has_message_id']);
+        $this->assertSame(3, $diag['keys_count']);
+        $this->assertSame(['integer'], [$diag['shape']['code']]);
+        $this->assertSame(['string'], [$diag['shape']['error']]);
+        $this->assertSame(['code', 'error'], $diag['error_keys']);
+
+        // هیچ مقدار فیلدی (نه متن خطا، نه توضیح) نشت نمی‌کند
+        $dump = json_encode($diag, JSON_UNESCAPED_UNICODE);
+        $this->assertStringNotContainsString('access denied', $dump);
+        $this->assertStringNotContainsString('cannot post to this chat', $dump);
+    }
+
+    public function test_diagnose_success_shape_marks_message_id_and_not_error_key(): void
+    {
+        $diag = RubikaBotClient::diagnose(['message_id' => '9001']);
+
+        $this->assertTrue($diag['has_message_id']);
+        $this->assertSame(['string'], [$diag['shape']['message_id']]);
+        $this->assertSame([], $diag['error_keys']);
+    }
+
+    public function test_correlation_id_is_uuid_shape_and_unique(): void
+    {
+        $a = RubikaBotClient::correlationId();
+        $b = RubikaBotClient::correlationId();
+
+        $this->assertMatchesRegularExpression(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/',
+            $a
+        );
+        $this->assertNotSame($a, $b);
+    }
+
     // ── 3-step file upload ──────────────────────────────────────────────
 
     public function test_request_upload_url_returns_upload_url_from_request_send_file(): void

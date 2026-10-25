@@ -46,7 +46,8 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ?string $localPath = null,
         ?string $fileName = null,
         ?string $mimeType = null,
-        ?string $parseMode = null
+        ?string $parseMode = null,
+        ?array $replyMarkup = null
     ): array {
         $this->publishes[] = [
             'channel_chat_id' => $channelChatId,
@@ -59,6 +60,7 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'file_name' => $fileName,
             'mime_type' => $mimeType,
             'parse_mode' => $parseMode,
+            'reply_markup' => $replyMarkup,
         ];
 
         $succeeds = $this->publishSucceeds && !in_array($platform, $this->failPlatforms, true);

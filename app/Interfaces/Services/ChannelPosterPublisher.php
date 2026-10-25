@@ -11,6 +11,9 @@ interface ChannelPosterPublisher
     /**
      * @param string|null $localPath مسیر مطلق فایل رسانه‌ای روی دیسک (برای آپلود multipart؛
      *                              به‌جای file_id که فقط برای پلتفرم مبدأ معتبر است)
+     * @param array|null $replyMarkup markup دکمهٔ inline (inline_keyboard) — فقط برای
+     *                               انتشار متنی در پلتفرم‌های پشتیبانی‌کننده (telegram/bale).
+     *                               بقیه پلتفرم‌ها نادیده می‌گیرند (log در native publisher).
      * @return array{success: bool, message_id: ?string, error?: string}
      */
     public function publish(
@@ -23,7 +26,8 @@ interface ChannelPosterPublisher
         ?string $localPath = null,
         ?string $fileName = null,
         ?string $mimeType = null,
-        ?string $parseMode = null
+        ?string $parseMode = null,
+        ?array $replyMarkup = null
     ): array;
 
     public function answerCallback(?string $callbackId, string $text = ''): void;

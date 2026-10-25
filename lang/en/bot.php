@@ -639,6 +639,19 @@ Chat ID: :chat_id',
     'channel_poster_soroush_connected' => 'Soroush channel linked to tag ":tag".',
     'channel_poster_rubika_connected' => 'Rubika channel linked to tag ":tag".',
 
+    // === Channel Signature (advanced) ===
+    'channel_poster_sign_invalid_link' => 'Invalid link. The link must start with http:// or https://.',
+    'channel_poster_sign_ask_label' => 'Link: :link'."\n".'Send a display label for the signature (e.g. "Our Channel").'."\n".'If you do not want a label, send: :none',
+    'channel_poster_sign_label_none' => 'none',
+    'channel_poster_sign_label_default_hint' => '(no label — platform default name)',
+    'channel_poster_sign_ask_confirm' => 'Link: :link'."\n".'Label: :label'."\n".'Should this link be added as a signature at the end of posts?',
+    'channel_poster_sign_conf_yes' => '✅ Yes, add it',
+    'channel_poster_sign_conf_no' => '📄 No (save as disabled)',
+    'channel_poster_sign_conf_back' => '↩️ Back to label',
+    'channel_poster_sign_confirm_invalid' => 'Send yes, no or back (or use the buttons).',
+    'channel_poster_sign_enabled' => '✅ Signature saved and enabled. It will be appended to posts.'."\n".'Link: :link'."\n".'Send /sign to change it again.',
+    'channel_poster_sign_disabled' => '📄 Link saved without a signature (disabled).'."\n".'Link: :link'."\n".'Send /sign to enable the signature.',
+
     // === Content Sync (multi-channel synchronization) ===
     'channel_sync_invalid_url' => 'That is not a valid Bale/Telegram/Eitaa/Soroush post link. Send the exact post URL.',
     'channel_sync_duplicate' => '⚠️ This link was already registered (content #:id).'."\n".':url'."\n".'Use /sync :id to view its status.',

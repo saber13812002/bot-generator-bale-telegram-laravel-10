@@ -83,6 +83,9 @@ trait UsesChannelPosterSqlite
             $table->string('channel_chat_id', 64);
             $table->string('channel_title')->nullable();
             $table->string('channel_link', 255)->nullable();
+            $table->string('signature_label', 255)->nullable();
+            $table->string('signature_type', 20)->default('inline');
+            $table->boolean('signature_enabled')->nullable();
             $table->string('channel_username', 128)->nullable();
             $table->string('tag', 64)->nullable();
             $table->string('bot_token')->nullable();

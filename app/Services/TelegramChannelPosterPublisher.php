@@ -78,9 +78,13 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
+                $correlationId = RubikaBotClient::correlationId();
+
                 if (! is_string($botToken) || $botToken === '') {
                     Log::warning('[ChannelPoster] Test send failed', [
                         'platform' => 'rubika',
+                        'operation' => 'test_message',
+                        'correlation_id' => $correlationId,
                         'error' => 'missing rubika bot token',
                     ]);
 
@@ -88,13 +92,35 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 }
 
                 $client = new RubikaBotClient($botToken);
-                $result = $client->sendMessage($channelChatId, $text);
+
+                try {
+                    $result = $client->sendMessage($channelChatId, $text);
+                } catch (Exception $e) {
+                    // لاگ امن: هیچ بخشی از URL (شامل توکن) در متن ثبت نمی‌شود —
+                    // فقط کلاس exception و عملیات؛ متن خطا ماسک می‌شود.
+                    Log::warning('[ChannelPoster] Test send failed (rubika exception)', [
+                        'platform' => 'rubika',
+                        'operation' => 'test_message',
+                        'correlation_id' => $correlationId,
+                        'http_status' => null,
+                        'exception_class' => get_class($e),
+                        'error' => TokenHelper::redactTokens($e->getMessage()),
+                    ]);
+
+                    return false;
+                }
 
                 if (! $client->hasMessageId($result)) {
-                    Log::warning('[ChannelPoster] Test send failed', [
+                    // HTTP 2xx بود ولی message_id نبود — پاسخ 2xx بوده (وگرنه
+                    // exception بالا گرفته می‌شد). ساختار پاسخ (فقط کلیدها)
+                    // ثبت می‌شود تا شکل واقعی API مشخص شود.
+                    Log::warning('[ChannelPoster] Test send failed (rubika no message_id)', [
                         'platform' => 'rubika',
-                        'channel_chat_id' => $channelChatId,
-                        'result' => $this->resultSummary($result),
+                        'operation' => 'test_message',
+                        'correlation_id' => $correlationId,
+                        'http_status' => 200,
+                        'api_error' => null,
+                        'response_shape' => RubikaBotClient::diagnose($result),
                     ]);
 
                     return false;
@@ -142,7 +168,8 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         ?string $localPath = null,
         ?string $fileName = null,
         ?string $mimeType = null,
-        ?string $parseMode = null
+        ?string $parseMode = null,
+        ?array $replyMarkup = null
     ): array {
         $caption = $text ?? '';
         $size = ($localPath !== null && is_file($localPath)) ? filesize($localPath) : 0;
@@ -279,22 +306,42 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
-                // روبیکا: پاکت پاسخ مستند نشده — موفقیت یعنی وجود message_id.
+                // روبیکا: پاکت پاسخ مستند نشده — موفقیت یعنی وجود message_id
+                // (یا هم‌معناهای غیرمستند — ببینید extractMessageId).
                 if (! is_string($botToken) || $botToken === '') {
                     return ['success' => false, 'message_id' => null, 'error' => 'missing rubika bot token'];
                 }
 
                 $client = new RubikaBotClient($botToken);
-                $result = $client->sendMessage(
-                    $channelChatId,
-                    $caption !== '' ? $caption : trans('bot.channel_poster_empty_text')
-                );
+                $correlationId = RubikaBotClient::correlationId();
+
+                try {
+                    $result = $client->sendMessage(
+                        $channelChatId,
+                        $caption !== '' ? $caption : trans('bot.channel_poster_empty_text')
+                    );
+                } catch (Exception $e) {
+                    Log::error('[ChannelPoster][publish] publish-failed (rubika text exception)', [
+                        'platform' => 'rubika',
+                        'operation' => 'publish',
+                        'correlation_id' => $correlationId,
+                        'http_status' => null,
+                        'exception_class' => get_class($e),
+                        'error' => TokenHelper::redactTokens($e->getMessage()),
+                    ]);
+
+                    return ['success' => false, 'message_id' => null, 'error' => TokenHelper::redactTokens($e->getMessage())];
+                }
 
                 $ok = $client->hasMessageId($result);
                 if (! $ok) {
-                    Log::warning('[ChannelPoster][publish] publish-failed (rubika text)', [
+                    Log::warning('[ChannelPoster][publish] publish-failed (rubika no message_id)', [
                         'platform' => 'rubika',
-                        'result' => $this->resultSummary($result),
+                        'operation' => 'publish',
+                        'correlation_id' => $correlationId,
+                        'http_status' => 200,
+                        'api_error' => null,
+                        'response_shape' => RubikaBotClient::diagnose($result),
                     ]);
                 }
 
@@ -310,11 +357,20 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             if ($parseMode !== null && $parseMode !== '') {
                 $content['parse_mode'] = $parseMode;
             }
+            // دکمهٔ inline (نوع button امضا) — فقط در شاخهٔ متنی
+            if (is_array($replyMarkup) && $replyMarkup !== []) {
+                $content['reply_markup'] = json_encode($replyMarkup, JSON_UNESCAPED_UNICODE);
+            }
             $result = $client->sendMessage($content);
             if ($parseMode !== null && $parseMode !== '' && ! $this->isOk($result)) {
+                // دکمه مستقل از parse_mode است → در retry هم نگه داشته می‌شود
                 // مارک‌آپ خراب (مثلاً [ یا < در متن) → retry خودکار بدون parse_mode
                 Log::info('[ChannelPoster][publish] parse_mode retry (' . $platform . ')');
-                $result = $client->sendMessage(['chat_id' => $channelChatId, 'text' => $text]);
+                $retry = ['chat_id' => $channelChatId, 'text' => $text];
+                if (is_array($replyMarkup) && $replyMarkup !== []) {
+                    $retry['reply_markup'] = $content['reply_markup'];
+                }
+                $result = $client->sendMessage($retry);
             }
 
             return $this->withError(

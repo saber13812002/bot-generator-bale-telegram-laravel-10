@@ -78,12 +78,34 @@ interface ChannelPosterBotService
     public function updateChannelLink(int $destinationId, string $link): \App\Models\ChannelPosterDestination;
 
     /**
+     * ذخیرهٔ تنظیمات معنایی امضا برای یک مقصد (wizard /sign).
+     *
+     * فقط دادهٔ معنایی ذخیره می‌شود — HTML/Markdown نهایی هرگز در دیتابیس نیست
+     * (رندر در زمان انتشار توسط SignatureRenderer انجام می‌شود).
+     *
+     * @param string $link    URL عمومی کانال (http/https)
+     * @param string|null $label برچسب نمایشی کاربر (null = برچسب پیش‌فرض پلتفرم)
+     * @param string $type    یکی از SignatureRenderer::TYPE_*
+     * @param bool $enabled   true = امضا فعال در پست‌ها؛ false = لینک ذخیره بدون امضا
+     */
+    public function updateSignatureSettings(
+        int $destinationId,
+        string $link,
+        ?string $label,
+        string $type,
+        bool $enabled
+    ): \App\Models\ChannelPosterDestination;
+
+    /**
      * Build a signature block with channel links.
      *
-     * - بدون $platform : فرمت قدیمی خودرسان (همه کانال‌ها، ترتیب تصادفی).
-     * - با $platform    : فقط لینک خود آن مقصد، با نگارش (parse) مخصوص پلتفرم.
+     * - بدون $platform : فرمت قدیمی خودرسان (همه کانال‌ها، ترتیب تصادفی) —
+     *                    خروجی دقیقاً همان فرمت legacy است (backward-compatible).
+     * - با $platform    : فقط لینک خود آن مقصد، رندر شده با SignatureRenderer
+     *                    (نوع/برچسب/وضعیتِ ذخیره‌شده در مقصد)؛ اگر امزا غیرفعال
+     *                    باشد (signature_enabled = false)، خروجی خالی است.
      *
-     * @return array{text: string, parse_mode: ?string}
+     * @return array{text: string, parse_mode: ?string, button: ?array}
      */
     public function buildSignature(int $botId, string $tag, ?string $platform = null): array;
 

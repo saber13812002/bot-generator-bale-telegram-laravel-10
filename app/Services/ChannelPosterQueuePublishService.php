@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\TokenHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
+use App\Services\ChannelPoster\SignatureRenderer;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
 use App\Models\ChannelPosterPublishLog;
@@ -149,14 +150,29 @@ class ChannelPosterQueuePublishService
                     continue;
                 }
 
-                // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن
+                // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن (+ دکمهٔ button-type)
                 $destText = $text;
                 $destParseMode = null;
+                $destReplyMarkup = null;
                 if ($item->signature_enabled && $destText !== null) {
                     $sig = $this->service->buildSignature($bot->id, $tag, $destination->platform);
-                    if ($sig['text'] !== '') {
-                        $destText .= $sig['text'];
-                        $destParseMode = $sig['parse_mode'];
+                    if ($sig['text'] !== '' || (is_array($sig['button'] ?? null) && $sig['button'] !== [])) {
+                        // guard طول caption (فقط رسانه) — هرگز متن اصلی کوتاه نمی‌شود
+                        if ($item->content_type !== 'text'
+                            && $destText !== ''
+                            && !SignatureRenderer::fitsCaption(mb_strlen($destText), mb_strlen($sig['text'] ?? ''))
+                        ) {
+                            Log::warning('[ChannelPoster] Signature dropped: caption would exceed limit', [
+                                'queue_id' => $item->id,
+                                'platform' => $destination->platform,
+                                'base_length' => mb_strlen($destText),
+                                'signature_length' => mb_strlen($sig['text'] ?? ''),
+                            ]);
+                        } else {
+                            $destText .= $sig['text'];
+                            $destParseMode = $sig['parse_mode'];
+                            $destReplyMarkup = $sig['button'] ?? null;
+                        }
                     }
                 }
                 if ($destText !== null && $attributionSuffix !== '') {
@@ -173,7 +189,8 @@ class ChannelPosterQueuePublishService
                     $item->media_path,
                     $item->file_name,
                     $item->mime_type,
-                    $destParseMode
+                    $destParseMode,
+                    $destReplyMarkup
                 );
                 $ok = $result['success'] ?? false;
                 $messageId = $result['message_id'] ?? null;
