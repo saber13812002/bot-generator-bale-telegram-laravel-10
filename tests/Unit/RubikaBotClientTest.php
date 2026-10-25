@@ -144,32 +144,65 @@ class RubikaBotClientTest extends TestCase
     }
 
     // پاسخ واقعی روبیکا گاهی 2xx بدون message_id برمی‌گرداند (مستندات رسمی
-    // فقط message_id را تعریف می‌کند؛ پاکت پاسخ OFFICIAL_DOC_NOT_FOUND).
-    // هم‌معناهای غیرمستند id / chat_id هم پذیرفته می‌شوند.
+    // فقط message_id را به‌عنوان خروجی sendMessage تعریف می‌کند؛ پاکت پاسخ
+    // OFFICIAL_DOC_NOT_FOUND). هم‌معنای غیرمستند «id» پذیرفته می‌شود، اما:
+    // 1) «chat_id» در قرارداد رسمی شناسهٔ چت است (فیلد ورودی جدا از
+    //    message_id در همهٔ متدها) و هرگز شناسهٔ پیام نیست (ممیزی
+    //    CP-RELEASE-GATE، اکتبر ۲۰۲۶) → دیگر به‌عنوان هم‌معنا پذیرفته نیست.
+    // 2) پاکتی که کلید خطا (code/error/...) داشته باشد = خطای سطح API در
+    //    HTTP 2xx؛ هیچ id (حتی message_id) از آن پذیرفته نمی‌شود.
 
-    public function test_extract_message_id_accepts_undocumented_aliases(): void
+    public function test_extract_message_id_accepts_undocumented_id_alias(): void
     {
         $this->assertSame('9002', RubikaBotClient::extractMessageId(['id' => '9002']));
         $this->assertSame('77', RubikaBotClient::extractMessageId(['id' => 77]));
-        $this->assertSame('chat-abc', RubikaBotClient::extractMessageId(['chat_id' => 'chat-abc']));
     }
 
-    public function test_extract_message_id_prefers_documented_message_id_over_aliases(): void
+    public function test_extract_message_id_rejects_chat_id_as_message_identifier(): void
+    {
+        // chat_id در مستندات رسمی = شناسهٔ چت، نه شناسهٔ پیام.
+        $this->assertNull(RubikaBotClient::extractMessageId(['chat_id' => 'chat-abc']));
+        $this->assertFalse(RubikaBotClient::hasMessageId(['chat_id' => 'x']));
+
+        // حضور chat_id مانع استفاده از هم‌معنای معتبر «id» نمی‌شود.
+        $this->assertSame('9002', RubikaBotClient::extractMessageId(['chat_id' => 'chat-abc', 'id' => '9002']));
+    }
+
+    public function test_extract_message_id_ignores_ids_in_error_envelope(): void
+    {
+        // پاکت خطای API در HTTP 2xx — هیچ id از آن موفقیت شمرده نمی‌شود.
+        $this->assertNull(RubikaBotClient::extractMessageId([
+            'code' => 403,
+            'error' => 'denied',
+            'id' => '123',
+        ]));
+
+        // حتی اگر message_id هم داخل پاکت خطا باشد، موفقیت ثبت نمی‌شود.
+        $this->assertNull(RubikaBotClient::extractMessageId([
+            'code' => 403,
+            'error' => 'denied',
+            'message_id' => '9001',
+        ]));
+
+        $this->assertFalse(RubikaBotClient::hasMessageId(['code' => 403, 'error' => 'denied', 'id' => '123']));
+    }
+
+    public function test_extract_message_id_prefers_documented_message_id_over_alias(): void
     {
         $this->assertSame(
             'doc',
-            RubikaBotClient::extractMessageId(['message_id' => 'doc', 'id' => 'alias', 'chat_id' => 'chat'])
+            RubikaBotClient::extractMessageId(['message_id' => 'doc', 'id' => 'alias'])
         );
 
-        // message_id خالی/غیرمعتبر → به هم‌معناهای بعدی ادامه می‌دهد
+        // message_id خالی/غیرمعتبر → به هم‌معنای بعدی ادامه می‌دهد
         $this->assertSame('alias', RubikaBotClient::extractMessageId(['message_id' => '', 'id' => 'alias']));
-        $this->assertSame('chat', RubikaBotClient::extractMessageId(['message_id' => 0, 'chat_id' => 'chat']));
+        $this->assertNull(RubikaBotClient::extractMessageId(['message_id' => 0]));
     }
 
     public function test_has_message_id_follows_extract_message_id(): void
     {
         $this->assertTrue(RubikaBotClient::hasMessageId(['id' => '9002']));
-        $this->assertTrue(RubikaBotClient::hasMessageId(['chat_id' => 'x']));
+        $this->assertFalse(RubikaBotClient::hasMessageId(['chat_id' => 'x']));
         $this->assertFalse(RubikaBotClient::hasMessageId(['code' => 403, 'error' => 'denied']));
         $this->assertFalse(RubikaBotClient::hasMessageId([]));
     }

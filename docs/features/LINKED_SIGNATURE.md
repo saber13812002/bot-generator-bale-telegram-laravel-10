@@ -156,5 +156,5 @@ php artisan app:test-signature-link \
 
 ## ✅ وضعیت تست خودکار
 
-- `php artisan test --filter="SignatureRendererTest|ChannelPosterSignatureManagementTest|ChannelPosterBotWebhookTest|ChannelPosterQueueSendTest|ChannelPosterNativeAddWizardTest|ChannelPosterRubikaTestSendTest|RubikaBotClientTest|ChannelPosterMediaPublishTest"` → **129 passed (654 assertions)** (2026-10-25).
+- `php artisan test --filter="SignatureRendererTest|ChannelPosterSignatureManagementTest|ChannelPosterBotWebhookTest|ChannelPosterQueueSendTest|ChannelPosterNativeAddWizardTest|ChannelPosterRubikaTestSendTest|RubikaBotClientTest|ChannelPosterMediaPublishTest"` → **132 passed (661 assertions)** (2026-10-25، پس از اصلاح ممیزی CP-RELEASE-GATE: حذف هم‌معنای `chat_id` + تست HTTP 429).
 - تمام فایل‌های تغییرکرده `php -l` clean.

@@ -167,11 +167,15 @@ class RubikaBotClient
     /**
      * آیا پاسخ حاوی message_id غیرخالی است (معیار موفقیت روبیکا)؟
      *
-     * مستندات رسمی خروجی sendMessage فقط فیلد «message_id» را تعریف می‌کند،
-     * اما پاسخ‌های واقعی روبیکا (مشاهده‌شده در تولید) گاهی فیلد را با نام‌های
-     * هم‌معنا برمی‌گردانند — چون شکل پاسخ در مستندات رسمی تعریف نشده
-     * (OFFICIAL_DOC_NOT_FOUND برای پاکت پاسخ)، هم‌معناهای رایج تلگرام
-     * (id / chat_id) هم پذیرفته می‌شوند تا خطای کاذب «admin نیست» رخ ندهد.
+     * مستندات رسمی خروجی sendMessage فقط فیلد «message_id» را تعریف می‌کند.
+     * چون شکل دقیق پاکت پاسخ مستند نیست (OFFICIAL_DOC_NOT_FOUND)، هم‌معنای
+     * غیرمستند «id» هم پذیرفته می‌شود تا خطای کاذب «admin نیست» رخ ندهد —
+     * اما «chat_id» طبق قرارداد رسمی شناسهٔ چت است (در همهٔ متدها فیلد
+     * جدا از message_id) و هرگز شناسهٔ پیام نیست؛ پس پذیرفته نمی‌شود.
+     *
+     * نکتهٔ امن (ممیزی CP-RELEASE-GATE، اکتبر ۲۰۲۶): پاسخ‌های 2xx گاهی
+     * پاکت خطای API هستند (code/error) — در آن حالت هیچ id پذیرفته
+     * نمی‌شود تا 2xx ناقص هرگز «موفقیت قطعی» نشود.
      */
     public static function hasMessageId(array $response): bool
     {
@@ -181,11 +185,25 @@ class RubikaBotClient
     /**
      * استخراج message_id از پاسخ (string) در صورت موجود بودن.
      *
-     * اولویت: message_id (مستند) → id → chat_id (هم‌معناهای غیرمستند).
+     * اولویت: message_id (مستند) → id (هم‌معنای غیرمستند).
+     *
+     * «chat_id» عمداً رد شده است: در مستندات رسمی روبیکا (botapi.rubika.ir)
+     * chat_id شناسهٔ چت/کانال مقصد است — ورودی sendMessage و در متدهای
+     * edit/delete/forward همواره پارامتری جدا از message_id — بنابراین
+     * به‌عنوان شناسهٔ پیام اعتبار ندارد و پذیرش آن باعث «موفقیت کاذب» و
+     * ذخیرهٔ شناسهٔ نادرست در لاگ‌های انتشار می‌شد.
+     *
+     * اگر پاسخ کلید خطا (code / error / ...) داشته باشد، در نظر گرفته
+     * می‌شود که HTTP 2xx با خطای سطح API پاسخ داده و هیچ id — حتی
+     * message_id — از آن پذیرفته نمی‌شود.
      */
     public static function extractMessageId(array $response): ?string
     {
-        foreach (['message_id', 'id', 'chat_id'] as $key) {
+        if (self::hasErrorEnvelope($response)) {
+            return null;
+        }
+
+        foreach (['message_id', 'id'] as $key) {
             $id = $response[$key] ?? null;
 
             if (is_string($id) && $id !== '') {
@@ -198,6 +216,25 @@ class RubikaBotClient
         }
 
         return null;
+    }
+
+    /**
+     * آیا پاسخ شبیه پاکت خطای API است (حداقل یک کلید code / error دارد)؟
+     *
+     * فقط نام کلیدها بررسی می‌شود — ارزشی دیده نمی‌شود (هم‌خوانی با
+     * diagnose() که برای لاگ امن طراحی شده است).
+     */
+    private static function hasErrorEnvelope(array $response): bool
+    {
+        foreach (array_keys($response) as $key) {
+            $key = strtolower((string) $key);
+
+            if (str_contains($key, 'error') || str_contains($key, 'code')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

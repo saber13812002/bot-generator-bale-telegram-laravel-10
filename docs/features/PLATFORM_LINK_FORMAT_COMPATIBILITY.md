@@ -264,6 +264,20 @@
    plain برای بقیه) — `parse_mode` فقط وقتی label هست تنظیم می‌شود.
 4. **طول:** guard کپشن با `fitsCaption(base, sig, 1024)` — اگر امضا کپشن را از 1024 عبور داد،
    **امضا حذف می‌شود** و متن اصلی هرگز truncate نمی‌شود + `Log::warning`.
+   - **واحدهای اندازه‌گیری (ممیزی CP-RELEASE-GATE، 2026-10-25):** guard با `mb_strlen()` روی
+     رشتهٔ UTF-8 می‌سنجد → یعنی **تعداد code point** (نه بایت، نه grapheme cluster).
+     1024 فقط برای **Telegram** حد رسمی API است (`caption ≤1024` در core.telegram.org).
+     برای بقیهٔ پلتفرم‌ها حد کپشن مستند نیست و 1024 صرفاً **فرض امن مشترک** است
+     (ASSUMPTION نه واقعیت رسمی — ببینید جدول بخش ۵، ردیف ۹).
+     شمارش بر مبنای code point برای ایموجی‌های چندکدپوینتی (مثلاً skin-tone زده‌شده
+     یا ZWJ sequences) **محافظه‌کارانه** است: طول را بیش‌ازحد واقعی حساب می‌کند و زودتر
+     امضا را حذف می‌کند — یعنی در جهت امن (false-negative) خطا می‌کند و هرگز
+     کپشن بیش‌ازحد برای تلگرام ارسال نمی‌شود.
+   - **همهٔ content_type ها یکسان:** guard فقط وقتی `content_type !== 'text'` و
+     متن مقصد غیرخالی است اجرا می‌شود؛ قواعد برای photo/video/document یکسان است
+     (همه caption را همان محدودیت می‌سنجد) — در کد تفکیک نوع رسانه وجود ندارد.
+   - **هشدار غیرحساسیت‌مند:** `Log::warning` فقط `queue_id`، `platform` و طول‌ها را
+     ثبت می‌کند — نه متن، نه توکن، نه URL.
 5. **retry امن:** در `TestPostPreviewService` اگر ارسال با `parse_mode` شکست خورد، retry بدون
    `parse_mode` انجام می‌شود (هیچ retry خودکار روی فرمت نامعتبر نیست).
 6. **Unicode/Persian:** متن UTF-8 بدون تبدیل رد می‌شود؛ label فارسی در همهٔ پلتفرم‌ها mock-تست شده.
@@ -278,11 +292,17 @@
 |---|---|
 | [`tests/Unit/SignatureRendererTest.php`](../../tests/Unit/SignatureRendererTest.php) | 33 تست: telegram/eitaa anchor html + escape injection؛ bale Markdown + فال‌بک label ناامن (حلقه بر روی کاراکترهای مخرب)؛ soroush/rubika plain؛ raw/plain/none/empty/composite؛ دکمه در telegram/bale + fallback در بقیه؛ `fitsCaption` شامل مرز 1024؛ `renderLegacy`؛ sanity capability matrix |
 | [`tests/Feature/ChannelPosterSignatureManagementTest.php`](../../tests/Feature/ChannelPosterSignatureManagementTest.php) | 15 تست: ویزارد 3 قدم end-to-end (enabled/disabled/بدون‌برچسب/لینک نامعتبر/بازگشت/مسیر متنی بله-خیر)، `buildSignature` برای هر پلتفرم، ردیف legacy با `signature_enabled=null`، guard کپشن در صف، retry بدون امضای دوتایی، ارسال فوری با/بدون امضا |
-| [`tests/Unit/RubikaBotClientTest.php`](../../tests/Unit/RubikaBotClientTest.php) | 17 تست: شکل payload روبیکا (بدون parse_mode)، alias `message_id` (id/chat_id)، `diagnose()` بدون نشت secret، `correlation_id` |
-| [`tests/Feature/ChannelPosterRubikaTestSendTest.php`](../../tests/Feature/ChannelPosterRubikaTestSendTest.php) | 10 تست: موفقیت، alias، خطای API، HTTP 403، timeout، پاسخ غیر-JSON (هیچ‌کدام secret را لاگ نمی‌کنند) |
+| [`tests/Unit/RubikaBotClientTest.php`](../../tests/Unit/RubikaBotClientTest.php) | 26 تست: شکل payload روبیکا (بدون parse_mode)، alias `message_id` (فقط `id` — `chat_id` طبق قرارداد رسمی شناسهٔ چت است و پذیرفته نمی‌شود)، ردِ پاکت‌های خطای API در 2xx (حتی با `message_id` درون پاکت خطا)، `diagnose()` بدون نشت secret، `correlation_id` |
+| [`tests/Feature/ChannelPosterRubikaTestSendTest.php`](../../tests/Feature/ChannelPosterRubikaTestSendTest.php) | 12 تست: موفقیت، alias `id`، ردِ `chat_id`-تنها با لاگ تشخیصی، خطای API، HTTP 403، **HTTP 429**، timeout، پاسخ غیر-JSON (هیچ‌کدام secret را لاگ نمی‌کنند) |
 
-**نتیجهٔ regression (2026-10-25):** فیلتر 8 کلاس تست → **129 passed / 654 assertions** (2 deprecated —
+**نتیجهٔ regression (2026-10-25):** فیلتر 8 کلاس تست → **132 passed / 661 assertions** (2 deprecated —
 فقط هشدار PHP 8.5، بدون تأثیر).
+
+> **اصلاح ممیزی CP-RELEASE-GATE (2026-10-25):** هم‌معنای `chat_id` از
+> [`RubikaBotClient::extractMessageId()`](../../app/Services/RubikaBotClient.php) حذف شد — در
+> مستندات رسمی روبیکا `chat_id` شناسهٔ **چت** است (فیلد ورودی جدا از `message_id` در همهٔ
+> متدها) و پذیرش آن «موفقیت کاذب» با ذخیرهٔ شناسهٔ نادرست در لاگ‌های انتشار می‌ساخت. همچنین
+> پاسخ‌های 2xx با کلید خطا (code/error) دیگر هیچ `id` پذیرفته نمی‌شوند.
 
 **Skipped with reason:**
 

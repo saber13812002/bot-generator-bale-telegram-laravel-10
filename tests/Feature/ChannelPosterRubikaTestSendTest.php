@@ -65,14 +65,59 @@ class ChannelPosterRubikaTestSendTest extends TestCase
         );
     }
 
-    public function test_rubika_test_send_accepts_undocumented_chat_id_alias(): void
+    public function test_rubika_test_send_chat_id_only_is_not_a_message_success(): void
     {
+        // مستندات رسمی: chat_id شناسهٔ چت است، نه شناسهٔ پیام؛ پاکت 2xx
+        // که فقط chat_id برگرداند نباید موفقیت ارسال تلقی شود (ممیزی
+        // CP-RELEASE-GATE).
         Http::fake([
             'botapi.rubika.ir/*' => Http::response(['chat_id' => 'abc-chat-01'], 200),
         ]);
-        Log::shouldReceive('warning')->never();
 
-        $this->assertTrue(
+        Log::shouldReceive('warning')->once()->withArgs(function ($message, $ctx) {
+            if ($message !== '[ChannelPoster] Test send failed (rubika no message_id)') {
+                return false;
+            }
+
+            $dump = json_encode($ctx, JSON_UNESCAPED_UNICODE);
+
+            return ($ctx['platform'] ?? null) === 'rubika'
+                && ($ctx['operation'] ?? null) === 'test_message'
+                && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', (string) ($ctx['correlation_id'] ?? '')) === 1
+                && ($ctx['http_status'] ?? null) === 200
+                && is_array($ctx['response_shape'] ?? null)
+                && ($ctx['response_shape']['has_message_id'] ?? null) === false
+                && array_key_exists('chat_id', $ctx['response_shape']['shape'] ?? [])
+                && ! str_contains($dump, self::TOKEN);
+        });
+
+        $this->assertFalse(
+            $this->publisher()->sendTestMessage(self::CHANNEL_ID, 'test', 'rubika', self::TOKEN)
+        );
+    }
+
+    public function test_rubika_test_send_http_429_fails_with_safe_exception_log(): void
+    {
+        Http::fake([
+            'botapi.rubika.ir/*' => Http::response('{"error":"too many requests"}', 429),
+        ]);
+
+        Log::shouldReceive('warning')->once()->withArgs(function ($message, $ctx) {
+            if ($message !== '[ChannelPoster] Test send failed (rubika exception)') {
+                return false;
+            }
+
+            $dump = json_encode($ctx, JSON_UNESCAPED_UNICODE);
+
+            return ($ctx['platform'] ?? null) === 'rubika'
+                && ($ctx['operation'] ?? null) === 'test_message'
+                && isset($ctx['correlation_id'])
+                && ($ctx['exception_class'] ?? null) === \RuntimeException::class
+                && str_contains($ctx['error'] ?? '', 'HTTP 429')
+                && ! str_contains($dump, self::TOKEN);
+        });
+
+        $this->assertFalse(
             $this->publisher()->sendTestMessage(self::CHANNEL_ID, 'test', 'rubika', self::TOKEN)
         );
     }
