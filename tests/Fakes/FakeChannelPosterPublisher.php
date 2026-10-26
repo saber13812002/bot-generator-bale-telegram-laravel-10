@@ -14,6 +14,13 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
     public bool $publishSucceeds = true;
     /** @var list<string> Platforms that should always fail to publish (e.g. ['bale']). */
     public array $failPlatforms = [];
+    /**
+     * CP-RUBIKA-RESPONSE-FIX: override for the sendTestMessage DTO.
+     * Shape: array{ok: bool, class: string, message_id: ?string, error: ?string,
+     *            http_status: ?int, permission_denied: bool}
+     * When null, a default DTO is derived from testSendSucceeds.
+     */
+    public ?array $testSendResult = null;
 
     public function sendPrivateMessage(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
     {
@@ -24,7 +31,7 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
         ];
     }
 
-    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool
+    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): array
     {
         $this->testMessages[] = [
             'channel_chat_id' => $channelChatId,
@@ -33,7 +40,20 @@ class FakeChannelPosterPublisher implements ChannelPosterPublisher
             'bot_token' => $botToken,
         ];
 
-        return $this->testSendSucceeds;
+        if ($this->testSendResult !== null) {
+            return $this->testSendResult;
+        }
+
+        return [
+            'ok' => $this->testSendSucceeds,
+            'class' => $this->testSendSucceeds
+                ? ChannelPosterPublisher::TEST_SEND_SUCCESS_WITH_MESSAGE_ID
+                : ChannelPosterPublisher::TEST_SEND_API_REJECTED,
+            'message_id' => $this->testSendSucceeds ? 'fake-test-msg-1' : null,
+            'error' => $this->testSendSucceeds ? null : 'fake test send failure (' . $platform . ')',
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
     }
 
     public function publish(

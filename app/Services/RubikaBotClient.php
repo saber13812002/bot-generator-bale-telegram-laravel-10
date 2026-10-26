@@ -20,8 +20,10 @@ use RuntimeException;
  * نکات مهم از مستندات:
  *  - آدرس پایه: https://botapi.rubika.ir/v3/{token}/{method} — فقط POST JSON
  *  - توکن opaque است (فرمت رسمی اعلام نشده).
- *  - پاکت پاسخ در مستندات تعریف نشده (BLOCKED)؛ موفقیت = HTTP 2xx + وجود
- *    فیلد مورد انتظار (معمولاً message_id).
+ *  - شکل دقیق پاکت پاسخ در مستندات تعریف نشده (OFFICIAL_DOC_NOT_FOUND)؛
+ *    مشاهدهٔ زنده در پروتکشن (اکتبر ۲۰۲۶): {"status": <string>,
+ *    "data": <array>}. تعیین موفقیت/شکست متمرکز در analyzeResponse()
+ *    (پنج حالت) است؛ در لایه‌های دیگر parser موازی نسازید (M3).
  *  - ارسال فایل دو مرحله‌ای است:
  *      1) requestSendFile(type) → upload_url
  *      2) POST multipart با فیلد «file» به upload_url → file_id
@@ -33,6 +35,33 @@ use RuntimeException;
 class RubikaBotClient
 {
     public const BASE = 'https://botapi.rubika.ir/v3/';
+
+    /**
+     * پنج حالت پاسخ API روبیکا (CP-RUBIKA-RESPONSE-FIX / M2).
+     *
+     * HTTP 200 به‌تنهایی مدرک موفقیت نیست و نبودِ message_id به‌تنهایی
+     * مدرک شکست نیست؛ حالت بر اساس مدرک واقعی در بدنهٔ پاسخ (یا HTTP
+     * status در استثناها) تعیین می‌شود.
+     */
+    public const STATE_SUCCESS_WITH_MESSAGE_ID = 'success_with_message_id';
+    public const STATE_SUCCESS_WITHOUT_MESSAGE_ID = 'success_without_message_id';
+    public const STATE_API_REJECTED = 'api_rejected';
+    public const STATE_TRANSPORT_FAILURE = 'transport_failure';
+    public const STATE_UNKNOWN_RESULT = 'unknown_result';
+
+    /**
+     * کلمات موفقیت برای فیلد status — فرض مستندسازانهٔ محافظه‌کارانه.
+     *
+     * مقدار دقیق status در پاکت پاسخ مستند نیست (مشاهدهٔ زنده: رشته).
+     * فقط این مقادیر «پذیرش صریح API» شمرده می‌شوند؛ هرچیز دیگر UNKNOWN
+     * می‌ماند (ساختار غیرمستند فرض نمی‌شود).
+     */
+    public const SUCCESS_STATUS_WORDS = ['ok', 'success', 'true', 'done', 'completed', '200'];
+
+    /**
+     * کلمات شکست برای فیلد status (تطبیق زیررشته روی مقدار نرمال‌شده).
+     */
+    public const FAILURE_STATUS_WORDS = ['error', 'fail', 'denied', 'forbidden', 'unauthorized', 'exception', 'invalid'];
 
     /**
      * Update دریافت‌شده از webhook (برای سطح سازگار با SDK).
@@ -169,13 +198,19 @@ class RubikaBotClient
      *
      * مستندات رسمی خروجی sendMessage فقط فیلد «message_id» را تعریف می‌کند.
      * چون شکل دقیق پاکت پاسخ مستند نیست (OFFICIAL_DOC_NOT_FOUND)، هم‌معنای
-     * غیرمستند «id» هم پذیرفته می‌شود تا خطای کاذب «admin نیست» رخ ندهد —
-     * اما «chat_id» طبق قرارداد رسمی شناسهٔ چت است (در همهٔ متدها فیلد
-     * جدا از message_id) و هرگز شناسهٔ پیام نیست؛ پس پذیرفته نمی‌شود.
+     * غیرمستند «id» هم در سطح اول پذیرفته می‌شود تا خطای کاذب «admin نیست»
+     * رخ ندهد — اما «chat_id» طبق قرارداد رسمی شناسهٔ چت است (در همهٔ
+     * متدها فیلد جدا از message_id) و هرگز شناسهٔ پیام نیست؛ پس پذیرفته
+     * نمی‌شود.
      *
-     * نکتهٔ امن (ممیزی CP-RELEASE-GATE، اکتبر ۲۰۲۶): پاسخ‌های 2xx گاهی
-     * پاکت خطای API هستند (code/error) — در آن حالت هیچ id پذیرفته
-     * نمی‌شود تا 2xx ناقص هرگز «موفقیت قطعی» نشود.
+     * CP-RUBIKA-RESPONSE-FIX (اکتبر ۲۰۲۶): پاکت مشاهده‌شده در پروتکشن
+     * دو سطحی است {"status":..., "data":{...}} و message_id در توی data
+     * قرار دارد؛ در سطح data فقط کلید مستند message_id اعتبار دارد
+     * (هم‌معنای «id» در توی data فرض برقرار نمی‌شود).
+     *
+     * نکتهٔ امن (ممیزی CP-RELEASE-GATE): پاسخ‌های 2xx گاهی پاکت خطای
+     * API هستند (code/error در سطح اول یا در توی data) — در آن حالت هیچ
+     * id پذیرفته نمی‌شود تا 2xx ناقص هرگز «موفقیت قطعی» نشود.
      */
     public static function hasMessageId(array $response): bool
     {
@@ -185,7 +220,8 @@ class RubikaBotClient
     /**
      * استخراج message_id از پاسخ (string) در صورت موجود بودن.
      *
-     * اولویت: message_id (مستند) → id (هم‌معنای غیرمستند).
+     * اولویت: سطح اول message_id (مستند) → id (هم‌معنای غیرمستند) →
+     * سطح data message_id (پاکت دو سطحی مشاهده‌شده در پروتکشن).
      *
      * «chat_id» عمداً رد شده است: در مستندات رسمی روبیکا (botapi.rubika.ir)
      * chat_id شناسهٔ چت/کانال مقصد است — ورودی sendMessage و در متدهای
@@ -193,9 +229,9 @@ class RubikaBotClient
      * به‌عنوان شناسهٔ پیام اعتبار ندارد و پذیرش آن باعث «موفقیت کاذب» و
      * ذخیرهٔ شناسهٔ نادرست در لاگ‌های انتشار می‌شد.
      *
-     * اگر پاسخ کلید خطا (code / error / ...) داشته باشد، در نظر گرفته
-     * می‌شود که HTTP 2xx با خطای سطح API پاسخ داده و هیچ id — حتی
-     * message_id — از آن پذیرفته نمی‌شود.
+     * اگر پاسخ کلید خطا (code / error / ...) در سطح اول یا در توی data
+     * داشته باشد، در نظر گرفته می‌شود که HTTP 2xx با خطای سطح API پاسخ
+     * داده و هیچ id — حتی message_id — از آن پذیرفته نمی‌شود.
      */
     public static function extractMessageId(array $response): ?string
     {
@@ -203,14 +239,17 @@ class RubikaBotClient
             return null;
         }
 
+        // سطح اول: message_id (مستند) سپس هم‌معنای غیرمستند id
         foreach (['message_id', 'id'] as $key) {
-            $id = $response[$key] ?? null;
-
-            if (is_string($id) && $id !== '') {
-                return $id;
+            if (self::isMessageIdValue($id = $response[$key] ?? null)) {
+                return (string) $id;
             }
+        }
 
-            if (is_int($id) && $id > 0) {
+        // سطح data (پاکت دو سطحی): فقط کلید مستند message_id —
+        // هم‌معناهای غیرمستند در این سطح فرض برقرار نمی‌شود.
+        if (is_array($response['data'] ?? null)) {
+            if (self::isMessageIdValue($id = $response['data']['message_id'] ?? null)) {
                 return (string) $id;
             }
         }
@@ -219,17 +258,100 @@ class RubikaBotClient
     }
 
     /**
-     * آیا پاسخ شبیه پاکت خطای API است (حداقل یک کلید code / error دارد)؟
+     * آیا مقدار داده‌شده یک message_id معتبر است (رشتهٔ غیرخالی یا int مثبت)؟
+     */
+    public static function isMessageIdValue(mixed $id): bool
+    {
+        return (is_string($id) && $id !== '') || (is_int($id) && $id > 0);
+    }
+
+    /**
+     * آیا پاسخ شبیه پاکت خطای API است (حداقل یک کلید code / error)؟
      *
      * فقط نام کلیدها بررسی می‌شود — ارزشی دیده نمی‌شود (هم‌خوانی با
      * diagnose() که برای لاگ امن طراحی شده است).
+     *
+     * CP-RUBIKA-RESPONSE-FIX: کلیدها در دو سطح بررسی می‌شوند — سطح اول
+     * و کلیدهای توی data (با پیشوند «data.») — چون پاکت واقعی دو سطحی
+     * است و خطای API ممکن است داخل data بیاید.
      */
     private static function hasErrorEnvelope(array $response): bool
     {
-        foreach (array_keys($response) as $key) {
-            $key = strtolower((string) $key);
+        foreach (self::envelopeLevels($response) as $level) {
+            foreach (array_keys($level) as $key) {
+                $key = strtolower((string) $key);
 
-            if (str_contains($key, 'error') || str_contains($key, 'code')) {
+                if (str_contains($key, 'error') || str_contains($key, 'code')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * سطوح قابل بررسی پاکت پاسخ: سطح اول + (در صورت آرایه بودن) data.
+     *
+     * عمق بیش از ۲ سطح عمداً بررسی نمی‌شود: فقط پاکت دو سطحی مشاهده‌شده
+     * در پروتکشن معتبر است و ساختارهای عمیق‌تر غیرمستند فرض می‌شوند.
+     */
+    private static function envelopeLevels(array $response): array
+    {
+        $levels = [$response];
+
+        if (is_array($response['data'] ?? null)) {
+            $levels[] = $response['data'];
+        }
+
+        return $levels;
+    }
+
+    /**
+     * مقدار فیلد status در سطح اول (مقدار رشته‌ای نرمال‌شده)، وگرنه null.
+     *
+     * CP-RUBIKA-RESPONSE-FIX: مقدار دقیق status در مستندات تعریف نشده؛
+     * فقط رشته‌های واقعی قابل ارزیابی هستند (عدد/آرایه نادیده گرفته می‌شود).
+     */
+    public static function statusValue(array $response): ?string
+    {
+        $status = $response['status'] ?? null;
+
+        if (! is_string($status)) {
+            return null;
+        }
+
+        $status = mb_strtolower(trim($status));
+
+        return $status === '' ? null : $status;
+    }
+
+    /**
+     * آیا status پاسخ یکی از کلمات موفقیت مستندسازانه است؟
+     *
+     * فقط تطبیق دقیق (بعد از نرمال‌سازی) — زیررشته یا ساختار غیرمستند
+     * «موفقیت» شمرده نمی‌شود.
+     */
+    public static function hasSuccessStatus(array $response): bool
+    {
+        $status = self::statusValue($response);
+
+        return $status !== null && in_array($status, self::SUCCESS_STATUS_WORDS, true);
+    }
+
+    /**
+     * آیا status پاسخ حاوی یکی از کلمات شکست است؟
+     */
+    public static function hasFailureStatus(array $response): bool
+    {
+        $status = self::statusValue($response);
+
+        if ($status === null) {
+            return false;
+        }
+
+        foreach (self::FAILURE_STATUS_WORDS as $word) {
+            if (str_contains($status, $word)) {
                 return true;
             }
         }
@@ -238,15 +360,168 @@ class RubikaBotClient
     }
 
     /**
+     * آیا پاسخ حاوی شواهد واقعی عدم دسترسی (403 / forbidden / denied) است؟
+     *
+     * پیام «ربات ادمین نیست» در ویزارد فقط با این شواهد واقعی نمایش
+     * داده می‌شود (CP-RUBIKA-RESPONSE-FIX / M4).
+     */
+    private static function hasPermissionDenial(array $response): bool
+    {
+        $status = self::statusValue($response);
+        if ($status !== null
+            && (str_contains($status, 'forbidden') || str_contains($status, 'denied'))) {
+            return true;
+        }
+
+        foreach (self::envelopeLevels($response) as $level) {
+            $code = $level['code'] ?? null;
+            if ($code === 403 || $code === '403') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * تحلیل متمرکز پاسخ API روبیکا (CP-RUBIKA-RESPONSE-FIX / M2+M3).
+     *
+     * تنها منبع تصمیم‌گیری موفقیت/شکست برای همهٔ مسیرها (پیام تست،
+     * انتشار، انتشار صفی، لاگ نتیجه) — در لایه‌های بالاتر parser موازی
+     * نسازید.
+     *
+     * ترتیب اولویت:
+     *  1) پاکت خطا (code/error) → API_REJECTED (reason: error_envelope)
+     *  2) status با کلمهٔ شکست → API_REJECTED (reason: failure_status)
+     *  3) message_id معتبر → SUCCESS_WITH_MESSAGE_ID
+     *  4) status با کلمهٔ موفقیت → SUCCESS_WITHOUT_MESSAGE_ID
+     *  5) هرچیز دیگر → UNKNOWN_RESULT (reason: no_success_evidence)
+     *     — ساختار غیرمستند (مثل result.id) عمداً موفقیت شمرده نمی‌شود.
+     *
+     * @return array{
+     *     state: string,            یکی از STATE_*
+     *     message_id: ?string,
+     *     reason: ?string,
+     *     http_status: ?int,        همیشه null — فراخواننده مقدار واقعی را می‌گذارد
+     *     permission_denied: bool
+     * }
+     */
+    public static function analyzeResponse(array $response): array
+    {
+        if (self::hasErrorEnvelope($response)) {
+            return [
+                'state' => self::STATE_API_REJECTED,
+                'message_id' => null,
+                'reason' => 'error_envelope',
+                'http_status' => null,
+                'permission_denied' => self::hasPermissionDenial($response),
+            ];
+        }
+
+        if (self::hasFailureStatus($response)) {
+            return [
+                'state' => self::STATE_API_REJECTED,
+                'message_id' => null,
+                'reason' => 'failure_status',
+                'http_status' => null,
+                'permission_denied' => self::hasPermissionDenial($response),
+            ];
+        }
+
+        if (($messageId = self::extractMessageId($response)) !== null) {
+            return [
+                'state' => self::STATE_SUCCESS_WITH_MESSAGE_ID,
+                'message_id' => $messageId,
+                'reason' => null,
+                'http_status' => null,
+                'permission_denied' => false,
+            ];
+        }
+
+        if (self::hasSuccessStatus($response)) {
+            return [
+                'state' => self::STATE_SUCCESS_WITHOUT_MESSAGE_ID,
+                'message_id' => null,
+                'reason' => null,
+                'http_status' => null,
+                'permission_denied' => false,
+            ];
+        }
+
+        return [
+            'state' => self::STATE_UNKNOWN_RESULT,
+            'message_id' => null,
+            'reason' => 'no_success_evidence',
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
+    }
+
+    /**
+     * طبقه‌بندی استثناهای حمل (transport) به پنج حالت پاسخ
+     * (CP-RUBIKA-RESPONSE-FIX / M2).
+     *
+     *  - «HTTP 4xx/5xx» در پیام استثنا = پاسخ واقعی API بود →
+     *    API_REJECTED (403/404 → permission_denied؛ 401 «نه» — توکن
+     *    نامعتبر، نه عدم دسترسی).
+     *  - time-out / خطای cURL / پاسخ غیر-JSON → TRANSPORT_FAILURE.
+     *
+     * @return array{
+     *     state: string,
+     *     message_id: ?string,
+     *     reason: ?string,
+     *     http_status: ?int,
+     *     permission_denied: bool
+     * }
+     */
+    public static function classifyTransportException(\Throwable $e): array
+    {
+        $message = $e->getMessage();
+
+        if (preg_match('/HTTP ([45]\d{2})/', $message, $m) === 1) {
+            $status = (int) $m[1];
+
+            return [
+                'state' => self::STATE_API_REJECTED,
+                'message_id' => null,
+                'reason' => 'http_' . $status,
+                'http_status' => $status,
+                'permission_denied' => in_array($status, [403, 404], true),
+            ];
+        }
+
+        $reason = str_contains($message, 'non-JSON')
+            ? 'non_json_response'
+            : (str_contains($message, 'connection error') ? 'connection_error' : 'unknown_transport_error');
+
+        return [
+            'state' => self::STATE_TRANSPORT_FAILURE,
+            'message_id' => null,
+            'reason' => $reason,
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
+    }
+
+    /**
      * تشخیص ساختار پاسخ برای لاگ امن (بدون body خام — body ممکن است شامل
      * chat_id مقصد یا دادهٔ حساس باشد؛ فقط کلیدها و وضعیت‌ها ثبت می‌شوند).
      *
-     * خروجی: ['shape' => [...], 'has_message_id' => bool, 'error_keys' => [...]]
+     * خروجی: [
+     *   'shape' => [...],              کلیدهای سطح اول → نوع PHP
+     *   'keys_count' => int,           فقط کلیدهای سطح اول
+     *   'has_message_id' => bool,
+     *   'has_success_status' => bool,  CP-RUBIKA-RESPONSE-FIX
+     *   'has_failure_status' => bool,  CP-RUBIKA-RESPONSE-FIX
+     *   'data_keys' => [...],          کلیدهای توی data (در صورت آرایه بودن)
+     *   'error_keys' => [...],         کلیدهای خطا در هر دو سطح (پیشوند «data.»)
+     * ]
      */
     public static function diagnose(array $response): array
     {
         $shape = [];
         $errorKeys = [];
+        $dataKeys = [];
 
         foreach (array_keys($response) as $key) {
             $shape[(string) $key] = gettype($response[$key]);
@@ -257,10 +532,23 @@ class RubikaBotClient
             }
         }
 
+        if (is_array($response['data'] ?? null)) {
+            foreach (array_keys($response['data']) as $key) {
+                $dataKeys[] = (string) $key;
+                if (str_contains(strtolower((string) $key), 'error')
+                    || str_contains(strtolower((string) $key), 'code')) {
+                    $errorKeys[] = 'data.' . $key;
+                }
+            }
+        }
+
         return [
             'shape' => $shape,
             'keys_count' => count($shape),
             'has_message_id' => self::hasMessageId($response),
+            'has_success_status' => self::hasSuccessStatus($response),
+            'has_failure_status' => self::hasFailureStatus($response),
+            'data_keys' => $dataKeys,
             'error_keys' => $errorKeys,
         ];
     }

@@ -271,22 +271,30 @@ class ChannelPosterMediaSender
             ];
         }
 
-        // روبیکا: پاکت پاسخ در مستندات تعریف نشده (BLOCKED) — موفقیت یعنی
-        // HTTP 2xx + وجود message_id غیرخالی در پاسخ sendFile.
+        // روبیکا: تحلیل پنج‌حالتی متمرکز (CP-RUBIKA-RESPONSE-FIX / M3) —
+        // HTTP 2xx + message_id (سطح اول یا data) یا پذیرش صریح API =
+        // موفقیت؛ پاکت خطا = رد؛ بدون مدرک = ناشناخته (بدون retry کاذب).
         if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
-            if (RubikaBotClient::hasMessageId($data)) {
-                return [
-                    'success'    => true,
-                    'message_id' => RubikaBotClient::extractMessageId($data),
-                    'error'      => null,
-                ];
-            }
+            $analysis = RubikaBotClient::analyzeResponse($data);
 
-            return [
-                'success'    => false,
-                'message_id' => null,
-                'error'      => 'rubika: no message_id in sendFile response',
-            ];
+            return match ($analysis['state']) {
+                RubikaBotClient::STATE_SUCCESS_WITH_MESSAGE_ID,
+                RubikaBotClient::STATE_SUCCESS_WITHOUT_MESSAGE_ID => [
+                    'success'    => true,
+                    'message_id' => $analysis['message_id'],
+                    'error'      => null,
+                ],
+                RubikaBotClient::STATE_API_REJECTED => [
+                    'success'    => false,
+                    'message_id' => null,
+                    'error'      => 'rubika: API rejected the sendFile response (HTTP 2xx error envelope)',
+                ],
+                default => [
+                    'success'    => false,
+                    'message_id' => null,
+                    'error'      => 'rubika: result unknown in sendFile response',
+                ],
+            };
         }
 
         if (($data['ok'] ?? null) !== true) {

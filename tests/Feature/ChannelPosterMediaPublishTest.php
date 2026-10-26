@@ -350,7 +350,7 @@ class ChannelPosterMediaPublishTest extends TestCase
                 'upload_url' => 'https://upload.rubika.example/u/9',
             ]),
             'upload.rubika.example*' => Http::response(['file_id' => 'f-1']),
-            // پاکت پاسخ تعریف نشده (BLOCKED) — بدون message_id = ناموفق
+            // پاکت پاسخ بدون شواهد موفقیت/ناموفقیت — حالت unknown_result (ناموفق، بدون retry خودکار)
             'botapi.rubika.ir*/sendFile' => Http::response(['some' => 'payload']),
         ]);
 
@@ -366,7 +366,7 @@ class ChannelPosterMediaPublishTest extends TestCase
 
         $this->assertFalse($result['success']);
         $this->assertNull($result['message_id']);
-        $this->assertSame('rubika: no message_id in sendFile response', $result['error']);
+        $this->assertSame('rubika: result unknown in sendFile response', $result['error']);
     }
 
     public function test_rubika_video_maps_to_video_file_type(): void

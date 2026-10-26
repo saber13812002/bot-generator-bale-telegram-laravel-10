@@ -687,13 +687,13 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        $ok = $publisher->sendTestMessage(
+        $testResult = $publisher->sendTestMessage(
             $forward['id'],
             trans('bot.channel_poster_test_message')
         );
 
-        if (!$ok) {
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_admin'));
+        if (!$testResult['ok']) {
+            $publisher->sendPrivateMessage($chatId, $this->testSendFailureMessage($testResult));
             return;
         }
 
@@ -1091,14 +1091,14 @@ class ChannelPosterBotController extends Controller
 
         $token = (string) ($stateData['bot_token'] ?? '');
         $tag = (string) ($stateData['tag'] ?? '');
-        $ok = $publisher->sendTestMessage(
+        $testResult = $publisher->sendTestMessage(
             $channelChatId,
             trans('bot.channel_poster_test_message'),
             $platform,
             $token
         );
-        if (!$ok) {
-            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_not_admin'));
+        if (!$testResult['ok']) {
+            $publisher->sendPrivateMessage($chatId, $this->testSendFailureMessage($testResult));
             return;
         }
 
@@ -1123,7 +1123,34 @@ class ChannelPosterBotController extends Controller
             ChannelPosterDestination::PLATFORM_RUBIKA => 'bot.channel_poster_rubika_connected',
             default => 'bot.channel_poster_eitaa_connected',
         };
-        $publisher->sendPrivateMessage($chatId, trans($key, ['tag' => $tag !== '' ? $tag : trans('bot.channel_poster_untagged')]));
+        $message = trans($key, ['tag' => $tag !== '' ? $tag : trans('bot.channel_poster_untagged')]);
+        if (($testResult['class'] ?? null) === ChannelPosterPublisher::TEST_SEND_SUCCESS_WITHOUT_MESSAGE_ID) {
+            $message .= "\n\n" . trans('bot.channel_poster_unverified_note');
+        }
+        $publisher->sendPrivateMessage($chatId, $message);
+    }
+
+    /**
+     * M4: پیام جدا برای هر دلیل شکست تست. «آدمین نیست» فقط وقتی شواهد
+     * واقعی API (permission denied / HTTP 403) وجود داشته باشد.
+     */
+    private function testSendFailureMessage(array $result): string
+    {
+        $class = (string) ($result['class'] ?? '');
+
+        return match (true) {
+            $class === ChannelPosterPublisher::TEST_SEND_INVALID_INPUT => trans('bot.channel_poster_invalid_token'),
+            $class === ChannelPosterPublisher::TEST_SEND_TRANSPORT_FAILURE => trans('bot.channel_poster_test_send_network'),
+            $class === ChannelPosterPublisher::TEST_SEND_UNKNOWN_RESULT => trans('bot.channel_poster_test_send_unknown'),
+            $class === ChannelPosterPublisher::TEST_SEND_API_REJECTED
+                && (($result['permission_denied'] ?? false) === true || ($result['http_status'] ?? null) === 403)
+                => trans('bot.channel_poster_not_admin'),
+            $class === ChannelPosterPublisher::TEST_SEND_API_REJECTED
+                && ($result['http_status'] ?? null) === 401
+                => trans('bot.channel_poster_invalid_token'),
+            $class === ChannelPosterPublisher::TEST_SEND_API_REJECTED => trans('bot.channel_poster_test_send_failed'),
+            default => trans('bot.channel_poster_not_admin'),
+        };
     }
 
     private function saveUntaggedName(

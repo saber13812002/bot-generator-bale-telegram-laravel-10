@@ -82,7 +82,7 @@ class NativeChannelPosterPublisher implements ChannelPosterPublisher
         }
     }
 
-    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool
+    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): array
     {
         return $this->delegate()->sendTestMessage($channelChatId, $text, $platform, $botToken);
     }

@@ -43,13 +43,15 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
         }
     }
 
-    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): bool
+    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): array
     {
         try {
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
                 $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa');
 
-                return $this->isOk($result);
+                return $this->isOk($result)
+                    ? $this->okTestResult($result)
+                    : $this->rejectedTestResult($result);
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
@@ -59,7 +61,7 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                         'error' => 'missing soroush bot token',
                     ]);
 
-                    return false;
+                    return $this->invalidInputTestResult('missing soroush bot token');
                 }
 
                 $result = (new SoroushBotClient($botToken))->sendMessage($channelChatId, $text);
@@ -71,62 +73,14 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                         'result' => $this->resultSummary($result),
                     ]);
 
-                    return false;
+                    return $this->rejectedTestResult($result);
                 }
 
-                return true;
+                return $this->okTestResult($result);
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
-                $correlationId = RubikaBotClient::correlationId();
-
-                if (! is_string($botToken) || $botToken === '') {
-                    Log::warning('[ChannelPoster] Test send failed', [
-                        'platform' => 'rubika',
-                        'operation' => 'test_message',
-                        'correlation_id' => $correlationId,
-                        'error' => 'missing rubika bot token',
-                    ]);
-
-                    return false;
-                }
-
-                $client = new RubikaBotClient($botToken);
-
-                try {
-                    $result = $client->sendMessage($channelChatId, $text);
-                } catch (Exception $e) {
-                    // لاگ امن: هیچ بخشی از URL (شامل توکن) در متن ثبت نمی‌شود —
-                    // فقط کلاس exception و عملیات؛ متن خطا ماسک می‌شود.
-                    Log::warning('[ChannelPoster] Test send failed (rubika exception)', [
-                        'platform' => 'rubika',
-                        'operation' => 'test_message',
-                        'correlation_id' => $correlationId,
-                        'http_status' => null,
-                        'exception_class' => get_class($e),
-                        'error' => TokenHelper::redactTokens($e->getMessage()),
-                    ]);
-
-                    return false;
-                }
-
-                if (! $client->hasMessageId($result)) {
-                    // HTTP 2xx بود ولی message_id نبود — پاسخ 2xx بوده (وگرنه
-                    // exception بالا گرفته می‌شد). ساختار پاسخ (فقط کلیدها)
-                    // ثبت می‌شود تا شکل واقعی API مشخص شود.
-                    Log::warning('[ChannelPoster] Test send failed (rubika no message_id)', [
-                        'platform' => 'rubika',
-                        'operation' => 'test_message',
-                        'correlation_id' => $correlationId,
-                        'http_status' => 200,
-                        'api_error' => null,
-                        'response_shape' => RubikaBotClient::diagnose($result),
-                    ]);
-
-                    return false;
-                }
-
-                return true;
+                return $this->rubikaTestResult($channelChatId, $text, $botToken);
             }
 
             $client = $this->clientFor($platform, $botToken);
@@ -142,10 +96,10 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     'result' => $this->resultSummary($result),
                 ]);
 
-                return false;
+                return $this->rejectedTestResult($result);
             }
 
-            return true;
+            return $this->okTestResult($result);
         } catch (Exception $e) {
             // ماسک توکن: متن خطا ممکن است URL شامل توکن ربات باشد
             Log::warning('[ChannelPoster] Test send failed', [
@@ -154,8 +108,178 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'error' => TokenHelper::redactTokens($e->getMessage()),
             ]);
 
-            return false;
+            return [
+                'ok' => false,
+                'class' => ChannelPosterPublisher::TEST_SEND_TRANSPORT_FAILURE,
+                'message_id' => null,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+                'http_status' => null,
+                'permission_denied' => false,
+            ];
         }
+    }
+
+    /**
+     * پیام تست روبیکا با تحلیل پنج‌حالتی متمرکز (CP-RUBIKA-RESPONSE-FIX / M2+M3).
+     *
+     * لاگ‌ها امن هستند: بدون توکن، بدون body خام؛ فقط ساختار (کلیدها) و
+     * statusهای واقعی HTTP.
+     */
+    private function rubikaTestResult(string $channelChatId, string $text, ?string $botToken): array
+    {
+        $correlationId = RubikaBotClient::correlationId();
+
+        if (! is_string($botToken) || $botToken === '') {
+            Log::warning('[ChannelPoster] Test send failed', [
+                'platform' => 'rubika',
+                'operation' => 'test_message',
+                'correlation_id' => $correlationId,
+                'error' => 'missing rubika bot token',
+            ]);
+
+            return $this->invalidInputTestResult('missing rubika bot token');
+        }
+
+        $client = new RubikaBotClient($botToken);
+
+        try {
+            $result = $client->sendMessage($channelChatId, $text);
+        } catch (Exception $e) {
+            // طبقه‌بیشن حمل: HTTP 4xx/5xx در متن = پاسخ واقعی API (api_rejected)،
+            // time-out / غیر-JSON = transport_failure.
+            $classification = RubikaBotClient::classifyTransportException($e);
+
+            // لاگ امن: هیچ بخشی از URL (شامل توکن) در متن ثبت نمی‌شود —
+            // فقط کلاس exception و عملیات؛ متن خطا ماسک می‌شود.
+            Log::warning('[ChannelPoster] Test send failed (rubika exception)', [
+                'platform' => 'rubika',
+                'operation' => 'test_message',
+                'correlation_id' => $correlationId,
+                'http_status' => $classification['http_status'],
+                'class' => $classification['state'],
+                'exception_class' => get_class($e),
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+            ]);
+
+            return [
+                'ok' => false,
+                'class' => $classification['state'],
+                'message_id' => null,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+                'http_status' => $classification['http_status'],
+                'permission_denied' => $classification['permission_denied'],
+            ];
+        }
+
+        // HTTP 2xx: تحلیل متمرکز پنج‌حالتی (تنها parser مشترک).
+        $analysis = RubikaBotClient::analyzeResponse($result);
+
+        return match ($analysis['state']) {
+            RubikaBotClient::STATE_SUCCESS_WITH_MESSAGE_ID => [
+                'ok' => true,
+                'class' => ChannelPosterPublisher::TEST_SEND_SUCCESS_WITH_MESSAGE_ID,
+                'message_id' => $analysis['message_id'],
+                'error' => null,
+                'http_status' => 200,
+                'permission_denied' => false,
+            ],
+            RubikaBotClient::STATE_SUCCESS_WITHOUT_MESSAGE_ID => tap([
+                'ok' => true,
+                'class' => ChannelPosterPublisher::TEST_SEND_SUCCESS_WITHOUT_MESSAGE_ID,
+                'message_id' => null,
+                'error' => null,
+                'http_status' => 200,
+                'permission_denied' => false,
+            ], function () use ($correlationId, $result) {
+                Log::info('[ChannelPoster] Test send success without message_id', [
+                    'platform' => 'rubika',
+                    'operation' => 'test_message',
+                    'correlation_id' => $correlationId,
+                    'http_status' => 200,
+                    'response_shape' => RubikaBotClient::diagnose($result),
+                ]);
+            }),
+            RubikaBotClient::STATE_API_REJECTED => tap([
+                'ok' => false,
+                'class' => ChannelPosterPublisher::TEST_SEND_API_REJECTED,
+                'message_id' => null,
+                'error' => 'rubika: API rejected the test message',
+                'http_status' => 200,
+                'permission_denied' => $analysis['permission_denied'],
+            ], function () use ($correlationId, $result, $analysis) {
+                Log::warning('[ChannelPoster] Test send failed (rubika api_rejected)', [
+                    'platform' => 'rubika',
+                    'operation' => 'test_message',
+                    'correlation_id' => $correlationId,
+                    'http_status' => 200,
+                    'permission_denied' => $analysis['permission_denied'],
+                    'response_shape' => RubikaBotClient::diagnose($result),
+                ]);
+            }),
+            default => tap([
+                'ok' => false,
+                'class' => ChannelPosterPublisher::TEST_SEND_UNKNOWN_RESULT,
+                'message_id' => null,
+                'error' => 'rubika: send result could not be confirmed from the API response',
+                'http_status' => 200,
+                'permission_denied' => false,
+            ], function () use ($correlationId, $result) {
+                Log::warning('[ChannelPoster] Test send failed (rubika unknown_result)', [
+                    'platform' => 'rubika',
+                    'operation' => 'test_message',
+                    'correlation_id' => $correlationId,
+                    'http_status' => 200,
+                    'response_shape' => RubikaBotClient::diagnose($result),
+                ]);
+            }),
+        };
+    }
+
+    /** DTO: شکست با ورودی نامعتبر (توکن موجود نیست). */
+    private function invalidInputTestResult(string $error): array
+    {
+        return [
+            'ok' => false,
+            'class' => ChannelPosterPublisher::TEST_SEND_INVALID_INPUT,
+            'message_id' => null,
+            'error' => $error,
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
+    }
+
+    /** DTO: رد شدن صریح توسط API (ساختار خطا / isOk=false در پلتفرم‌های دیگر). */
+    private function rejectedTestResult(mixed $result): array
+    {
+        $error = is_array($result) || is_object($result)
+            ? json_encode($result, JSON_UNESCAPED_UNICODE)
+            : (string) $result;
+
+        return [
+            'ok' => false,
+            'class' => ChannelPosterPublisher::TEST_SEND_API_REJECTED,
+            'message_id' => null,
+            'error' => $error === '' ? 'destination API rejected the message' : $error,
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
+    }
+
+    /** DTO: موفقیت — message_id در صورت موجود بودن ثبت می‌شود. */
+    private function okTestResult(mixed $result): array
+    {
+        $messageId = $this->extractMessageId($result);
+
+        return [
+            'ok' => true,
+            'class' => $messageId !== null
+                ? ChannelPosterPublisher::TEST_SEND_SUCCESS_WITH_MESSAGE_ID
+                : ChannelPosterPublisher::TEST_SEND_SUCCESS_WITHOUT_MESSAGE_ID,
+            'message_id' => $messageId,
+            'error' => null,
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
     }
 
     public function publish(
@@ -306,8 +430,11 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             }
 
             if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
-                // روبیکا: پاکت پاسخ مستند نشده — موفقیت یعنی وجود message_id
-                // (یا هم‌معناهای غیرمستند — ببینید extractMessageId).
+                // روبیکا: موفقیت/شکست با تحلیل پنج‌حالتی متمرکز
+                // (RubikaBotClient::analyzeResponse) تعیین می‌شود —
+                // CP-RUBIKA-RESPONSE-FIX / M2+M3. HTTP 200 به‌تنهایی مدرک
+                // موفقیت نیست؛ پذیرش صریح API بدون message_id هم موفقیت است
+                // (message_id null) و «ربات ادمین نیست» شمرده نمی‌شود.
                 if (! is_string($botToken) || $botToken === '') {
                     return ['success' => false, 'message_id' => null, 'error' => 'missing rubika bot token'];
                 }
@@ -321,11 +448,14 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                         $caption !== '' ? $caption : trans('bot.channel_poster_empty_text')
                     );
                 } catch (Exception $e) {
+                    $classification = RubikaBotClient::classifyTransportException($e);
+
                     Log::error('[ChannelPoster][publish] publish-failed (rubika text exception)', [
                         'platform' => 'rubika',
                         'operation' => 'publish',
                         'correlation_id' => $correlationId,
-                        'http_status' => null,
+                        'http_status' => $classification['http_status'],
+                        'class' => $classification['state'],
                         'exception_class' => get_class($e),
                         'error' => TokenHelper::redactTokens($e->getMessage()),
                     ]);
@@ -333,22 +463,41 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     return ['success' => false, 'message_id' => null, 'error' => TokenHelper::redactTokens($e->getMessage())];
                 }
 
-                $ok = $client->hasMessageId($result);
-                if (! $ok) {
-                    Log::warning('[ChannelPoster][publish] publish-failed (rubika no message_id)', [
-                        'platform' => 'rubika',
-                        'operation' => 'publish',
-                        'correlation_id' => $correlationId,
-                        'http_status' => 200,
-                        'api_error' => null,
-                        'response_shape' => RubikaBotClient::diagnose($result),
-                    ]);
-                }
+                // HTTP 2xx: تحلیل متمرکز پنج‌حالتی (parser یگانه).
+                $analysis = RubikaBotClient::analyzeResponse($result);
 
-                return [
-                    'success' => $ok,
-                    'message_id' => $client->extractMessageId($result),
-                ] + ($ok ? [] : ['error' => 'rubika: no message_id in sendMessage response']);
+                return match ($analysis['state']) {
+                    RubikaBotClient::STATE_SUCCESS_WITH_MESSAGE_ID,
+                    RubikaBotClient::STATE_SUCCESS_WITHOUT_MESSAGE_ID => [
+                        'success' => true,
+                        'message_id' => $analysis['message_id'],
+                    ],
+                    RubikaBotClient::STATE_API_REJECTED => tap(
+                        ['success' => false, 'message_id' => null, 'error' => 'rubika: API rejected the request (HTTP 2xx error envelope)'],
+                        function () use ($correlationId, $result, $analysis) {
+                            Log::warning('[ChannelPoster][publish] publish-failed (rubika api_rejected)', [
+                                'platform' => 'rubika',
+                                'operation' => 'publish',
+                                'correlation_id' => $correlationId,
+                                'http_status' => 200,
+                                'permission_denied' => $analysis['permission_denied'],
+                                'response_shape' => RubikaBotClient::diagnose($result),
+                            ]);
+                        }
+                    ),
+                    default => tap(
+                        ['success' => false, 'message_id' => null, 'error' => 'rubika: result unknown — response contained no success evidence; check the channel before retrying'],
+                        function () use ($correlationId, $result) {
+                            Log::warning('[ChannelPoster][publish] publish-failed (rubika unknown_result)', [
+                                'platform' => 'rubika',
+                                'operation' => 'publish',
+                                'correlation_id' => $correlationId,
+                                'http_status' => 200,
+                                'response_shape' => RubikaBotClient::diagnose($result),
+                            ]);
+                        }
+                    ),
+                };
             }
 
             $client = $this->clientFor($platform, $botToken);

@@ -432,7 +432,8 @@ class ChannelPosterRubikaTestSendTest extends TestCase
                 && is_array($ctx['response_shape'] ?? null)
                 && ! str_contains($dump, self::TOKEN)
                 && ! str_contains($dump, self::CHANNEL_ID)
-                && ! str_contains($dump, 'denied');
+                // مقدار خام 'denied' (جای مقدار، نه کلید permission_denied):
+                && ! str_contains($dump, ':"denied"');
         });
 
         $result = $this->publisher()->publish(

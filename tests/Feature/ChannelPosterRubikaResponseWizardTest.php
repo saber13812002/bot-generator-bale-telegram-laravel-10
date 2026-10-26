@@ -191,10 +191,11 @@ class ChannelPosterRubikaResponseWizardTest extends TestCase
     {
         $bot = $this->createSoroushBot();
 
-        $this->runWizardToChatId(self::CHANNEL_ID, Http::response(
-            fn () => throw new ConnectionException('connection timed out'),
-            200
-        ));
+        // stub هر-URL Closure: برای شبیه‌سازی خطای اتصال، مستقیم ConnectionException می‌اندازد
+        // (Http::response(closure) در Laravel 10 Closure را اجرا نمی‌کند).
+        $this->runWizardToChatId(self::CHANNEL_ID, function ($request) {
+            throw new ConnectionException('connection timed out');
+        });
 
         $this->assertSame(0, ChannelPosterDestination::where('bot_id', $bot->id)->count());
 
@@ -213,18 +214,31 @@ class ChannelPosterRubikaResponseWizardTest extends TestCase
     {
         $bot = $this->createSoroushBot();
 
-        $this->runWizardToChatId(self::CHANNEL_ID, Http::response('{"error":"invalid"}', 403));
+        // Http::fake stubها را انباشته می‌کند (stub قبلی پاک نمی‌شود)؛ برای همین
+        // کل تست — هر دو تلاش — با یک fake تنها اجرا می‌شود و stub روبیکا
+        // پاسخ متفاوتی برای هر فراخوانی برمی‌گرداند.
+        $rubikaCalls = 0;
+        $this->fakeWizard(function ($request) use (&$rubikaCalls) {
+            $rubikaCalls++;
+
+            return $rubikaCalls === 1
+                ? Http::response('{"error":"invalid"}', 403)
+                : Http::response([
+                    'status' => 'OK',
+                    'data' => ['message_id' => '777002'],
+                ], 200);
+        });
+
+        $this->postWizardSteps(self::CHANNEL_ID);
         $this->assertStringContainsString(
             trans('bot.channel_poster_not_admin'),
             $this->lastSoroushText()
         );
         $this->assertSame(0, ChannelPosterDestination::where('bot_id', $bot->id)->count());
 
-        // API درست می‌شود؛ همان شناسهٔ کانال دوباره ارسال می‌شود (state حفظ شده بود)
-        $this->runWizardToChatId(self::CHANNEL_ID, Http::response([
-            'status' => 'OK',
-            'data' => ['message_id' => '777002'],
-        ], 200));
+        // API درست می‌شود؛ state حفظ شده بود → کاربر فقط شناسهٔ کانال را دوباره می‌فرستد
+        $url = '/api/webhook-channel-poster?origin=soroush&token=' . self::SOROUSH_TOKEN;
+        $this->postJson($url, $this->soroushTextUpdate($this->ownerChatId, self::CHANNEL_ID))->assertOk();
 
         $destination = ChannelPosterDestination::where('bot_id', $bot->id)
             ->where('platform', ChannelPosterDestination::PLATFORM_RUBIKA)
@@ -249,8 +263,19 @@ class ChannelPosterRubikaResponseWizardTest extends TestCase
      */
     private function runWizardToChatId(string $chatId, object $rubikaFake): void
     {
-        Http::fake($this->soroushRecordingFakes() + ['botapi.rubika.ir/*' => $rubikaFake]);
+        $this->fakeWizard($rubikaFake);
+        $this->postWizardSteps($chatId);
+    }
 
+    private function fakeWizard(object $rubikaFake): void
+    {
+        // در Laravel 10، `Http::response(closure)` Closure را اجرا نمی‌کند؛
+        // stub هر URL به‌صورت Closure جداگانه می‌آید (stubUrl Closure را صدا می‌زند).
+        Http::fake($this->soroushRecordingFakes() + ['botapi.rubika.ir/*' => $rubikaFake]);
+    }
+
+    private function postWizardSteps(string $chatId): void
+    {
         $url = '/api/webhook-channel-poster?origin=soroush&token=' . self::SOROUSH_TOKEN;
         $this->postJson($url, $this->soroushTextUpdate($this->ownerChatId, '/add'))->assertOk();
         $this->postJson($url, $this->soroushTextUpdate($this->ownerChatId, 'tag1'))->assertOk();
@@ -263,11 +288,11 @@ class ChannelPosterRubikaResponseWizardTest extends TestCase
     private function soroushRecordingFakes(): array
     {
         return [
-            'api.splus.ir/*' => Http::response(function ($request) {
+            'api.splus.ir/*' => function ($request) {
                 $this->soroushTexts[] = (string) ($request['text'] ?? '');
 
-                return ['ok' => true, 'result' => ['message_id' => 77]];
-            }, 200),
+                return Http::response(['ok' => true, 'result' => ['message_id' => 77]], 200);
+            },
         ];
     }
 
