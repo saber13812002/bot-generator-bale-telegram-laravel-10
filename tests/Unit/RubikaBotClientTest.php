@@ -626,4 +626,216 @@ class RubikaBotClientTest extends TestCase
         $this->assertFalse($diagnostic['has_success_status']);
         $this->assertSame(['data.code', 'data.error'], $diagnostic['error_keys']);
     }
+
+    // ── CP-RUBIKA-MEDIA-UPLOAD-FIX: stages 1–2 (requestSendFile/upload) ──
+
+    public function test_extract_field_reads_top_level_then_live_observed_nested_envelope(): void
+    {
+        // سطح اول (شکل مستند API)
+        $this->assertSame(
+            'https://upload.rubika.example/u/1',
+            RubikaBotClient::extractField(['upload_url' => 'https://upload.rubika.example/u/1'], 'upload_url')
+        );
+
+        // توی data (پاکت دو سطحی مشاهده‌شده در پروتکشن)
+        $this->assertSame(
+            'https://upload.rubika.example/u/2',
+            RubikaBotClient::extractField([
+                'status' => 'OK',
+                'data' => ['upload_url' => 'https://upload.rubika.example/u/2'],
+            ], 'upload_url')
+        );
+
+        // int مثبت (مانند message_id) نرمال به string می‌شود
+        $this->assertSame('9', RubikaBotClient::extractField(['file_id' => 9], 'file_id'));
+
+        // مقادیر نامعتبر / غیاب → null
+        $this->assertNull(RubikaBotClient::extractField(['upload_url' => ''], 'upload_url'));
+        $this->assertNull(RubikaBotClient::extractField(['upload_url' => 0], 'upload_url'));
+        $this->assertNull(RubikaBotClient::extractField(['data' => ['upload_url' => '']], 'upload_url'));
+        $this->assertNull(RubikaBotClient::extractField([], 'upload_url'));
+        $this->assertNull(RubikaBotClient::extractField(['other' => 'x'], 'upload_url'));
+    }
+
+    public function test_request_upload_url_reads_upload_url_from_live_observed_nested_envelope(): void
+    {
+        // ریشهٔ خطای «no upload_url» در انتشار واقعی: پاسخ موفق requestSendFile
+        // داخل پاکت {"status":..., "data":{...}} بسته شده بود و parser قدیمی
+        // فقط سطح اول را می‌خواند.
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response([
+                'status' => 'OK',
+                'data' => ['upload_url' => 'https://upload.rubika.example/u/nested'],
+            ]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+        $url = $client->requestUploadUrl('Image');
+
+        $this->assertSame('https://upload.rubika.example/u/nested', $url);
+
+        Http::assertSent(function (Request $request) {
+            return $request->url() === 'https://botapi.rubika.ir/v3/' . $this->token . '/requestSendFile'
+                && $request->data()['type'] === 'Image';
+        });
+    }
+
+    public function test_request_upload_url_preserves_api_rejection_error_envelope(): void
+    {
+        // HTTP 200 با پاکت خطای API: خطای واقعی API حفظ می‌شود —
+        // تبدیل به خطای عمومی «no upload_url» نمی‌شود (M2).
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response([
+                'status' => 'error',
+                'data' => ['code' => 13, 'error' => 'invalid token'],
+            ]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        try {
+            $client->requestUploadUrl('Image');
+            $this->fail('expected RuntimeException');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('API rejected requestSendFile', $e->getMessage());
+            $this->assertStringContainsString('reason: error_envelope', $e->getMessage());
+            $this->assertStringContainsString('status=error', $e->getMessage());
+            $this->assertStringContainsString('data.code', $e->getMessage());
+            $this->assertStringNotContainsString('no upload_url', $e->getMessage());
+            // متن خطای API (مقدار «error») هرگز در پیام نشت نمی‌کند —
+            // فقط نام کلیدها (M2: فقط ساختار خطا)
+            $this->assertStringNotContainsString('invalid token', $e->getMessage());
+        }
+    }
+
+    public function test_request_upload_url_preserves_api_rejection_failure_status(): void
+    {
+        // status شکست بدون کلید خطا → ردشوندگی واقعی API، با جزئیات status.
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response([
+                'status' => 'Forbidden',
+                'data' => [],
+            ]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        try {
+            $client->requestUploadUrl('Image');
+            $this->fail('expected RuntimeException');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('API rejected requestSendFile', $e->getMessage());
+            $this->assertStringContainsString('reason: failure_status', $e->getMessage());
+            $this->assertStringContainsString('status=forbidden', $e->getMessage());
+            $this->assertStringNotContainsString('no upload_url', $e->getMessage());
+        }
+    }
+
+    public function test_request_upload_url_non_json_response_is_distinct_error(): void
+    {
+        // HTTP 200 با بدنهٔ غیر-JSON (مثلاً خطای gateway): پیام مخصوص،
+        // نه «no upload_url».
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response('gateway error', 200),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('non-JSON response from requestSendFile (HTTP 200)');
+
+        $client->requestUploadUrl('Image');
+    }
+
+    public function test_request_upload_url_missing_url_keeps_generic_substring_with_state(): void
+    {
+        // پاسخ بدون ردشوندگی اما بدون upload_url: خطای عمومی حفظ می‌شود
+        // (سازگاری با مصرف‌کنندگان قدیمی) + حالت تحلیل برای تشخیص.
+        Http::fake([
+            'botapi.rubika.ir*' => Http::response(['some_other_field' => 1]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        try {
+            $client->requestUploadUrl('File');
+            $this->fail('expected RuntimeException');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('no upload_url in requestSendFile response', $e->getMessage());
+            $this->assertStringContainsString('state: unknown_result', $e->getMessage());
+        }
+    }
+
+    public function test_upload_file_reads_file_id_from_live_observed_nested_envelope(): void
+    {
+        $uploadUrl = 'https://upload.rubika.example/u/nested';
+
+        Http::fake([
+            $uploadUrl => Http::response([
+                'status' => 'OK',
+                'data' => ['file_id' => 'f-nested'],
+            ]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+        $fileId = $client->uploadFile($uploadUrl, 'x', 'a.jpg', 'image/jpeg');
+
+        $this->assertSame('f-nested', $fileId);
+    }
+
+    public function test_upload_file_preserves_api_rejection_on_2xx_error_envelope(): void
+    {
+        // HTTP 200 + پاکت خطا: ردشوندگی واقعی API گزارش می‌شود،
+        // نه «no file_id in upload response» (M2).
+        Http::fake([
+            'upload.rubika.example*' => Http::response([
+                'status' => 'error',
+                'data' => ['code' => 14, 'error' => 'file too large'],
+            ]),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        try {
+            $client->uploadFile('https://upload.rubika.example/u/1', 'abc', 'a.mp4', 'video/mp4');
+            $this->fail('expected RuntimeException');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('API rejected the file upload', $e->getMessage());
+            $this->assertStringContainsString('reason: error_envelope', $e->getMessage());
+            $this->assertStringContainsString('status=error', $e->getMessage());
+            $this->assertStringNotContainsString('no file_id in upload response', $e->getMessage());
+            $this->assertStringNotContainsString('file too large', $e->getMessage());
+        }
+    }
+
+    public function test_upload_file_non_json_response_is_distinct_error(): void
+    {
+        Http::fake([
+            'upload.rubika.example*' => Http::response('<html>502</html>', 200),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('non-JSON upload response (HTTP 200)');
+
+        $client->uploadFile('https://upload.rubika.example/u/1', 'abc', 'a.jpg', 'image/jpeg');
+    }
+
+    public function test_upload_file_missing_file_id_keeps_generic_substring_with_state(): void
+    {
+        Http::fake([
+            'upload.rubika.example*' => Http::response(['some' => 'payload']),
+        ]);
+
+        $client = new RubikaBotClient($this->token);
+
+        try {
+            $client->uploadFile('https://upload.rubika.example/u/1', 'abc', 'a.jpg', 'image/jpeg');
+            $this->fail('expected RuntimeException');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('no file_id in upload response', $e->getMessage());
+            $this->assertStringContainsString('state: unknown_result', $e->getMessage());
+        }
+    }
 }

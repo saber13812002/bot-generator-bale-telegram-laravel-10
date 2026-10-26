@@ -432,6 +432,327 @@ class ChannelPosterMediaPublishTest extends TestCase
         });
     }
 
+    // ── CP-RUBIKA-MEDIA-UPLOAD-FIX: آپلود سه‌مرحله‌ای با پاکت واقعی ─────────
+
+    public function test_rubika_photo_succeeds_when_upload_url_and_file_id_are_nested_in_data(): void
+    {
+        // شکل واقعی پاسخ (مشاهده‌شده در پروتکشن): {"status":..., "data":{...}}
+        // — ریشهٔ خطای «no upload_url» در انتشار واقعی.
+        $localPath = $this->makeTempFile('rubika-nested.jpg', 'nested-photo-bytes');
+        $contents = 'nested-photo-bytes';
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'status' => 'OK',
+                'data' => ['upload_url' => 'https://upload.rubika.example/u/nested'],
+            ]),
+            'upload.rubika.example*' => Http::response([
+                'status' => 'OK',
+                'data' => ['file_id' => 'f-nested'],
+            ]),
+            'botapi.rubika.ir*/sendFile' => Http::response([
+                'status' => 'OK',
+                'data' => ['message_id' => 'm-nested'],
+            ]),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن عکس با پاکت واقعی',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('m-nested', $result['message_id']);
+        $this->assertNull($result['error']);
+
+        Http::assertSentCount(3);
+
+        // مرحله ۲ با upload_urlِ توی data انجام شده
+        Http::assertSent(function (Request $request) use ($contents, $localPath) {
+            return $request->url() === 'https://upload.rubika.example/u/nested'
+                && $request->isMultipart()
+                && $request->hasFile('file', $contents, basename($localPath));
+        });
+
+        // مرحله ۳ با file_idِ توی data
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/sendFile'
+                && ($data['file_id'] ?? null) === 'f-nested'
+                && ($data['text'] ?? null) === 'کپشن عکس با پاکت واقعی';
+        });
+    }
+
+    public function test_rubika_request_send_file_api_rejection_keeps_real_error_not_generic(): void
+    {
+        // HTTP 200 با پاکت خطای API: خطای واقعی حفظ می‌شود و به
+        // «no upload_url» عمومی تبدیل نمی‌شود (M2). مراحل ۲ و ۳ هرگز
+        // اجرا نمی‌شوند.
+        $localPath = $this->makeTempFile('rubika-rejected1.jpg', 'rejected-bytes-1');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'status' => 'error',
+                'data' => ['code' => 13, 'error' => 'invalid token'],
+            ]),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertStringContainsString('API rejected requestSendFile', $result['error']);
+        $this->assertStringContainsString('reason: error_envelope', $result['error']);
+        $this->assertStringNotContainsString('no upload_url', $result['error']);
+        // مقدار متن خطا نشت نمی‌کند — فقط ساختار
+        $this->assertStringNotContainsString('invalid token', $result['error']);
+
+        // فقط مرحله ۱ — هیچ آپلود/ارسالی نشده
+        Http::assertSentCount(1);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'upload.rubika.example'));
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/sendFile'));
+    }
+
+    public function test_rubika_binary_upload_failure_reports_stage_two(): void
+    {
+        // مرحله ۱ موفق، مرحله ۲ ردشده (HTTP 413): خطای دقیق مرحله ۲.
+        $localPath = $this->makeTempFile('rubika-bigfile.jpg', 'big-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/1',
+            ]),
+            'upload.rubika.example*' => Http::response('quota exceeded', 413),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertStringContainsString('HTTP 413 uploading file', $result['error']);
+
+        // sendFile هرگز صدا زده نشده — هیچ file_id جعلی وجود ندارد
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/sendFile'));
+    }
+
+    public function test_rubika_binary_upload_2xx_error_envelope_reports_real_api_error(): void
+    {
+        // HTTP 200 + پاکت خطا در مرحله ۲: ردشوندگی واقعی گزارش می‌شود.
+        $localPath = $this->makeTempFile('rubika-rejected2.jpg', 'rejected-bytes-2');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/1',
+            ]),
+            'upload.rubika.example*' => Http::response([
+                'status' => 'error',
+                'data' => ['code' => 14, 'error' => 'file too large'],
+            ]),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertStringContainsString('API rejected the file upload', $result['error']);
+        $this->assertStringNotContainsString('no file_id in upload response', $result['error']);
+        $this->assertStringNotContainsString('file too large', $result['error']);
+
+        Http::assertSentCount(2);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/sendFile'));
+    }
+
+    public function test_rubika_final_send_file_failure_keeps_stage_error(): void
+    {
+        // مراحل ۱ و ۲ موفق؛ مرحله ۳ sendFile با 403 → خطای مرحلهٔ نهایی.
+        $localPath = $this->makeTempFile('rubika-sendfail.jpg', 'sendfail-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/1',
+            ]),
+            'upload.rubika.example*' => Http::response(['file_id' => 'f-1']),
+            'botapi.rubika.ir*/sendFile' => Http::response('denied', 403),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        $this->assertSame('HTTP 403', $result['error']);
+
+        Http::assertSentCount(3);
+    }
+
+    public function test_rubika_photo_without_caption_omits_text_in_send_file(): void
+    {
+        $localPath = $this->makeTempFile('rubika-nocaption.jpg', 'nocaption-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'upload_url' => 'https://upload.rubika.example/u/1',
+            ]),
+            'upload.rubika.example*' => Http::response(['file_id' => 'f-1']),
+            'botapi.rubika.ir*/sendFile' => Http::response(['message_id' => 'm-nc']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            null,
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('m-nc', $result['message_id']);
+
+        Http::assertSentCount(3);
+        Http::assertSent(function (Request $request) {
+            $data = $request->data();
+
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/sendFile'
+                && ($data['chat_id'] ?? null) === '@rubika_channel'
+                && ($data['file_id'] ?? null) === 'f-1'
+                && ! array_key_exists('text', $data);
+        });
+    }
+
+    public function test_rubika_upload_unknown_result_never_retries_or_republishes(): void
+    {
+        // جواب نامشخص در هر سه مرحله (بدون شواهد موفقیت/شکست):
+        // انتشار فقط یک‌بار، بدون retry، بدون fallback متن/file_id،
+        // بدون موفقیت کاذب (M5: جلوگیری از Retry ناامن).
+        $localPath = $this->makeTempFile('rubika-unknown.jpg', 'unknown-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response(['opaque' => 'payload']),
+            'upload.rubika.example*' => Http::response(['opaque' => 'payload']),
+            'botapi.rubika.ir*/sendFile' => Http::response(['opaque' => 'payload']),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            'کپشن',
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertNull($result['message_id']);
+        // خطای عمومی مرحله ۱ (بدون شواهد ردشوندگی — حالت unknown_result)
+        $this->assertStringContainsString('no upload_url in requestSendFile response', $result['error']);
+        $this->assertStringContainsString('state: unknown_result', $result['error']);
+
+        // فقط یک درخواست — هیچ retry و هیچ مسیر جایگزینی اجرا نشده
+        Http::assertSentCount(1);
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'upload.rubika.example'));
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), '/sendFile'));
+        Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'sendMessage'));
+    }
+
+    public function test_rubika_photo_with_persian_caption_and_nested_envelope_full_chain(): void
+    {
+        // پوشش کامل: کپشن فارسی + پاکت تودرتو در هر سه مرحله.
+        $localPath = $this->makeTempFile('rubika-persian.jpg', 'persian-photo-bytes');
+        $caption = 'کپشن فارسی با علامت‌گذاری #برچسب و اعداد ۱۲۳';
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'botapi.rubika.ir*/requestSendFile' => Http::response([
+                'status' => 'OK',
+                'data' => ['upload_url' => 'https://upload.rubika.example/u/p'],
+            ]),
+            'upload.rubika.example*' => Http::response([
+                'status' => 'OK',
+                'data' => ['file_id' => 'f-p'],
+            ]),
+            'botapi.rubika.ir*/sendFile' => Http::response([
+                'status' => 'OK',
+                'data' => ['message_id' => 'm-p'],
+            ]),
+        ]);
+
+        $result = $publisher->publish(
+            '@rubika_channel',
+            'photo',
+            $caption,
+            'bale-origin-file-id',
+            'rubika',
+            'rubika-dest-token-1',
+            $localPath
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('m-p', $result['message_id']);
+
+        Http::assertSent(function (Request $request) use ($caption) {
+            $data = $request->data();
+
+            return $request->url() === 'https://botapi.rubika.ir/v3/rubika-dest-token-1/sendFile'
+                && ($data['text'] ?? null) === $caption;
+        });
+    }
+
     public function test_failed_upload_does_not_publish_text_only(): void
     {
         // مبدأ بله → مقصد تلگرام: file_id برای تلگرام اعتبار ندارد؛

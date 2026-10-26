@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -28,6 +29,10 @@ use RuntimeException;
  *      1) requestSendFile(type) → upload_url
  *      2) POST multipart با فیلد «file» به upload_url → file_id
  *      3) sendFile(chat_id, file_id, text) → message_id
+ *  - CP-RUBIKA-MEDIA-UPLOAD-FIX: در مراحل ۱ و ۲ فیلدها (upload_url /
+ *    file_id) در دو سطح خوانده می‌شوند — سطح اول (شکل مستند) و توی data
+ *    (پاکت دو سطحی مشاهده‌شده در پروتکشن) — و پاسخ ردشدهٔ API با خطای
+ *    واقعی خودش گزارش می‌شود (نه خطای عمومی «no upload_url»/«no file_id»).
  *  - نام متد webhook در صفحه methods «updateBotEndpoints» (جمع) و در صفحه
  *    مقدمه «updateBotEndpoint» (مفرد) آمده است؛ در اینجا نام صفحه methods
  *    استفاده شده و عدم‌تطابق مستند شده است.
@@ -99,6 +104,30 @@ class RubikaBotClient
      */
     public function call(string $method, array $params = [], int $timeout = 60): array
     {
+        $response = $this->postJson($method, $params, $timeout);
+
+        $data = $response->json();
+        if (! is_array($data)) {
+            throw new RuntimeException(
+                'rubika: non-JSON response from ' . $method . ' (HTTP ' . $response->status() . ')'
+            );
+        }
+
+        return $data;
+    }
+
+    /**
+     * POST JSON به API (فقط لایهٔ حمل).
+     *
+     * خطای اتصال و HTTP>=400 را با پیام استاندارد wrap می‌کند؛ تصمیم
+     * موفقیت/شکست با analyzeResponse() در فراخواننده است (parser
+     * متمرکز — M3). جدا شدن از call() برای مراحل آپلود است که باید
+     * پاسخ 2xx خام را تحلیل کنند (CP-RUBIKA-MEDIA-UPLOAD-FIX / M2).
+     *
+     * @throws RuntimeException خطای اتصال یا HTTP >= 400
+     */
+    private function postJson(string $method, array $params = [], int $timeout = 60): Response
+    {
         try {
             $response = Http::withHeaders(['Accept' => 'application/json'])
                 ->timeout($timeout)
@@ -118,14 +147,7 @@ class RubikaBotClient
             );
         }
 
-        $data = $response->json();
-        if (! is_array($data)) {
-            throw new RuntimeException(
-                'rubika: non-JSON response from ' . $method . ' (HTTP ' . $response->status() . ')'
-            );
-        }
-
-        return $data;
+        return $response;
     }
 
     public function getMe(): array
@@ -562,17 +584,129 @@ class RubikaBotClient
     }
 
     /**
+     * استخراج فیلد رشته‌ای از پاسخ — اولویت: سطح اول (شکل مستند API)
+     * سپس توی data (پاکت دو سطحی مشاهده‌شده در پروتکشن — همان پاکتی
+     * که message_id در توی data مشاهده شد).
+     *
+     * CP-RUBIKA-MEDIA-UPLOAD-FIX / M3: فقط نام‌های کلید مستند یا
+     * مشاهده‌شده (upload_url / file_id) خوانده می‌شوند؛ ساختار جدیدی
+     * فرض برقرار نمی‌شود.
+     */
+    public static function extractField(array $response, string $field): ?string
+    {
+        $value = $response[$field] ?? null;
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+        if (is_int($value) && $value > 0) {
+            return (string) $value;
+        }
+
+        if (is_array($response['data'] ?? null)) {
+            $value = $response['data'][$field] ?? null;
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+            if (is_int($value) && $value > 0) {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * جزئیات امن ردشوندگی برای متن استثنا (M2): فقط مقدار متنی status
+     * و نام کلیدهای خطا — بدون body خام، URL یا توکن.
+     */
+    private static function rejectionDetail(array $response): string
+    {
+        $detail = [];
+
+        $status = self::statusValue($response);
+        if ($status !== null) {
+            $detail[] = 'status=' . $status;
+        }
+
+        $errorKeys = self::diagnose($response)['error_keys'];
+        if ($errorKeys !== []) {
+            $detail[] = 'error_keys=[' . implode(',', $errorKeys) . ']';
+        }
+
+        return $detail === [] ? '' : ' (' . implode(' ', $detail) . ')';
+    }
+
+    /**
+     * لاگ امن ساختار پاسخ مراحل آپلود (CP-RUBIKA-MEDIA-UPLOAD-FIX / M2).
+     *
+     * فقط موارد غیرحساس ثبت می‌شوند: HTTP status، نوع دادهٔ JSON، کلیدها
+     * (با نوع PHP)، مقدار متنی status، وجود فیلد هدف، کلیدهای خطا و
+     * حالت پنج‌گانهٔ analyzeResponse — هرگز body خام، URL، توکن یا
+     * محتوای فایل.
+     */
+    private static function logUploadDiagnostics(string $stage, int $httpStatus, mixed $json, string $field): void
+    {
+        try {
+            $diagnostic = is_array($json) ? self::diagnose($json) : null;
+
+            Log::info('[ChannelPoster][media] rubika-upload-diagnostics ' . $stage, [
+                'http_status'    => $httpStatus,
+                'json_type'      => is_array($json) ? 'object' : (is_null($json) ? 'null' : gettype($json)),
+                'shape'          => $diagnostic['shape'] ?? null,
+                'data_keys'      => $diagnostic['data_keys'] ?? [],
+                'error_keys'     => $diagnostic['error_keys'] ?? [],
+                'status'         => $diagnostic !== null ? self::statusValue($json) : null,
+                'has_' . $field  => is_array($json) && self::extractField($json, $field) !== null,
+                'state'          => $diagnostic !== null ? self::analyzeResponse($json)['state'] : 'non_json',
+            ]);
+        } catch (\Throwable $e) {
+            // خطای لاگ نباید آپلود را مختل کند
+        }
+    }
+
+    /**
      * مرحله ۱ ارسال فایل: دریافت آدرس آپلود.
+     *
+     * CP-RUBIKA-MEDIA-UPLOAD-FIX:
+     *  - upload_url از سطح اول (مستند) و توی data (پاکت مشاهده‌شده در
+     *    پروتکشن) خوانده می‌شود — ریشهٔ خطای «no upload_url» در انتشار
+     *    واقعی: پاسخ موفق داخل data بسته شده بود.
+     *  - اگر API درخواست را رد کرده باشد (error_envelope / status
+     *    شکست)، خطای واقعی API حفظ و گزارش می‌شود — نه خطای عمومی
+     *    «no upload_url» (M2).
+     *  - ساختار پاسخ به‌صورت امن لاگ می‌شود (M2).
      *
      * @param string $fileType یکی از اعضای FileTypeEnum: File|Image|Voice|Video|Music|Gif
      */
     public function requestUploadUrl(string $fileType): string
     {
-        $data = $this->call('requestSendFile', ['type' => $fileType]);
+        $response = $this->postJson('requestSendFile', ['type' => $fileType]);
+        $json = $response->json();
 
-        $url = $data['upload_url'] ?? null;
-        if (! is_string($url) || $url === '') {
-            throw new RuntimeException('rubika: no upload_url in requestSendFile response');
+        if (! is_array($json)) {
+            self::logUploadDiagnostics('stage1_request_upload_url', $response->status(), $json, 'upload_url');
+            throw new RuntimeException(
+                'rubika: non-JSON response from requestSendFile (HTTP ' . $response->status() . ')'
+            );
+        }
+
+        $analysis = self::analyzeResponse($json);
+        self::logUploadDiagnostics('stage1_request_upload_url', $response->status(), $json, 'upload_url');
+
+        if ($analysis['state'] === self::STATE_API_REJECTED) {
+            throw new RuntimeException(
+                'rubika: API rejected requestSendFile (HTTP ' . $response->status() . ')'
+                . ' — reason: ' . $analysis['reason']
+                . self::rejectionDetail($json)
+            );
+        }
+
+        $url = self::extractField($json, 'upload_url');
+        if ($url === null) {
+            throw new RuntimeException(
+                'rubika: no upload_url in requestSendFile response'
+                . ' (state: ' . $analysis['state'] . self::rejectionDetail($json) . ')'
+            );
         }
 
         return $url;
@@ -581,12 +715,20 @@ class RubikaBotClient
     /**
      * مرحله ۲: آپلود فایل به upload_url (multipart، فیلد «file»).
      *
+     * CP-RUBIKA-MEDIA-UPLOAD-FIX:
+     *  - file_id از سطح اول (مستند) و توی data (پاکت مشاهده‌شده در
+     *    پروتکشن) خوانده می‌شود.
+     *  - پاسخ ردشدهٔ API (HTTP 2xx با error_envelope / status شکست) با
+     *    خطای واقعی گزارش می‌شود؛ پاسخ غیر-JSON با پیام جدا از
+     *    «no file_id» گزارش می‌شود (M2/M4).
+     *
      * @return string file_id برای استفاده در sendFile
      */
     public function uploadFile(string $uploadUrl, string $contents, string $fileName, string $mime): string
     {
         try {
             $response = Http::asMultipart()
+                ->withHeaders(['Accept' => 'application/json'])
                 ->timeout(300)
                 ->attach('file', $contents, $fileName, ['Content-Type' => $mime])
                 ->post($uploadUrl);
@@ -605,13 +747,34 @@ class RubikaBotClient
             );
         }
 
-        $data = $response->json();
-        $fileId = is_array($data) ? ($data['file_id'] ?? null) : null;
-        if (! is_string($fileId) && (! is_int($fileId))) {
-            throw new RuntimeException('rubika: no file_id in upload response');
+        $json = $response->json();
+        if (! is_array($json)) {
+            self::logUploadDiagnostics('stage2_binary_upload', $response->status(), $json, 'file_id');
+            throw new RuntimeException(
+                'rubika: non-JSON upload response (HTTP ' . $response->status() . ')'
+            );
         }
 
-        return (string) $fileId;
+        $analysis = self::analyzeResponse($json);
+        self::logUploadDiagnostics('stage2_binary_upload', $response->status(), $json, 'file_id');
+
+        if ($analysis['state'] === self::STATE_API_REJECTED) {
+            throw new RuntimeException(
+                'rubika: API rejected the file upload (HTTP ' . $response->status() . ')'
+                . ' — reason: ' . $analysis['reason']
+                . self::rejectionDetail($json)
+            );
+        }
+
+        $fileId = self::extractField($json, 'file_id');
+        if ($fileId === null) {
+            throw new RuntimeException(
+                'rubika: no file_id in upload response'
+                . ' (state: ' . $analysis['state'] . self::rejectionDetail($json) . ')'
+            );
+        }
+
+        return $fileId;
     }
 
     /**
