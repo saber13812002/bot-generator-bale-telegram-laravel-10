@@ -7,6 +7,7 @@ use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterQueue;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Tests\Fakes\FakeChannelPosterPublisher;
 use Tests\Fakes\FakeChannelPosterPublisherFactory;
 use Tests\TestCase;
@@ -94,6 +95,142 @@ class ChannelPosterQueueSendTest extends TestCase
         $this->assertDatabaseHas('channel_poster_publish_logs', [
             'queue_id' => $item->id,
             'success' => false,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // rubika destinations via the REAL factory (CP-RUBIKA-RESPONSE-FIX / M6)
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_rubika_unknown_result_marks_item_failed_and_is_never_auto_retried(): void
+    {
+        $bot = $this->createSoroushOriginBot();
+        $destination = $this->createRubikaDestination($bot->id);
+        $item = $this->createSoroushQueueItem($bot->id, 'tag1');
+
+        $this->useRealPublisherFactory();
+        Http::fake([
+            'botapi.rubika.ir/*' => Http::response(['chat_id' => '9876543210'], 200),
+            'api.splus.ir/*' => Http::response(['ok' => true, 'result' => ['message_id' => 77]], 200),
+        ]);
+
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id])
+            ->assertFailed();
+
+        $this->assertSame(ChannelPosterQueue::STATUS_FAILED, $item->refresh()->status);
+        $this->assertDatabaseHas('channel_poster_publish_logs', [
+            'queue_id' => $item->id,
+            'destination_id' => $destination->id,
+            'success' => false,
+            'message_id' => null,
+        ]);
+        $this->assertSame(1, $this->rubikaSendCount());
+
+        // بدون «مدرک موفقیت» هرگز retry خودکار نمی‌شود؛ --all فقط آیتم‌های
+        // pending را انتخاب می‌کند و این آیتم حالا FAILED است.
+        $this->artisan('channel-poster:send-queued', ['--all' => true])
+            ->assertSuccessful();
+
+        $this->assertSame(ChannelPosterQueue::STATUS_FAILED, $item->refresh()->status);
+        $this->assertSame(1, $this->rubikaSendCount());
+    }
+
+    public function test_rubika_success_without_message_id_marks_item_published_without_republish(): void
+    {
+        $bot = $this->createSoroushOriginBot();
+        $destination = $this->createRubikaDestination($bot->id);
+        $item = $this->createSoroushQueueItem($bot->id, 'tag1');
+
+        $this->useRealPublisherFactory();
+        Http::fake([
+            // پذیرش صریح API بدون message_id (پاکت واقعی روبیکا)
+            'botapi.rubika.ir/*' => Http::response(['status' => 'OK', 'data' => []], 200),
+            'api.splus.ir/*' => Http::response(['ok' => true, 'result' => ['message_id' => 77]], 200),
+        ]);
+
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id])
+            ->assertSuccessful();
+
+        $this->assertSame(ChannelPosterQueue::STATUS_PUBLISHED, $item->refresh()->status);
+        // message_id می‌تواند null باشد — مهم: success=true تا انتشار تکراری نشود
+        $this->assertDatabaseHas('channel_poster_publish_logs', [
+            'queue_id' => $item->id,
+            'destination_id' => $destination->id,
+            'success' => true,
+            'message_id' => null,
+        ]);
+        $this->assertSame(1, $this->rubikaSendCount());
+
+        // حتی اگر دستی دوباره اجرا شود، پیام تکراری منتشر نمی‌شود
+        // (آیتم دیگر pending نیست + dedup روی success=true)
+        $this->artisan('channel-poster:send-queued', ['--all' => true])
+            ->assertSuccessful();
+
+        $this->assertSame(ChannelPosterQueue::STATUS_PUBLISHED, $item->refresh()->status);
+        $this->assertSame(1, $this->rubikaSendCount());
+    }
+
+    private function useRealPublisherFactory(): void
+    {
+        $this->app->instance(
+            ChannelPosterPublisherFactory::class,
+            new \App\Services\TelegramChannelPosterPublisherFactory()
+        );
+    }
+
+    /** تعداد درخواست‌های واقعی رفته به botapi.rubika.ir */
+    private function rubikaSendCount(): int
+    {
+        $count = 0;
+        foreach (\Illuminate\Support\Facades\Http::recorded() as [$request]) {
+            if (str_contains($request->url(), 'botapi.rubika.ir')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /** bot با مبدأ soroush — سرویس، telegram_bot_token را برای مبدأ غیر-bale می‌خواند. */
+    private function createSoroushOriginBot(): Bot
+    {
+        return Bot::create([
+            'endpoint_id' => 'channel_poster_bot',
+            'bot_mother_id' => 1,
+            'language_code' => 'fa',
+            'bale_bot_name' => 'channel_poster_bot',
+            'bale_bot_token' => '123:queue-token',
+            'bale_bot_status' => 'Active',
+            'bale_owner_chat_id' => 111,
+            'bale_webhook_is_set' => true,
+            'telegram_bot_token' => '1234567:ABCDEFGHIJKLMNOPQRSTUVWXYZabcd1234',
+        ]);
+    }
+
+    private function createRubikaDestination(int $botId): ChannelPosterDestination
+    {
+        return ChannelPosterDestination::create([
+            'bot_id' => $botId,
+            'platform' => 'rubika',
+            'channel_chat_id' => '9876543210',
+            'channel_title' => 'Rubika Channel',
+            'bot_token' => 'rubikatoken1234',
+            'tag' => 'tag1',
+            'is_active' => true,
+        ]);
+    }
+
+    private function createSoroushQueueItem(int $botId, string $tag): ChannelPosterQueue
+    {
+        return ChannelPosterQueue::create([
+            'bot_id' => $botId,
+            'tag' => $tag,
+            'content_type' => 'text',
+            'text' => 'queued post text',
+            'scheduled_at' => now()->subHour(),
+            'status' => ChannelPosterQueue::STATUS_PENDING,
+            'owner_chat_id' => '111',
+            'owner_origin' => 'soroush',
         ]);
     }
 

@@ -394,4 +394,236 @@ class RubikaBotClientTest extends TestCase
                 && $request->data()['type'] === 'ReceiveUpdate';
         });
     }
+
+    // ── 5-state response analysis (CP-RUBIKA-RESPONSE-FIX / M2) ──────────
+
+    public function test_analyze_live_observed_envelope_with_nested_message_id_is_success(): void
+    {
+        // Evidence from production log (2026-10-26): real API answered
+        // {"status":"<string>","data":{...}} at HTTP 200 and the message
+        // was delivered, with message_id nested under data.
+        $result = RubikaBotClient::analyzeResponse([
+            'status' => 'OK',
+            'data' => ['message_id' => '777001'],
+        ]);
+
+        $this->assertSame(RubikaBotClient::STATE_SUCCESS_WITH_MESSAGE_ID, $result['state']);
+        $this->assertSame('777001', $result['message_id']);
+        $this->assertNull($result['reason']);
+        $this->assertNull($result['http_status']);
+        $this->assertFalse($result['permission_denied']);
+    }
+
+    public function test_analyze_explicit_success_status_without_message_id_is_success_without_id(): void
+    {
+        $result = RubikaBotClient::analyzeResponse([
+            'status' => 'OK',
+            'data' => [],
+        ]);
+
+        $this->assertSame(RubikaBotClient::STATE_SUCCESS_WITHOUT_MESSAGE_ID, $result['state']);
+        $this->assertNull($result['message_id']);
+        $this->assertNull($result['reason']);
+        $this->assertFalse($result['permission_denied']);
+    }
+
+    public function test_analyze_flat_documented_message_id_still_success(): void
+    {
+        $result = RubikaBotClient::analyzeResponse(['message_id' => '9001']);
+
+        $this->assertSame(RubikaBotClient::STATE_SUCCESS_WITH_MESSAGE_ID, $result['state']);
+        $this->assertSame('9001', $result['message_id']);
+    }
+
+    public function test_analyze_error_envelope_with_403_code_is_api_rejected_with_permission_denied(): void
+    {
+        $result = RubikaBotClient::analyzeResponse([
+            'code' => 403,
+            'error' => 'access denied for chat',
+        ]);
+
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $result['state']);
+        $this->assertSame('error_envelope', $result['reason']);
+        $this->assertNull($result['message_id']);
+        $this->assertTrue($result['permission_denied']);
+    }
+
+    public function test_analyze_error_envelope_ignores_embedded_message_id(): void
+    {
+        $result = RubikaBotClient::analyzeResponse([
+            'code' => 403,
+            'error' => 'denied',
+            'message_id' => '9001',
+        ]);
+
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $result['state']);
+        $this->assertNull($result['message_id']);
+    }
+
+    public function test_analyze_forbidden_status_string_is_api_rejected_with_permission_denied(): void
+    {
+        $result = RubikaBotClient::analyzeResponse(['status' => 'Forbidden', 'data' => []]);
+
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $result['state']);
+        $this->assertTrue($result['permission_denied']);
+    }
+
+    public function test_analyze_failure_status_without_error_keys_is_api_rejected(): void
+    {
+        $result = RubikaBotClient::analyzeResponse(['status' => 'error']);
+
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $result['state']);
+        $this->assertSame('failure_status', $result['reason']);
+        $this->assertFalse($result['permission_denied']);
+    }
+
+    public function test_analyze_chat_id_only_response_is_unknown_result(): void
+    {
+        $result = RubikaBotClient::analyzeResponse(['chat_id' => 'abc-chat-01']);
+
+        $this->assertSame(RubikaBotClient::STATE_UNKNOWN_RESULT, $result['state']);
+        $this->assertNull($result['message_id']);
+        $this->assertSame('no_success_evidence', $result['reason']);
+        $this->assertFalse($result['permission_denied']);
+    }
+
+    public function test_analyze_empty_response_is_unknown_result(): void
+    {
+        $result = RubikaBotClient::analyzeResponse([]);
+
+        $this->assertSame(RubikaBotClient::STATE_UNKNOWN_RESULT, $result['state']);
+        $this->assertNull($result['message_id']);
+    }
+
+    public function test_analyze_does_not_assume_undocumented_candidate_structures(): void
+    {
+        // "result.id" is a Telegram-style shape Rubika never documented;
+        // it must NOT be treated as success evidence.
+        $result = RubikaBotClient::analyzeResponse(['result' => ['id' => '55']]);
+
+        $this->assertSame(RubikaBotClient::STATE_UNKNOWN_RESULT, $result['state']);
+        $this->assertNull($result['message_id']);
+    }
+
+    public function test_extract_message_id_reads_nested_data_message_id(): void
+    {
+        $this->assertSame('777001', RubikaBotClient::extractMessageId([
+            'status' => 'OK',
+            'data' => ['message_id' => '777001'],
+        ]));
+        $this->assertSame('55', RubikaBotClient::extractMessageId([
+            'data' => ['message_id' => 55],
+        ]));
+    }
+
+    public function test_extract_message_id_does_not_read_nested_id_alias(): void
+    {
+        // Only the documented key is honored at the nested level.
+        $this->assertNull(RubikaBotClient::extractMessageId(['data' => ['id' => '123']]));
+    }
+
+    public function test_extract_message_id_rejects_nested_error_envelope(): void
+    {
+        $this->assertNull(RubikaBotClient::extractMessageId([
+            'status' => 'error',
+            'data' => ['code' => 403, 'error' => 'denied', 'message_id' => '9001'],
+        ]));
+    }
+
+    public function test_has_message_id_detects_nested_envelope(): void
+    {
+        $this->assertTrue(RubikaBotClient::hasMessageId([
+            'status' => 'OK',
+            'data' => ['message_id' => '777001'],
+        ]));
+        $this->assertFalse(RubikaBotClient::hasMessageId(['status' => 'OK', 'data' => []]));
+    }
+
+    public function test_status_value_normalizes_and_rejects_non_strings(): void
+    {
+        $this->assertSame('ok', RubikaBotClient::statusValue(['status' => ' OK ']));
+        $this->assertNull(RubikaBotClient::statusValue(['status' => 200]));
+        $this->assertNull(RubikaBotClient::statusValue([]));
+    }
+
+    public function test_has_success_status_matches_only_documented_words(): void
+    {
+        $this->assertTrue(RubikaBotClient::hasSuccessStatus(['status' => 'Success']));
+        $this->assertFalse(RubikaBotClient::hasSuccessStatus(['status' => 'unknown_state']));
+    }
+
+    public function test_has_failure_status_matches_failure_words(): void
+    {
+        $this->assertTrue(RubikaBotClient::hasFailureStatus(['status' => 'Error: timeout']));
+        $this->assertFalse(RubikaBotClient::hasFailureStatus(['status' => 'OK']));
+    }
+
+    public function test_classify_transport_exception_maps_http_4xx_5xx_to_api_rejected(): void
+    {
+        $denied = RubikaBotClient::classifyTransportException(
+            new RuntimeException('rubika: HTTP 403 calling sendMessage — denied')
+        );
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $denied['state']);
+        $this->assertSame(403, $denied['http_status']);
+        $this->assertTrue($denied['permission_denied']);
+        $this->assertSame('http_403', $denied['reason']);
+
+        $invalidToken = RubikaBotClient::classifyTransportException(
+            new RuntimeException('rubika: HTTP 401 calling sendMessage — invalid token')
+        );
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $invalidToken['state']);
+        $this->assertSame(401, $invalidToken['http_status']);
+        $this->assertFalse($invalidToken['permission_denied']);
+
+        $server = RubikaBotClient::classifyTransportException(
+            new RuntimeException('rubika: HTTP 500 calling sendMessage — boom')
+        );
+        $this->assertSame(RubikaBotClient::STATE_API_REJECTED, $server['state']);
+        $this->assertSame(500, $server['http_status']);
+        $this->assertFalse($server['permission_denied']);
+    }
+
+    public function test_classify_transport_exception_maps_network_and_non_json_to_transport_failure(): void
+    {
+        $timeout = RubikaBotClient::classifyTransportException(
+            new RuntimeException('rubika: connection error calling sendMessage: cURL error 28: Operation timed out')
+        );
+        $this->assertSame(RubikaBotClient::STATE_TRANSPORT_FAILURE, $timeout['state']);
+        $this->assertNull($timeout['http_status']);
+        $this->assertNull($timeout['message_id']);
+        $this->assertFalse($timeout['permission_denied']);
+        $this->assertNotNull($timeout['reason']);
+
+        $nonJson = RubikaBotClient::classifyTransportException(
+            new RuntimeException('rubika: non-JSON response from sendMessage (HTTP 200)')
+        );
+        $this->assertSame(RubikaBotClient::STATE_TRANSPORT_FAILURE, $nonJson['state']);
+        $this->assertNull($nonJson['http_status']);
+    }
+
+    public function test_diagnose_reports_nested_envelope_shape_and_status_flags(): void
+    {
+        $diagnostic = RubikaBotClient::diagnose([
+            'status' => 'OK',
+            'data' => ['message_id' => '777001'],
+        ]);
+
+        $this->assertTrue($diagnostic['has_success_status']);
+        $this->assertFalse($diagnostic['has_failure_status']);
+        $this->assertSame(['message_id'], $diagnostic['data_keys']);
+        $this->assertTrue($diagnostic['has_message_id']);
+        $this->assertSame([], $diagnostic['error_keys']);
+    }
+
+    public function test_diagnose_reports_nested_error_keys(): void
+    {
+        $diagnostic = RubikaBotClient::diagnose([
+            'status' => 'error',
+            'data' => ['code' => 403, 'error' => 'denied'],
+        ]);
+
+        $this->assertTrue($diagnostic['has_failure_status']);
+        $this->assertFalse($diagnostic['has_success_status']);
+        $this->assertSame(['data.code', 'data.error'], $diagnostic['error_keys']);
+    }
 }
