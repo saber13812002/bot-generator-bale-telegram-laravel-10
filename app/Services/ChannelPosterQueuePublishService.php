@@ -125,6 +125,20 @@ class ChannelPosterQueuePublishService
 
             $publisher = $this->publisherFactory->make($botToken, $ownerOrigin);
 
+            // CP-SMART-SIGNATURE-SETTINGS: انتخاب فریزشدهٔ random — از صف (enqueue)
+            // یا اگر ثبت نشده بود (مثلاً مسیر content-sync) یک‌بار اینجا محاسبه و روی
+            // آیتم ذخیره می‌شود تا retry دقیقاً همان امضا را ببیند.
+            $frozenSelection = is_array($item->signature_selection ?? null)
+                ? $item->signature_selection
+                : null;
+            if ($frozenSelection === null) {
+                $computed = $this->service->freezeSignatureSelections($bot->id, $tag);
+                if ($computed !== []) {
+                    $frozenSelection = $computed;
+                    $item->forceFill(['signature_selection' => $computed])->save();
+                }
+            }
+
             $allOk = true;
             $results = [];
             foreach ($destinations as $destination) {
@@ -155,7 +169,16 @@ class ChannelPosterQueuePublishService
                 $destParseMode = null;
                 $destReplyMarkup = null;
                 if ($item->signature_enabled && $destText !== null) {
-                    $sig = $this->service->buildSignature($bot->id, $tag, $destination->platform);
+                    // CP-SMART-SIGNATURE-SETTINGS: تنظیمات هوشمندِ مقصد (signature_settings ≠ null)
+                    // → موتور سیاست + انتخاب فریزشدهٔ صف (retry-stable)؛ وگرنه مسیر legacy
+                    if (\App\Services\ChannelPoster\SignatureSettingsService::isSmart($destination)) {
+                        $sig = $this->service->buildSignatureForDestination(
+                            $destination,
+                            $frozenSelection
+                        );
+                    } else {
+                        $sig = $this->service->buildSignature($bot->id, $tag, $destination->platform);
+                    }
                     if ($sig['text'] !== '' || (is_array($sig['button'] ?? null) && $sig['button'] !== [])) {
                         // guard طول caption (فقط رسانه) — هرگز متن اصلی کوتاه نمی‌شود
                         if ($item->content_type !== 'text'

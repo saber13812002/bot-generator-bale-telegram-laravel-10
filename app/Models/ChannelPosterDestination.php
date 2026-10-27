@@ -21,6 +21,7 @@ class ChannelPosterDestination extends Model
         'signature_label',
         'signature_type',
         'signature_enabled',
+        'signature_settings',
         'channel_username',
         'tag',
         'bot_token',
@@ -32,6 +33,7 @@ class ChannelPosterDestination extends Model
         'verified_at' => 'datetime',
         'is_active' => 'boolean',
         'signature_enabled' => 'boolean',
+        'signature_settings' => 'array',
     ];
 
     /**

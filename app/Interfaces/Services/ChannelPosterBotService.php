@@ -110,6 +110,43 @@ interface ChannelPosterBotService
     public function buildSignature(int $botId, string $tag, ?string $platform = null): array;
 
     /**
+     * Build the smart signature for ONE destination (CP-SMART-SIGNATURE-SETTINGS).
+     *
+     * - signature_settings = null → legacy behavior (same as buildSignature platform mode).
+     * - smart settings        → policy engine (SignatureSettingsService) selects
+     *   links, SignatureRenderer::renderMulti produces output.
+     * - signature_enabled = false → hard disable, always empty output.
+     * - $frozenSelection[destId] pins the random pick for queue retry stability.
+     *
+     * @param array<int|string, int[]> $frozenSelection destId => [destinationIds]
+     * @return array{text: string, parse_mode: ?string, button: ?array, fallback: bool}
+     */
+    public function buildSignatureForDestination(
+        \App\Models\ChannelPosterDestination $dest,
+        ?array $frozenSelection = null
+    ): array;
+
+    /**
+     * Compute the frozen random selection for all smart-random destinations of a tag
+     * (CP-SMART-SIGNATURE-SETTINGS). Stored on the queue row at enqueue time so
+     * retries render exactly the same signature.
+     *
+     * @return array<int|string, int[]> destId => [destinationIds]
+     */
+    public function freezeSignatureSelections(int $botId, string $tag): array;
+
+    /**
+     * Persist smart signature settings (normalized) for one destination
+     * (CP-SMART-SIGNATURE-SETTINGS).
+     *
+     * @param array $settings raw or normalized smart settings payload
+     */
+    public function saveSmartSignatureSettings(
+        int $destinationId,
+        array $settings
+    ): \App\Models\ChannelPosterDestination;
+
+    /**
      * Calculate the next available queue slot for this bot+tag.
      * Respects 2 AM–9 AM quiet hours (Asia/Tehran).
      */
@@ -136,7 +173,8 @@ interface ChannelPosterBotService
         ?int $contentId = null,
         ?string $mediaPath = null,
         ?string $fileName = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?array $signatureSelection = null
     ): \App\Models\ChannelPosterQueue;
 
     /**

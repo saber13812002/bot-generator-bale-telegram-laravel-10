@@ -86,6 +86,7 @@ trait UsesChannelPosterSqlite
             $table->string('signature_label', 255)->nullable();
             $table->string('signature_type', 20)->default('inline');
             $table->boolean('signature_enabled')->nullable();
+            $table->json('signature_settings')->nullable();
             $table->string('channel_username', 128)->nullable();
             $table->string('tag', 64)->nullable();
             $table->string('bot_token')->nullable();
@@ -115,6 +116,7 @@ trait UsesChannelPosterSqlite
             $table->string('file_name', 512)->nullable();
             $table->string('mime_type', 128)->nullable();
             $table->boolean('signature_enabled')->default(false);
+            $table->json('signature_selection')->nullable();
             $table->dateTime('scheduled_at');
             $table->dateTime('published_at')->nullable();
             $table->string('status', 20)->default('pending');

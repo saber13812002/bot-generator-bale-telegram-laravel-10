@@ -320,6 +320,174 @@ class SignatureRendererTest extends TestCase
         $this->assertSame('در بله:' . "\n", SignatureRenderer::renderLegacy('bale', null, 'در بله'));
     }
 
+    // ───────────────────────────── multi-line (smart) ─────────────────────────────
+
+    private const LINKS = [
+        ['url' => 'https://ble.ir/ch', 'label' => 'کانال بله'],
+        ['url' => 'https://t.me/ch', 'label' => 'کانال تلگرام'],
+        ['url' => 'https://soroush.me/ch', 'label' => null],
+    ];
+
+    public function test_render_multi_telegram_single_line_uses_html_anchors_and_custom_separator(): void
+    {
+        $res = SignatureRenderer::renderMulti('telegram', self::LINKS, 'single_line', '–');
+
+        $this->assertSame(
+            "\n\n"
+            . '<a href="https://ble.ir/ch">کانال بله</a>'
+            . '–'
+            . '<a href="https://t.me/ch">کانال تلگرام</a>'
+            . '–'
+            . '<a href="https://soroush.me/ch">https://soroush.me/ch</a>',
+            $res['text']
+        );
+        $this->assertSame('html', $res['parse_mode']);
+        $this->assertSame('multi', $res['type']);
+        $this->assertFalse($res['fallback']);
+        $this->assertNull($res['button']);
+    }
+
+    public function test_render_multi_telegram_multi_line_puts_label_on_own_line(): void
+    {
+        $res = SignatureRenderer::renderMulti('telegram', self::LINKS, 'multi_line');
+
+        $this->assertSame(
+            "\n\n"
+            . "کانال بله:\n<a href=\"https://ble.ir/ch\">کانال بله</a>"
+            . "\n"
+            . "کانال تلگرام:\n<a href=\"https://t.me/ch\">کانال تلگرام</a>"
+            . "\n"
+            . '<a href="https://soroush.me/ch">https://soroush.me/ch</a>',
+            $res['text']
+        );
+    }
+
+    public function test_render_multi_bale_single_line_uses_markdown_links_for_safe_labels(): void
+    {
+        $res = SignatureRenderer::renderMulti('bale', self::LINKS, 'single_line', ' | ');
+
+        $this->assertSame(
+            "\n\n[کانال بله](https://ble.ir/ch) | [کانال تلگرام](https://t.me/ch) | https://soroush.me/ch",
+            $res['text']
+        );
+        $this->assertNull($res['parse_mode']);
+        // the label-less third link is plain text on bale, not a fallback
+        $this->assertFalse($res['fallback']);
+    }
+
+    public function test_render_multi_bale_unsafe_markdown_label_falls_back_to_plain(): void
+    {
+        $links = [
+            ['url' => 'https://ble.ir/ch', 'label' => 'کانال [بله]'],
+            ['url' => 'https://t.me/ch', 'label' => 'تلگرام'],
+        ];
+
+        $res = SignatureRenderer::renderMulti('bale', $links, 'single_line');
+
+        $this->assertSame("\n\nکانال [بله]: https://ble.ir/ch | [تلگرام](https://t.me/ch)", $res['text']);
+        $this->assertTrue($res['fallback']);
+    }
+
+    public function test_render_multi_soroush_and_rubika_render_plain_label_plus_url(): void
+    {
+        foreach (['soroush', 'rubika'] as $platform) {
+            $res = SignatureRenderer::renderMulti($platform, self::LINKS, 'single_line', '–');
+
+            $this->assertSame(
+                "\n\nکانال بله: https://ble.ir/ch–کانال تلگرام: https://t.me/ch–https://soroush.me/ch",
+                $res['text']
+            );
+            $this->assertNull($res['parse_mode']);
+            $this->assertTrue($res['fallback']);
+        }
+    }
+
+    public function test_render_multi_multi_line_plain_platforms_label_line_then_url(): void
+    {
+        $res = SignatureRenderer::renderMulti('soroush', self::LINKS, 'multi_line');
+
+        $this->assertSame(
+            "\n\nکانال بله: https://ble.ir/ch\nکانال تلگرام: https://t.me/ch\nhttps://soroush.me/ch",
+            $res['text']
+        );
+    }
+
+    public function test_render_multi_escapes_html_injection_for_anchors(): void
+    {
+        $url = "https://example.com/a?b=1&c='x'";
+        $label = "A & B <i>bold</i>";
+
+        $res = SignatureRenderer::renderMulti('telegram', [
+            ['url' => $url, 'label' => $label],
+        ], 'single_line');
+
+        $escapedUrl = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+        $escapedLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+
+        $this->assertSame(
+            "\n\n<a href=\"" . $escapedUrl . "\">" . $escapedLabel . "</a>",
+            $res['text']
+        );
+    }
+
+    public function test_render_multi_truncates_labels_to_64_chars(): void
+    {
+        $long = str_repeat('ک', 80);
+        $res = SignatureRenderer::renderMulti('soroush', [
+            ['url' => 'https://ble.ir/ch', 'label' => $long],
+        ], 'single_line');
+
+        $this->assertSame("\n\n" . str_repeat('ک', 64) . ': https://ble.ir/ch', $res['text']);
+    }
+
+    public function test_render_multi_filters_empty_urls_and_returns_empty_when_none(): void
+    {
+        $res = SignatureRenderer::renderMulti('telegram', [
+            ['url' => '', 'label' => 'x'],
+            ['url' => 'https://t.me/ch', 'label' => 'تلگرام'],
+        ], 'single_line');
+
+        $this->assertSame("\n\n<a href=\"https://t.me/ch\">تلگرام</a>", $res['text']);
+
+        $empty = SignatureRenderer::renderMulti('telegram', [
+            ['url' => '', 'label' => 'x'],
+            ['url' => null, 'label' => 'y'],
+        ], 'multi_line');
+
+        $this->assertSame('', $empty['text']);
+        $this->assertNull($empty['parse_mode']);
+        $this->assertSame('multi', $empty['type']);
+        $this->assertFalse($empty['fallback']);
+    }
+
+    public function test_render_multi_blank_separator_falls_back_to_default_pipe(): void
+    {
+        $res = SignatureRenderer::renderMulti('soroush', [
+            ['url' => 'https://a.ir', 'label' => null],
+            ['url' => 'https://b.ir', 'label' => null],
+        ], 'single_line', '   ');
+
+        // whitespace-only is still a valid non-empty string → used as-is
+        $this->assertSame("\n\nhttps://a.ir   https://b.ir", $res['text']);
+
+        $default = SignatureRenderer::renderMulti('soroush', [
+            ['url' => 'https://a.ir', 'label' => null],
+            ['url' => 'https://b.ir', 'label' => null],
+        ], 'single_line', '');
+
+        $this->assertSame("\n\nhttps://a.ir | https://b.ir", $default['text']);
+    }
+
+    public function test_render_multi_unknown_layout_treated_as_single_line(): void
+    {
+        $res = SignatureRenderer::renderMulti('soroush', [
+            ['url' => 'https://a.ir', 'label' => null],
+            ['url' => 'https://b.ir', 'label' => null],
+        ], 'nonsense');
+
+        $this->assertSame("\n\nhttps://a.ir | https://b.ir", $res['text']);
+    }
+
     // ─────────────────────────── capability matrix sanity ───────────────────────────
 
     public function test_capability_matrix_flags_url_button_only_for_telegram_and_bale(): void

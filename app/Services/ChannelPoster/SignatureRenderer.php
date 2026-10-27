@@ -170,6 +170,114 @@ class SignatureRenderer
     }
 
     /**
+     * رندر امضای چندلینکی (CP-SMART-SIGNATURE-SETTINGS).
+     *
+     * سیاست انتخاب لینک/چیدمان را SignatureSettingsService تعیین می‌کند؛
+     * این رندرر فقط خروجی نهاییِ مخصوص پلتفرم را می‌سازد. فقط لینک‌های
+     * عمومیِ ثبت‌شده قبول می‌شود (همان قرارداد render()).
+     *
+     * @param string $platform  bale|telegram|eitaa|soroush|rubika
+     * @param array<int, array{url: string, label: string|null}> $links
+     * @param string $layout    single_line|multi_line
+     * @param string $separator جداکنندهٔ single_line (پیش‌فرض « | »)
+     *
+     * @return array{
+     *   text: string,
+     *   parse_mode: string|null,
+     *   type: string,           # 'multi'
+     *   fallback: bool,
+     *   button: array|null      # برای چندلینک هیچ دکمه‌ای ساخته نمی‌شود
+     * }
+     */
+    public static function renderMulti(
+        string $platform,
+        array $links,
+        string $layout,
+        string $separator = ' | '
+    ): array {
+        $links = array_values(array_filter(
+            $links,
+            fn (array $l) => trim((string) ($l['url'] ?? '')) !== ''
+        ));
+
+        if ($links === []) {
+            return self::empty('multi');
+        }
+
+        $layout = $layout === self::LAYOUT_MULTI_LINE ? self::LAYOUT_MULTI_LINE : self::LAYOUT_SINGLE_LINE;
+        $isHtml = in_array($platform, ['telegram', 'eitaa'], true);
+        $parseMode = $isHtml ? 'html' : null;
+        $separator = $separator !== '' ? $separator : ' | ';
+        $fallback = false;
+
+        // هر خط لینک — فرمت پلتفرم + fallback امن (برچسب ناامن/خارجی)
+        $lines = [];
+        foreach ($links as $link) {
+            $url = trim((string) $link['url']);
+            $label = trim((string) ($link['label'] ?? ''));
+            $label = $label !== '' ? mb_substr($label, 0, 64) : null;
+
+            if ($isHtml) {
+                $escaped = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+                $anchor = '<a href="' . $escaped . '">'
+                    . ($label !== null ? htmlspecialchars($label, ENT_QUOTES, 'UTF-8') : $escaped)
+                    . '</a>';
+                $lines[] = ['display' => $label ?? $url, 'rendered' => $anchor];
+            } elseif ($platform === 'bale' && $label !== null && self::markdownSafeLabel($label)) {
+                $lines[] = ['display' => $label, 'rendered' => '[' . $label . '](' . $url . ')'];
+            } else {
+                // soroush/rubika و bale-ناامن: فرمت سادهٔ خودرسان
+                // (لینک بدون برچسب «fallback» نیست — فرمت ساده همان فرمت بومی است)
+                if ($label !== null) {
+                    $fallback = true;
+                }
+                $lines[] = [
+                    'display' => $label ?? $url,
+                    'rendered' => $label !== null ? $label . ': ' . $url : $url,
+                ];
+            }
+        }
+
+        if ($layout === self::LAYOUT_MULTI_LINE) {
+            // هر لینک در یک خط مستقل:
+            //  - پلتفرم‌های ساده: «برچسب: لینک» (خود rendered برچسب را دارد)
+            //  - پلتفرم‌های html: خط برچسب جدا + لینک 앵کر
+            $out = [];
+            foreach ($links as $i => $link) {
+                if ($isHtml) {
+                    $label = trim((string) ($link['label'] ?? ''));
+                    $out[] = $label !== ''
+                        ? $label . ':' . "\n" . $lines[$i]['rendered']
+                        : $lines[$i]['rendered'];
+                } else {
+                    $out[] = $lines[$i]['rendered'];
+                }
+            }
+            $text = "\n\n" . implode("\n", $out);
+        } else {
+            // single_line: همهٔ نمایش‌ها با جداکننده در یک خط
+            $text = "\n\n" . implode($separator, array_map(
+                fn (array $l) => $l['rendered'],
+                $lines
+            ));
+        }
+
+        return [
+            'text' => $text,
+            'parse_mode' => $parseMode,
+            'type' => 'multi',
+            'fallback' => $fallback,
+            'button' => null,
+        ];
+    }
+
+    /**
+     * چیدمان‌های امضای چندلینکی (CP-SMART-SIGNATURE-SETTINGS).
+     */
+    public const LAYOUT_SINGLE_LINE = 'single_line';
+    public const LAYOUT_MULTI_LINE = 'multi_line';
+
+    /**
      * حد طول caption رسانه (تلگرام/ایتا رسمی ۱۰۲۴؛ بقیه حد محافظه‌کارانهٔ مشترک).
      * اگر امضا را به caption اضافه کنیم و مجموع از این حد بگذرد، امزا باید
      * حذف شود — هرگز متن اصلی.

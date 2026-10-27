@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\ProductLinkMessageHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
 use App\Services\ChannelPoster\SignatureRenderer;
+use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterPublishLog;
@@ -571,6 +572,119 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         return ['text' => "\n\n" . implode("\n\n", $lines), 'parse_mode' => null, 'button' => null];
     }
 
+    public function buildSignatureForDestination(
+        ChannelPosterDestination $dest,
+        ?array $frozenSelection = null
+    ): array {
+        $empty = ['text' => '', 'parse_mode' => null, 'button' => null, 'fallback' => false];
+
+        // قطع صریح (signature_enabled = false) اولویت بالاتر از همه — حتی تنظیمات هوشمند
+        if ($dest->signature_enabled === false) {
+            return $empty;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        // بدون تنظیمات هوشمند = exactly legacy (همان مسیر platform از buildSignature)
+        $settings = SignatureSettingsService::normalize($dest->signature_settings ?? null);
+        if ($settings === null) {
+            if (empty($dest->channel_link)) {
+                return $empty;
+            }
+            $type = in_array($dest->signature_type ?? null, [
+                SignatureRenderer::TYPE_INLINE,
+                SignatureRenderer::TYPE_RAW,
+                SignatureRenderer::TYPE_PLAIN,
+                SignatureRenderer::TYPE_BUTTON,
+                SignatureRenderer::TYPE_COMPOSITE,
+                SignatureRenderer::TYPE_NONE,
+            ], true) ? (string) $dest->signature_type : SignatureRenderer::TYPE_INLINE;
+
+            $label = !empty($dest->signature_label)
+                ? (string) $dest->signature_label
+                : ($platformLabels[$dest->platform] ?? $dest->platform);
+
+            $rendered = SignatureRenderer::render($dest->platform, (string) $dest->channel_link, $type, $label);
+
+            return [
+                'text' => $rendered['text'],
+                'parse_mode' => $rendered['parse_mode'],
+                'button' => $rendered['button'],
+                'fallback' => (bool) ($rendered['fallback'] ?? false),
+            ];
+        }
+
+        // تنظیمات هوشمند — موتور سیاست انتخاب مقصدها
+        if (!SignatureSettingsService::isSignatureActive($dest)) {
+            return $empty;
+        }
+
+        $scope = $this->resolveByTag($dest->bot_id, (string) ($dest->tag ?? ''));
+        if ($scope->isEmpty()) {
+            $scope = $this->resolveDestinations($dest->bot_id, 'all');
+        }
+
+        $selected = SignatureSettingsService::resolveSelected(
+            $dest,
+            $scope,
+            $frozenSelection
+        );
+
+        $links = [];
+        foreach ($selected as $sel) {
+            if (empty($sel->channel_link)) {
+                continue;
+            }
+            $selLabel = $sel->signature_label !== null && $sel->signature_label !== ''
+                ? (string) $sel->signature_label
+                : ($platformLabels[$sel->platform] ?? $sel->platform);
+            $links[] = ['url' => (string) $sel->channel_link, 'label' => $selLabel];
+        }
+
+        if ($links === []) {
+            return $empty;
+        }
+
+        $rendered = SignatureRenderer::renderMulti(
+            $dest->platform,
+            $links,
+            (string) $settings['layout'],
+            (string) ($settings['separator'] ?? SignatureSettingsService::SEPARATOR_DEFAULT)
+        );
+
+        return [
+            'text' => $rendered['text'],
+            'parse_mode' => $rendered['parse_mode'],
+            'button' => $rendered['button'],
+            'fallback' => (bool) $rendered['fallback'],
+        ];
+    }
+
+    public function freezeSignatureSelections(int $botId, string $tag): array
+    {
+        $tagDestinations = $this->resolveByTag($botId, $tag);
+        if ($tagDestinations->isEmpty()) {
+            $tagDestinations = $this->resolveDestinations($botId, 'all');
+        }
+
+        return SignatureSettingsService::computeFrozenSelection($tagDestinations);
+    }
+
+    public function saveSmartSignatureSettings(
+        int $destinationId,
+        array $settings
+    ): ChannelPosterDestination {
+        $destination = ChannelPosterDestination::findOrFail($destinationId);
+
+        return SignatureSettingsService::saveForDestination($destination, $settings);
+    }
+
     public function getNextSlot(int $botId, string $tag): Carbon
     {
         $tz = 'Asia/Tehran';
@@ -618,7 +732,8 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         ?int $contentId = null,
         ?string $mediaPath = null,
         ?string $fileName = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?array $signatureSelection = null
     ): ChannelPosterQueue {
         return ChannelPosterQueue::create([
             'bot_id' => $botId,
@@ -635,6 +750,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             'owner_chat_id' => $ownerChatId,
             'owner_origin' => $ownerOrigin,
             'content_id' => $contentId,
+            'signature_selection' => $signatureSelection,
         ]);
     }
 

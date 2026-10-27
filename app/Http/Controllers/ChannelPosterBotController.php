@@ -17,11 +17,13 @@ use App\Models\ContentSyncContent;
 use App\Services\ChannelPosterMediaStore;
 use App\Services\ChannelPosterQueuePublishService;
 use App\Services\ChannelPoster\SignatureRenderer;
+use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Services\ContentSync\ContentSyncService;
 use App\Services\ContentSync\PostUrlParser;
 use App\Services\SyncPlatformRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -47,6 +49,17 @@ class ChannelPosterBotController extends Controller
     public const STATE_AWAITING_SIGN_LINK = 'cp_awaiting_sign_link';
     public const STATE_AWAITING_SIGN_LABEL = 'cp_awaiting_sign_label';
     public const STATE_AWAITING_SIGN_CONFIRM = 'cp_awaiting_sign_confirm';
+
+    // === Smart Signature Settings (CP-SMART-SIGNATURE-SETTINGS) ===
+    public const STATE_SSIG_TAG = 'cp_ssig_awaiting_tag';
+    public const STATE_SSIG_CHANNEL = 'cp_ssig_awaiting_channel';
+    public const STATE_SSIG_POLICY = 'cp_ssig_awaiting_policy';
+    public const STATE_SSIG_CUSTOM_PICK = 'cp_ssig_awaiting_custom_pick';
+    public const STATE_SSIG_RANDOM_COUNT = 'cp_ssig_awaiting_random_count';
+    public const STATE_SSIG_LAYOUT = 'cp_ssig_awaiting_layout';
+    public const STATE_SSIG_SEPARATOR = 'cp_ssig_awaiting_separator';
+    public const STATE_SSIG_APPLY = 'cp_ssig_awaiting_apply';
+    public const STATE_SSIG_PREVIEW = 'cp_ssig_awaiting_preview';
 
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
@@ -318,6 +331,14 @@ class ChannelPosterBotController extends Controller
         }
 
         if (is_string($text) && ($text === '/cancel' || str_starts_with($text, '/cancel '))) {
+            $state = $this->getState($botItem, $chatId, $type);
+            // CP-SMART-SIGNATURE-SETTINGS: لغو ویزاردِ تنظیمات هوشمند — اگر مطلبی
+            // معوق داشت (ورود از «تغییر تنظیمات» در جریان ارسال) دوباره به انتخاب
+            // زمان برمی‌گردد وگرنه حالت کامل پاک می‌شود.
+            if ($state && str_starts_with($state->state, 'cp_ssig_')) {
+                $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false);
+                return;
+            }
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_cancelled'));
             return;
@@ -450,6 +471,31 @@ class ChannelPosterBotController extends Controller
                 // دکمه در مبدأهای native (soroush/rubika) حذف می‌شود → معادل متنی
                 $this->handleSignConfirmText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
+            }
+
+            // === CP-SMART-SIGNATURE-SETTINGS: معادل‌های متنی (سروش/روبیکا) ===
+            // دکمه‌ها در مبدأهای native حذف می‌شوند؛ همهٔ مراحل ویزارد با تایپ
+            // هم کار می‌کنند. (برای همهٔ مبدأها مجاز است.)
+            if (str_starts_with($state->state, 'cp_ssig_')) {
+                $this->handleSmartSigText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+
+            // سؤال کوتاهِ هر-بار: معادل متنی (بله/خیر/تنظیمات/دیگر نپرس/الان/صف).
+            // لینکِ جدید (محتوای تازه) به‌دنبال نمی‌افتد — به جریان اصلی برمی‌گردد.
+            if ($state->state === self::STATE_AWAITING_DESTINATION
+                && !($state->data['ssig_answered'] ?? false)
+                && !str_contains($text, 'http')
+            ) {
+                $tagKey = (string) ($state->data['selected_tag'] ?? '');
+                $dests = $this->service->resolveByTag($botItem->id, $tagKey);
+                if ($dests->isEmpty()) {
+                    $dests = $this->service->resolveDestinations($botItem->id, 'all');
+                }
+                if (SignatureSettingsService::effectiveApplicationPolicy($dests) === SignatureSettingsService::APPLY_ASK_EVERY_POST) {
+                    $this->handleSmartSigPostQuestionText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                    return;
+                }
             }
         }
 
@@ -809,6 +855,104 @@ class ChannelPosterBotController extends Controller
             $stateData = $state->data ?? [];
             $stateData['signature_enabled'] = ($data === 'cp:sig:yes');
             $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            return;
+        }
+
+        // === CP-SMART-SIGNATURE-SETTINGS: سؤال کوتاه هر-بار (ASK_EVERY_POST) ===
+        if ($data === 'cp:ssigp:yes' || $data === 'cp:ssigp:no') {
+            $state = $this->getState($botItem, $chatId, $type);
+            if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+                return;
+            }
+            $stateData = $state->data ?? [];
+            $stateData['signature_enabled'] = ($data === 'cp:ssigp:yes');
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            // بعد از پاسخ، فقط انتخاب زمان ارسال می‌ماند
+            $tagKey = (string) ($stateData['selected_tag'] ?? '');
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            return;
+        }
+
+        if ($data === 'cp:ssigp:stop') {
+            // «دیگر نپرس» → مقصدهای ask_every_post به always_apply تبدیل می‌شوند (دائمی)
+            $state = $this->getState($botItem, $chatId, $type);
+            if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+                return;
+            }
+            $stateData = $state->data ?? [];
+            $tagKey = (string) ($stateData['selected_tag'] ?? '');
+            $dests = $this->service->resolveByTag($botItem->id, $tagKey);
+            foreach ($dests as $d) {
+                if (!SignatureSettingsService::requiresPostQuestion($d)) {
+                    continue;
+                }
+                $settings = SignatureSettingsService::normalize($d->signature_settings) ?? SignatureSettingsService::defaults();
+                $settings['application_policy'] = SignatureSettingsService::APPLY_ALWAYS;
+                $this->service->saveSmartSignatureSettings($d->id, $settings);
+            }
+            $stateData['signature_enabled'] = true;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_stop_saved'));
+            return;
+        }
+
+        if ($data === 'cp:ssigp:settings') {
+            // «تغییر تنظیمات» → ویزارد تنظیمات هوشمند (محتوای معوق حفظ می‌شود)
+            $state = $this->getState($botItem, $chatId, $type);
+            if (!$state || $state->state !== self::STATE_AWAITING_DESTINATION) {
+                return;
+            }
+            $this->startSmartSigWizard($publisher, $botItem, $type, $chatId, $state->data ?? []);
+            return;
+        }
+
+        // === CP-SMART-SIGNATURE-SETTINGS: ویزارد تنظیمات هوشمند امضا ===
+        if ($data === 'cp:ssig') {
+            $this->startSmartSigWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigt:')) {
+            $this->handleSmartSigTagCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigc:')) {
+            $this->handleSmartSigChannelCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigpol:')) {
+            $this->handleSmartSigPolicyCallback($publisher, $botItem, $type, $chatId, substr($data, 11));
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigck:')) {
+            $rest = substr($data, 10);
+            $this->handleSmartSigCustomPick($publisher, $botItem, $type, $chatId, $rest);
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigrc:')) {
+            $this->handleSmartSigRandomCount($publisher, $botItem, $type, $chatId, (int) substr($data, 10));
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssiglay:')) {
+            $this->handleSmartSigLayoutCallback($publisher, $botItem, $type, $chatId, substr($data, 11));
+            return;
+        }
+        if (str_starts_with($data, 'cp:ssigap:')) {
+            $this->handleSmartSigApplyCallback($publisher, $botItem, $type, $chatId, substr($data, 10));
+            return;
+        }
+        if ($data === 'cp:ssigpv:yes' || $data === 'cp:ssigpv:no') {
+            $this->handleSmartSigPreviewCallback($publisher, $botItem, $type, $chatId, $data === 'cp:ssigpv:yes');
+            return;
+        }
+        if ($data === 'cp:ssigbk') {
+            $this->handleSmartSigBack($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if ($data === 'cp:ssigcancel') {
+            $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false);
             return;
         }
 
@@ -1239,18 +1383,59 @@ class ChannelPosterBotController extends Controller
         string $chatId,
         string $tagKey
     ): void {
-        $hasLinks = $this->service->resolveByTag($botItem->id, $tagKey)
-            ->filter(fn ($d) => !empty($d->channel_link))
-            ->isNotEmpty();
+        $state = $this->getState($botItem, $chatId, $type);
+        $stateData = $state?->data ?? [];
 
+        $destinations = $this->service->resolveByTag($botItem->id, $tagKey);
+        if ($destinations->isEmpty()) {
+            $destinations = $this->service->resolveDestinations($botItem->id, 'all');
+        }
+
+        $policy = SignatureSettingsService::effectiveApplicationPolicy($destinations);
+
+        // CP-SMART-SIGNATURE-SETTINGS: سیاست اعمالِ هوشمند
+        if ($policy === SignatureSettingsService::APPLY_ASK_EVERY_POST && !($stateData['ssig_answered'] ?? false)) {
+            // سؤال کوتاهِ هر-بار — هرگز ویزارد کامل
+            $msg = trans('bot.channel_poster_ssig_ask_this_post');
+            $rows = [
+                [
+                    ['text' => trans('bot.channel_poster_ssig_btn_yes'), 'callback_data' => 'cp:ssigp:yes'],
+                    ['text' => trans('bot.channel_poster_ssig_btn_no'), 'callback_data' => 'cp:ssigp:no'],
+                ],
+                [
+                    ['text' => trans('bot.channel_poster_ssig_btn_settings'), 'callback_data' => 'cp:ssigp:settings'],
+                    ['text' => trans('bot.channel_poster_ssig_btn_stop_asking'), 'callback_data' => 'cp:ssigp:stop'],
+                ],
+            ];
+            $this->sendNativeHintIfNeeded($publisher, $chatId, $type, $msg, $rows, [
+                trans('bot.channel_poster_ssig_text_hint_yes'),
+                trans('bot.channel_poster_ssig_text_hint_settings'),
+                trans('bot.channel_poster_ssig_text_hint_stop'),
+            ]);
+            return;
+        }
+
+        // ALWAYS_APPLY: امزا با تنظیمات هوشمند اعمال می‌شود (بدون سؤال)
+        // DISABLED: امزا این بار اعمال نمی‌شود (بدون سؤال)
+        if ($policy === SignatureSettingsService::APPLY_ALWAYS) {
+            $stateData['signature_enabled'] = true;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+        } elseif ($policy === SignatureSettingsService::APPLY_DISABLED) {
+            $stateData['signature_enabled'] = false;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+        }
+
+        $hasLinks = SignatureSettingsService::anyHasLink($destinations);
         $pendingCount = $this->service->countPending($botItem->id, $tagKey);
         $nextSlot = $this->service->getNextSlot($botItem->id, $tagKey);
         $nextTimeLabel = $nextSlot->setTimezone('Asia/Tehran')->format('H:i');
 
         $rows = [];
 
-        // Signature option (only if any channel has a link)
-        if ($hasLinks) {
+        // Signature option (legacy فقط — فقط وقتی هیچ مقصد هوشمندی نباشد)
+        if ($policy === 'legacy' && $hasLinks && !($stateData['ssig_answered'] ?? false)) {
             $rows[] = [
                 ['text' => trans('bot.channel_poster_btn_sig_yes'), 'callback_data' => 'cp:sig:yes'],
                 ['text' => trans('bot.channel_poster_btn_sig_no'), 'callback_data' => 'cp:sig:no'],
@@ -1268,6 +1453,27 @@ class ChannelPosterBotController extends Controller
             $msg .= "\n" . trans('bot.channel_poster_queue_count', ['count' => $pendingCount]);
         }
 
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, $msg, $rows, [
+            trans('bot.channel_poster_ssig_text_hint_now'),
+            trans('bot.channel_poster_ssig_text_hint_queue'),
+        ]);
+    }
+
+    /**
+     * برای مبدأهای native (soroush/rubika) دکمه‌ها حذف می‌شوند؛ راهنمای متنی
+     * کوتاه اضافه می‌کنیم تا کاربر بداند چه تایپ کند. (CP-SMART-SIGNATURE-SETTINGS)
+     */
+    private function sendNativeHintIfNeeded(
+        ChannelPosterPublisher $publisher,
+        string $chatId,
+        string $type,
+        string $msg,
+        array $rows,
+        array $textHints
+    ): void {
+        if (in_array($type, ['soroush', 'rubika'], true) && $textHints !== []) {
+            $msg .= "\n\n" . trans('bot.channel_poster_platform_native_hint') . "\n" . implode("\n", $textHints);
+        }
         $publisher->sendPrivateMessage($chatId, $msg, $rows);
     }
 
@@ -1305,6 +1511,12 @@ class ChannelPosterBotController extends Controller
         // Enqueue instead of immediate publish
         if ($enqueue) {
             $nextSlot = $this->service->getNextSlot($botItem->id, $tagKey);
+            // CP-SMART-SIGNATURE-SETTINGS: انتخاب random یک‌بار اینجا فریز می‌شود
+            // (ثبات امزا در retry صف)
+            $frozenSelection = null;
+            if ($signatureEnabled) {
+                $frozenSelection = $this->service->freezeSignatureSelections($botItem->id, $tagKey);
+            }
             $this->service->enqueue(
                 $botItem->id,
                 $tagKey,
@@ -1318,7 +1530,8 @@ class ChannelPosterBotController extends Controller
                 $state?->getData('content_id') !== null ? (int) $state->getData('content_id') : null,
                 is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null,
                 is_string($fileName) && $fileName !== '' ? $fileName : null,
-                is_string($mimeType) && $mimeType !== '' ? $mimeType : null
+                is_string($mimeType) && $mimeType !== '' ? $mimeType : null,
+                $frozenSelection !== [] ? $frozenSelection : null
             );
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage(
@@ -1335,13 +1548,23 @@ class ChannelPosterBotController extends Controller
         $results = [];
         $allOk = true;
         $localPath = is_string($mediaPath) && $mediaPath !== '' ? $mediaPath : null;
+        // CP-SMART-SIGNATURE-SETTINGS: random یک‌بار فریز می‌شود تا همهٔ مقصدها
+        // انتخاب یکسان/ثابت ببینند (برای retry از صف استفاده می‌شود)
+        $frozenSelection = $signatureEnabled
+            ? $this->service->freezeSignatureSelections($botItem->id, $tagKey)
+            : null;
         foreach ($destinations as $destination) {
             // امضای لینک‌دارِ مخصوص همین پلتفرم + parse_mode آن (+ دکمهٔ button-type)
             $destText = $finalText;
             $destParseMode = null;
             $destReplyMarkup = null;
             if ($signatureEnabled && $destText !== null) {
-                $sig = $this->service->buildSignature($botItem->id, $tagKey, $destination->platform);
+                // تنظیمات هوشمندِ مقصد → موتور سیاست؛ وگرنه legacy
+                if (SignatureSettingsService::isSmart($destination)) {
+                    $sig = $this->service->buildSignatureForDestination($destination, $frozenSelection);
+                } else {
+                    $sig = $this->service->buildSignature($botItem->id, $tagKey, $destination->platform);
+                }
                 if ($sig['text'] !== '' || (is_array($sig['button'] ?? null) && $sig['button'] !== [])) {
                     // guard طول caption (فقط رسانه) — هرگز متن اصلی کوتاه نمی‌شود
                     if ($contentType !== 'text'
@@ -1787,6 +2010,859 @@ class ChannelPosterBotController extends Controller
 
         $key = $enabled ? 'channel_poster_sign_enabled' : 'channel_poster_sign_disabled';
         $publisher->sendPrivateMessage($chatId, trans('bot.' . $key, ['link' => $link]));
+    }
+
+    // ======================================================================
+    // === CP-SMART-SIGNATURE-SETTINGS: ویزارد تنظیمات هوشمند امضا ===
+    // سیاست انتخاب لینک → (چیدمان شرطی) → پیش‌نمایش → ذخیره.
+    // همهٔ مراحل هم از دکمه و هم از تایپ متنی (سروش/روبیکا) قابل عبورند.
+    // ======================================================================
+
+    /**
+     * شروع ویزارد. $pending = دادهٔ وضعیتِ مرحلهٔ انتخاب زمان ارسال (وقتی از
+     * «تغییر تنظیمات» در جریان ارسال وارد شده‌ایم) — برای بازگشت بعد از ذخیره.
+     */
+    private function startSmartSigWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $pending = []
+    ): void {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_no_tag'));
+            return;
+        }
+
+        $data = ['pending' => $pending];
+
+        if (count($groups) === 1) {
+            $this->showSmartSigChannels($publisher, $botItem, $type, $chatId, $groups[0]['key'], $data);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:ssigt:' . $index]];
+        }
+        $data['tag_keys'] = array_map(fn (array $g) => $g['key'], $groups);
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_TAG, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_tag'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_number'),
+        ]);
+    }
+
+    private function handleSmartSigTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $index
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+        if ($tag === '') {
+            return;
+        }
+        $this->showSmartSigChannels($publisher, $botItem, $type, $chatId, $tag, $state?->data ?? []);
+    }
+
+    /**
+     * انتخاب کانال/مقصد — با نشانگر لینک (✅/❌) مثل ویزارد /sign.
+     */
+    private function showSmartSigChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag,
+        array $data = []
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $hasLink = !empty($dest->channel_link) ? '✅' : '❌';
+            $rows[] = [['text' => "{$label} — {$title} {$hasLink}", 'callback_data' => 'cp:ssigc:' . $dest->id]];
+            $destIds[] = $dest->id;
+        }
+
+        $data = array_merge($data, ['tag' => $tag, 'dest_ids' => $destIds]);
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_CHANNEL, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_pick_channel'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_number'),
+        ]);
+    }
+
+    private function handleSmartSigChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return;
+        }
+        $state = $this->getState($botItem, $chatId, $type);
+        $data = $state?->data ?? [];
+        $data['destination_id'] = $destId;
+        $data['tag'] = (string) ($data['tag'] ?? '');
+        // تنظیمات ذخیره‌شدهٔ قبلی به‌عنوان پیش‌فرض (state preservation)
+        $saved = SignatureSettingsService::normalize(is_array($dest->signature_settings) ? $dest->signature_settings : null);
+        $this->showSmartSigPolicy($publisher, $botItem, $type, $chatId, $data, $saved);
+    }
+
+    /**
+     * مرحلهٔ سیاست انتخاب لینک.
+     *
+     * @param array|null $savedSettings تنظیمات قبلی ذخیره‌شده (پیش‌فرض‌گذاری)
+     */
+    private function showSmartSigPolicy(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data,
+        ?array $savedSettings = null
+    ): void {
+        $policy = (string) ($savedSettings['link_selection_policy'] ?? SignatureSettingsService::POLICY_SELF_ONLY);
+
+        $rows = [
+            [['text' => trans('bot.channel_poster_ssig_policy_self'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_SELF_ONLY]],
+            [['text' => trans('bot.channel_poster_ssig_policy_all'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_ALL_CHANNELS]],
+            [['text' => trans('bot.channel_poster_ssig_policy_exclude'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_EXCLUDE_SELF]],
+            [['text' => trans('bot.channel_poster_ssig_policy_custom'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_CUSTOM]],
+            [['text' => trans('bot.channel_poster_ssig_policy_random'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_RANDOM]],
+            [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']],
+            [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
+        ];
+
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_POLICY, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_policy'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_numbers_5'),
+        ]);
+    }
+
+    private function handleSmartSigPolicyCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $policy
+    ): void {
+        if (!in_array($policy, SignatureSettingsService::policies(), true)) {
+            return;
+        }
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_POLICY) {
+            return;
+        }
+        $data = $state->data ?? [];
+        $data['policy'] = $policy;
+        unset($data['layout'], $data['separator']);
+
+        if ($policy === SignatureSettingsService::POLICY_CUSTOM) {
+            $data['custom_picks'] = [];
+            $this->showSmartSigCustomPick($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if ($policy === SignatureSettingsService::POLICY_RANDOM) {
+            $data['random_count'] = (int) ($data['random_count'] ?? 2);
+            $this->showSmartSigRandomCount($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        $this->afterPolicy($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * مرحلهٔ انتخاب مقصدهای custom (تک‌چند) + دکمهٔ پایان.
+     */
+    private function showSmartSigCustomPick(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $destId = (int) ($data['destination_id'] ?? 0);
+        $tag = (string) ($data['tag'] ?? '');
+        // لیست مقصدهای هم‌تگ (مقصد خود جداست؛ فقط کانال‌های دیگر قابل انتخاب)
+        $tagDestinations = $this->service->resolveByTag($botItem->id, $tag);
+        $picks = array_values(array_unique(array_map('intval', (array) ($data['custom_picks'] ?? []))));
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        foreach ($tagDestinations as $dest) {
+            if ($destId > 0 && $dest->id === $destId) {
+                continue; // خود مقصد جداست؛ فقط کانال‌های دیگر قابل انتخاب
+            }
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $mark = in_array($dest->id, $picks, true) ? '✅' : '➕';
+            $rows[] = [['text' => "{$label} — {$title} {$mark}", 'callback_data' => 'cp:ssigck:' . $dest->id]];
+        }
+        $rows[] = [['text' => trans('bot.channel_poster_ssig_custom_done'), 'callback_data' => 'cp:ssigck:done']];
+        $rows[] = [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']];
+        $rows[] = [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']];
+
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_CUSTOM_PICK, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_custom'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_numbers'),
+        ]);
+    }
+
+    /**
+     * $rest: شمارهٔ مقصد یا 'done' یا عددِ فاصلهٔ شماره‌ها (ورودی متنی).
+     */
+    private function handleSmartSigCustomPick(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $rest
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_CUSTOM_PICK) {
+            return;
+        }
+        $data = $state->data ?? [];
+        $destId = (int) ($data['destination_id'] ?? 0);
+        $tag = (string) ($data['tag'] ?? '');
+        $picks = array_values(array_unique(array_map('intval', (array) ($data['custom_picks'] ?? []))));
+
+        if ($rest === 'done') {
+            if ($picks === []) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_custom_empty'));
+                $this->showSmartSigCustomPick($publisher, $botItem, $type, $chatId, $data);
+                return;
+            }
+            $data['custom_picks'] = $picks;
+            $this->afterPolicy($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        $index = (int) $rest;
+        $tagDestinations = $this->service->resolveByTag($botItem->id, $tag);
+        $candidates = $tagDestinations->filter(
+            fn (ChannelPosterDestination $d) => $destId <= 0 || $d->id !== $destId
+        )->values();
+
+        $dest = $candidates->first(fn (ChannelPosterDestination $d) => $d->id === $index);
+        if (!$dest) {
+            $dest = $candidates->get($index - 1) ?? null;
+        }
+        if (!$dest) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        $id = $dest->id;
+        if (in_array($id, $picks, true)) {
+            $picks = array_values(array_diff($picks, [$id]));
+        } else {
+            $picks[] = $id;
+        }
+        $data['custom_picks'] = $picks;
+        $this->showSmartSigCustomPick($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * مرحلهٔ تعداد random (حداکثر ۵۰).
+     */
+    private function showSmartSigRandomCount(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $tag = (string) ($data['tag'] ?? '');
+        $eligibleCount = count(SignatureSettingsService::eligibleDestinations($this->service->resolveByTag($botItem->id, $tag)));
+
+        $rows = [];
+        foreach ([1, 2, 3] as $n) {
+            $rows[] = [['text' => trans('bot.channel_poster_ssig_count_n', ['n' => $n]), 'callback_data' => 'cp:ssigrc:' . $n]];
+        }
+        $rows[] = [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']];
+        $rows[] = [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']];
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_RANDOM_COUNT, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_count', ['max' => $eligibleCount]), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_count'),
+        ]);
+    }
+
+    private function handleSmartSigRandomCount(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $count
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_RANDOM_COUNT) {
+            return;
+        }
+        if ($count < 1 || $count > 50) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_count'));
+            return;
+        }
+        $data = $state->data ?? [];
+        $data['random_count'] = $count;
+        $this->afterPolicy($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * بعد از تعیین سیاست: چیدمان (فقط اگر ممکن است بیش از یک لینک شود) → اعمال → پیش‌نمایش.
+     */
+    private function afterPolicy(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $policy = (string) ($data['policy'] ?? SignatureSettingsService::POLICY_SELF_ONLY);
+        $tag = (string) ($data['tag'] ?? '');
+        $eligibleCount = count(SignatureSettingsService::eligibleDestinations($this->service->resolveByTag($botItem->id, $tag)));
+
+        $picksArg = null;
+        if ($policy === SignatureSettingsService::POLICY_CUSTOM) {
+            $picksArg = array_map('intval', (array) ($data['custom_picks'] ?? []));
+        } elseif ($policy === SignatureSettingsService::POLICY_RANDOM) {
+            $picksArg = ['random_count' => (int) ($data['random_count'] ?? 2)];
+        }
+
+        if (SignatureSettingsService::layoutQuestionNeeded($policy, $eligibleCount, $picksArg)) {
+            $this->showSmartSigLayout($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        $data['layout'] = SignatureSettingsService::LAYOUT_SINGLE_LINE;
+        $this->showSmartSigApply($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * مرحلهٔ چیدمان (فقط وقتی امزا می‌تواند چند لینک شود).
+     */
+    private function showSmartSigLayout(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $rows = [
+            [
+                ['text' => trans('bot.channel_poster_ssig_layout_single'), 'callback_data' => 'cp:ssiglay:' . SignatureSettingsService::LAYOUT_SINGLE_LINE],
+                ['text' => trans('bot.channel_poster_ssig_layout_multi'), 'callback_data' => 'cp:ssiglay:' . SignatureSettingsService::LAYOUT_MULTI_LINE],
+            ],
+            [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']],
+            [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
+        ];
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_LAYOUT, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_layout'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_numbers_2'),
+        ]);
+    }
+
+    private function handleSmartSigLayoutCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $layout
+    ): void {
+        if (!in_array($layout, SignatureSettingsService::layouts(), true)) {
+            return;
+        }
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_LAYOUT) {
+            return;
+        }
+        $data = $state->data ?? [];
+        $data['layout'] = $layout;
+        if ($layout === SignatureSettingsService::LAYOUT_SINGLE_LINE) {
+            $data['separator'] = SignatureSettingsService::SEPARATOR_DEFAULT;
+            $this->showSmartSigSeparator($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        $this->showSmartSigApply($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * مرحلهٔ جداکنندهٔ single_line (حداکثر ۱۶ نویسه).
+     */
+    private function showSmartSigSeparator(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $rows = [
+            [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']],
+            [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
+        ];
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_SEPARATOR, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_separator', [
+            'current' => (string) ($data['separator'] ?? SignatureSettingsService::SEPARATOR_DEFAULT),
+        ]), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_separator'),
+        ]);
+    }
+
+    /**
+     * مرحلهٔ سیاست اعمال امزا.
+     */
+    private function showSmartSigApply(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $rows = [
+            [['text' => trans('bot.channel_poster_ssig_apply_always'), 'callback_data' => 'cp:ssigap:' . SignatureSettingsService::APPLY_ALWAYS]],
+            [['text' => trans('bot.channel_poster_ssig_apply_ask'), 'callback_data' => 'cp:ssigap:' . SignatureSettingsService::APPLY_ASK_EVERY_POST]],
+            [['text' => trans('bot.channel_poster_ssig_apply_disabled'), 'callback_data' => 'cp:ssigap:' . SignatureSettingsService::APPLY_DISABLED]],
+            [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']],
+            [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
+        ];
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_APPLY, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_apply'), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_numbers_3'),
+        ]);
+    }
+
+    private function handleSmartSigApplyCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $policy
+    ): void {
+        if (!in_array($policy, SignatureSettingsService::applicationPolicies(), true)) {
+            return;
+        }
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_APPLY) {
+            return;
+        }
+        $data = $state->data ?? [];
+        $data['apply'] = $policy;
+        $this->showSmartSigPreview($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * مرحلهٔ پیش‌نمایش + تأیید نهایی (فقط با «بله» ذخیره می‌شود).
+     */
+    private function showSmartSigPreview(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $data
+    ): void {
+        $destId = (int) ($data['destination_id'] ?? 0);
+        $tag = (string) ($data['tag'] ?? '');
+        $settings = $this->smartSigDraftSettings($data);
+        $dest = $destId > 0 ? ChannelPosterDestination::find($destId) : null;
+
+        $preview = '';
+        if ($dest) {
+            $dest->signature_settings = $settings;
+            $tagDestinations = $this->service->resolveByTag($botItem->id, $tag);
+            $selected = SignatureSettingsService::resolveSelected($dest, $tagDestinations);
+            $preview = SignatureSettingsService::buildPreview($selected, $settings);
+        }
+
+        $rows = [
+            [
+                ['text' => trans('bot.channel_poster_ssig_confirm_save'), 'callback_data' => 'cp:ssigpv:yes'],
+                ['text' => trans('bot.channel_poster_ssig_confirm_no'), 'callback_data' => 'cp:ssigpv:no'],
+            ],
+            [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
+        ];
+        $this->setState($botItem, $chatId, $type, self::STATE_SSIG_PREVIEW, $data);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_preview', [
+            'preview' => $preview !== '' ? $preview : trans('bot.channel_poster_ssig_preview_empty'),
+        ]), $rows, [
+            trans('bot.channel_poster_ssig_text_hint_yes_no'),
+        ]);
+    }
+
+    private function handleSmartSigPreviewCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        bool $confirm
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_SSIG_PREVIEW) {
+            return;
+        }
+        if (!$confirm) {
+            // خیر = بدون ذخیره (تنظیمات پیشین دست‌نخورده می‌ماند)
+            $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false);
+            return;
+        }
+        $this->saveSmartSigSettings($publisher, $botItem, $type, $chatId, $state->data ?? []);
+    }
+
+    private function handleSmartSigBack(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || !str_starts_with($state->state, 'cp_ssig_')) {
+            return;
+        }
+        $data = $state->data ?? [];
+        $destId = (int) ($data['destination_id'] ?? 0);
+
+        match ($state->state) {
+            self::STATE_SSIG_CUSTOM_PICK => $this->showSmartSigPolicy($publisher, $botItem, $type, $chatId, $data),
+            self::STATE_SSIG_RANDOM_COUNT => $this->showSmartSigPolicy($publisher, $botItem, $type, $chatId, $data),
+            self::STATE_SSIG_POLICY => $destId > 0
+                ? $this->showSmartSigChannels($publisher, $botItem, $type, $chatId, (string) ($data['tag'] ?? ''), $data)
+                : $this->startSmartSigWizard($publisher, $botItem, $type, $chatId, (array) ($data['pending'] ?? [])),
+            self::STATE_SSIG_CHANNEL => $this->startSmartSigWizard($publisher, $botItem, $type, $chatId, (array) ($data['pending'] ?? [])),
+            self::STATE_SSIG_SEPARATOR => $this->showSmartSigLayout($publisher, $botItem, $type, $chatId, $data),
+            self::STATE_SSIG_APPLY => $this->afterPolicy($publisher, $botItem, $type, $chatId, $data),
+            self::STATE_SSIG_PREVIEW => $this->showSmartSigApply($publisher, $botItem, $type, $chatId, $data),
+            default => $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false),
+        };
+    }
+
+    /**
+     * ذخیرهٔ نهایی و پایان ویزارد.
+     *
+     * @param array $d دادهٔ وضعیتِ ویزارد (شامل pending در صورت ورود از «تغییر تنظیمات»)
+     */
+    private function saveSmartSigSettings(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d
+    ): void {
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $dest = $destId > 0 ? ChannelPosterDestination::find($destId) : null;
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $settings = $this->smartSigDraftSettings($d);
+        $this->service->saveSmartSignatureSettings($destId, $settings);
+        $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, true);
+    }
+
+    /**
+     * ساخت آرایهٔ تنظیمات از دادهٔ ویزارد (همان‌طور که در دیتابیس ذخیره می‌شود).
+     */
+    private function smartSigDraftSettings(array $d): array {
+        $apply = (string) ($d['apply'] ?? SignatureSettingsService::APPLY_ALWAYS);
+        $settings = [
+            'enabled' => $apply !== SignatureSettingsService::APPLY_DISABLED,
+            'link_selection_policy' => (string) ($d['policy'] ?? SignatureSettingsService::POLICY_SELF_ONLY),
+            'layout' => (string) ($d['layout'] ?? SignatureSettingsService::LAYOUT_SINGLE_LINE),
+            'separator' => (string) ($d['separator'] ?? SignatureSettingsService::SEPARATOR_DEFAULT),
+            'selected_destinations' => array_values(array_map('intval', (array) ($d['custom_picks'] ?? []))),
+            'random_count' => (int) ($d['random_count'] ?? 2),
+            'application_policy' => $apply,
+        ];
+        return SignatureSettingsService::normalize($settings) ?? SignatureSettingsService::defaults();
+    }
+
+    /**
+     * پایان ویزارد: ذخیره‌شده یا لغوشده. اگر مطلب معوق داشت (ورود از
+     * «تغییر تنظیمات» در جریان ارسال) به انتخاب زمان/امضا بازمی‌گردد.
+     */
+    private function finishSmartSigWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        bool $saved
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $data = $state?->data ?? [];
+        $pending = (array) ($data['pending'] ?? []);
+
+        $this->clearState($botItem, $chatId, $type);
+
+        if ($pending !== []) {
+            $tagKey = (string) ($pending['selected_tag'] ?? '');
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $pending);
+            // اگر امضا ذخیره شد و سیاست still ask_every_post است، سؤال دوباره نمی‌آید
+            // چون دادهٔ معوقِ قبلی «پاسخ‌داده» بوده (ssig_answered در $pending).
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_' . ($saved ? 'saved' : 'cancelled')));
+    }
+
+    /**
+     * معادل متنیِ همهٔ مراحل ویزارد — دکمه در مبدأهای native (soroush/rubika)
+     * حذف می‌شود (NativeChannelPosterPublisher). برای همهٔ مبدأها مجاز است.
+     */
+    private function handleSmartSigText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $d
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $raw = trim($text);
+        $choice = mb_strtolower($raw);
+        $destId = (int) ($d['destination_id'] ?? 0);
+
+        // بازگشت/انصراف — همهٔ مراحل (دکمه در مبدأهای native حذف می‌شود)
+        if (in_array($choice, ['بازگشت', 'back', '❮'], true)) {
+            $this->handleSmartSigBack($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (in_array($choice, ['انصراف', 'لغو', 'cancel'], true)) {
+            $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_TAG) {
+            $keys = $d['tag_keys'] ?? [];
+            if ($raw !== '' && ctype_digit($raw) && isset($keys[(int) $raw - 1])) {
+                $this->handleSmartSigTagCallback($publisher, $botItem, $type, $chatId, (int) $raw - 1);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_CHANNEL) {
+            $ids = array_map('intval', (array) ($d['dest_ids'] ?? []));
+            if ($raw !== '' && ctype_digit($raw) && isset($ids[(int) $raw - 1])) {
+                $this->handleSmartSigChannelCallback($publisher, $botItem, $type, $chatId, $ids[(int) $raw - 1]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_POLICY) {
+            $map = [
+                '1' => SignatureSettingsService::POLICY_SELF_ONLY,
+                '2' => SignatureSettingsService::POLICY_ALL_CHANNELS,
+                '3' => SignatureSettingsService::POLICY_EXCLUDE_SELF,
+                '4' => SignatureSettingsService::POLICY_CUSTOM,
+                '5' => SignatureSettingsService::POLICY_RANDOM,
+            ];
+            if (isset($map[$choice])) {
+                $this->handleSmartSigPolicyCallback($publisher, $botItem, $type, $chatId, $map[$choice]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_CUSTOM_PICK) {
+            if (in_array($choice, ['انجام شد', 'done', 'ok', '✔', '✅'], true)) {
+                $this->handleSmartSigCustomPick($publisher, $botItem, $type, $chatId, 'done');
+                return;
+            }
+            if ($raw !== '' && ctype_digit($raw) && (int) $raw >= 1) {
+                $this->handleSmartSigCustomPick($publisher, $botItem, $type, $chatId, $raw);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_RANDOM_COUNT) {
+            if ($raw !== '' && ctype_digit($raw) && (int) $raw >= 1 && (int) $raw <= 50) {
+                $this->handleSmartSigRandomCount($publisher, $botItem, $type, $chatId, (int) $raw);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_count'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_LAYOUT) {
+            $map = [
+                '1' => SignatureSettingsService::LAYOUT_SINGLE_LINE,
+                '2' => SignatureSettingsService::LAYOUT_MULTI_LINE,
+            ];
+            if (isset($map[$choice])) {
+                $this->handleSmartSigLayoutCallback($publisher, $botItem, $type, $chatId, $map[$choice]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_SEPARATOR) {
+            $sep = $raw === '' ? SignatureSettingsService::SEPARATOR_DEFAULT : mb_substr($raw, 0, 16);
+            $d2 = $d;
+            $d2['separator'] = $sep;
+            $this->showSmartSigApply($publisher, $botItem, $type, $chatId, $d2);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_APPLY) {
+            $map = [
+                '1' => SignatureSettingsService::APPLY_ALWAYS,
+                '2' => SignatureSettingsService::APPLY_ASK_EVERY_POST,
+                '3' => SignatureSettingsService::APPLY_DISABLED,
+            ];
+            if (isset($map[$choice])) {
+                $this->handleSmartSigApplyCallback($publisher, $botItem, $type, $chatId, $map[$choice]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_SSIG_PREVIEW) {
+            $yes = in_array($choice, ['بله', 'بره', 'yes', 'y'], true);
+            $no = in_array($choice, ['خیر', 'نه', 'no', 'n'], true);
+            if ($yes) {
+                $this->handleSmartSigPreviewCallback($publisher, $botItem, $type, $chatId, true);
+                return;
+            }
+            if ($no) {
+                $this->handleSmartSigPreviewCallback($publisher, $botItem, $type, $chatId, false);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_confirm_invalid'));
+            return;
+        }
+    }
+
+    /**
+     * معادل متنیِ سؤال کوتاهِ هر-بار (ASK_EVERY_POST) — دکمه‌ها در مبدأهای
+     * native (soroush/rubika) حذف می‌شوند. برای همهٔ مبدأها مجاز است.
+     *
+     * بله/خیر → پاسخ سؤال (و سپس انتخاب زمان ارسال)
+     * تنظیمات → ویزارد (محتوای معوق حفظ می‌شود)
+     * دیگر نپرس → تبدیل دائمی به always_apply
+     * الان/صف → اگر سؤال هنوز بی‌پاسخ است، امزا فرضِ پیش‌فرض (خیر) می‌شود
+     */
+    private function handleSmartSigPostQuestionText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $stateData
+    ): void {
+        $choice = mb_strtolower(trim($text));
+        $tagKey = (string) ($stateData['selected_tag'] ?? '');
+
+        if (in_array($choice, ['بله', 'بره', 'yes', 'y'], true)) {
+            $stateData['signature_enabled'] = true;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            return;
+        }
+        if (in_array($choice, ['خیر', 'نه', 'no', 'n'], true)) {
+            $stateData['signature_enabled'] = false;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            return;
+        }
+        if (in_array($choice, ['تنظیمات', 'settings'], true)
+            || str_contains($choice, 'تنظیمات')
+            || str_contains($choice, 'settings')
+        ) {
+            $this->startSmartSigWizard($publisher, $botItem, $type, $chatId, $stateData);
+            return;
+        }
+        if (in_array($choice, ['دیگر نپرس', 'donotask', 'stop'], true)
+            || str_contains($choice, 'نپرس')
+            || str_contains($choice, 'ask')
+        ) {
+            $dests = $this->service->resolveByTag($botItem->id, $tagKey);
+            if ($dests->isEmpty()) {
+                $dests = $this->service->resolveDestinations($botItem->id, 'all');
+            }
+            foreach ($dests as $d) {
+                if (!SignatureSettingsService::requiresPostQuestion($d)) {
+                    continue;
+                }
+                $settings = SignatureSettingsService::normalize($d->signature_settings) ?? SignatureSettingsService::defaults();
+                $settings['application_policy'] = SignatureSettingsService::APPLY_ALWAYS;
+                $this->service->saveSmartSignatureSettings($d->id, $settings);
+            }
+            $stateData['signature_enabled'] = true;
+            $stateData['ssig_answered'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $this->askSignatureAndQueue($publisher, $botItem, $type, $chatId, $tagKey);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_stop_saved'));
+            return;
+        }
+        if (in_array($choice, ['الان', 'now'], true)) {
+            // بدون پاسخ به سؤالِ امزا → امزا این بار اعمال نمی‌شود (موقت)
+            $stateData['signature_enabled'] = false;
+            $stateData['ssig_answered'] = true;
+            $stateData['enqueue'] = false;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $state = $this->getState($botItem, $chatId, $type);
+            if ($state) {
+                $this->publishPendingToTag($publisher, $botItem, $type, $chatId, $state, $tagKey);
+            }
+            return;
+        }
+        if (in_array($choice, ['صف', 'queue'], true)) {
+            $stateData['signature_enabled'] = false;
+            $stateData['ssig_answered'] = true;
+            $stateData['enqueue'] = true;
+            $this->setState($botItem, $chatId, $type, self::STATE_AWAITING_DESTINATION, $stateData);
+            $state = $this->getState($botItem, $chatId, $type);
+            if ($state) {
+                $this->publishPendingToTag($publisher, $botItem, $type, $chatId, $state, $tagKey);
+            }
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_ssig_ask_this_post') . "\n" . trans('bot.channel_poster_ssig_text_hint_yes'));
     }
 
     /**
@@ -2449,6 +3525,8 @@ class ChannelPosterBotController extends Controller
 
             if ($this->service->isOwner($botItem, $chatId, $type)) {
                 $rows[] = [['text' => trans('bot.channel_sync_menu_defaults'), 'callback_data' => 'cps:sub:defaults']];
+                // CP-SMART-SIGNATURE-SETTINGS: ورودی واحد تنظیمات هوشمند امضا (فقط مالک)
+                $rows[] = [['text' => trans('bot.channel_poster_ssig_menu_entry'), 'callback_data' => 'cp:ssig']];
             }
 
             $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];

@@ -23,6 +23,7 @@ class ChannelPosterQueue extends Model
         'file_name',
         'mime_type',
         'signature_enabled',
+        'signature_selection',
         'scheduled_at',
         'published_at',
         'status',
@@ -34,6 +35,7 @@ class ChannelPosterQueue extends Model
 
     protected $casts = [
         'signature_enabled' => 'boolean',
+        'signature_selection' => 'array',
         'scheduled_at' => 'datetime',
         'published_at' => 'datetime',
     ];
