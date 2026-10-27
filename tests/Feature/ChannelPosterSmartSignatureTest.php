@@ -26,6 +26,13 @@ use Tests\UsesChannelPosterSqlite;
  * invalid), DISABLED, multi-channel-per-platform custom pick, 2-tag wizard,
  * no-tag wizard, soroush text-only wizard with custom separator, rubika plain
  * rendering, token-leak guard.
+ *
+ * CP-SMART-SIGNATURE-SETTINGS-ADDENDUM (ready-made presets):
+ * ALL_CHANNELS / EXCLUDE_SELF / SELF_ONLY per-destination publish assertions,
+ * SELF_ONLY_PLUS_EITAA_ON_TELEGRAM (telegram = self + aitaa, others = self
+ * only, no fabrication, multi-eitaa no-duplicate, wizard option 6 callback +
+ * soroush text '6', persistence/reload, single/multi line layout,
+ * ALWAYS_APPLY + ASK_EVERY_POST behavior, queue determinism/retry stability).
  */
 class ChannelPosterSmartSignatureTest extends TestCase
 {
@@ -904,6 +911,618 @@ class ChannelPosterSmartSignatureTest extends TestCase
         $this->assertNoState();
     }
 
+    // ==================================================================
+    // CP-SMART-SIGNATURE-SETTINGS-ADDENDUM — ready-made presets
+    // ==================================================================
+
+    // ------------------------------------------------------------------
+    // P1. ALL_CHANNELS: every eligible link on EVERY destination
+    // ------------------------------------------------------------------
+    public function test_preset_all_channels_publishes_all_eligible_links_on_every_destination(): void
+    {
+        $bot = $this->createBot();
+        $bale = $this->createDestination($bot->id, 'bale', 'tag1', [
+            'channel_link' => 'https://ble.ir/ch',
+            'signature_label' => 'ب1',
+        ]);
+        $soroush = $this->createDestination($bot->id, 'soroush', 'tag1', [
+            'channel_link' => null, // not eligible
+        ]);
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$bale, $soroush, $telegram] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings(['link_selection_policy' => 'all_channels']));
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        // bale: self + telegram, linkless soroush excluded
+        $this->assertSame(
+            't' . "\n\n[ب1](https://ble.ir/ch) | [در تلگرام](https://t.me/ch)",
+            $byPlatform['bale']['text']
+        );
+        // soroush (itself linkless): still gets the other eligible links
+        // (plain «label: url» lines joined by the default separator)
+        $this->assertSame(
+            't' . "\n\nب1: https://ble.ir/ch | در تلگرام: https://t.me/ch",
+            $byPlatform['soroush']['text']
+        );
+        // telegram: both eligible links, tag (insertion) order — no
+        // self-first reordering in all_channels
+        $this->assertSame(
+            't' . "\n\n<a href=\"https://ble.ir/ch\">ب1</a> | <a href=\"https://t.me/ch\">در تلگرام</a>",
+            $byPlatform['telegram']['text']
+        );
+        $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
+    }
+
+    // ------------------------------------------------------------------
+    // P2. EXCLUDE_SELF: self removed, others shown; no other channel →
+    //     plain text (no partial signature)
+    // ------------------------------------------------------------------
+    public function test_preset_exclude_self_removes_self_and_keeps_others(): void
+    {
+        $bot = $this->createBot();
+        $bale = $this->createDestination($bot->id, 'bale', 'tag1', [
+            'channel_link' => 'https://ble.ir/ch',
+            'signature_label' => 'ب1',
+        ]);
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$bale, $telegram] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings(['link_selection_policy' => 'exclude_self']));
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        $this->assertStringNotContainsString('ble.ir/ch', $byPlatform['bale']['text']);
+        $this->assertSame('t' . "\n\n[در تلگرام](https://t.me/ch)", $byPlatform['bale']['text']);
+        $this->assertStringNotContainsString('t.me/ch', $byPlatform['telegram']['text']);
+        $this->assertSame('t' . "\n\n<a href=\"https://ble.ir/ch\">ب1</a>", $byPlatform['telegram']['text']);
+        $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
+
+        // only ONE eligible channel in the tag → exclude_self = no links.
+        // (single bot + a second tag: one bale token per test environment)
+        $solo = $this->createDestination($bot->id, 'soroush', 'tag2', [
+            'channel_link' => 'https://soroush.me/solo',
+        ]);
+        $this->app->make(ChannelPosterBotService::class)->saveSmartSignatureSettings(
+            $solo->id,
+            $this->smartSettings(['link_selection_policy' => 'exclude_self'])
+        );
+        $this->postText('t2');
+        $this->postCallback('cp:tag:1'); // tag2 (tag1 = index 0)
+        $this->postCallback('cp:now');
+        $last = end($this->publisher->publishes);
+        $this->assertSame('t2', $last['text']);
+    }
+
+    // ------------------------------------------------------------------
+    // P3. SELF_ONLY: own link on each of the five messengers
+    // ------------------------------------------------------------------
+    public function test_preset_self_only_publishes_own_link_on_each_of_five_messengers(): void
+    {
+        $bot = $this->createBot();
+        $specs = [
+            ['bale', 'https://ble.ir/ch', 'ب'],
+            ['eitaa', 'https://eitaa.ir/ch', 'ا'],
+            ['soroush', 'https://soroush.me/ch', 'س'],
+            ['rubika', 'https://rubika.ir/ch', 'ر'],
+            ['telegram', 'https://t.me/ch', 'ت'],
+        ];
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        $dests = [];
+        foreach ($specs as $i => [$platform, $link, $label]) {
+            $d = $this->createDestination($bot->id, $platform, 'tag1', [
+                'channel_link' => $link,
+                'signature_label' => $label,
+                'channel_chat_id' => $platform . '-channel-' . ($i + 1),
+            ]);
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings());
+            $dests[$platform] = $d;
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        $this->assertCount(5, $byPlatform);
+        $this->assertSame('t' . "\n\n[ب](https://ble.ir/ch)", $byPlatform['bale']['text']);
+        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">ا</a>", $byPlatform['eitaa']['text']);
+        $this->assertSame('html', $byPlatform['eitaa']['parse_mode']);
+        $this->assertSame('t' . "\n\nس: https://soroush.me/ch", $byPlatform['soroush']['text']);
+        $this->assertSame('t' . "\n\nر: https://rubika.ir/ch", $byPlatform['rubika']['text']);
+        $this->assertSame('t' . "\n\n<a href=\"https://t.me/ch\">ت</a>", $byPlatform['telegram']['text']);
+        $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
+    }
+
+    // ------------------------------------------------------------------
+    // P4. SELF_ONLY_PLUS_EITAA_ON_TELEGRAM — telegram destination shows
+    //     self + aitaa (sample: «تلگرام | ایتا»); aitaa destination
+    //     shows only itself
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_telegram_shows_self_plus_aitaa(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $eitaa = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+            'signature_label' => 'ایتا',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$telegram, $eitaa] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        // telegram: self + aitaa, self first («تلگرام | ایتا»)
+        $this->assertSame(
+            't' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a> | <a href=\"https://eitaa.ir/ch\">ایتا</a>",
+            $byPlatform['telegram']['text']
+        );
+        $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
+        // aitaa: only its own link
+        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">ایتا</a>", $byPlatform['eitaa']['text']);
+    }
+
+    // ------------------------------------------------------------------
+    // P5. preset 4 on the four non-telegram messengers → only self
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_other_messengers_show_only_self(): void
+    {
+        $bot = $this->createBot();
+        $specs = [
+            ['bale', 'https://ble.ir/ch'],
+            ['soroush', 'https://soroush.me/ch'],
+            ['rubika', 'https://rubika.ir/ch'],
+            ['eitaa', 'https://eitaa.ir/ch'],
+        ];
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ($specs as $i => [$platform, $link]) {
+            $d = $this->createDestination($bot->id, $platform, 'tag1', [
+                'channel_link' => $link,
+                'channel_chat_id' => $platform . '-channel-' . ($i + 1),
+            ]);
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+        // a telegram channel in the tag must NOT leak into their signatures;
+        // configure it smart (self_only) so it renders only its own link too
+        $svc->saveSmartSignatureSettings(
+            $this->createDestination($bot->id, 'telegram', 'tag1', [
+                'channel_link' => 'https://t.me/ch',
+            ])->id,
+            $this->smartSettings()
+        );
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        $this->assertCount(5, $byPlatform);
+        // bale: the platform label is markdown-safe → [label](url) form
+        $this->assertSame('t' . "\n\n[در بله](https://ble.ir/ch)", $byPlatform['bale']['text']);
+        $this->assertSame('t' . "\n\nدر سروش: https://soroush.me/ch", $byPlatform['soroush']['text']);
+        $this->assertSame('t' . "\n\nدر روبیکا: https://rubika.ir/ch", $byPlatform['rubika']['text']);
+        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">در ایتا</a>", $byPlatform['eitaa']['text']);
+        $this->assertSame('html', $byPlatform['eitaa']['parse_mode']);
+        $this->assertSame('t' . "\n\n<a href=\"https://t.me/ch\">در تلگرام</a>", $byPlatform['telegram']['text']);
+        $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
+    }
+
+    // ------------------------------------------------------------------
+    // P6. missing/invalid aitaa → NO fabricated link, telegram self kept;
+    //     telegram without own link → empty signature (no partial)
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_no_aitaa_link_keeps_telegram_and_fabricates_nothing(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $eitaaNoLink = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => null,
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$telegram, $eitaaNoLink] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $byPlatform = [];
+        foreach ($this->publisher->publishes as $p) {
+            $byPlatform[$p['platform']] = $p;
+        }
+        // telegram: its own link preserved, nothing fabricated for aitaa
+        $this->assertSame('t' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a>", $byPlatform['telegram']['text']);
+        // aitaa destination (no link of its own) → empty signature
+        $this->assertSame('t', $byPlatform['eitaa']['text']);
+
+        // telegram WITHOUT its own link → no signature at all (no partial).
+        // (single bot + a second tag: one bale token per test environment)
+        $tgNoLink = $this->createDestination($bot->id, 'telegram', 'tag2', [
+            'channel_link' => null,
+            'channel_chat_id' => 'telegram-channel-2',
+        ]);
+        $svc->saveSmartSignatureSettings(
+            $tgNoLink->id,
+            $this->smartSettings(['link_selection_policy' => 'self_only_plus_eitaa_on_telegram'])
+        );
+        // another tag2 destination WITH a valid link — preset4 on the
+        // linkless telegram must NOT fabricate a link from it
+        $svc->saveSmartSignatureSettings(
+            $this->createDestination($bot->id, 'soroush', 'tag2', [
+                'channel_link' => 'https://soroush.me/ch2',
+            ])->id,
+            $this->smartSettings()
+        );
+        $this->postText('t2');
+        $this->postCallback('cp:tag:1'); // tag2 (tag1 = index 0)
+        $this->postCallback('cp:now');
+        $tg = null;
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'telegram') {
+                $tg = $p;
+            }
+        }
+        $this->assertSame('t2', $tg['text']);
+        // the other tag2 destination (smart self_only) renders its own link
+        $so = null;
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'soroush') {
+                $so = $p;
+            }
+        }
+        $this->assertSame(
+            't2' . "\n\nدر سروش: https://soroush.me/ch2",
+            $so['text']
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // P7. multiple aitaa channels → ALL included in tag order; each link
+    //     appears exactly once (no unintended duplicate)
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_multiple_eitaa_channels_no_unintended_duplicate(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $ei1 = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/a',
+            'signature_label' => 'ا1',
+            'channel_chat_id' => 'eitaa-channel-1',
+        ]);
+        $ei2 = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/b',
+            'signature_label' => 'ا2',
+            'channel_chat_id' => 'eitaa-channel-2',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$telegram, $ei1, $ei2] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+
+        $this->postText('t');
+        $this->postCallback('cp:now');
+
+        $tg = null;
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'telegram') {
+                $tg = $p;
+            }
+        }
+        // telegram link exactly once, both aitaa links, tag (platform) order
+        $this->assertSame(
+            't' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a> | <a href=\"https://eitaa.ir/a\">ا1</a> | <a href=\"https://eitaa.ir/b\">ا2</a>",
+            $tg['text']
+        );
+        $this->assertSame(1, substr_count($tg['text'], 'https://t.me/ch'));
+        $this->assertSame(1, substr_count($tg['text'], 'https://eitaa.ir/a'));
+        $this->assertSame(1, substr_count($tg['text'], 'https://eitaa.ir/b'));
+    }
+
+    // ------------------------------------------------------------------
+    // P8. all four presets selectable from the settings menu and saveable
+    //     (callback option 6 + soroush text '6'), settings persist and
+    //     survive save + reload
+    // ------------------------------------------------------------------
+    public function test_addendum_all_four_presets_selectable_from_menu_and_persist(): void
+    {
+        $bot = $this->createBot();
+        $dest = $this->createDestination($bot->id, 'bale', 'tag1', [
+            'channel_link' => 'https://ble.ir/ch',
+        ]);
+
+        // Policy menu exposes all four presets (+ back / cancel) — as
+        // KEYBOARD buttons (text menus are stripped on native origins)
+        $this->postCallback('cp:ssig');
+        $this->postCallback('cp:ssigc:' . $dest->id);
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_POLICY);
+        $rows = $this->lastPrivateCallbackRows();
+        $flat = array_merge([], ...$rows);
+        $this->assertContains('cp:ssigpol:self_only', $flat);
+        $this->assertContains('cp:ssigpol:all_channels', $flat);
+        $this->assertContains('cp:ssigpol:exclude_self', $flat);
+        $this->assertContains('cp:ssigpol:self_only_plus_eitaa_on_telegram', $flat);
+        // the 4th preset row carries its own display text (internal name
+        // is the callback value, not the label)
+        $presetButton = null;
+        foreach ($this->lastPrivateKeyboard() as $row) {
+            foreach ($row as $button) {
+                if (($button['callback_data'] ?? '') === 'cp:ssigpol:self_only_plus_eitaa_on_telegram') {
+                    $presetButton = $button;
+                }
+            }
+        }
+        $this->assertNotNull($presetButton);
+        $this->assertSame(trans('bot.channel_poster_ssig_policy_self_plus_eitaa'), $presetButton['text']);
+
+        // Select preset 4 via the menu, no aitaa in tag → 1 link → NO
+        // layout question (straight to apply), then save + reload.
+        $this->postCallback('cp:ssigpol:self_only_plus_eitaa_on_telegram');
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_APPLY);
+        $this->postCallback('cp:ssigap:always_apply');
+        $this->postCallback('cp:ssigpv:yes');
+        $this->assertNoState();
+
+        $fresh = ChannelPosterDestination::find($dest->id);
+        $this->assertSame([
+            'enabled' => true,
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+            'selected_destinations' => [],
+            'random_count' => 2,
+            'application_policy' => 'always_apply',
+        ], $fresh->signature_settings);
+        $this->assertTrue((bool) $fresh->signature_enabled);
+
+        // Preset 4 WITH an aitaa channel: 2 final links on the TELEGRAM
+        // destination → layout question (the bale destination has 1 link)
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+        ]);
+        $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+        ]);
+        $this->postCallback('cp:ssig');
+        $this->postCallback('cp:ssigc:' . $telegram->id);
+        $this->postCallback('cp:ssigpol:self_only_plus_eitaa_on_telegram');
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_LAYOUT);
+        $this->postCallback('cp:ssigcancel');
+
+        // Soroush text path: '6' selects the same preset (numbers 1–5
+        // unchanged) — on the telegram destination, 2 links → question.
+        // (same bot + destinations as above; single tag → no tag step)
+        $bot->update([
+            'soroush_bot_token' => self::SOROUSH_TOKEN,
+            'soroush_bot_name' => 'channel_poster_soroush_bot',
+            'soroush_bot_status' => 'Active',
+            'soroush_owner_chat_id' => (int) $this->ownerChatId,
+            'soroush_webhook_is_set' => true,
+        ]);
+        $this->postSoroushCallback('cp:ssig');
+        $this->postSoroushText('3'); // channel: telegram (bale=1, eitaa=2, telegram=3)
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_POLICY, 'soroush');
+        $this->postSoroushText('6'); // policy: self + eitaa on telegram
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_LAYOUT, 'soroush'); // 2 links → asked
+        $this->postSoroushText('انصراف');
+
+        // Legacy destination untouched by any of the above
+        $this->assertNull($this->createDestination($bot->id, 'rubika', 'tag1')->signature_settings);
+        $this->assertNoTokenLeak();
+    }
+
+    // ------------------------------------------------------------------
+    // P9. preset 4 layout interplay: stored layout decides 1-line vs
+    //     multi-line on the telegram destination (2 final links)
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_respects_stored_single_and_multi_layout(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $eitaa = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+            'signature_label' => 'ایتا',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+
+        // single_line (wizard default when asked): «تلگرام | ایتا»
+        $svc->saveSmartSignatureSettings($telegram->id, $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            'layout' => 'single_line',
+        ]));
+        $this->postText('t');
+        $this->postCallback('cp:now');
+        $tg = null;
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'telegram') {
+                $tg = $p;
+            }
+        }
+        $this->assertSame(
+            't' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a> | <a href=\"https://eitaa.ir/ch\">ایتا</a>",
+            $tg['text']
+        );
+
+        // multi_line: label on its own line, then the anchor
+        $svc->saveSmartSignatureSettings($telegram->id, $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            'layout' => 'multi_line',
+        ]));
+        $this->postText('m');
+        $this->postCallback('cp:now');
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'telegram') {
+                $tg = $p;
+            }
+        }
+        $this->assertSame(
+            'm' . "\n\nتلگرام:\n<a href=\"https://t.me/ch\">تلگرام</a>\nایتا:\n<a href=\"https://eitaa.ir/ch\">ایتا</a>",
+            $tg['text']
+        );
+        $this->assertSame('html', $tg['parse_mode']);
+    }
+
+    // ------------------------------------------------------------------
+    // P10. preset 4 application policies: ALWAYS_APPLY = no extra
+    //      question; ASK_EVERY_POST keeps the prior short-question flow
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_always_apply_and_ask_every_post_behavior(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $eitaa = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+            'signature_label' => 'ایتا',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$telegram, $eitaa] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+
+        // ALWAYS_APPLY: no per-post question
+        $this->postText('hello');
+        $this->assertSame(trans('bot.channel_poster_ask_publish_options'), $this->publisher->lastPrivateText());
+        $this->postCallback('cp:now');
+        $this->assertCount(2, $this->publisher->publishes);
+        $this->assertCount(0, $this->publisher->privateMessages ? array_filter(
+            $this->publisher->privateMessages,
+            fn ($m) => str_contains((string) $m['text'], trans('bot.channel_poster_ssig_ask_this_post'))
+        ) : []);
+
+        // ASK_EVERY_POST: short question, then بله → publish with signature.
+        // Effective policy = the FIRST smart destination in the tag
+        // (collection order: eitaa before telegram) → BOTH destinations
+        // must be ask_every_post for the tag to ask.
+        foreach ([$telegram, $eitaa] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+                'application_policy' => 'ask_every_post',
+            ]));
+        }
+        $this->postText('again');
+        $this->assertSame(trans('bot.channel_poster_ssig_ask_this_post'), $this->publisher->lastPrivateText());
+        $rows = $this->lastPrivateCallbackRows();
+        $this->assertSame(['cp:ssigp:yes', 'cp:ssigp:no'], $rows[0]);
+        $this->assertSame(['cp:ssigp:settings', 'cp:ssigp:stop'], $rows[1]);
+
+        $this->postText('بله');
+        $this->postCallback('cp:now');
+        $tg = null;
+        foreach ($this->publisher->publishes as $p) {
+            if ($p['platform'] === 'telegram' && str_starts_with((string) $p['text'], 'again')) {
+                $tg = $p;
+            }
+        }
+        $this->assertSame(
+            'again' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a> | <a href=\"https://eitaa.ir/ch\">ایتا</a>",
+            $tg['text']
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // P11. preset 4 in the queue: deterministic (no random) → stable
+    //      across retry; no frozen selection stored
+    // ------------------------------------------------------------------
+    public function test_preset_self_plus_eitaa_queue_stable_on_retry(): void
+    {
+        $bot = $this->createBot();
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+            'signature_label' => 'تلگرام',
+        ]);
+        $eitaa = $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+            'signature_label' => 'ایتا',
+        ]);
+        $svc = $this->app->make(ChannelPosterBotService::class);
+        foreach ([$telegram, $eitaa] as $d) {
+            $svc->saveSmartSignatureSettings($d->id, $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ]));
+        }
+        $expectedTg = 'q' . "\n\n<a href=\"https://t.me/ch\">تلگرام</a> | <a href=\"https://eitaa.ir/ch\">ایتا</a>";
+
+        $this->postText('q');
+        $this->postCallback('cp:queue');
+        $this->assertStringContainsString('در صف قرار گرفت', $this->publisher->lastPrivateText());
+
+        /** @var ChannelPosterQueue $item */
+        $item = ChannelPosterQueue::first();
+        $this->assertNotNull($item);
+        // deterministic policy → nothing frozen
+        $this->assertEmpty($item->signature_selection);
+
+        // Run 1: telegram fails, eitaa succeeds
+        $this->publisher->failPlatforms = ['telegram'];
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id, '--all' => true])->assertFailed();
+        $this->assertCount(2, $this->publisher->publishes);
+
+        // Run 2: telegram retry must produce the EXACT same signature
+        $item->refresh();
+        $item->update(['status' => ChannelPosterQueue::STATUS_PENDING]);
+        $this->publisher->failPlatforms = [];
+        $this->artisan('channel-poster:send-queued', ['--id' => $item->id, '--all' => true])->assertSuccessful();
+
+        $tgRuns = array_filter($this->publisher->publishes, fn ($p) => $p['platform'] === 'telegram');
+        $this->assertCount(2, $tgRuns);
+        foreach ($tgRuns as $p) {
+            $this->assertSame($expectedTg, $p['text']);
+        }
+        $this->assertNoTokenLeak();
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -1025,10 +1644,14 @@ class ChannelPosterSmartSignatureTest extends TestCase
         )->assertOk();
     }
 
-    private function assertState(string $state): void
+    private function assertState(string $state, ?string $origin = null): void
     {
         $bot = Bot::first();
-        $user = BotUsers::where('chat_id', $this->ownerChatId)->where('bot_id', $bot->id)->first();
+        $query = BotUsers::where('chat_id', $this->ownerChatId)->where('bot_id', $bot->id);
+        if ($origin !== null) {
+            $query->where('origin', $origin);
+        }
+        $user = $query->first();
         $this->assertSame(
             $state,
             BotUserState::where('bot_user_id', $user->id)->value('state')

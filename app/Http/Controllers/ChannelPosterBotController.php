@@ -2157,13 +2157,14 @@ class ChannelPosterBotController extends Controller
             [['text' => trans('bot.channel_poster_ssig_policy_exclude'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_EXCLUDE_SELF]],
             [['text' => trans('bot.channel_poster_ssig_policy_custom'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_CUSTOM]],
             [['text' => trans('bot.channel_poster_ssig_policy_random'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_RANDOM]],
+            [['text' => trans('bot.channel_poster_ssig_policy_self_plus_eitaa'), 'callback_data' => 'cp:ssigpol:' . SignatureSettingsService::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM]],
             [['text' => trans('bot.channel_poster_ssig_back'), 'callback_data' => 'cp:ssigbk']],
             [['text' => trans('bot.channel_poster_ssig_cancel'), 'callback_data' => 'cp:ssigcancel']],
         ];
 
         $this->setState($botItem, $chatId, $type, self::STATE_SSIG_POLICY, $data);
         $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_ssig_ask_policy'), $rows, [
-            trans('bot.channel_poster_ssig_text_hint_numbers_5'),
+            trans('bot.channel_poster_ssig_text_hint_numbers_6'),
         ]);
     }
 
@@ -2357,19 +2358,51 @@ class ChannelPosterBotController extends Controller
         $eligibleCount = count(SignatureSettingsService::eligibleDestinations($this->service->resolveByTag($botItem->id, $tag)));
 
         $picksArg = null;
+        $finalLinkCount = null;
         if ($policy === SignatureSettingsService::POLICY_CUSTOM) {
             $picksArg = array_map('intval', (array) ($data['custom_picks'] ?? []));
         } elseif ($policy === SignatureSettingsService::POLICY_RANDOM) {
             $picksArg = ['random_count' => (int) ($data['random_count'] ?? 2)];
+        } elseif ($policy === SignatureSettingsService::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM) {
+            // تعداد لینک نهایی (خود + ایتا) دقیقاً با همان موتور resolveSelected
+            // و روی مقصد واقعی — سؤال چیدمان فقط وقتی واقعاً ۲+ لینک می‌شود.
+            $finalLinkCount = $this->selfPlusEitaaFinalCount(
+                (int) ($data['destination_id'] ?? 0),
+                $botItem,
+                $tag,
+                $policy
+            );
         }
 
-        if (SignatureSettingsService::layoutQuestionNeeded($policy, $eligibleCount, $picksArg)) {
+        if (SignatureSettingsService::layoutQuestionNeeded($policy, $eligibleCount, $picksArg, $finalLinkCount)) {
             $this->showSmartSigLayout($publisher, $botItem, $type, $chatId, $data);
             return;
         }
 
         $data['layout'] = SignatureSettingsService::LAYOUT_SINGLE_LINE;
         $this->showSmartSigApply($publisher, $botItem, $type, $chatId, $data);
+    }
+
+    /**
+     * تعداد لینک نهایی سیاست self_only_plus_eitaa_on_telegram برای یک مقصد —
+     * دقیقاً منطق buildSignatureForDestination (resolveByTag با fallback به 'all')
+     * ولی فقط در حافظه، بدون ذخیره.
+     */
+    private function selfPlusEitaaFinalCount(int $destId, Bot $botItem, string $tag, string $policy): int
+    {
+        $dest = $destId > 0 ? ChannelPosterDestination::find($destId) : null;
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return 0;
+        }
+        $tagDestinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($tagDestinations->isEmpty()) {
+            $tagDestinations = $this->service->resolveDestinations($botItem->id, 'all');
+        }
+        $dest->signature_settings = SignatureSettingsService::normalize([
+            'link_selection_policy' => $policy,
+        ]) ?? SignatureSettingsService::defaults();
+
+        return count(SignatureSettingsService::resolveSelected($dest, $tagDestinations));
     }
 
     /**
@@ -2692,6 +2725,7 @@ class ChannelPosterBotController extends Controller
                 '3' => SignatureSettingsService::POLICY_EXCLUDE_SELF,
                 '4' => SignatureSettingsService::POLICY_CUSTOM,
                 '5' => SignatureSettingsService::POLICY_RANDOM,
+                '6' => SignatureSettingsService::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM,
             ];
             if (isset($map[$choice])) {
                 $this->handleSmartSigPolicyCallback($publisher, $botItem, $type, $chatId, $map[$choice]);

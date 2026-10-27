@@ -284,6 +284,66 @@ class SignatureSettingsServiceTest extends TestCase
         $this->assertSame([], SignatureSettingsService::resolveSelected($only, $this->coll($only)));
     }
 
+    public function test_resolve_selected_self_plus_eitaa_on_telegram_includes_self_plus_eligible_eitaa(): void
+    {
+        $tg = $this->dest(['platform' => 'telegram', 'signature_settings' => $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ])]);
+        $ei1 = $this->dest(['platform' => 'eitaa']);
+        $ba = $this->dest();
+        $so = $this->dest(['platform' => 'soroush']);
+        $ei2 = $this->dest(['platform' => 'eitaa']);
+
+        // telegram destination → self first, then ALL eligible eitaa in tag order
+        $this->assertSame(
+            [$tg->id, $ei1->id, $ei2->id],
+            array_map(fn ($x) => $x->id, SignatureSettingsService::resolveSelected($tg, $this->coll($tg, $ei1, $ba, $so, $ei2)))
+        );
+    }
+
+    public function test_resolve_selected_self_plus_eitaa_on_non_telegram_is_plain_self_only(): void
+    {
+        // eitaa destination → only self (the telegram link must NOT appear)
+        $ei = $this->dest(['platform' => 'eitaa', 'signature_settings' => $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ])]);
+        $tg = $this->dest(['platform' => 'telegram']);
+        $ba = $this->dest();
+        $this->assertSame([$ei], SignatureSettingsService::resolveSelected($ei, $this->coll($ei, $tg, $ba)));
+
+        // each other messenger → only its own link
+        foreach (['bale', 'soroush', 'rubika'] as $platform) {
+            $d = $this->dest(['platform' => $platform, 'signature_settings' => $this->smartSettings([
+                'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+            ])]);
+            $this->assertSame([$d], SignatureSettingsService::resolveSelected($d, $this->coll($d, $tg, $ei)));
+        }
+    }
+
+    public function test_resolve_selected_self_plus_eitaa_never_fabricates_and_requires_self_link(): void
+    {
+        // telegram with no eligible eitaa → self only (no fabricated link)
+        $tg = $this->dest(['platform' => 'telegram', 'signature_settings' => $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ])]);
+        $ba = $this->dest();
+        $this->assertSame([$tg], SignatureSettingsService::resolveSelected($tg, $this->coll($tg, $ba)));
+
+        // eitaa without a public link is never included
+        $tg2 = $this->dest(['platform' => 'telegram', 'signature_settings' => $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ])]);
+        $eiNoLink = $this->dest(['platform' => 'eitaa', 'channel_link' => null]);
+        $this->assertSame([$tg2], SignatureSettingsService::resolveSelected($tg2, $this->coll($tg2, $eiNoLink)));
+
+        // telegram without its own link → empty (self link is required, no partial)
+        $tg3 = $this->dest(['platform' => 'telegram', 'channel_link' => null, 'signature_settings' => $this->smartSettings([
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ])]);
+        $ei = $this->dest(['platform' => 'eitaa']);
+        $this->assertSame([], SignatureSettingsService::resolveSelected($tg3, $this->coll($tg3, $ei)));
+    }
+
     public function test_resolve_selected_custom_respects_pick_ids_and_falls_back_to_self(): void
     {
         $a = $this->dest();
@@ -443,6 +503,12 @@ class SignatureSettingsServiceTest extends TestCase
         $this->assertFalse(SignatureSettingsService::layoutQuestionNeeded('random', 5, ['random_count' => 1]));
         $this->assertTrue(SignatureSettingsService::layoutQuestionNeeded('random', 5, ['random_count' => 2]));
         $this->assertFalse(SignatureSettingsService::layoutQuestionNeeded('random', 5, null));
+
+        // self_plus_eitaa: depends on the final link count (self + eligible eitaa),
+        // not on the eligible count of the tag
+        $this->assertFalse(SignatureSettingsService::layoutQuestionNeeded('self_only_plus_eitaa_on_telegram', 0, null, 1));
+        $this->assertTrue(SignatureSettingsService::layoutQuestionNeeded('self_only_plus_eitaa_on_telegram', 5, null, 2));
+        $this->assertFalse(SignatureSettingsService::layoutQuestionNeeded('self_only_plus_eitaa_on_telegram', 1, null, null));
     }
 
     public function test_build_preview_layouts_and_labels(): void
@@ -468,11 +534,26 @@ class SignatureSettingsServiceTest extends TestCase
     public function test_policy_lists(): void
     {
         $this->assertSame(
-            ['self_only', 'all_channels', 'exclude_self', 'custom', 'random'],
+            ['self_only', 'all_channels', 'exclude_self', 'self_only_plus_eitaa_on_telegram', 'custom', 'random'],
             SignatureSettingsService::policies()
         );
         $this->assertSame(['single_line', 'multi_line'], SignatureSettingsService::layouts());
         $this->assertSame(['always_apply', 'ask_every_post', 'disabled'], SignatureSettingsService::applicationPolicies());
+    }
+
+    public function test_normalize_keeps_new_preset_policy_and_rejects_garbage(): void
+    {
+        $kept = SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'self_only_plus_eitaa_on_telegram',
+        ]);
+        $this->assertSame('self_only_plus_eitaa_on_telegram', $kept['link_selection_policy']);
+
+        $rejected = SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'self_only_plus_eitaa_typo',
+        ]);
+        $this->assertSame('self_only', $rejected['link_selection_policy']);
     }
 
     // ─────────────────────────── persistence ───────────────────────────

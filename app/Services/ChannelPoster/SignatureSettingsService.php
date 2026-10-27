@@ -14,6 +14,11 @@ use App\Models\ChannelPosterQueue;
  *      - self_only     : فقط لینک عمومی خود همان مقصد (سؤال چیدمان نمی‌آید)
  *      - all_channels  : همهٔ مقصدهای فعالِ تگ که لینک عمومی دارند (شامل خود)
  *      - exclude_self  : همهٔ مقصدهای فعالِ تگ با لینک عمومی، به‌جز خود
+ *      - self_only_plus_eitaa_on_telegram : خود + (فقط برای مقصد تلگرام)
+ *                        لینک همهٔ مقصدهای ایتای دارای لینک عمومی؛ برای هر
+ *                        مقصد غیرتلگرام همان self_only. لینک ایتا فقط از
+ *                        مقصدهای ثبت‌شده و واجد شرایط می‌آید؛ هیچ لینکی
+ *                        ساختگی تولید نمی‌شود و لینک خود تلگرام همیشه حفظ می‌شود.
  *      - custom        : فهرست دستی مقصدها — همیشه با شناسهٔ مقصد (destination
  *                        id) نه نام پلتفرم (چند کانال یک‌پلتفرمی ممکن است)
  *      - random        : k مقصد تصادفی از مقصدهای واجد شرایط (تعداد را کاربر
@@ -47,6 +52,7 @@ class SignatureSettingsService
     public const POLICY_SELF_ONLY = 'self_only';
     public const POLICY_ALL_CHANNELS = 'all_channels';
     public const POLICY_EXCLUDE_SELF = 'exclude_self';
+    public const POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM = 'self_only_plus_eitaa_on_telegram';
     public const POLICY_CUSTOM = 'custom';
     public const POLICY_RANDOM = 'random';
 
@@ -329,6 +335,29 @@ class SignatureSettingsService
                 ->all();
         }
 
+        if ($policy === self::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM) {
+            // خود + (فقط وقتی مقصد تلگرام است) همهٔ مقصدهای ایتای واجد شرایط
+            // در ترتیب تگ. لینک خود مقصد الزامی است؛ نداشت → امضای خالی
+            // (امضای ناقص ساخته نمی‌شود، مثل self_only). ایتا فقط از
+            // مقصدهای ثبت‌شده و دارای لینک عمومی می‌آید؛ هیچ لینکی ساختگی
+            // تولید نمی‌شود و لینک خود تلگرام همیشه اول و حفظ می‌شود.
+            if (empty($dest->channel_link)) {
+                return [];
+            }
+            $selected = [$dest];
+            if ($dest->platform === ChannelPosterDestination::PLATFORM_TELEGRAM) {
+                foreach ($eligible as $d) {
+                    if ($d->id === $dest->id) {
+                        continue;
+                    }
+                    if ($d->platform === ChannelPosterDestination::PLATFORM_EITAA) {
+                        $selected[] = $d;
+                    }
+                }
+            }
+            return $selected;
+        }
+
         if ($policy === self::POLICY_CUSTOM) {
             $wanted = $settings['selected_destinations'];
             $selected = $eligible
@@ -437,17 +466,30 @@ class SignatureSettingsService
      *  - custom                 → فقط اگر بیش از یک مقصد انتخاب شود
      *  - random                 → فقط اگر random_count > 1 باشد
      *  - all_channels/exclude_self → فقط اگر بیش از یک مقصد واجد شرایط باشد
+     *  - self_only_plus_eitaa_on_telegram → فقط اگر تعداد لینک نهایی > 1 باشد
+     *    (تعداد نهایی را caller با resolveSelected روی مقصد واقعی می‌شمارد و
+     *     از طریق $finalLinkCount می‌فرستد)
      *
      * @param array{picks?: int[], random_count?: int}|null $customPicks برای custom:
      *                                                                    آرایهٔ destination idهای انتخابی؛
      *                                                                    برای random: ['random_count' => n]
+     * @param int|null $finalLinkCount تعداد لینک نهایی برای
+     *                                  self_only_plus_eitaa_on_telegram (خود + ایتا)
      */
-    public static function layoutQuestionNeeded(?string $policy, int $eligibleCount, ?array $customPicks = null): bool
-    {
+    public static function layoutQuestionNeeded(
+        ?string $policy,
+        int $eligibleCount,
+        ?array $customPicks = null,
+        ?int $finalLinkCount = null
+    ): bool {
         $policy = $policy ?? self::POLICY_SELF_ONLY;
 
         if ($policy === self::POLICY_SELF_ONLY) {
             return false;
+        }
+
+        if ($policy === self::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM) {
+            return ($finalLinkCount ?? 0) > 1;
         }
 
         if ($policy === self::POLICY_CUSTOM) {
@@ -544,6 +586,7 @@ class SignatureSettingsService
             self::POLICY_SELF_ONLY,
             self::POLICY_ALL_CHANNELS,
             self::POLICY_EXCLUDE_SELF,
+            self::POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM,
             self::POLICY_CUSTOM,
             self::POLICY_RANDOM,
         ];

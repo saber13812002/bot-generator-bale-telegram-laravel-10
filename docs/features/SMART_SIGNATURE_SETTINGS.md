@@ -14,7 +14,7 @@
 
 | بخش | گزینه‌ها | پیش‌فرض |
 |---|---|---|
-| **A) سیاست انتخاب لینک** (`link_selection_policy`) | `self_only`، `all_channels`، `exclude_self`، `custom`، `random` | `self_only` |
+| **A) سیاست انتخاب لینک** (`link_selection_policy`) | `self_only`، `all_channels`، `exclude_self`، `self_only_plus_eitaa_on_telegram`، `custom`، `random` | `self_only` |
 | **B) چیدمان** (`layout`) | `single_line` (با جداکنندهٔ ≤۱۶ نویسه) / `multi_line` | `single_line` (جداکننده ` | `) |
 | **C) سیاست اعمال** (`application_policy`) | `always_apply` / `ask_every_post` / `disabled` | `always_apply` |
 
@@ -23,6 +23,10 @@
 - **تنظیم یک‌بار → بدون سؤال تکراری.** فقط `ask_every_post` سؤال می‌کند.
 - **سؤال چیدمان فقط وقتی ممکن است بیش از یک لینک ساخته شود** (SELF_ONLY،
   CUSTOM با یک انتخاب، RANDOM با count=1 سؤال نمی‌گیرند).
+- **پیش‌فرض ۴ — تلگرام + ایتا** (`self_only_plus_eitaa_on_telegram`): فقط
+  مقاصد تلگرام ایتا/لینک خود تلگرام را اضافه می‌کنند (سایر پلتفرم‌ها =
+  `self_only`). قطعی (بدون random/فریز) و deterministic — برای مقصد
+  تلگرام بدون لینک، لینک ایتا «ساختگی» نمی‌شود (خروجی خالی).
 - **RANDOM پیش‌فرض نیست**؛ فقط با انتخاب صریح کاربر فعال می‌شود.
 - **انتخاب RANDOM در لحظهٔ آماده‌سازی پیام فریز می‌شود** (ستون
   `channel_poster_queue.signature_selection`) تا retry/resend دقیقاً همان
@@ -31,9 +35,6 @@
   تغییر نمی‌دهد (مقصد با `signature_settings = NULL` کاملاً legacy می‌ماند).
 - **هیچ HTML/Markdown در تنظیمات ذخیره نمی‌شود**؛ فقط دادهٔ معنایی
   (policy/layout/separator/ids). رندر نهایی در زمان انتشار انجام می‌شود.
-- **فقط لینک عمومیِ ثبت‌شده** (`channel_link`) استفاده می‌شود؛ هرگز
-  token/chat-id/لینک ساختگی.
-- **اگر هیچ لینک معتبری باقی نماند، امضای ناقص ساخته نمی‌شود** (خروجی خالی).
 
 ---
 
@@ -58,6 +59,10 @@ buildSignatureForDestination(dest, frozenSelection?)
    │   ├─ self_only    ─► [خود] اگر لینک دارد
    │   ├─ all_channels ─► همهٔ واجدشرایط (لینک‌دار)
    │   ├─ exclude_self ─► واجدشرایط به‌جز خود (خالی = امضای خالی)
+   │   ├─ self_only_plus_eitaa_on_telegram (پیش‌فرض ۴):
+   │   │      ├─ مقصد تلگرام  ─► [خود(اگر لینک دارد)] + همهٔ ایتای واجدشرایط
+   │   │      │                    (ترتیب واجدشرایط؛ ایتا بدون لینک حذف)
+   │   │      └─ مقصد غیرتلگرام ─► [خود(اگر لینک دارد)] = همان self_only
    │   ├─ custom       ─► واجدشرایط ∩ selected_destinations (idها)
    │   │                  (اگر خالی شد و خود لینک دارد → [خود])
    │   └─ random       ─► pickRandom(eligible, random_count)   [LCG، seed قطعی]
@@ -100,6 +105,8 @@ cp:ssig
            ├─ self_only ────────────────► (چیدمان؟ نه) ─► APPLY
            ├─ all_channels ─────────────► (چیدمان؟ اگر eligible>1)
            ├─ exclude_self ─────────────► (چیدمان؟ اگر eligible>1)
+           ├─ self_only_plus_eitaa_on_telegram (پیش‌فرض ۴)
+           │                             ► (چیدمان؟ فقط تلگرام و >۱ لینک)
            ├─ custom ───────────────────► cp:ssigck:{dest_id} (چندتایی)
            │                              + «انجام شد» (حداقل ۱ انتخاب،
            │                              وگرنه ssig_custom_empty + باقی‌ماندن)
@@ -114,11 +121,13 @@ cp:ssig
 
 - **بازگشت:** `cp:ssigbk` از هر گام به گام قبلی می‌رود (در CUSTOM_PICK و
   RANDOM_COUNT به POLICY؛ در سایر گام‌ها بر اساس match روی state فعلی).
-- **لغو:** `cp:ssigx` → `ssig_cancelled` + پاک‌سازی state (تنظیمات قبلی
+- **لغو:** `cp:ssigcancel` → `ssig_cancelled` + پاک‌سازی state (تنظیمات قبلی
   دست‌نخورده می‌ماند).
 - **حفظ state:** هر گام `state` + `data` (draft) را نگه می‌دارد؛ ورودی نامعتبر
   همان گام را با پیام خطا تکرار می‌کند (`ssig_invalid_number` /
   `ssig_invalid_count` / `ssig_confirm_invalid`).
+- **منو سیاست:** ۴ پیش‌فرض (شماره‌های ۱–۵) + «تلگرام + ایتا» (شمارهٔ ۶،
+  فقط origin‌های native) + `custom` + `random` — دکمه‌ها برای همهٔ origin‌ها.
 
 ### ۳.۱ سؤالات کوتاهِ هر-پست (ASK_EVERY_POST)
 
@@ -240,6 +249,9 @@ signature_settings === NULL        → LEGACY: لینک ذخیره‌شده = ا
 | L8 | random_count | ۱ تا ۵۰ (بیش از تعداد واجدشرایط → همه، بدون برش) |
 | L9 | سoroush/روبیکا | کل ویزارد با **متن** قابل طی است (اعداد برای کانال/سیاست/چیدمان/تعداد؛ «بله/خیر» برای پیش‌نمایش) |
 | L10 | exclude_self خالی | اگر همهٔ لینک‌دارها «خود» باشند → امضای خالی (خودرسان: خودِ مقصد لینکش را در امزای خودش نمی‌بیند مگر self_only) |
+| L11 | پیش‌فرض ۴ — سؤalachیدمان | فقط برای مقصد تلگرام با >۱ لینک نهایی (خود تلگرام + حداقل یک ایتای لینک‌دار)؛ سایر پلتفرم‌ها هرگز سؤال نمی‌گیرند |
+| L12 | پیش‌فرض ۴ — deterministic | بدون random/فریز؛ retry همان ترکیب را می‌سازد. مقصد تلگرام بدون لینک: ایتا «ساختگی» نمی‌شود → امضای خالی |
+| L13 | سیاست اعمال مؤثر | سؤال کوتاه هر-پست (و `cp:ssigp:*`) با سیاست **اولین** مقصدِ هوشمندِ تگ (ترتیب بازگشت scope) تعیین می‌شود؛ برای رفتار یکنواخت همهٔ مقصدهای تگ را روی یک سیاست اعمال تنظیم کنید |
 
 ---
 
@@ -247,10 +259,10 @@ signature_settings === NULL        → LEGACY: لینک ذخیره‌شده = ا
 
 | مجموعه | نتیجه |
 |---|---|
-| `tests/Feature/ChannelPosterSmartSignatureTest.php` (سناریوهای §10) | ✅ 22 tests / 277 assertions |
-| `tests/Unit/SignatureSettingsServiceTest.php` (موتور سیاست + overflow) | ✅ شامل (در مجموع زیر) |
+| `tests/Feature/ChannelPosterSmartSignatureTest.php` (سناریوهای §10 + Addendum §A) | ✅ 33 tests / 412 assertions |
+| `tests/Unit/SignatureSettingsServiceTest.php` (موتور سیاست + overflow + preset4) | ✅ 31 tests / 116 assertions |
 | `tests/Unit/SignatureRendererTest.php` (+ 11 تست renderMulti) | ✅ شامل |
-| رگرسیون کامل (۸ Feature + 4 Unit: BotWebhook، MediaPublish، NativeAddWizard، OriginWebhook، QueueSend، RubikaResponseWizard، RubikaTestSend، SignatureManagement، SmartSignature + Renderer، SettingsService، ChannelPosterBotService، RubikaBotClient) | ✅ **271 tests / 1471 assertions / 0 failures** |
+| رگرسیون کامل (۹ Feature + 4 Unit: BotWebhook، MediaPublish، NativeAddWizard، OriginWebhook، QueueSend، RubikaResponseWizard، RubikaTestSend، SignatureManagement، SmartSignature + Renderer، SettingsService، ChannelPosterBotService) | ✅ **233 tests / 1467 assertions / 0 failures** (۲۰۲۶-۱۰-۲۷) |
 
 سناریوهای پوشش‌شده (مأموریت §10): SELF_ONLY بدون سؤال چیدمان؛
 ALL_CHANNELS تک‌خط/چندخط؛ EXCLUDE_SELF (شامل خود → خالی)؛ CUSTOM یک/چند
@@ -281,3 +293,63 @@ custom؛ مقصد بدون URL؛ سازگاری `/add`؛ رگرسیون بدون
 | `tests/Unit/SignatureSettingsServiceTest.php` | **جدید** | موتور سیاست + رگرسیون overflow |
 | `tests/Unit/SignatureRendererTest.php` | تغییر | 11 تست renderMulti |
 | `tests/UsesChannelPosterSqlite.php` | تغییر | ستون‌های جدید در DDL تست |
+
+---
+
+## ۹. Addendum (۲۰۲۶-۱۰-۲۷): پیش‌فرض ۴ — تلگرام + ایتا
+(`self_only_plus_eitaa_on_telegram`)
+
+**مأموریت:** CP-SMART-SIGNATURE-PRESET4-ADDENDUM
+**شعبه:** `15esfand1404`
+
+### ۹.۱ تعریف و قواعد
+
+سیاست جدیدِ انتخاب لینک — چهارم پیش‌فرض — که فقط روی **مقاصد تلگرام** اثر
+می‌گذارد:
+
+- **مقصد تلگرام:** `[خود(اگر `channel_link` دارد)] + همهٔ ایتاهای
+  واجدشرایطِ تگ (ترتیب بازگشت scope = لگ/insertion؛ ایتا بدون لینک حذف).
+- **مقاصد غیرتلگرام** (bale/eitaa/soroush/rubika): دقیقاً `self_only`.
+- **قطعی** (بدون random → بدون freeze/`signature_selection` → ثبات retry
+  رایگان).
+- **قانون کلیدی:** اگر خودِ تلگرام لینک ندارد، **هیچ لینکی ساخته
+  نمی‌شود** (لینک ایتا «ساختگی» نمی‌شود) → امضای خالی.
+- `layout`/`separator` ذخیره‌شده بر رندر چندلینکی حاکم‌اند (مثل سایر
+  سیاست‌ها).
+
+### ۹.۲ ویزارد
+
+- منوی سیاست: دکمهٔ ۵م — `channel_poster_ssig_policy_self_plus_eitaa` —
+  و در origin‌های native (سروش/روبیکا) شمارهٔ **۶** در متن راهنما
+  (`...ssig_text_hint_numbers_6`). شماره‌های ۱–۵ تغییر نکرده‌اند.
+- سؤال چیدمان فقط وقتی خروجی ممکن است چندلینک باشد (تلگرام + >۱ لینک).
+- باقی ویزارد (جداکننده/اعمال/پیش‌نمایش/ذخیره) بدون تغییر.
+
+### ۹.۳ مثال‌های رندر
+
+| مقصد | تگ | خروجی (single_line ` | `) |
+|---|---|---|
+| telegram (لینک دارد) + aitaa (لینک دارد) | — | `<a href="https://t.me/ch">در تلگرام</a> | <a href="https://eitaa.ir/ch">در ایتا</a>` |
+| telegram (لینک دارد) + aitaa (بدون لینک) | — | فقط لینک خود تلگرام |
+| telegram (بدون لینک) + aitaa (لینک دارد) | — | **امضای خالی** (ساختگی نمی‌شود) |
+| bale / soroush / rubika | — | دقیقاً `self_only` |
+
+### ۹.۴ نتایج (۲۰۲۶-۱۰-۲۷)
+
+- `SignatureSettingsServiceTest`: ✅ 31 tests / 116 assertions (شامل ۳ تست
+  resolveSelected preset4 + 1 تست layoutQuestionNeeded + 1 تست normalize +
+  1 تست preview).
+- `ChannelPosterSmartSignatureTest`: ✅ 33 tests / 412 assertions (۱۱ سناریوی
+  جدید §12: P1–P11).
+- رگرسیون کامل: ✅ 233 tests / 1467 assertions / 0 failures.
+
+### ۹.۵ فایل‌های تغییریافتهٔ Addendum
+
+| فایل | نوع | نقش |
+|---|---|---|
+| `app/Services/ChannelPoster/SignatureSettingsService.php` | تغییر | ثابت `POLICY_SELF_ONLY_PLUS_EITAA_ON_TELEGRAM`، `policies()`، `resolveSelected()` (شاخهٔ جدید)، `layoutQuestionNeeded()`، `buildPreview()` |
+| `app/Http/Controllers/ChannelPosterBotController.php` | تغییر | دکمهٔ ۵م در `showSmartSigPolicy`، شمارهٔ ۶ در `handleSmartSigText`، کلید راهنمای جدید |
+| `lang/fa/bot.php`، `lang/en/bot.php` | تغییر | `channel_poster_ssig_policy_self_plus_eitaa` + `..._ssig_text_hint_numbers_6` |
+| `tests/Unit/SignatureSettingsServiceTest.php` | تغییر | ۵ تست جدید preset4 |
+| `tests/Feature/ChannelPosterSmartSignatureTest.php` | تغییر | ۱۱ سناریوی جدید (P1–P11) + `assertState(origin?)` + `createDestination(chatId?)` |
+| `docs/features/SMART_SIGNATURE_SETTINGS.md` | تغییر | این بخش + به‌روزرسانی جدول‌ها |
