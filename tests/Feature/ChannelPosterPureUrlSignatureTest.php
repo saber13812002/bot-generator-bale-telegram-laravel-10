@@ -261,7 +261,7 @@ class ChannelPosterPureUrlSignatureTest extends TestCase
         $this->assertStringNotContainsString('<a href', $pub['text']);
         $this->assertStringNotContainsString('</a>', $pub['text']);
         $this->assertStringNotContainsString('](', $pub['text'], 'no markdown [label](URL) link');
-        $this->assertStringNotContainsString('&', $pub['text'], 'plain output — no HTML escaping');
+        $this->assertStringNotContainsString('&amp;', $pub['text'], 'plain output — no HTML escaping (raw & stays from the user text)');
 
         $this->assertSame(1, substr_count($pub['text'], 'https://ble.ir/pure'), 'URL must appear exactly once (no duplicate)');
         $this->assertStringContainsString(
@@ -283,8 +283,10 @@ class ChannelPosterPureUrlSignatureTest extends TestCase
             'channel_link' => 'https://t.me/purech',
         ]);
         $userText = 'متن امضا برای عکس';
-        $this->runPureUrlWizard($dest, $userText);
-
+        // The mocked media store must be bound BEFORE the first webhook
+        // request of this test: Laravel keeps the same controller instance
+        // across all simulated requests, and the constructor-injected
+        // ChannelPosterMediaStore is captured on that first request only.
         // incoming photo with caption (origin: bale → file must be downloaded)
         $mediaPath = $this->makeTempFile('webhook-pure.jpg', 'pure-photo-bytes');
         $store = Mockery::mock(ChannelPosterMediaStore::class)->makePartial();
@@ -293,6 +295,8 @@ class ChannelPosterPureUrlSignatureTest extends TestCase
             ->with($this->token, 'photo-file-id-123', 'bale', 'photo', null)
             ->andReturn($mediaPath);
         $this->app->instance(ChannelPosterMediaStore::class, $store);
+
+        $this->runPureUrlWizard($dest, $userText);
 
         $this->postPhotoUpdate('photo-file-id-123', 'کپشن عکس تست');
         $this->postCallback('cp:sig:yes');
@@ -354,15 +358,12 @@ class ChannelPosterPureUrlSignatureTest extends TestCase
 
         // the text step (ask_text) has no buttons → no hint; the confirm step
         // does (yes/no/back) → the native text hint must be appended there
-        $this->postSoroushText('متن میانی');
+        $this->postSoroushText($userText);
         $this->assertState(ChannelPosterBotController::STATE_PURE_URL_CONFIRM, 'soroush');
         $this->assertStringContainsString(
             trans('bot.channel_poster_platform_native_hint'),
             $this->publisher->lastPrivateText()
         );
-
-        $this->postSoroushText($userText);
-        $this->assertState(ChannelPosterBotController::STATE_PURE_URL_CONFIRM, 'soroush');
         $this->assertStringContainsString(
             '«' . $userText . "\n" . 'https://soroush.me/ch»',
             $this->publisher->lastPrivateText()

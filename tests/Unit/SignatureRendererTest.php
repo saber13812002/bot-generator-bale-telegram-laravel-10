@@ -258,8 +258,8 @@ class SignatureRendererTest extends TestCase
         // parse_mode is null => the text is displayed verbatim; no HTML escaping is applied.
         $this->assertNull($res['parse_mode']);
         $this->assertSame("\n\n{$text}\n{$url}", $res['text']);
-        $this->assertStringNotContainsString('&', $res['text']);
-        $this->assertStringNotContainsString('<', $res['text']);
+        $this->assertStringNotContainsString('&amp;', $res['text']);
+        $this->assertStringNotContainsString('&lt;', $res['text']);
     }
 
     public function test_pure_url_with_empty_label_renders_url_only(): void
@@ -603,5 +603,77 @@ class SignatureRendererTest extends TestCase
         $this->assertTrue(SignatureCapability::supportsMarkdownLink('bale'));
         $this->assertFalse(SignatureCapability::supportsMarkdownLink('telegram'));
         $this->assertFalse(SignatureCapability::supportsMarkdownLink('soroush'));
+    }
+
+    // ─────────────────────────── handle signature ───────────────────────────
+
+    public function test_handle_renders_emoji_and_handle_as_plain_text_on_last_line(): void
+    {
+        $result = SignatureRenderer::renderHandle('telegram', 'saberblog');
+
+        $this->assertSame("\n\n\u{1F530}@saberblog", $result['text']);
+        $this->assertNull($result['parse_mode']);
+        $this->assertSame(SignatureRenderer::TYPE_HANDLE, $result['type']);
+        $this->assertFalse($result['fallback']);
+        $this->assertNull($result['button']);
+    }
+
+    public function test_handle_is_identical_plain_output_on_all_five_platforms(): void
+    {
+        $expected = null;
+        foreach (['bale', 'telegram', 'eitaa', 'soroush', 'rubika'] as $platform) {
+            $result = SignatureRenderer::renderHandle($platform, 'saberblog', '⭐');
+            if ($expected === null) {
+                $expected = $result;
+            }
+            $this->assertSame($expected, $result, "platform {$platform} must match the others");
+        }
+        $this->assertSame("\n\n⭐@saberblog", $expected['text']);
+    }
+
+    public function test_handle_custom_emoji_and_at_prefix_stripping(): void
+    {
+        $this->assertSame("\n\n⭐@saberblog", SignatureRenderer::renderHandle('bale', '@saberblog', '⭐')['text']);
+        $this->assertSame("\n\n⭐@saberblog", SignatureRenderer::renderHandle('bale', '  @saberblog  ', '⭐')['text']);
+    }
+
+    /**
+     * @dataProvider invalidHandleProvider
+     */
+    public function test_handle_invalid_values_render_empty_and_never_fabricate(string $value): void
+    {
+        $result = SignatureRenderer::renderHandle('telegram', $value);
+
+        $this->assertSame('', $result['text']);
+        $this->assertNull($result['parse_mode']);
+        $this->assertSame(SignatureRenderer::TYPE_HANDLE, $result['type']);
+        $this->assertFalse($result['fallback']);
+        $this->assertNull($result['button']);
+    }
+
+    public static function invalidHandleProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'whitespace' => ['   '],
+            'all numeric' => ['12345'],
+            'spaces' => ['bad handle'],
+            'slash' => ['bad/handle'],
+            '65 chars' => [str_repeat('a', 65)],
+        ];
+    }
+
+    public function test_handle_null_input_renders_empty(): void
+    {
+        $this->assertSame('', SignatureRenderer::renderHandle('telegram', null)['text']);
+    }
+
+    public function test_render_with_handle_type_is_defensive_and_never_emits_a_url(): void
+    {
+        $result = SignatureRenderer::render('telegram', 'https://t.me/saberblog', SignatureRenderer::TYPE_HANDLE);
+
+        $this->assertSame('', $result['text']);
+        $this->assertStringNotContainsString('t.me', $result['text']);
+        $this->assertSame(SignatureRenderer::TYPE_HANDLE, $result['type']);
     }
 }

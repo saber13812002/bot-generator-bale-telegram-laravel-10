@@ -754,6 +754,27 @@ Chat ID: :chat_id',
     'channel_poster_pur_hint_tag' => 'Type the tag / channel number (or cancel)',
     'channel_poster_pur_hint_yesno' => 'yes / no / back (or cancel)',
 
+    // === Channel Handle Signature (CP-CHANNEL-HANDLE-SIGNATURE) ===
+    // Emoji + the channel's own short handle, extracted from its own valid data.
+    'channel_poster_hnd_menu_entry' => '🔰 Emoji + short channel handle',
+    'channel_poster_hnd_no_tag' => 'You do not have a tag yet. Send /start first and connect a channel.',
+    'channel_poster_hnd_ask_tag' => 'Which tag should get the “emoji + short channel handle” signature?',
+    'channel_poster_hnd_no_channels' => 'This tag has no channel.',
+    'channel_poster_hnd_pick_channel' => 'Which channel should get the “emoji + short channel handle” signature? (✅ = has a valid short handle, ❌ = does not)',
+    'channel_poster_hnd_no_handle' => '❌ No valid short handle was found for this channel, so no signature will be built (no guessed handles).'."\n".'Register the channel username or a valid public link and try again.',
+    'channel_poster_hnd_ask_emoji' => 'Channel handle: @:handle'."\n".'Now send the signature emoji (e.g. 🔰) — send “default” or an empty message to use 🔰.',
+    'channel_poster_hnd_confirm' => '👁 Signature preview:'."\n".'«:preview»'."\n".'This signature is appended to the last line of every post. Save?',
+    'channel_poster_hnd_conf_yes' => '✅ Yes, save it',
+    'channel_poster_hnd_conf_no' => '📄 No (save as disabled)',
+    'channel_poster_hnd_conf_back' => '↩️ Back to emoji',
+    'channel_poster_hnd_confirm_invalid' => 'Send yes, no or back (or use the buttons).',
+    'channel_poster_hnd_saved' => '✅ “Emoji + short channel handle” signature saved and enabled: :preview'."\n".'It is appended to the last line of every post (no full link).'."\n".'This signature is independent from the smart signature settings; any smart settings on this channel were cleared.',
+    'channel_poster_hnd_cancelled' => 'Cancelled — the previous settings were kept.',
+    'channel_poster_hnd_invalid_number' => 'Send the option number correctly (or use the buttons).',
+    'channel_poster_hnd_hint_tag' => 'Type the tag / channel number (or cancel)',
+    'channel_poster_hnd_hint_emoji' => 'Type the emoji or “default” (or cancel)',
+    'channel_poster_hnd_hint_yesno' => 'yes / no / back (or cancel)',
+
     // === Content Sync (multi-channel synchronization) ===
     'channel_sync_invalid_url' => 'That is not a valid Bale/Telegram/Eitaa/Soroush post link. Send the exact post URL.',
     'channel_sync_duplicate' => '⚠️ This link was already registered (content #:id).'."\n".':url'."\n".'Use /sync :id to view its status.',
@@ -815,6 +836,7 @@ Chat ID: :chat_id',
     'channel_sync_error_detail' => '📌 Error: :error',
     'channel_sync_report_aggregate' => ':icon :count :platform channels — :reason',
     'channel_sync_source_label' => '📌 Source: :channel (:platform)',
+    'channel_sync_eitaa_original_post_label' => 'Link to this post in the original channel:',
 
     // === /settings (short menu + independent submenus) ===
     'channel_sync_settings_title' => '⚙️ Jepeto settings',

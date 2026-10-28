@@ -101,19 +101,14 @@ class ChannelPosterQueuePublishService
             // متن پایه — امضای لینک‌دار به‌صورت per-destination داخل حلقه اضافه می‌شود
             $text = $item->text;
 
-            // §4: امضای منبع — متن ساده و مستقل از پلتفرم؛ یک‌بار محاسبه
-            // (حالتی که در لحظه صف‌بندی فریز شد) و در حلقه به هر مقصد اضافه می‌شود.
-            $attributionSuffix = '';
+            // §4: امضای منبع — حالت در لحظه صف‌بندی فریز شده است؛ خودِ متن
+            // امضا per-destination داخل حلقه محاسبه می‌شود (CP-CHANNEL-HANDLE-SIGNATURE
+            // §3: فرمت امضای منبع می‌تواند برحسب پلتفرمِ خودِ هر مقصد متفاوت باشد).
+            $attributionContent = null;
             if ($item->content_id && $text !== null && $item->source_attribution
                 && $item->source_attribution !== \App\Models\ContentSyncAdminPrefs::ATTR_NONE
             ) {
-                $content = \App\Models\ContentSyncContent::find($item->content_id);
-                if ($content) {
-                    $suffix = $this->contentSync->buildAttributionSuffix($content, (string) $item->source_attribution);
-                    if (trim($suffix) !== '') {
-                        $attributionSuffix = $suffix;
-                    }
-                }
+                $attributionContent = \App\Models\ContentSyncContent::find($item->content_id);
             }
 
             // Determine which token/origin to use for publishing
@@ -198,8 +193,15 @@ class ChannelPosterQueuePublishService
                         }
                     }
                 }
-                if ($destText !== null && $attributionSuffix !== '') {
-                    $destText .= "\n\n" . $attributionSuffix;
+                if ($destText !== null && $attributionContent !== null) {
+                    $attributionSuffix = trim($this->contentSync->buildAttributionSuffix(
+                        $attributionContent,
+                        (string) $item->source_attribution,
+                        (string) $destination->platform
+                    ));
+                    if ($attributionSuffix !== '') {
+                        $destText .= "\n\n" . $attributionSuffix;
+                    }
                 }
 
                 $result = $publisher->publish(

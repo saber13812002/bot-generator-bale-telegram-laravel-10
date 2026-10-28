@@ -21,6 +21,9 @@ use App\Helpers\ProductLinkMessageHelper;
  *  pure_url  : متن دلخواه کاربر (به‌صورت کامل و بدون تغییر) + URL خالص در خط بعد
  *              (خروجی plain در همهٔ پلتفرم‌ها؛ بدون anchor/Markdown — فقط برای
  *               لینک خودِ همان مقصد استفاده می‌شود)
+ *  handle    : ایموجی + شناسهٔ کوتاه کانال (مثلاً «🔰@saberblog») — فقط از
+ *              دادهٔ معتبرِ خودِ مقصد؛ هیچ URL/HTML/Markdown تولید نمی‌کند و
+ *              اگر شناسهٔ معتبری موجود نباشد، امضا ساخته نمی‌شود (renderHandle)
  *  none      : بدون امضا
  *
  * Fallback‌های امن (پیش‌بینی‌پذیر):
@@ -41,7 +44,11 @@ class SignatureRenderer
     public const TYPE_BUTTON = 'button';
     public const TYPE_COMPOSITE = 'composite';
     public const TYPE_PURE_URL = 'pure_url';
+    public const TYPE_HANDLE = 'handle';
     public const TYPE_NONE = 'none';
+
+    /** ایموجی پیش‌فرض امضای «شناسهٔ کوتاه کانال» (قابل تغییر در label) */
+    public const HANDLE_SIGNATURE_EMOJI = '🔰';
 
     /**
      * رندر امضا برای یک پلتفرم.
@@ -103,6 +110,12 @@ class SignatureRenderer
                 'fallback' => false,
                 'button' => null,
             ];
+        }
+
+        // handle از طریق renderHandle رندر می‌شود (بدون URL). اگر به‌طور
+        // اشتباهی از render() صدا زده شد، هیچ URLی خروجی نمی‌دهد.
+        if ($type === self::TYPE_HANDLE) {
+            return self::empty($type);
         }
 
         // دکمهٔ URL — متن امضا خالی؛ markup جداگانه به publish-path می‌رود.
@@ -318,6 +331,55 @@ class SignatureRenderer
     public static function renderLegacy(string $platform, ?string $url, string $platformLabel): string
     {
         return $platformLabel . ":\n" . ($url ?? '');
+    }
+
+    /**
+     * امضای «ایموجی + شناسهٔ کوتاه کانال» (CP-CHANNEL-HANDLE-SIGNATURE).
+     *
+     * خروجی همیشه plain است: «{emoji}@{handle}» در خط آخر متن، بدون هیچ
+     * URL، anchor یا Markdown (parse_mode = null). اگر شناسه معتبر نباشد
+     * (خالی/همه‌عددی/بیش از 64 کاراکتر/کاراکتر نامعتبر) امضا ساخته نمی‌شود —
+     * هیچ مقدار تخمینی تولید نمی‌شود.
+     *
+     * @param string $platform  bale|telegram|eitaa|soroush|rubika (خروجی مستقل از پلتفرم)
+     * @param string|null $handle شناسهٔ کوتاه کانال (با یا بدون «@»)
+     * @param string|null $emoji ایموجی دلخواه (null/خالی = پیش‌فرض 🔰)
+     *
+     * @return array{
+     *   text: string,             # «\n\n{emoji}@{handle}» یا ''
+     *   parse_mode: string|null,  # همیشه null
+     *   type: string,             # TYPE_HANDLE
+     *   fallback: bool,           # همیشه false
+     *   button: array|null        # همیشه null
+     * }
+     */
+    public static function renderHandle(string $platform, ?string $handle, ?string $emoji = null): array
+    {
+        $handle = trim((string) $handle);
+        if ($handle !== '' && str_starts_with($handle, '@')) {
+            $handle = substr($handle, 1);
+        }
+
+        if (
+            $handle === ''
+            || preg_match('/^[A-Za-z0-9_\-]{1,64}$/', $handle) !== 1
+            || ctype_digit($handle)
+        ) {
+            return self::empty(self::TYPE_HANDLE);
+        }
+
+        $emoji = trim((string) $emoji);
+        if ($emoji === '') {
+            $emoji = self::HANDLE_SIGNATURE_EMOJI;
+        }
+
+        return [
+            'text' => "\n\n" . $emoji . '@' . $handle,
+            'parse_mode' => null,
+            'type' => self::TYPE_HANDLE,
+            'fallback' => false,
+            'button' => null,
+        ];
     }
 
     /**

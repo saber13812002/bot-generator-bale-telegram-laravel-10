@@ -465,16 +465,21 @@ class ContentSyncService
 
         // §4: امضای منبع — از تنظیمات زنده، فقط هنگام ارسال به انتها اضافه می‌شود
         // (ستون text دست‌نخورده می‌ماند و در retry تکرار نمی‌شود).
-        $attributionSuffix = $this->buildAttributionSuffix(
-            $content,
-            ContentSyncAdminPrefs::getAttributionMode(
-                $content->bot_id,
-                (string) ($adminChatId ?? ''),
-                $origin
-            )
+        // CP-CHANNEL-HANDLE-SIGNATURE §3: حالت نمایش منبع برحسب پلتفرمِ خودِ هر
+        // مقصد (مثلاً عنوان ویژهٔ eitaa→eitaa) درون حلقه حساب می‌شود.
+        $attributionMode = ContentSyncAdminPrefs::getAttributionMode(
+            $content->bot_id,
+            (string) ($adminChatId ?? ''),
+            $origin
         );
 
         foreach ($targets as $destination) {
+            $attributionSuffix = $this->buildAttributionSuffix(
+                $content,
+                $attributionMode,
+                (string) $destination->platform
+            );
+
             try {
                 [$ok, $lastMessageId, $error] = $this->publishChunks(
                     $publisher,
@@ -712,7 +717,8 @@ class ContentSyncService
                     $content->bot_id,
                     (string) ($adminChatId ?? ''),
                     $origin
-                )
+                ),
+                (string) $destination->platform
             );
 
             try {
@@ -1067,18 +1073,36 @@ class ContentSyncService
     /**
      * متن امضای منبع بر اساس حالت انتخاب‌شده:
      *  - signed: «📌 منبع: کانال ... در ...» + لینک مبدأ
+     *    (استثنا: مقصد ثانویِ eitaa از مبدأ eitaa: «لینک این پست در کانال اصلی:» + لینک)
      *  - link_only: فقط لینک مبدأ (بدون لینک، برچسب)
      *  - none: خالی
      *
      * اگر لینک مبدأ قبلاً در خود متن هست، تکرار نمی‌شود.
+     *
+     * @param string $destinationPlatform پلتفرمِ خودِ مقصد (برای فرمت ویژهٔ
+     *   امضای منبع — مثلا‌ً عنوان «لینک این پست در کانال اصلی» برای مقاصد eitaa
+     *   وقتی مبدأ هم eitaa است).
      */
-    public function buildAttributionSuffix(ContentSyncContent $content, string $mode): string
+    public function buildAttributionSuffix(ContentSyncContent $content, string $mode, string $destinationPlatform = ''): string
     {
         if ($mode === ContentSyncAdminPrefs::ATTR_NONE) {
             return '';
         }
 
         [$label, $url] = $this->attributionParts($content);
+
+        // CP-CHANNEL-HANDLE-SIGNATURE §3: مقصد ثانویِ eitaa از مبدأ eitaa —
+        // عنوان دقیق «لینک این پست در کانال اصلی:» + لینک پست اصلی، یک‌بار.
+        // اگر لینک در متن هست (dedup)، هیچ چیزی چاپ نمی‌شود (عنوان یتیم نه).
+        if (
+            $mode !== ContentSyncAdminPrefs::ATTR_LINK_ONLY
+            && $content->source_platform === 'eitaa'
+            && $destinationPlatform === 'eitaa'
+        ) {
+            $title = trans('bot.channel_sync_eitaa_original_post_label');
+
+            return $url !== '' ? "{$title}\n{$url}" : '';
+        }
 
         if ($mode === ContentSyncAdminPrefs::ATTR_LINK_ONLY) {
             return $url !== '' ? $url : $label;

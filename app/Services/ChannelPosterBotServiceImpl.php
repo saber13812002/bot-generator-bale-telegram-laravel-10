@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\ProductLinkMessageHelper;
 use App\Interfaces\Services\ChannelPosterBotService;
+use App\Services\ChannelPoster\ChannelHandleExtractor;
 use App\Services\ChannelPoster\SignatureRenderer;
 use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Models\Bot;
@@ -496,7 +497,12 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         $destinations = $this->resolveByTag($botId, $tag);
         $withLinks = $destinations->filter(fn (ChannelPosterDestination $d) => !empty($d->channel_link));
 
-        if ($withLinks->isEmpty()) {
+        // امضای «شناسهٔ کوتاه کانال» بدون لینک هم می‌تواند فعال باشد
+        $hasHandleDestination = $destinations->contains(
+            fn (ChannelPosterDestination $d) => ($d->signature_type ?? null) === SignatureRenderer::TYPE_HANDLE
+        );
+
+        if ($withLinks->isEmpty() && !$hasHandleDestination) {
             return $empty;
         }
 
@@ -524,6 +530,16 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 }
             }
 
+            // مقصدهای بدون لینک (امکان‌پذیر برای امضای شناسهٔ کوتاه کانال)
+            if ($dest === null) {
+                foreach ($destinations as $d) {
+                    if ($d->platform === $platform) {
+                        $dest = $d;
+                        break;
+                    }
+                }
+            }
+
             if ($dest === null || $dest['signature_enabled'] === false) {
                 return $empty;
             }
@@ -535,8 +551,26 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 SignatureRenderer::TYPE_BUTTON,
                 SignatureRenderer::TYPE_COMPOSITE,
                 SignatureRenderer::TYPE_PURE_URL,
+                SignatureRenderer::TYPE_HANDLE,
                 SignatureRenderer::TYPE_NONE,
             ], true) ? (string) $dest['signature_type'] : SignatureRenderer::TYPE_INLINE;
+
+            // امضای «ایموجی + شناسهٔ کوتاه کانال» — بدون لینک، از دادهٔ خودِ مقصد
+            if ($type === SignatureRenderer::TYPE_HANDLE) {
+                $emoji = !empty($dest['signature_label']) ? (string) $dest['signature_label'] : null;
+                $handle = ChannelHandleExtractor::extract(
+                    $platform,
+                    (string) ($dest['channel_link'] ?? null),
+                    $dest['channel_username'] ?? null
+                );
+                $rendered = SignatureRenderer::renderHandle($platform, $handle, $emoji);
+
+                return [
+                    'text' => $rendered['text'],
+                    'parse_mode' => $rendered['parse_mode'],
+                    'button' => $rendered['button'],
+                ];
+            }
 
             // برچسب کاربر (ویزارد جدید) یا برچسب پیش‌فرض پلتفرم (legacy)
             $label = !empty($dest['signature_label'])
@@ -595,9 +629,6 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         // بدون تنظیمات هوشمند = exactly legacy (همان مسیر platform از buildSignature)
         $settings = SignatureSettingsService::normalize($dest->signature_settings ?? null);
         if ($settings === null) {
-            if (empty($dest->channel_link)) {
-                return $empty;
-            }
             $type = in_array($dest->signature_type ?? null, [
                 SignatureRenderer::TYPE_INLINE,
                 SignatureRenderer::TYPE_RAW,
@@ -605,8 +636,31 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 SignatureRenderer::TYPE_BUTTON,
                 SignatureRenderer::TYPE_COMPOSITE,
                 SignatureRenderer::TYPE_PURE_URL,
+                SignatureRenderer::TYPE_HANDLE,
                 SignatureRenderer::TYPE_NONE,
             ], true) ? (string) $dest->signature_type : SignatureRenderer::TYPE_INLINE;
+
+            // امضای «ایموجی + شناسهٔ کوتاه کانال» — بدون لینک، از دادهٔ خودِ مقصد
+            if ($type === SignatureRenderer::TYPE_HANDLE) {
+                $emoji = !empty($dest->signature_label) ? (string) $dest->signature_label : null;
+                $handle = ChannelHandleExtractor::extract(
+                    $dest->platform,
+                    $dest->channel_link,
+                    $dest->channel_username
+                );
+                $rendered = SignatureRenderer::renderHandle($dest->platform, $handle, $emoji);
+
+                return [
+                    'text' => $rendered['text'],
+                    'parse_mode' => $rendered['parse_mode'],
+                    'button' => $rendered['button'],
+                    'fallback' => (bool) ($rendered['fallback'] ?? false),
+                ];
+            }
+
+            if (empty($dest->channel_link)) {
+                return $empty;
+            }
 
             $label = !empty($dest->signature_label)
                 ? (string) $dest->signature_label

@@ -1009,6 +1009,27 @@ Chat ID: :chat_id',
     'channel_poster_pur_hint_tag' => 'شمارهٔ تگ / کانال را تایپ کن (یا انصراف)',
     'channel_poster_pur_hint_yesno' => 'بله / خیر / بازگشت (یا انصراف)',
 
+    // === Channel Handle Signature (CP-CHANNEL-HANDLE-SIGNATURE) ===
+    // امضای «ایموجی + شناسهٔ کوتاه کانال» — فقط از دادهٔ معتبرِ خودِ مقصد.
+    'channel_poster_hnd_menu_entry' => '🔰 ایموجی + شناسهٔ کوتاه کانال',
+    'channel_poster_hnd_no_tag' => 'هنوز تگی نداری. اول /start بزن و کانال وصل کن.',
+    'channel_poster_hnd_ask_tag' => 'امضای «ایموجی + شناسهٔ کوتاه کانال» کدام تگ را تنظیم بکنی؟',
+    'channel_poster_hnd_no_channels' => 'این تگ کانالی ندارد.',
+    'channel_poster_hnd_pick_channel' => 'امضای «ایموجی + شناسهٔ کوتاه کانال» کدام کانال را تنظیم بکنی؟ (✅ = شناسهٔ کوتاه معتبر دارد، ❌ = ندارد)',
+    'channel_poster_hnd_no_handle' => '❌ شناسهٔ کوتاه معتبر برای این کانال پیدا نشد؛ امضا ساخته نمی‌شود (شناسهٔ تخمینی استفاده نمی‌شود).'."\n".'اگر channel username کانال را ثبت کنی یا لینک عمومی معتبر داشته باشد، دوباره امتحان کن.',
+    'channel_poster_hnd_ask_emoji' => 'شناسهٔ کانال: @:handle'."\n".'حالا ایموجی امضا را بفرست (مثلا 🔰) — اگر «پیش‌فرض» یا متن خالی بفرستی، از 🔰 استفاده می‌شود.',
+    'channel_poster_hnd_confirm' => '👁 پیش‌نمایش امضا:'."\n".'«:preview»'."\n".'این امضا در خط آخر همهٔ پست‌ها اضافه می‌شود. ذخیره شود؟',
+    'channel_poster_hnd_conf_yes' => '✅ بله، ذخیره کن',
+    'channel_poster_hnd_conf_no' => '📄 خیر (غیرفعال ذخیره کن)',
+    'channel_poster_hnd_conf_back' => '↩️ بازگشت به ایموجی',
+    'channel_poster_hnd_confirm_invalid' => 'بله، خیر یا بازگشت بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_hnd_saved' => '✅ امضای «ایموجی + شناسهٔ کوتاه کانال» ذخیره و فعال شد: :preview'."\n".'در خط آخر همهٔ پست‌ها اضافه می‌شود (بدون لینک کامل).'."\n".'این امضا مستقل از تنظیمات هوشمند امضا است؛ اگر تنظیمات هوشمندی روی این کانال بود، پاک شد.',
+    'channel_poster_hnd_cancelled' => 'انصراف — تنظیمات پیشین دست‌نخورده ماند.',
+    'channel_poster_hnd_invalid_number' => 'شمارهٔ گزینه را درست بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_hnd_hint_tag' => 'شمارهٔ تگ / کانال را تایپ کن (یا انصراف)',
+    'channel_poster_hnd_hint_emoji' => 'ایموجی را تایپ کن یا «پیش‌فرض» (یا انصراف)',
+    'channel_poster_hnd_hint_yesno' => 'بله / خیر / بازگشت (یا انصراف)',
+
     // === Publish Queue ===
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
@@ -1091,6 +1112,7 @@ Chat ID: :chat_id',
     'channel_sync_error_detail' => '📌 خطا: :error',
     'channel_sync_report_aggregate' => ':icon :count کانال :platform — :reason',
     'channel_sync_source_label' => '📌 منبع: :channel (:platform)',
+    'channel_sync_eitaa_original_post_label' => 'لینک این پست در کانال اصلی:',
 
     // === /settings — منوی تنظیمات (کوتاه + زیرمنوهای مستقل) ===
     'channel_sync_settings_title' => '⚙️ تنظیمات ژپتو',

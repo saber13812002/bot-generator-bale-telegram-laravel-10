@@ -16,6 +16,7 @@ use App\Models\ContentSyncAdminPrefs;
 use App\Models\ContentSyncContent;
 use App\Services\ChannelPosterMediaStore;
 use App\Services\ChannelPosterQueuePublishService;
+use App\Services\ChannelPoster\ChannelHandleExtractor;
 use App\Services\ChannelPoster\SignatureRenderer;
 use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Services\ContentSync\ContentSyncService;
@@ -66,6 +67,12 @@ class ChannelPosterBotController extends Controller
     public const STATE_PURE_URL_CHANNEL = 'cp_pur_awaiting_channel';
     public const STATE_PURE_URL_TEXT = 'cp_pur_awaiting_text';
     public const STATE_PURE_URL_CONFIRM = 'cp_pur_awaiting_confirm';
+
+    // === Channel Handle Signature (CP-CHANNEL-HANDLE-SIGNATURE) ===
+    public const STATE_HANDLE_TAG = 'cp_hnd_awaiting_tag';
+    public const STATE_HANDLE_CHANNEL = 'cp_hnd_awaiting_channel';
+    public const STATE_HANDLE_EMOJI = 'cp_hnd_awaiting_emoji';
+    public const STATE_HANDLE_CONFIRM = 'cp_hnd_awaiting_confirm';
 
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
@@ -350,6 +357,11 @@ class ChannelPosterBotController extends Controller
                 $this->finishPureUrlWizard($publisher, $botItem, $type, $chatId);
                 return;
             }
+            // CP-CHANNEL-HANDLE-SIGNATURE: لغو ویزاردِ امضای شناسهٔ کوتاه کانال.
+            if ($state && str_starts_with($state->state, 'cp_hnd_')) {
+                $this->finishHandleWizard($publisher, $botItem, $type, $chatId);
+                return;
+            }
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_cancelled'));
             return;
@@ -489,6 +501,12 @@ class ChannelPosterBotController extends Controller
             // هم کار می‌کنند. (برای همهٔ مبدأها مجاز است.)
             if (str_starts_with($state->state, 'cp_pur_')) {
                 $this->handlePureUrlText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+
+            // === CP-CHANNEL-HANDLE-SIGNATURE: معادل‌های متنی (سروش/روبیکا) ===
+            if (str_starts_with($state->state, 'cp_hnd_')) {
+                $this->handleHandleText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
 
@@ -1020,6 +1038,24 @@ class ChannelPosterBotController extends Controller
         }
         if (str_starts_with($data, 'cp:purconf:')) {
             $this->handlePureUrlConfirmCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        // Handle channel-handle signature wizard callbacks (CP-CHANNEL-HANDLE-SIGNATURE)
+        if ($data === 'cp:handle') {
+            $this->startHandleWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (str_starts_with($data, 'cp:hdntag:')) {
+            $this->handleHandleTagCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:hndch:')) {
+            $this->handleHandleChannelCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:hndconf:')) {
+            $this->handleHandleConfirmCallback($publisher, $botItem, $type, $chatId, $data);
             return;
         }
 
@@ -2376,6 +2412,353 @@ class ChannelPosterBotController extends Controller
     ): void {
         $this->clearState($botItem, $chatId, $type);
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_cancelled'));
+    }
+
+    // ======================================================================
+    // === CP-CHANNEL-HANDLE-SIGNATURE: ویزارد امضای «ایموجی + شناسهٔ کوتاه کانال» ===
+    // ایموجی (پیش‌فرض 🔰) + شناسهٔ کوتاه خودِ همان کانال در خط آخر متن.
+    // فقط از دادهٔ معتبرِ خودِ مقصد (channel_username یا ساختار URL پلتفرم)
+    // استخراج می‌شود؛ اگر شناسهٔ معتبری نباشد، امضا ساخته نمی‌شود (تخمین ممنوع).
+    // ذخیره با signature_type=handle و پاک‌کردن signature_settings.
+    // همهٔ مراحل هم از دکمه و هم از تایپ متنی (سروش/روبیکا) قابل عبورند.
+    // ======================================================================
+
+    /**
+     * شروع ویزارد — انتخاب تگ → انتخاب کانال → ایموجی → تأیید.
+     */
+    private function startHandleWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_no_tag'));
+            return;
+        }
+
+        if (count($groups) === 1) {
+            $this->showHandleChannels($publisher, $botItem, $type, $chatId, $groups[0]['key']);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:hdntag:' . $index]];
+        }
+        $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_TAG, [
+            'tag_keys' => array_map(fn (array $g) => $g['key'], $groups),
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_hnd_ask_tag'), $rows, [
+            trans('bot.channel_poster_hnd_hint_tag'),
+        ]);
+    }
+
+    private function handleHandleTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $index = (int) substr($data, 10);
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+        if ($tag === '') {
+            return;
+        }
+
+        $this->showHandleChannels($publisher, $botItem, $type, $chatId, $tag);
+    }
+
+    /**
+     * انتخاب کانال/مقصد — با نشانگر شناسهٔ معتبر (✅/❌).
+     */
+    private function showHandleChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $hasHandle = ChannelHandleExtractor::extract(
+                $dest->platform,
+                $dest->channel_link,
+                $dest->channel_username
+            ) !== null ? '✅' : '❌';
+            $rows[] = [['text' => "{$label} — {$title} {$hasHandle}", 'callback_data' => 'cp:hndch:' . $dest->id]];
+            $destIds[] = $dest->id;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_CHANNEL, [
+            'tag' => $tag,
+            'dest_ids' => $destIds,
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_hnd_pick_channel'), $rows, [
+            trans('bot.channel_poster_hnd_hint_tag'),
+        ]);
+    }
+
+    /**
+     * مرحلهٔ کانال — اگر شناسهٔ کوتاه معتبری از دادهٔ خودِ مقصد استخراج نشود،
+     * خطای قابل‌فهم و توقف ویزارد (هیچ شناسه‌ای تخمین/ساخته نمی‌شود).
+     */
+    private function handleHandleChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return;
+        }
+
+        $handle = ChannelHandleExtractor::extract(
+            $dest->platform,
+            $dest->channel_link,
+            $dest->channel_username
+        );
+        if ($handle === null) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_no_handle'));
+            return;
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+        $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_EMOJI, [
+            'destination_id' => $destId,
+            'tag' => (string) ($state?->getData('tag') ?? ''),
+            'handle' => $handle,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_ask_emoji', ['handle' => $handle]));
+    }
+
+    /**
+     * مرحلهٔ تأیید — پیش‌نمایشِ دقیق خروجی (ایموجی@شناسه) با دکمه‌های بله/خیر/بازگشت.
+     */
+    private function showHandleConfirm(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d
+    ): void {
+        $emoji = !empty($d['emoji']) ? (string) $d['emoji'] : SignatureRenderer::HANDLE_SIGNATURE_EMOJI;
+        $preview = $emoji . '@' . (string) ($d['handle'] ?? '');
+        $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_CONFIRM, $d);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_hnd_confirm', ['preview' => $preview]), [
+            [
+                ['text' => trans('bot.channel_poster_hnd_conf_yes'), 'callback_data' => 'cp:hndconf:yes'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_hnd_conf_no'), 'callback_data' => 'cp:hndconf:no'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_hnd_conf_back'), 'callback_data' => 'cp:hndconf:back'],
+            ],
+        ], [
+            trans('bot.channel_poster_hnd_hint_yesno'),
+        ]);
+    }
+
+    private function handleHandleConfirmCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_HANDLE_CONFIRM) {
+            return;
+        }
+        $choice = substr($data, strlen('cp:hndconf:'));
+        $d = $state->data ?? [];
+
+        if ($choice === 'back') {
+            $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_EMOJI, [
+                'destination_id' => (int) ($d['destination_id'] ?? 0),
+                'tag' => (string) ($d['tag'] ?? ''),
+                'handle' => (string) ($d['handle'] ?? ''),
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_ask_emoji', [
+                'handle' => (string) ($d['handle'] ?? ''),
+            ]));
+            return;
+        }
+
+        $this->saveHandleSignature($publisher, $botItem, $type, $chatId, $d, $choice === 'yes');
+    }
+
+    /**
+     * معادل متنیِ ویزارد — دکمه در مبدأهای native (soroush/rubika)
+     * حذف می‌شود (NativeChannelPosterPublisher)، پس همهٔ مراحل با تایپ هم
+     * کار می‌کنند (برای همهٔ مبدأها مجاز است).
+     */
+    private function handleHandleText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $d
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $raw = trim($text);
+        $choice = mb_strtolower($raw);
+
+        if (in_array($choice, ['انصراف', 'لغو', 'cancel'], true)) {
+            $this->finishHandleWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_HANDLE_TAG) {
+            $keys = (array) ($d['tag_keys'] ?? []);
+            if ($raw !== '' && ctype_digit($raw) && isset($keys[(int) $raw - 1])) {
+                $this->handleHandleTagCallback($publisher, $botItem, $type, $chatId, 'cp:hdntag:' . ((int) $raw - 1));
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_HANDLE_CHANNEL) {
+            $ids = array_map('intval', (array) ($d['dest_ids'] ?? []));
+            if ($raw !== '' && ctype_digit($raw) && isset($ids[(int) $raw - 1])) {
+                $this->handleHandleChannelCallback($publisher, $botItem, $type, $chatId, $ids[(int) $raw - 1]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_HANDLE_EMOJI) {
+            // خالی یا «پیش‌فرض» → ایموجی پیش‌فرض 🔰
+            if ($raw === '' || in_array($choice, ['پیش‌فرض', 'default'], true)) {
+                $raw = '';
+            }
+            $this->showHandleConfirm($publisher, $botItem, $type, $chatId, [
+                'destination_id' => (int) ($d['destination_id'] ?? 0),
+                'tag' => (string) ($d['tag'] ?? ''),
+                'handle' => (string) ($d['handle'] ?? ''),
+                'emoji' => mb_substr($raw, 0, 8),
+            ]);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_HANDLE_CONFIRM) {
+            $yes = in_array($choice, ['بله', 'بره', 'yes', 'y'], true);
+            $no = in_array($choice, ['خیر', 'نه', 'no', 'n'], true);
+            $back = in_array($choice, ['بازگشت', 'back'], true);
+
+            if (!$yes && !$no && !$back) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_confirm_invalid'));
+                return;
+            }
+
+            if ($back) {
+                $this->handleHandleConfirmCallback($publisher, $botItem, $type, $chatId, 'cp:hndconf:back');
+                return;
+            }
+
+            $this->saveHandleSignature($publisher, $botItem, $type, $chatId, $d, $yes);
+            return;
+        }
+    }
+
+    /**
+     * ذخیرهٔ نهایی امضای «ایموجی + شناسهٔ کوتاه کانال» — نقطهٔ تنها ورودی
+     * به دیتابیس در این ویزارد.
+     *
+     * signature_type=handle + signature_label=ایموجی دلخواه (null = پیش‌فرض 🔰)
+     * + پاک‌کردن signature_settings تا امضا مستقل از تنظیمات هوشمند باشد.
+     * لینک موجود بدون تغییر پاس داده می‌شود (امضا از دادهٔ خودِ همان مقصد
+     * ساخته می‌شود؛ URL در خروجی تکرار نمی‌شود).
+     */
+    private function saveHandleSignature(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d,
+        bool $enabled
+    ): void {
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $handle = (string) ($d['handle'] ?? '');
+        if ($destId <= 0 || $handle === '') {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $emoji = !empty($d['emoji']) ? (string) $d['emoji'] : null;
+
+        $this->service->updateSignatureSettings(
+            $destId,
+            (string) ($dest->channel_link ?? ''),
+            $emoji,
+            SignatureRenderer::TYPE_HANDLE,
+            $enabled
+        );
+        // مستقل از تنظیمات هوشمند: روی مدلِ به‌روز (فروکشِ مجدد) پاک می‌کنیم
+        // تا ذخیرهٔ مدلِ اولیه، signature_type تازه را بازنویسی نکند.
+        $updated = ChannelPosterDestination::find($destId);
+        if ($updated !== null && $updated->signature_settings !== null) {
+            $updated->signature_settings = null;
+            $updated->save();
+        }
+
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_saved', [
+            'preview' => ($emoji ?? SignatureRenderer::HANDLE_SIGNATURE_EMOJI) . '@' . $handle,
+        ]));
+    }
+
+    /**
+     * پایان/لغو ویزارد — حالت پاک می‌شود؛ تنظیمات پیشین دست‌نخورده.
+     */
+    private function finishHandleWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_cancelled'));
     }
 
     // ======================================================================
@@ -3929,6 +4312,8 @@ class ChannelPosterBotController extends Controller
                 $rows[] = [['text' => trans('bot.channel_poster_ssig_menu_entry'), 'callback_data' => 'cp:ssig']];
                 // CP-PURE-URL-SIGNATURE: ورودی امضای Pure URL (فقط مالک)
                 $rows[] = [['text' => trans('bot.channel_poster_pur_menu_entry'), 'callback_data' => 'cp:pururl']];
+                // CP-CHANNEL-HANDLE-SIGNATURE: ورودی امضای «ایموجی + شناسهٔ کوتاه کانال» (فقط مالک)
+                $rows[] = [['text' => trans('bot.channel_poster_hnd_menu_entry'), 'callback_data' => 'cp:handle']];
             }
 
             $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];

@@ -154,7 +154,51 @@ php artisan app:test-signature-link \
 [`PLATFORM_LINK_FORMAT_COMPATIBILITY.md`](PLATFORM_LINK_FORMAT_COMPATIBILITY.md) و
 [`SIGNATURE_GAP_ANALYSIS.md`](SIGNATURE_GAP_ANALYSIS.md).
 
+## 🏷️ امضای «ایموجی + شناسهٔ کوتاه کانال» (CP-CHANNEL-HANDLE-SIGNATURE — اکتبر ۲۰۲۶)
+
+حالت جدید امضا به‌جای URL، **ایموجی + شناسهٔ کوتاه کانال** (مثال: `🔰@adsfasdf`) را در آخر متن پست می‌چسباند — **بدون** هیچ HTML anchor و **بدون** Markdown link؛ خروجی در هر ۵ پیام‌رسان plain است (`parse_mode=null`). ایموجی قابل‌تنظیم است (پیش‌فرض `🔰`) و کل امضا فقط یک خط است.
+
+### ذخیره‌سازی و رندر
+
+- دیتابیس فقط دادهٔ معنایی نگه می‌دارد: `signature_type='handle'` + `signature_label` (به‌عنوان ایموجی) در `channel_poster_destinations` — هیچ خروجی پیش‌رندر ذخیره نمی‌شود.
+- ورودی تنظیمات در `/settings` (فقط مالک): «🔰 ایموجی + شناسهٔ کوتاه کانال» (callback `cp:handle`) — بعد از ردیف pure URL؛ ویزارد: انتخاب تگ → انتخاب کانال مقصد → ایموجی (یا پیش‌فرض) → تأیید.
+- رندر: [`SignatureRenderer::renderHandle()`](../../app/Services/ChannelPoster/SignatureRenderer.php) → `"\n\n{emoji}@{handle}"` با `parse_mode=null`، `fallback=false`.
+- ساخت برای هر مقصد جدا: [`ChannelPosterBotService::buildSignatureForDestination()`](../../app/Services/ChannelPosterBotServiceImpl.php) — هر مقصد فقط با دادهٔ خودِ خودش امضا می‌شود (نه کانال‌های دیگر).
+
+### قوانین استخراج شناسه به تفکیک پلتفرم
+
+[`ChannelHandleExtractor`](../../app/Services/ChannelPoster/ChannelHandleExtractor.php) — اولویت: (۱) ستون معتبر `channel_username` (فقط از لینک‌های واقعی پارس‌شده پر می‌شود)، (۲) پارس سخت‌گیرانهٔ `channel_link` با ساختار تأییدشدهٔ همان پلتفرم:
+
+| پلتفرم | هاست‌های مجاز | ساختار مسیر پذیرفته‌شده |
+|---|---|---|
+| Telegram | `t.me`, `telegram.me`, `tlg.sk` | `/{username}` یا `/{username}/{msgId}` |
+| Bale | `ble.ir`, `bale.ir`, `bale.ai`, `mybale.ai` | فقط `/{username}/{chatId}/{msgId}` (فرمت سه‌بخشی تأییدشده) |
+| Eitaa | `eitaa.com`, `my.eitaa.com` | `/{username}` یا `/{username}/{msgId}` |
+| Soroush | `soroush.chat`, `splus.ir` | `/{username}` یا `/{username}/{msgId}` |
+| Rubika | — | از URL استخراج نمی‌شود (ساختار عمومی تأییدشده ندارد)؛ فقط ستون معتبر `channel_username` |
+
+قوانین رد (ردّ): مسیر `c/{chatId}/...` تلگرام (کانال خصوصی)، بخش اول همه‌عددی (chat id)، ساختارهای کوتاه‌تر/طول‌تر از ساختار تأییدشده، هر مقدار همه‌عددی، و هر کاراکتری خارج از `[A-Za-z0-9_\-]` (حداکثر 64 نویسه).
+
+**اصل «تخمین ممنوع»**: اگر هیچ شناسهٔ معتبری به‌دست نیاید → `null` → **هیچ امضایی ساخته نمی‌شود** (خروجی بدون امضا). chat id عددی هرگز به‌عنوان نام کاربری در نظر گرفته نمی‌شود. `@` پیش‌لینک (اگر باشد) حذف می‌شود و در خروجی دقیقاً یک‌بار `@{handle}` چاپ می‌شود.
+
+### نسبت (attribution) مقاصد ثانوی Eitaa
+
+برای محتوای مبدأ `eitaa` به مقصد `eitaa` (در حالت‌های نسبت غیر از `link_only`)، نسبت با عنوان دقیق «لینک این پست در کانال اصلی:» + URL پست اصلی چاپ می‌شود — **یک‌بار**:
+
+```
+مطلب مطلب مطلب مطلب مطلب
+
+لینک این پست در کانال اصلی:
+http://eitaa.com/channel/2
+```
+
+- پیاده‌سازی: [`ContentSyncService::buildAttributionSuffix()`](../../app/Services/ContentSync/ContentSyncService.php).
+- اگر لینک قبلاً در متن هست (dedup)، هیچ چیز چاپ نمی‌شود تا عنوان یتیم باقی نماند.
+- در حالت `link_only` رفتار سابق حفظ است (فقط URL، بدون عنوان).
+- لینک مبدأ با امضای کانال مقصد خلط نمی‌شود: امضای کانال مقصد، لینک پست اصلی را جایگزین **نمی‌کند**.
+
 ## ✅ وضعیت تست خودکار
 
 - `php artisan test --filter="SignatureRendererTest|ChannelPosterSignatureManagementTest|ChannelPosterBotWebhookTest|ChannelPosterQueueSendTest|ChannelPosterNativeAddWizardTest|ChannelPosterRubikaTestSendTest|RubikaBotClientTest|ChannelPosterMediaPublishTest"` → **132 passed (661 assertions)** (2026-10-25، پس از اصلاح ممیزی CP-RELEASE-GATE: حذف هم‌معنای `chat_id` + تست HTTP 429).
+- CP-CHANNEL-HANDLE-SIGNATURE (2026-10-28): تست‌های واحد `ChannelHandleExtractorTest` + بخش handle در `SignatureRendererTest` (83/83) و تست‌های feature `ChannelPosterHandleSignatureTest` + `ContentSyncEitaaAttributionTest` (11/11) سبز؛ کل سوت کامل: **720 تست / 4252 assertion / 0 شکست** (۶ شکست پیشینِ موجود در HEAD به‌عنوان باگ تست اصلاح شدند، از جمله زمان‌بندی mock به‌دلیل reuse کنترلر در feature test).
 - تمام فایل‌های تغییرکرده `php -l` clean.
