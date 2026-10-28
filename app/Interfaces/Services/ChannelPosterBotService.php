@@ -102,7 +102,7 @@ interface ChannelPosterBotService
      * - بدون $platform : فرمت قدیمی خودرسان (همه کانال‌ها، ترتیب تصادفی) —
      *                    خروجی دقیقاً همان فرمت legacy است (backward-compatible).
      * - با $platform    : فقط لینک خود آن مقصد، رندر شده با SignatureRenderer
-     *                    (نوع/برچسب/وضعیتِ ذخیره‌شده در مقصد)؛ اگر امزا غیرفعال
+     *                    (نوع/برچسب/وضعیتِ ذخیره‌شده در مقصد)؛ اگر امضا غیرفعال
      *                    باشد (signature_enabled = false)، خروجی خالی است.
      *
      * @return array{text: string, parse_mode: ?string, button: ?array}

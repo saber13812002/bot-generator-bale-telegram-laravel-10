@@ -82,7 +82,7 @@
 2. **`app/Services/ChannelPoster/SignatureCapability.php`**: ماتریس per-platform با enum‌های استاندارد (OFFICIAL_CONFIRMED / COMMUNITY_DOCUMENTED / MOCK_TESTED / LIVE_API_ACCEPTED / CLIENT_RENDER_VERIFIED / UNVERIFIED / UNSUPPORTED / OFFICIAL_DOC_NOT_FOUND) برای: inline link، URL button، parse_mode html، markdown، caption link.
 3. **`app/Services/ChannelPoster/SignatureRenderer.php`**: دریافت داده‌های معنایی (label، url، type، platform) → خروجی `['text' => string, 'parse_mode' => ?string, 'fallback' => bool]`؛ escape‌های اختصاصی هر فرمت؛ fallback امن به `label\nurl` وقتی فرمت تأییدشده نباشد یا کاراکترهای special markdown داشته باشد؛ helper `fits(baseLen, sigLen, limit=1024)` برای caption.
 4. **`buildSignature`**: بازتعریف روی Renderer؛ **قرارداد خروجی دقیقاً همان** `['text' => "\n\n…", 'parse_mode' => null|'html']` تا هیچ فراخوانی‌کننده‌ای تغییر نکند. label کاربری (در صورت وجود) به‌جای نام ثابت پلتفرم؛ اگر `signature_enabled` مقصد false یا `signature_type === 'none'` → بدون امضا.
-5. **Guard طول caption** در هر دو نقطهٔ اعمال (کنترلر `:1295-1318` و کف `:152-164`): اگر `base + signature > 1024` → امزا حذف + `Log::warning`.
+5. **Guard طول caption** در هر دو نقطهٔ اعمال (کنترلر `:1295-1318` و کف `:152-164`): اگر `base + signature > 1024` → امضا حذف + `Log::warning`.
 6. **ویزارد `/sign`**: پس از ذخیرهٔ لینک → سؤال label (`STATE_AWAITING_SIGN_LABEL`) → سؤال تأیید (`STATE_AWAITING_SIGN_CONFIRM`) با کل‌بک‌های `cp:signconf:yes|no|back`؛ بله → `enabled=true` + type/label؛ خیر → `enabled=false`؛ بازگشت → تکرار گام label. کلیدهای زبان fa/en.
 7. **رفع باگ D2**: `signatureButtonSupported('eitaa')` → `false`.
 8. **تست‌ها**: `tests/Unit/SignatureRendererTest.php` + `tests/Feature/ChannelPosterSignatureManagementTest.php` (۱۰ سناریوی اجباری، mock-only) + اجرای regression روی سوت‌های Channel Poster.
@@ -98,7 +98,7 @@
 | 4 | soroush + هر type | خروجی = URL خام (بدون syntax markdown/HTML) |
 | 5 | rubika + هر type | خروجی = URL خام (OFFICIAL_DOC_NOT_FOUND → raw) |
 | 6 | چند مقصد (telegram + rubika) | هر مقصد با فرمت مستقلِ پلتفرم خودش |
-| 7 | caption رسانه > 1024 با احتساب امضا | امزا حذف شود + warning log؛ متن اصلی دست‌نخورده |
+| 7 | caption رسانه > 1024 با احتساب امضا | امضا حذف شود + warning log؛ متن اصلی دست‌نخورده |
 | 8 | retry کف با موفقیتِ جزئی | مقصدهای قبلاً موفق بدون امزای مجدد؛ مقصدهای شکست‌خورده یک‌بار امضا بگیرند |
 | 9 | bale + label حاوی `[` یا `](` | fallback به فرمت ساده (خط label + خط URL خام) |
 | 10 | جریان کامل ویزارد: لینک ← label ← بله / خیر / بازگشت | ذخیرهٔ درست (label+type+enabled) و state پاک |

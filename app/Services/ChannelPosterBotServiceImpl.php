@@ -511,7 +511,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         ];
 
         // ── حالت پلتفرم‌آگاه: فقط لینک خود همان مقصد، رندر شده با SignatureRenderer ──
-        // امزا فقط وقتی ساخته می‌شود که فعال باشد:
+        // امضا فقط وقتی ساخته می‌شود که فعال باشد:
         //   signature_enabled = null  → legacy (قدیمی: لینک ذخیره ⇒ فعال)
         //   signature_enabled = true  → فعال (ویزارد جدید)
         //   signature_enabled = false → غیرفعال (ویزارد جدید)

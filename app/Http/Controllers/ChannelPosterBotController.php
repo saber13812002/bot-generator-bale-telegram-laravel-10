@@ -1415,8 +1415,8 @@ class ChannelPosterBotController extends Controller
             return;
         }
 
-        // ALWAYS_APPLY: امزا با تنظیمات هوشمند اعمال می‌شود (بدون سؤال)
-        // DISABLED: امزا این بار اعمال نمی‌شود (بدون سؤال)
+        // ALWAYS_APPLY: امضا با تنظیمات هوشمند اعمال می‌شود (بدون سؤال)
+        // DISABLED: امضا این بار اعمال نمی‌شود (بدون سؤال)
         if ($policy === SignatureSettingsService::APPLY_ALWAYS) {
             $stateData['signature_enabled'] = true;
             $stateData['ssig_answered'] = true;
@@ -1512,7 +1512,7 @@ class ChannelPosterBotController extends Controller
         if ($enqueue) {
             $nextSlot = $this->service->getNextSlot($botItem->id, $tagKey);
             // CP-SMART-SIGNATURE-SETTINGS: انتخاب random یک‌بار اینجا فریز می‌شود
-            // (ثبات امزا در retry صف)
+            // (ثبات امضا در retry صف)
             $frozenSelection = null;
             if ($signatureEnabled) {
                 $frozenSelection = $this->service->freezeSignatureSelections($botItem->id, $tagKey);
@@ -1986,8 +1986,8 @@ class ChannelPosterBotController extends Controller
     }
 
     /**
-     * ذخیرهٔ نهایی تنظیمات امزا (بله/خیر) — نقطهٔ تنها ورودی به دیتابیس در
-     * ویزارد جدید. type همواره inline است؛ انتخاب نوع امزا جزوی از این
+     * ذخیرهٔ نهایی تنظیمات امضا (بله/خیر) — نقطهٔ تنها ورودی به دیتابیس در
+     * ویزارد جدید. type همواره inline است؛ انتخاب نوع امضا جزوی از این
      * مأموریت نیست ولی در مدل/مایگریشن پشتیبانی می‌شود (G4).
      */
     private function saveSignConfirmation(
@@ -2406,7 +2406,7 @@ class ChannelPosterBotController extends Controller
     }
 
     /**
-     * مرحلهٔ چیدمان (فقط وقتی امزا می‌تواند چند لینک شود).
+     * مرحلهٔ چیدمان (فقط وقتی امضا می‌تواند چند لینک شود).
      */
     private function showSmartSigLayout(
         ChannelPosterPublisher $publisher,
@@ -2815,7 +2815,7 @@ class ChannelPosterBotController extends Controller
      * بله/خیر → پاسخ سؤال (و سپس انتخاب زمان ارسال)
      * تنظیمات → ویزارد (محتوای معوق حفظ می‌شود)
      * دیگر نپرس → تبدیل دائمی به always_apply
-     * الان/صف → اگر سؤال هنوز بی‌پاسخ است، امزا فرضِ پیش‌فرض (خیر) می‌شود
+     * الان/صف → اگر سؤال هنوز بی‌پاسخ است، امضا فرضِ پیش‌فرض (خیر) می‌شود
      */
     private function handleSmartSigPostQuestionText(
         ChannelPosterPublisher $publisher,
@@ -2873,7 +2873,7 @@ class ChannelPosterBotController extends Controller
             return;
         }
         if (in_array($choice, ['الان', 'now'], true)) {
-            // بدون پاسخ به سؤالِ امزا → امزا این بار اعمال نمی‌شود (موقت)
+            // بدون پاسخ به سؤالِ امضا → امضا این بار اعمال نمی‌شود (موقت)
             $stateData['signature_enabled'] = false;
             $stateData['ssig_answered'] = true;
             $stateData['enqueue'] = false;

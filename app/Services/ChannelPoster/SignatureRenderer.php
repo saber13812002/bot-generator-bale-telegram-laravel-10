@@ -130,7 +130,7 @@ class SignatureRenderer
         // — در خط برچسب ما "label:" را به‌صورت خام می‌نویسیم)
         if (in_array($platform, ['telegram', 'eitaa'], true)) {
             // فرمت «برچسب:\nلینک» — دقیقاً هم‌فرمت با خروجی قدیمی buildSignature
-            // (برای سطرهای legacy: signature_enabled = null) تا ظاهر امزا تغییر نکند.
+            // (برای سطرهای legacy: signature_enabled = null) تا ظاهر امضا تغییر نکند.
             $labelLine = $label !== '' ? htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . ":\n" : '';
             $line = $labelLine . self::linkLine($url, $platform);
 
@@ -279,13 +279,13 @@ class SignatureRenderer
 
     /**
      * حد طول caption رسانه (تلگرام/ایتا رسمی ۱۰۲۴؛ بقیه حد محافظه‌کارانهٔ مشترک).
-     * اگر امضا را به caption اضافه کنیم و مجموع از این حد بگذرد، امزا باید
+     * اگر امضا را به caption اضافه کنیم و مجموع از این حد بگذرد، امضا باید
      * حذف شود — هرگز متن اصلی.
      */
     public const CAPTION_MAX = 1024;
 
     /**
-     * آیا امزا به caption این ظرفیت می‌گنجد؟
+     * آیا امضا به caption این ظرفیت می‌گنجد؟
      */
     public static function fitsCaption(int $captionLength, int $signatureLength, int $max = self::CAPTION_MAX): bool
     {
