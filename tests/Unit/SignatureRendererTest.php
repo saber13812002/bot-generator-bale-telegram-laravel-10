@@ -201,6 +201,96 @@ class SignatureRendererTest extends TestCase
         $this->assertFalse($res['fallback']);
     }
 
+    // ─────────────────────────── pure_url (CP-PURE-URL-SIGNATURE) ───────────────────────────
+    // User text as-is (line 1) + the channel's own bare URL (line 2). Plain text on
+    // every platform: no HTML anchor, no Markdown link, no escaping, no fallback.
+
+    public function test_pure_url_renders_user_text_then_bare_url_as_is(): void
+    {
+        $res = SignatureRenderer::render('eitaa', 'https://eitaa.com/example_channel', SignatureRenderer::TYPE_PURE_URL, 'برای مطالب بیشتر، کانال ما را دنبال کنید.');
+
+        $this->assertSame(
+            "\n\nبرای مطالب بیشتر، کانال ما را دنبال کنید.\nhttps://eitaa.com/example_channel",
+            $res['text']
+        );
+        $this->assertNull($res['parse_mode']);
+        $this->assertSame(SignatureRenderer::TYPE_PURE_URL, $res['type']);
+        $this->assertFalse($res['fallback']);
+        $this->assertNull($res['button']);
+    }
+
+    public function test_pure_url_is_identical_plain_output_on_all_five_platforms(): void
+    {
+        $url = 'https://ble.ir/mychannel';
+        $text = 'ما را دنبال کنید';
+
+        $expected = "\n\n{$text}\n{$url}";
+        foreach (['telegram', 'bale', 'eitaa', 'soroush', 'rubika'] as $platform) {
+            $res = SignatureRenderer::render($platform, $url, SignatureRenderer::TYPE_PURE_URL, $text);
+
+            $this->assertSame($expected, $res['text'], "platform {$platform} must render identical plain text");
+            $this->assertNull($res['parse_mode'], "platform {$platform} must have null parse_mode");
+            $this->assertSame(SignatureRenderer::TYPE_PURE_URL, $res['type']);
+            $this->assertFalse($res['fallback']);
+        }
+    }
+
+    public function test_pure_url_contains_no_html_anchor_or_markdown_link(): void
+    {
+        $url = 'https://t.me/channel';
+        $text = 'دنبال کنید';
+
+        $res = SignatureRenderer::render('telegram', $url, SignatureRenderer::TYPE_PURE_URL, $text);
+
+        $this->assertStringNotContainsString('<a href', $res['text']);
+        $this->assertStringNotContainsString('</a>', $res['text']);
+        $this->assertStringNotContainsString('](', $res['text']); // markdown [label](url)
+        $this->assertSame(1, substr_count($res['text'], $url), 'URL must appear exactly once (no duplicate link)');
+    }
+
+    public function test_pure_url_preserves_html_special_chars_unescaped_because_parse_mode_null(): void
+    {
+        $url = 'https://example.com/ch';
+        $text = 'A & B <C> "D" [E] (F) #G';
+
+        $res = SignatureRenderer::render('telegram', $url, SignatureRenderer::TYPE_PURE_URL, $text);
+
+        // parse_mode is null => the text is displayed verbatim; no HTML escaping is applied.
+        $this->assertNull($res['parse_mode']);
+        $this->assertSame("\n\n{$text}\n{$url}", $res['text']);
+        $this->assertStringNotContainsString('&', $res['text']);
+        $this->assertStringNotContainsString('<', $res['text']);
+    }
+
+    public function test_pure_url_with_empty_label_renders_url_only(): void
+    {
+        $url = 'https://eitaa.com/example_channel';
+
+        $res = SignatureRenderer::render('eitaa', $url, SignatureRenderer::TYPE_PURE_URL, null);
+
+        $this->assertSame("\n\n{$url}", $res['text']);
+        $this->assertNull($res['parse_mode']);
+        $this->assertSame(SignatureRenderer::TYPE_PURE_URL, $res['type']);
+    }
+
+    public function test_pure_url_with_empty_url_renders_empty_and_never_fabricates_a_link(): void
+    {
+        $res = SignatureRenderer::render('eitaa', '', SignatureRenderer::TYPE_PURE_URL, 'متن کاربر');
+
+        $this->assertSame('', $res['text']);
+        $this->assertNull($res['parse_mode']);
+        $this->assertStringNotContainsString('http', $res['text']);
+    }
+
+    public function test_pure_url_never_duplicates_the_url(): void
+    {
+        $url = 'https://t.me/channel';
+
+        $res = SignatureRenderer::render('telegram', $url, SignatureRenderer::TYPE_PURE_URL, 'متن');
+
+        $this->assertSame(1, substr_count($res['text'], $url));
+    }
+
     // ─────────────────────────── composite ───────────────────────────
 
     public function test_composite_with_label_renders_label_plus_link_and_types_as_composite(): void

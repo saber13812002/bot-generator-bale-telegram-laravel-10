@@ -18,6 +18,9 @@ use App\Helpers\ProductLinkMessageHelper;
  *  plain     : فقط متن (label؛ بدون لینک)
  *  button    : متن + دکمهٔ URL (فقط در publish-path؛ در متن امضا چیزی نیست)
  *  composite : برچسب + لینک inline
+ *  pure_url  : متن دلخواه کاربر (به‌صورت کامل و بدون تغییر) + URL خالص در خط بعد
+ *              (خروجی plain در همهٔ پلتفرم‌ها؛ بدون anchor/Markdown — فقط برای
+ *               لینک خودِ همان مقصد استفاده می‌شود)
  *  none      : بدون امضا
  *
  * Fallback‌های امن (پیش‌بینی‌پذیر):
@@ -37,6 +40,7 @@ class SignatureRenderer
     public const TYPE_PLAIN = 'plain';
     public const TYPE_BUTTON = 'button';
     public const TYPE_COMPOSITE = 'composite';
+    public const TYPE_PURE_URL = 'pure_url';
     public const TYPE_NONE = 'none';
 
     /**
@@ -82,6 +86,20 @@ class SignatureRenderer
                 'text' => "\n\n" . $url,
                 'parse_mode' => null,
                 'type' => self::TYPE_RAW,
+                'fallback' => false,
+                'button' => null,
+            ];
+        }
+
+        // Pure URL — متن دلخواه کاربر (عینِ واردشده، بدون هیچ بازنویسی/escape)
+        // در خط اول + URL خالص در خط دوم. خروجی plain در همهٔ پلتفرم‌ها؛
+        // anchor/Markdown استفاده نمی‌شود و هیچ escape‌ای صورت نمی‌گیرد
+        // (parse_mode=null ⇒ متن به‌همین‌صورت نمایش داده می‌شود).
+        if ($type === self::TYPE_PURE_URL) {
+            return [
+                'text' => $label !== '' ? "\n\n" . $label . "\n" . $url : "\n\n" . $url,
+                'parse_mode' => null,
+                'type' => self::TYPE_PURE_URL,
                 'fallback' => false,
                 'button' => null,
             ];

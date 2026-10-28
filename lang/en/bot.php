@@ -733,6 +733,27 @@ Chat ID: :chat_id',
     'channel_poster_ssig_text_hint_separator' => 'Separator (max 16 chars; empty = " | ") (or back / cancel)',
     'channel_poster_ssig_text_hint_yes_no' => 'yes / no (or back / cancel)',
 
+    // === Pure URL Signature (CP-PURE-URL-SIGNATURE) ===
+    // Independent signature mode: user text as-is + the channel's own bare URL
+    // on the next line. Plain text output on every platform.
+    'channel_poster_pur_menu_entry' => '✍️ Pure URL signature (text + channel link)',
+    'channel_poster_pur_no_tag' => 'You do not have a tag yet. Send /start first and connect a channel.',
+    'channel_poster_pur_ask_tag' => 'Which tag should get the Pure URL signature?',
+    'channel_poster_pur_no_channels' => 'This tag has no channel.',
+    'channel_poster_pur_pick_channel' => 'Which channel should get the Pure URL signature? (✅ = has a public URL, ❌ = does not)',
+    'channel_poster_pur_no_link' => '❌ This channel has no valid public URL yet, so a Pure URL signature cannot be built (no guessed links).'."\n".'Register the channel\'s public URL with /sign first.',
+    'channel_poster_pur_ask_text' => 'Channel URL: :link'."\n".'Now send your own text for the first signature line — it is shown exactly as you type it, and the channel URL comes right on the next line.',
+    'channel_poster_pur_confirm' => '👁 Signature preview:'."\n".'«:preview»'."\n".'Save with this signature?',
+    'channel_poster_pur_conf_yes' => '✅ Yes, save it',
+    'channel_poster_pur_conf_no' => '📄 No (save as disabled)',
+    'channel_poster_pur_conf_back' => '↩️ Back to text',
+    'channel_poster_pur_confirm_invalid' => 'Send yes, no or back (or use the buttons).',
+    'channel_poster_pur_saved' => '✅ Pure URL signature saved and enabled: your text on line one, this channel\'s URL on line two — appended to every post.'."\n".'URL: :link'."\n".'This signature is independent from the smart signature settings; any smart settings on this channel were cleared.',
+    'channel_poster_pur_cancelled' => 'Cancelled — the previous settings were kept.',
+    'channel_poster_pur_invalid_number' => 'Send the option number correctly (or use the buttons).',
+    'channel_poster_pur_hint_tag' => 'Type the tag / channel number (or cancel)',
+    'channel_poster_pur_hint_yesno' => 'yes / no / back (or cancel)',
+
     // === Content Sync (multi-channel synchronization) ===
     'channel_sync_invalid_url' => 'That is not a valid Bale/Telegram/Eitaa/Soroush post link. Send the exact post URL.',
     'channel_sync_duplicate' => '⚠️ This link was already registered (content #:id).'."\n".':url'."\n".'Use /sync :id to view its status.',

@@ -61,6 +61,12 @@ class ChannelPosterBotController extends Controller
     public const STATE_SSIG_APPLY = 'cp_ssig_awaiting_apply';
     public const STATE_SSIG_PREVIEW = 'cp_ssig_awaiting_preview';
 
+    // === Pure URL Signature (CP-PURE-URL-SIGNATURE) ===
+    public const STATE_PURE_URL_TAG = 'cp_pur_awaiting_tag';
+    public const STATE_PURE_URL_CHANNEL = 'cp_pur_awaiting_channel';
+    public const STATE_PURE_URL_TEXT = 'cp_pur_awaiting_text';
+    public const STATE_PURE_URL_CONFIRM = 'cp_pur_awaiting_confirm';
+
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
     public const STATE_SYNC_AWAITING_TAG = 'cp_sync_awaiting_tag';
@@ -339,6 +345,11 @@ class ChannelPosterBotController extends Controller
                 $this->finishSmartSigWizard($publisher, $botItem, $type, $chatId, false);
                 return;
             }
+            // CP-PURE-URL-SIGNATURE: لغو ویزاردِ امضای Pure URL — بدون تغییر در تنظیمات قبلی.
+            if ($state && str_starts_with($state->state, 'cp_pur_')) {
+                $this->finishPureUrlWizard($publisher, $botItem, $type, $chatId);
+                return;
+            }
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_cancelled'));
             return;
@@ -470,6 +481,14 @@ class ChannelPosterBotController extends Controller
             if ($state->state === self::STATE_AWAITING_SIGN_CONFIRM) {
                 // دکمه در مبدأهای native (soroush/rubika) حذف می‌شود → معادل متنی
                 $this->handleSignConfirmText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+
+            // === CP-PURE-URL-SIGNATURE: معادل‌های متنی (سروش/روبیکا) ===
+            // دکمه‌ها در مبدأهای native حذف می‌شوند؛ همهٔ مراحل ویزارد با تایپ
+            // هم کار می‌کنند. (برای همهٔ مبدأها مجاز است.)
+            if (str_starts_with($state->state, 'cp_pur_')) {
+                $this->handlePureUrlText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
 
@@ -983,6 +1002,24 @@ class ChannelPosterBotController extends Controller
         if (str_starts_with($data, 'cp:q:item:')) {
             [$itemId, $action] = array_pad(explode(':', substr($data, 10)), 2, '');
             $this->handleQueueItemCallback($publisher, $botItem, $type, $chatId, (int) $itemId, $action);
+            return;
+        }
+
+        // Handle Pure URL signature wizard callbacks (CP-PURE-URL-SIGNATURE)
+        if ($data === 'cp:pururl') {
+            $this->startPureUrlWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (str_starts_with($data, 'cp:purtag:')) {
+            $this->handlePureUrlTagCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:purch:')) {
+            $this->handlePureUrlChannelCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:purconf:')) {
+            $this->handlePureUrlConfirmCallback($publisher, $botItem, $type, $chatId, $data);
             return;
         }
 
@@ -2010,6 +2047,335 @@ class ChannelPosterBotController extends Controller
 
         $key = $enabled ? 'channel_poster_sign_enabled' : 'channel_poster_sign_disabled';
         $publisher->sendPrivateMessage($chatId, trans('bot.' . $key, ['link' => $link]));
+    }
+
+    // ======================================================================
+    // === CP-PURE-URL-SIGNATURE: ویزارد امضای Pure URL ===
+    // متن دلخواه کاربر (عینِ واردشده) + URL خالصِ همان کانال در خط بعد.
+    // مستقل از تنظیمات هوشمند: ذخیره با signature_type=pure_url و پاک‌کردن
+    // signature_settings تا در زمان انتشار مسیر legacy/pure استفاده شود.
+    // همهٔ مراحل هم از دکمه و هم از تایپ متنی (سروش/روبیکا) قابل عبورند.
+    // ======================================================================
+
+    /**
+     * شروع ویزارد Pure URL — انتخاب تگ → انتخاب کانال → متن دلخواه → تأیید.
+     */
+    private function startPureUrlWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_no_tag'));
+            return;
+        }
+
+        if (count($groups) === 1) {
+            $this->showPureUrlChannels($publisher, $botItem, $type, $chatId, $groups[0]['key']);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:purtag:' . $index]];
+        }
+        $this->setState($botItem, $chatId, $type, self::STATE_PURE_URL_TAG, [
+            'tag_keys' => array_map(fn (array $g) => $g['key'], $groups),
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_pur_ask_tag'), $rows, [
+            trans('bot.channel_poster_pur_hint_tag'),
+        ]);
+    }
+
+    private function handlePureUrlTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $index = (int) substr($data, 10);
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+        if ($tag === '') {
+            return;
+        }
+
+        $this->showPureUrlChannels($publisher, $botItem, $type, $chatId, $tag);
+    }
+
+    /**
+     * انتخاب کانال/مقصد — با نشانگر لینک (✅/❌) مثل ویزارد /sign.
+     */
+    private function showPureUrlChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $hasLink = !empty($dest->channel_link) ? '✅' : '❌';
+            $rows[] = [['text' => "{$label} — {$title} {$hasLink}", 'callback_data' => 'cp:purch:' . $dest->id]];
+            $destIds[] = $dest->id;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_PURE_URL_CHANNEL, [
+            'tag' => $tag,
+            'dest_ids' => $destIds,
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_pur_pick_channel'), $rows, [
+            trans('bot.channel_poster_pur_hint_tag'),
+        ]);
+    }
+
+    /**
+     * مرحلهٔ کانال — اگر URL معتبر عمومی ثبت نشده باشد، خطای قابل‌فهم و
+     * توقف ویزارد (لینک ساختگی/تخمینی هرگز استفاده نمی‌شود).
+     */
+    private function handlePureUrlChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return;
+        }
+
+        $link = trim((string) ($dest->channel_link ?? ''));
+        if ($link === '' || (!str_starts_with($link, 'http://') && !str_starts_with($link, 'https://'))) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_no_link'));
+            return;
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+        $this->setState($botItem, $chatId, $type, self::STATE_PURE_URL_TEXT, [
+            'destination_id' => $destId,
+            'tag' => (string) ($state?->getData('tag') ?? ''),
+            'link' => $link,
+        ]);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_ask_text', ['link' => $link]));
+    }
+
+    /**
+     * مرحلهٔ تأیید — پیش‌نمایشِ دقیق خروجی (متن + URL) با دکمه‌های بله/خیر/بازگشت.
+     */
+    private function showPureUrlConfirm(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d
+    ): void {
+        $preview = (string) ($d['text'] ?? '') . "\n" . (string) ($d['link'] ?? '');
+        $this->setState($botItem, $chatId, $type, self::STATE_PURE_URL_CONFIRM, $d);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_pur_confirm', ['preview' => $preview]), [
+            [
+                ['text' => trans('bot.channel_poster_pur_conf_yes'), 'callback_data' => 'cp:purconf:yes'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_pur_conf_no'), 'callback_data' => 'cp:purconf:no'],
+            ],
+            [
+                ['text' => trans('bot.channel_poster_pur_conf_back'), 'callback_data' => 'cp:purconf:back'],
+            ],
+        ], [
+            trans('bot.channel_poster_pur_hint_yesno'),
+        ]);
+    }
+
+    private function handlePureUrlConfirmCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_PURE_URL_CONFIRM) {
+            return;
+        }
+        $choice = substr($data, strlen('cp:purconf:'));
+        $d = $state->data ?? [];
+
+        if ($choice === 'back') {
+            $this->setState($botItem, $chatId, $type, self::STATE_PURE_URL_TEXT, [
+                'destination_id' => (int) ($d['destination_id'] ?? 0),
+                'tag' => (string) ($d['tag'] ?? ''),
+                'link' => (string) ($d['link'] ?? ''),
+            ]);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_ask_text', [
+                'link' => (string) ($d['link'] ?? ''),
+            ]));
+            return;
+        }
+
+        $this->savePureUrlSignature($publisher, $botItem, $type, $chatId, $d, $choice === 'yes');
+    }
+
+    /**
+     * معادل متنیِ ویزارد Pure URL — دکمه در مبدأهای native (soroush/rubika)
+     * حذف می‌شود (NativeChannelPosterPublisher)، پس همهٔ مراحل با تایپ هم
+     * کار می‌کنند (برای همهٔ مبدأها مجاز است).
+     */
+    private function handlePureUrlText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $d
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $raw = trim($text);
+        $choice = mb_strtolower($raw);
+
+        if (in_array($choice, ['انصراف', 'لغو', 'cancel'], true)) {
+            $this->finishPureUrlWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_PURE_URL_TAG) {
+            $keys = (array) ($d['tag_keys'] ?? []);
+            if ($raw !== '' && ctype_digit($raw) && isset($keys[(int) $raw - 1])) {
+                $this->handlePureUrlTagCallback($publisher, $botItem, $type, $chatId, 'cp:purtag:' . ((int) $raw - 1));
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_PURE_URL_CHANNEL) {
+            $ids = array_map('intval', (array) ($d['dest_ids'] ?? []));
+            if ($raw !== '' && ctype_digit($raw) && isset($ids[(int) $raw - 1])) {
+                $this->handlePureUrlChannelCallback($publisher, $botItem, $type, $chatId, $ids[(int) $raw - 1]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_PURE_URL_TEXT) {
+            if ($raw === '') {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_ask_text', [
+                    'link' => (string) ($d['link'] ?? ''),
+                ]));
+                return;
+            }
+            $this->showPureUrlConfirm($publisher, $botItem, $type, $chatId, [
+                'destination_id' => (int) ($d['destination_id'] ?? 0),
+                'tag' => (string) ($d['tag'] ?? ''),
+                'link' => (string) ($d['link'] ?? ''),
+                'text' => mb_substr($raw, 0, 255),
+            ]);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_PURE_URL_CONFIRM) {
+            $yes = in_array($choice, ['بله', 'بره', 'yes', 'y'], true);
+            $no = in_array($choice, ['خیر', 'نه', 'no', 'n'], true);
+            $back = in_array($choice, ['بازگشت', 'back'], true);
+
+            if (!$yes && !$no && !$back) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_confirm_invalid'));
+                return;
+            }
+
+            if ($back) {
+                $this->handlePureUrlConfirmCallback($publisher, $botItem, $type, $chatId, 'cp:purconf:back');
+                return;
+            }
+
+            $this->savePureUrlSignature($publisher, $botItem, $type, $chatId, $d, $yes);
+            return;
+        }
+    }
+
+    /**
+     * ذخیرهٔ نهایی امضای Pure URL — نقطهٔ تنها ورودی به دیتابیس در این ویزارد.
+     *
+     * signature_type=pure_url + signature_label=متنِ دلخواه کاربر + پاک‌کردن
+     * signature_settings تا امضا مستقل از تنظیمات هوشمند باشد (در زمان
+     * انتشار، مسیر legacy/pure در buildSignatureForDestination استفاده می‌شود).
+     * لینک موجود بدون تغییر پاس داده می‌شود (URL از همان مقصد، بدون تخمین).
+     */
+    private function savePureUrlSignature(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d,
+        bool $enabled
+    ): void {
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $link = (string) ($d['link'] ?? '');
+        if ($destId <= 0 || $link === '') {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $this->service->updateSignatureSettings(
+            $destId,
+            $link,
+            $d['text'] ?? null,
+            SignatureRenderer::TYPE_PURE_URL,
+            $enabled
+        );
+        // مستقل از تنظیمات هوشمند: اگر تنظیمات هوشمندی ذخیره شده، پاکش می‌کنیم
+        // تا در زمان انتشار pure_url اعمال شود (buildSignatureForDestination
+        // تنظیمات هوشمند را فقط وقتی settings=array می‌شناسد).
+        $dest = ChannelPosterDestination::find($destId);
+        if ($dest !== null && $dest->signature_settings !== null) {
+            $dest->signature_settings = null;
+            $dest->save();
+        }
+
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_saved', ['link' => $link]));
+    }
+
+    /**
+     * پایان/لغو ویزارد Pure URL — حالت پاک می‌شود؛ تنظیمات پیشین دست‌نخورده.
+     */
+    private function finishPureUrlWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_pur_cancelled'));
     }
 
     // ======================================================================
@@ -3561,6 +3927,8 @@ class ChannelPosterBotController extends Controller
                 $rows[] = [['text' => trans('bot.channel_sync_menu_defaults'), 'callback_data' => 'cps:sub:defaults']];
                 // CP-SMART-SIGNATURE-SETTINGS: ورودی واحد تنظیمات هوشمند امضا (فقط مالک)
                 $rows[] = [['text' => trans('bot.channel_poster_ssig_menu_entry'), 'callback_data' => 'cp:ssig']];
+                // CP-PURE-URL-SIGNATURE: ورودی امضای Pure URL (فقط مالک)
+                $rows[] = [['text' => trans('bot.channel_poster_pur_menu_entry'), 'callback_data' => 'cp:pururl']];
             }
 
             $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];

@@ -989,6 +989,26 @@ Chat ID: :chat_id',
     'channel_poster_ssig_text_hint_separator' => 'جداکننده (حداکثر ۱۶ نویسه؛ خالی = « | ») (یا بازگشت / انصراف)',
     'channel_poster_ssig_text_hint_yes_no' => 'بله / خیر (یا بازگشت / انصراف)',
 
+    // === Pure URL Signature (CP-PURE-URL-SIGNATURE) ===
+    // امضای مستقل «متن دلخواه + URL خالص کانال» — خروجی plain در همهٔ پلتفرم‌ها.
+    'channel_poster_pur_menu_entry' => '✍️ امضای Pure URL (متن + لینک کانال)',
+    'channel_poster_pur_no_tag' => 'هنوز تگی نداری. اول /start بزن و کانال وصل کن.',
+    'channel_poster_pur_ask_tag' => 'امضای Pure URL کدام تگ را تنظیم بکنی؟',
+    'channel_poster_pur_no_channels' => 'این تگ کانالی ندارد.',
+    'channel_poster_pur_pick_channel' => 'امضای Pure URL کدام کانال را تنظیم بکنی؟ (✅ = لینک عمومی دارد، ❌ = ندارد)',
+    'channel_poster_pur_no_link' => '❌ این کانال هنوز URL عمومی معتبر ندارد؛ نمی‌توان امضای Pure URL روی آن ساخت (لینک تخمینی استفاده نمی‌شود).'."\n".'اول لینک عمومی کانال را با /sign ثبت کن.',
+    'channel_poster_pur_ask_text' => 'لینک این کانال: :link'."\n".'حالا متن دلخواه خودت را برای خط اول امضا بفرست — عینِ چیزی که می‌فرستی نمایش داده می‌شود و لینک کانال دقیقاً در خط بعد می‌آید.',
+    'channel_poster_pur_confirm' => '👁 پیش‌نمایش امضا:'."\n".'«:preview»'."\n".'با این امضا ذخیره شود؟',
+    'channel_poster_pur_conf_yes' => '✅ بله، ذخیره کن',
+    'channel_poster_pur_conf_no' => '📄 خیر (غیرفعال ذخیره کن)',
+    'channel_poster_pur_conf_back' => '↩️ بازگشت به متن',
+    'channel_poster_pur_confirm_invalid' => 'بله، خیر یا بازگشت بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_pur_saved' => '✅ امضای Pure URL ذخیره و فعال شد: خط اول متن خودت، خط دوم لینک این کانال — در انتهای همهٔ پست‌ها اضافه می‌شود.'."\n".'لینک: :link'."\n".'این امضا مستقل از تنظیمات هوشمند امضا است؛ اگر تنظیمات هوشمندی روی این کانال بود، پاک شد.',
+    'channel_poster_pur_cancelled' => 'انصراف — تنظیمات پیشین دست‌نخورده ماند.',
+    'channel_poster_pur_invalid_number' => 'شمارهٔ گزینه را درست بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_pur_hint_tag' => 'شمارهٔ تگ / کانال را تایپ کن (یا انصراف)',
+    'channel_poster_pur_hint_yesno' => 'بله / خیر / بازگشت (یا انصراف)',
+
     // === Publish Queue ===
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',

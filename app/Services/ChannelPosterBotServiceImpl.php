@@ -534,6 +534,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 SignatureRenderer::TYPE_PLAIN,
                 SignatureRenderer::TYPE_BUTTON,
                 SignatureRenderer::TYPE_COMPOSITE,
+                SignatureRenderer::TYPE_PURE_URL,
                 SignatureRenderer::TYPE_NONE,
             ], true) ? (string) $dest['signature_type'] : SignatureRenderer::TYPE_INLINE;
 
@@ -603,6 +604,7 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
                 SignatureRenderer::TYPE_PLAIN,
                 SignatureRenderer::TYPE_BUTTON,
                 SignatureRenderer::TYPE_COMPOSITE,
+                SignatureRenderer::TYPE_PURE_URL,
                 SignatureRenderer::TYPE_NONE,
             ], true) ? (string) $dest->signature_type : SignatureRenderer::TYPE_INLINE;
 
