@@ -1524,6 +1524,125 @@ class ChannelPosterSmartSignatureTest extends TestCase
     }
 
     // ------------------------------------------------------------------
+    // P12. preset 4 UX: the explicit fa title is what the user sees in the
+    //     /settings → cp:ssig policy menu (numbered button, no ambiguity),
+    //     selectable both via the button AND via soroush text '6'
+    // ------------------------------------------------------------------
+    public function test_preset4_option_is_identifiable_and_selectable_in_both_paths(): void
+    {
+        $bot = $this->createBot();
+        // Same 3-channel setup/ordering as P11 (channel-list positions are
+        // platform-ordered: bale=1, eitaa=2, telegram=3)
+        $this->createDestination($bot->id, 'bale', 'tag1', [
+            'channel_link' => 'https://ble.ir/ch',
+        ]);
+        $telegram = $this->createDestination($bot->id, 'telegram', 'tag1', [
+            'channel_link' => 'https://t.me/ch',
+        ]);
+        $this->createDestination($bot->id, 'eitaa', 'tag1', [
+            'channel_link' => 'https://eitaa.ir/ch',
+        ]);
+
+        $title = trans('bot.channel_poster_ssig_policy_self_plus_eitaa');
+
+        // 1) entry path: /settings menu exposes the smart-signature entry
+        $this->postText('/settings');
+        $flat = $this->lastPrivateCallbackData();
+        $this->assertContains('cp:ssig', $flat);
+        $entry = null;
+        foreach ($this->lastPrivateKeyboard() as $row) {
+            foreach ($row as $button) {
+                if (($button['callback_data'] ?? '') === 'cp:ssig') {
+                    $entry = $button;
+                }
+            }
+        }
+        $this->assertNotNull($entry);
+        $this->assertSame(trans('bot.channel_poster_ssig_menu_entry'), $entry['text']);
+
+        // 2) open wizard: single tag → channel step (by id, no ambiguity)
+        //    → policy step
+        $this->postCallback('cp:ssig');
+        $this->postCallback('cp:ssigc:' . $telegram->id);
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_POLICY);
+
+        // 3) the question text lists option ۶ with the explicit title
+        $this->assertStringContainsString(
+            '۶ لینک هر کانال فقط برای خودش؛ لینک ایتا هم در تلگرام',
+            $this->publisher->lastPrivateText()
+        );
+
+        // 4) the policy menu is NUMBERED (۱..۶) so it matches the text path
+        $keyboard = $this->lastPrivateKeyboard();
+        $selfButton = $keyboard[0][0];
+        $this->assertSame(trans('bot.channel_poster_ssig_policy_self'), $selfButton['text']);
+        $this->assertStringStartsWith('۱. ', $selfButton['text']);
+
+        $presetButton = null;
+        foreach ($keyboard as $row) {
+            foreach ($row as $button) {
+                if (($button['callback_data'] ?? '') === 'cp:ssigpol:self_only_plus_eitaa_on_telegram') {
+                    $presetButton = $button;
+                }
+            }
+        }
+        $this->assertNotNull($presetButton);
+        $this->assertSame($title, $presetButton['text']);
+        $this->assertStringStartsWith('۶. ', $presetButton['text']);
+        $this->assertStringContainsString(
+            'لینک هر کانال فقط برای خودش؛ لینک ایتا هم در تلگرام',
+            $presetButton['text']
+        );
+
+        // 5) selection via the BUTTON: telegram → 2 links (self + aitaa) →
+        //    layout question → separator → save
+        $this->postCallback('cp:ssigpol:self_only_plus_eitaa_on_telegram');
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_LAYOUT);
+        $this->postCallback('cp:ssiglay:single_line');
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_SEPARATOR);
+        $this->postText(' | '); // keep the default separator
+        $this->postCallback('cp:ssigap:always_apply');
+        $this->postCallback('cp:ssigpv:yes');
+        $this->assertNoState();
+        $telegram->refresh();
+        $this->assertSame(
+            'self_only_plus_eitaa_on_telegram',
+            $telegram->signature_settings['link_selection_policy']
+        );
+
+        // 6) selection via SOROUSH text '6' (no inline keyboards): the hint
+        //    '۱ تا ۶' + numbered question identify the option unambiguously
+        $bot->update([
+            'soroush_bot_token' => self::SOROUSH_TOKEN,
+            'soroush_bot_name' => 'channel_poster_soroush_bot',
+            'soroush_bot_status' => 'Active',
+            'soroush_owner_chat_id' => (int) $this->ownerChatId,
+            'soroush_webhook_is_set' => true,
+        ]);
+        $this->postSoroushCallback('cp:ssig');
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_CHANNEL, 'soroush');
+        $this->postSoroushText('3'); // channel: telegram (bale=1, eitaa=2, telegram=3)
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_POLICY, 'soroush');
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_ssig_text_hint_numbers_6'),
+            $this->publisher->lastPrivateText()
+        );
+        $this->postSoroushText('6'); // the explicit-title preset
+        $this->assertState(ChannelPosterBotController::STATE_SSIG_LAYOUT, 'soroush');
+        $this->postSoroushText('1'); // single line
+        $this->postSoroushText(' | '); // keep default separator
+        $this->postSoroushText('1'); // always apply
+        $this->postSoroushText('بله'); // confirm preview
+        $this->assertNoState();
+        $this->assertStringContainsString(
+            trans('bot.channel_poster_ssig_saved'),
+            $this->publisher->lastPrivateText()
+        );
+
+        $this->assertNoTokenLeak();
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
