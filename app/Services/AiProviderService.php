@@ -98,16 +98,17 @@ class AiProviderService
      *
      * @return array{success: bool, response: string, usage: array}
      */
-    public function chat(?string $prompt = null, ?int $maxTokens = null, ?float $temperature = null): array
+    public function chat(?string $prompt = null, ?int $maxTokens = null, ?float $temperature = null, ?int $timeout = null): array
     {
         $prompt = $prompt ?: $this->prompt;
         $maxTokens = $maxTokens ?? 50;
         $temperature = $temperature ?? 0.7;
+        $timeout = $timeout ?: 30;
 
         try {
             $response = Http::withOptions(config('ai.http_options'))
                 ->withToken($this->apiKey)
-                ->timeout(30)
+                ->timeout($timeout)
                 ->post(rtrim($this->baseUrl, '/') . '/v1/chat/completions', [
                     'model'    => $this->model,
                     'messages' => [

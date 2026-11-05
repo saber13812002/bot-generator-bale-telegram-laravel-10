@@ -20,6 +20,12 @@ class LlmTranslationService
     protected const MAX_TOKENS = 1024;
 
     /**
+     * timeout مخصوص ترجمه (ثانیه) — کوتاه‌تر از ۳۰ ثانیه‌ی عمومی؛
+     * ترجمه‌ی هر segment نباید pipeline را چند دقیقه رها کند.
+     */
+    protected const CHAT_TIMEOUT_SECONDS = 20;
+
+    /**
      * ترجمه متن به زبان مقصد (پیش‌فرض فارسی)
      *
      * @param  string  $text        متن مبدأ
@@ -34,14 +40,22 @@ class LlmTranslationService
         }
 
         try {
-            $provider = AiProvider::active()->orderBy('id')->first()
-                ?? AiProviderService::ensureDefaultProvider();
+            $provider = self::selectHealthyProvider();
+            if (!$provider) {
+                // تمام providerهای فعال در health-checkِ ۱ ساعت اخیر «failed» ثبت شده‌اند
+                // (یا جدول خالی است) — کوشش کردن فقط timeout ۳۰ ثانیه‌ای هر segment را
+                // اضافه می‌کند؛ فست‌تر روی متن اصلی (یا provider بعدی در driver) سقوط می‌کنیم.
+                Log::warning('[LlmTranslation] No healthy AI provider available; skipping LLM');
+
+                return null;
+            }
 
             $service = new AiProviderService($provider);
             $result  = $service->chat(
                 self::buildPrompt($text, $target),
                 self::MAX_TOKENS,
-                0.2
+                0.2,
+                self::CHAT_TIMEOUT_SECONDS
             );
 
             if (!($result['success'] ?? false)) {
@@ -69,6 +83,28 @@ class LlmTranslationService
 
             return null;
         }
+    }
+
+    /**
+     * انتخاب provider: فعال‌ترین‌ها را می‌گیرد، اما providerهایی که health-check
+     * (ai:health-check) آن‌ها را «failed» ثبت کرده‌اند را رد می‌کند — مگر اینکه
+     * هیچ گزینه‌ی سالمی نباشد (آن وقت null برمی‌گردد و ترجمه LLM اصلاً انجام نمی‌شود).
+     *
+     * @return \App\Models\AiProvider|null
+     */
+    private static function selectHealthyProvider(): ?AiProvider
+    {
+        $providers = AiProvider::active()->orderBy('id')->get();
+
+        // جدول خالی است → provider پیش‌فرض از config ساخته می‌شود
+        if ($providers->isEmpty()) {
+            return AiProviderService::ensureDefaultProvider();
+        }
+
+        // «سالم» = statusِ آخرین تست «failed» نباشد (null یعنی هنوز تست نشده → قابل امتحان)
+        $healthy = $providers->first(fn ($p) => $p->last_test_status !== 'failed');
+
+        return $healthy;
     }
 
     /**

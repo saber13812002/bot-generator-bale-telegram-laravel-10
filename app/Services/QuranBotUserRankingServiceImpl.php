@@ -34,31 +34,44 @@ class QuranBotUserRankingServiceImpl implements QuranBotUserRankingService
     /**
      * @param mixed $logs
      * @return Collection
+     *
+     * نوسان‌سنجی: قبلاً برای هر کاربر دو count جدا زده می‌شد (N+1) و /report برای
+     * هر کاربری چند دقیقه می‌گرفت و webhook در فیل آپاچی/وب‌سرور قفل می‌ماند.
+     * حالا کل آمار در ۲ کوئری GROUP BY محاسبه می‌شود.
      */
     private function calculateRanking(mixed $logs): Collection
     {
+        $cutoffMonth = Carbon::now()->subDay(30);
+        $cutoffLastMonth = Carbon::now()->subDay(60);
+
+        $chatIds = collect($logs)->pluck('chat_id')->unique()->values()->all();
+
+        // countهای ۳۰ روز اخیر و ۳۰-۶۰ روز اخیر برای همه کاربران در یک کوئری
+        [$monthCounts, $lastMonthCounts] = [new \Illuminate\Support\Collection(), new \Illuminate\Support\Collection()];
+
+        if (!empty($chatIds)) {
+            $aggregates = BotLog::where('webhook_endpoint_uri', 'webhook-quran-word')
+                ->whereIn('chat_id', $chatIds)
+                ->where('created_at', '>=', $cutoffLastMonth)
+                ->selectRaw('chat_id, COUNT(*) as cnt, SUM(created_at >= ?) as cnt_month', [$cutoffMonth->toDateTimeString()])
+                ->groupBy('chat_id')
+                ->get();
+
+            $monthCounts = $aggregates->mapWithKeys(fn ($row) => [(string) $row->chat_id => (int) $row->cnt_month]);
+            $lastMonthCounts = $aggregates->mapWithKeys(fn ($row) => [(string) $row->chat_id => (int) ($row->cnt - $row->cnt_month)]);
+        }
+
+        $typeByChatId = collect($logs)->mapWithKeys(fn ($log) => [(string) $log['chat_id'] => $log['type']]);
+
         $collection = collect();
 
-        foreach ($logs as $log) {
-
-            $count_month = BotLog::where('chat_id', $log['chat_id'])->where('created_at', '>=', Carbon::now()->subDay(30))
-                ->whereWebhookEndpointUri('webhook-quran-word')
-                ->count();
-
-            $count_last_month = BotLog::where('chat_id', $log['chat_id'])
-                ->whereWebhookEndpointUri('webhook-quran-word')
-                ->where('created_at', '<', Carbon::now()->subDay(30))
-                ->where('created_at', '>=', Carbon::now()->subDay(60))
-                ->count();
-
-            $newItem = array(
-                "chatId" => $log['chat_id'],
-                "type" => $log['type'],
-                "result_month" => $count_month,
-                "result_last_month" => $count_last_month
-            );
-
-            $collection->add($newItem);
+        foreach ($chatIds as $chatId) {
+            $collection->add([
+                "chatId" => $chatId,
+                "type" => $typeByChatId->get((string) $chatId),
+                "result_month" => $monthCounts->get((string) $chatId, 0),
+                "result_last_month" => $lastMonthCounts->get((string) $chatId, 0),
+            ]);
         }
 
         return $collection;

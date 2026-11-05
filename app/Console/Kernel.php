@@ -122,6 +122,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // پاکسازی دوره‌ای فضای دایس (quota اشتراکی): cache فایل، sessionهای کهنه، چرخش laravel.log
+        // ⚠️ بدون withoutOverlapping/onOneServer: آن دو از cache استفاده می‌کنند و وقتی
+        // quota دایس پر باشد، قفل خودشان خطا می‌دهد و cleanup هرگز اجرا نمی‌شود.
+        $schedule->command('storage:cleanup')
+            ->dailyAt('03:30');
+
         // بررسی سلامت سرورهای AI هر ۱ ساعت
         $schedule->command('ai:health-check')
             ->hourly()
