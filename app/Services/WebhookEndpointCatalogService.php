@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookEndpointCatalogService
 {
-    private const INTERNAL_IDS = ['admin-bots', 'get-chat-id'];
+    private const INTERNAL_IDS = ['admin-bots', 'get-chat-id', 'rubika-diagnostic'];
 
     public function __construct(
         private readonly WebhookEndpointDefaultImporter $importer

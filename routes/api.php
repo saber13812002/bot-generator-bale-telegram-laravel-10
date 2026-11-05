@@ -10,6 +10,7 @@ use App\Http\Controllers\HadithSearchController;
 use App\Http\Controllers\JobController;
 use App\Http\Controllers\NahjController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RubikaDiagnosticBotController;
 use App\Http\Controllers\QuranWordController;
 use App\Http\Controllers\RssFeedWebOriginController;
 use App\Http\Controllers\RssPostItemTranslationController;
@@ -52,6 +53,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/webhook-bot-mother', [BotMotherController::class, 'botMotherWebhook']);
 Route::post('/webhook-bot-mother-v2', [\App\Http\Controllers\BotMotherWorkflowController::class, 'webhook']);
 Route::post('/webhook-bot-get-id', [BotMotherController::class, 'getIdMother']);
+Route::post('/webhook-rubika-diagnostic', [RubikaDiagnosticBotController::class, 'webhook']);
 
 Route::post('/webhook-bot-children', [BotMotherController::class, 'childrenMessageBroadcasterWebhook']);
 Route::get('/approve', [BotUsersController::class, 'approve']);

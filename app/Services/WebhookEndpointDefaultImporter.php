@@ -256,6 +256,15 @@ class WebhookEndpointDefaultImporter
                 'requires_language' => false,
             ],
             [
+                'id' => 'rubika-diagnostic',
+                'name' => 'ربات تشخیصی روبیکا',
+                'route' => 'api/webhook-rubika-diagnostic',
+                'description' => 'ربات تشخیصی روبیکا — نمایش Chat ID، Sender ID، Message ID، نوع چت، پیام فورواردشده و رویدادهای BotJoined (مخصوص عیب‌یابی و تست API روبیکا)',
+                'requires_bot_mother_id' => true,
+                'requires_token' => true,
+                'requires_language' => false,
+            ],
+            [
                 'id' => 'webhook-growth-companion',
                 'name' => 'رشدیار',
                 'route' => '/api/webhook-growth-companion',

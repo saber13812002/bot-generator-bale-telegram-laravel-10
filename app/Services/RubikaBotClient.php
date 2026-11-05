@@ -156,6 +156,20 @@ class RubikaBotClient
     }
 
     /**
+     * دریافت اطلاعات یک چت (getChat).
+     *
+     * خروجی طبق مستندات: فیلد `chat` از مدل Chat.
+     * ⚠️ فیلدهای دقیق مدل Chat به‌صورت محلی اسقاط/تأیید نشده است
+     * (BLOCKED تا تست زنده) — مصرف‌کننده (RubikaUpdateNormalizer /
+     * ربات تشخیصی) باید به‌صورت دفاعی خوانش کند: فیلد موجود → نمایش،
+     * فیلد ناموجود → «—»؛ هرگز حدس نزنیم و موفقیت‌نمودی دروغین ندهیم.
+     */
+    public function getChat(string $chatId): array
+    {
+        return $this->call('getChat', ['chat_id' => $chatId]);
+    }
+
+    /**
      * ---------------- سطح سازگار با SDK تلگرام ----------------
      * فقط برای مسیر webhook (LogHelper / BotHelper) استفاده می‌شود؛
      * فرم POST JSON یکسان با SDK است: ['chat_id'=>..., 'text'=>..., 'parse_mode'=>...]

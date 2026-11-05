@@ -123,7 +123,29 @@ No capability is marked `LIVE_TESTED` — all HTTP is faked in tests.
    undocumented → `NativeChannelPosterPublisher` drops keyboards (logged) and
    no-ops `answerCallback`.
 
+## 🩺 Diagnostic Bot (BM-RUBIKA-DIAGNOSTIC-BOT)
+
+New BotMother endpoint type `rubika-diagnostic` (route
+`POST /api/webhook-rubika-diagnostic`) for live diagnosis of Rubika's real
+update/response shapes: private/group/channel reports, forwarded-origin
+reports, `BotJoined` / `BotRemoved` / `BotPermissionsChanged` handling,
+`/start` `/id` `/chat` `/forward` commands, and a guarded
+`rubika:diagnostic-poll` console command.
+
+- `docs/features/rubika/RUBIKA_DIAGNOSTIC_BOT.md` — full Persian setup &
+  live-test guide
+- `docs/features/rubika/RUBIKA_COVERAGE_MATRIX.md` — mandatory universal
+  coverage matrix: all 33 BotMother endpoint types × Telegram/Bale/Eitaa/
+  Soroush/Rubika, with status evidence (SUPPORTED / MOCK_TESTED / REG_ONLY /
+  NOT_IMPLEMENTED / BLOCKED), cross-platform non-interference tests, and known
+  risks (incl. `CleanEmptyBots` deleting rubika-only bots)
+- `tests/Unit/RubikaUpdateNormalizerTest.php` (23 tests) and
+  `tests/Feature/Modules/BotMother/RubikaDiagnosticBotWebhookTest.php`
+  (32 tests) — all green; still **NOT_LIVE_TESTED**
+
 ## 📚 Sources
 
 - `docs/features/platform-api-research.md` (Section: Rubika) — official docs captured with dates
 - `docs/features/messenger-platform-capability-matrix.md` — per-capability matrix
+- `docs/features/rubika/RUBIKA_DIAGNOSTIC_BOT.md` — diagnostic bot guide
+- `docs/features/rubika/RUBIKA_COVERAGE_MATRIX.md` — 33-type universal coverage matrix
