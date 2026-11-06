@@ -9,19 +9,19 @@ class StorageCleanupCommand extends Command
 {
     /**
      * پاکسازی فضای ذخیره‌سازی (دریافت quota روی هاست‌های اشتراکی):
-     * - حذف ورودی‌های منقضی‌شده‌ی cache با درایو file
-     * - حذف sessionهای کهنه‌ی file
-     * - چرخش (rotate) laravel.log در صورت عبور از سقف حجم + حذف لاگ‌های چرخ‌خورده‌ی قدیمی
+     * - حذف ورودی‌های منقضی‌شدهٔ cache با درایو file (cache فعال دست‌نخورده می‌ماند)
+     * - حذف sessionهای کهنهٔ file
+     * - چرخش (rotate) laravel.log هنگام عبور از سقف حجم + حذف لاگ‌های چرخ‌خوردهٔ قدیمی
      *
      * بدون withoutOverlapping/onOneServer برنامه‌ریزی می‌شود چون آن دو از cache
      * استفاده می‌کنند و وقتی دایس پر باشد، قفل خودِ آن‌ها خطا می‌دهد.
      */
     protected $signature = 'storage:cleanup
-                            {--cache-max-mb= : (فرمانی) سقف اطلاعاتی برای گزارش}
                             {--log-max-mb=50 : چرخش laravel.log هنگام عبور از این حجم (MB)}
                             {--log-backups=5 : تعداد نسخه‌های نگه‌داشته‌شده از laravel.log}
                             {--log-days=30 : حذف لاگ‌های چرخ‌خورده/روزانه قدیمی‌تر از این روزها}
                             {--session-days=2 : حذف sessionهای file قدیمی‌تر از این روزها}
+                            {--free-space-bytes= : (اختیاری) شبیه‌سازی فضای آزاد دیسک برای ایمنی rotation (تست)}
                             {--dry-run : فقط گزارش دهد، چیزی پاک نکند}';
 
     protected $description = 'پاکسازی cache فایل، sessionهای کهنه و چرخش لاگ‌ها برای آزادسازی quota دایس';
@@ -33,14 +33,15 @@ class StorageCleanupCommand extends Command
         $logBackups = max(1, (int) $this->option('log-backups') ?: 5);
         $logDays = max(1, (int) $this->option('log-days') ?: 30);
         $sessionDays = max(1, (int) $this->option('session-days') ?: 2);
+        $freeSpaceBytes = $this->option('free-space-bytes') !== null ? (int) $this->option('free-space-bytes') : null;
 
         if ($dryRun) {
             $this->warn('Dry-run mode: no files will be modified.');
         }
 
-        $this->pruneFileCache($files, $dryRun);
+        $this->pruneExpiredFileCache($files, $dryRun);
         $this->pruneFileSessions($files, $sessionDays, $dryRun);
-        $this->rotateMainLog($files, $logMaxBytes, $logBackups, $logDays, $dryRun);
+        $this->rotateMainLog($files, $logMaxBytes, $logBackups, $logDays, $freeSpaceBytes, $dryRun);
 
         $this->info('storage:cleanup finished.');
 
@@ -48,38 +49,65 @@ class StorageCleanupCommand extends Command
     }
 
     /**
-     * حذف ورودی‌های منقضی‌شده از همه storeهای cache که درایو file دارند.
+     * حذف واقعی ورودی‌های منقضی‌شده از همه storeهای cache که درایو file دارند.
+     *
+     * FileStore لاراول 10 فاقد pruneExpired() است؛ این روش مستقیماً فرمت فایل
+     * Cache را می‌خواند: 10 کاراکتر اول timestamp انقضا + serialize مقدار است.
+     * - مقدار 9999999999 یعنی «بدون انقضا» (forever) → دست‌نخورده باقی می‌ماند
+     * - فایلی که 10 کاراکتر اولش عدد نیست (مثلاً lock فایل‌ها) → دست‌نخورده باقی می‌ماند
      */
-    protected function pruneFileCache(Filesystem $files, bool $dryRun): void
+    protected function pruneExpiredFileCache(Filesystem $files, bool $dryRun): void
     {
         foreach ((array) config('cache.stores', []) as $name => $store) {
             if (($store['driver'] ?? null) !== 'file') {
                 continue;
             }
 
-            try {
-                $storeInstance = app('cache')->store($name);
-            } catch (\Throwable $e) {
-                $this->warn("Cache store [{$name}] unavailable: {$e->getMessage()}");
+            $path = $store['path'] ?? config('cache.file.path', storage_path('framework/cache/data'));
+            if (! $files->isDirectory($path)) {
                 continue;
             }
 
-            if (! method_exists($storeInstance, 'pruneExpired')) {
-                continue;
-            }
+            $now = time();
+            $count = 0;
 
-            try {
-                if ($dryRun) {
-                    $this->info("[dry-run] Would prune expired entries in cache store [{$name}].");
-                } else {
-                    $storeInstance->pruneExpired();
-                    $this->info("Pruned expired entries in cache store [{$name}].");
+            foreach ($files->allFiles($path) as $file) {
+                if (! $file->isFile()) {
+                    continue;
                 }
-            } catch (\Throwable $e) {
-                // وقتی quota دایس پر باشد خودِ نوشتن cache هم ممکن است خطا بدهد؛
-                // بقیه‌ی گام‌ها باید اجرا شوند.
-                $this->warn("Prune failed for cache store [{$name}]: {$e->getMessage()}");
+
+                try {
+                    $contents = $files->get($file->getPathname());
+                } catch (\Throwable $e) {
+                    $this->warn("Could not read cache entry in [{$name}]: {$e->getMessage()}");
+                    continue;
+                }
+
+                if (! is_string($contents) || strlen($contents) < 11) {
+                    continue; // فایل ناقص/خالی؛ دست نزن
+                }
+
+                $head = substr($contents, 0, 10);
+                if (! ctype_digit($head)) {
+                    continue; // lock فایل یا فرمت ناشناخته — هرگز حذف نشود
+                }
+
+                $expiresAt = (int) $head;
+                if ($expiresAt === 9999999999 || $expiresAt > $now) {
+                    continue; // cache فعال یا بدون انقضا
+                }
+
+                $count++;
+                if (! $dryRun) {
+                    try {
+                        $files->delete($file->getPathname());
+                    } catch (\Throwable $e) {
+                        $this->warn("Failed to delete expired cache entry in [{$name}]: {$e->getMessage()}");
+                    }
+                }
             }
+
+            $this->info(($dryRun ? '[dry-run] Would delete ' : 'Deleted ') . "{$count} expired cache entries in store [{$name}].");
         }
     }
 
@@ -104,7 +132,11 @@ class StorageCleanupCommand extends Command
             if ($file->isFile() && $file->getMTime() < $cutoff) {
                 $count++;
                 if (! $dryRun) {
-                    $files->delete($file->getPathname());
+                    try {
+                        $files->delete($file->getPathname());
+                    } catch (\Throwable $e) {
+                        $this->warn("Failed to delete stale session: {$e->getMessage()}");
+                    }
                 }
             }
         }
@@ -113,13 +145,16 @@ class StorageCleanupCommand extends Command
     }
 
     /**
-     * چرخش laravel.log + حذف لاگ‌های چرخ‌خورده‌ی قدیمی.
+     * چرخش laravel.log + حذف لاگ‌های چرخ‌خوردهٔ قدیمی.
      *
      * از روش copytruncate استفاده می‌شود: کپی به نسخه‌ی بعدی و سپس خالی‌سازی
-     * فایل اصلی (بدون rename، تا مصرف دایس در لحظه‌ی پر شدن quota دو برابر نشود
-     * و فرآیندهای در حال نوشتن لاگ هم قفل inode جدیدی نداشته باشند).
+     * فایل اصلی (بدون rename، تا فرآیندهای در حال نوشتن لاگ قفل inode نداشته باشند).
+     *
+     * ایمنی quota: کپی موقتاً مصرف دایس را 2 برابر حجم لاگ می‌کند؛ اگر فضای آزاد
+     * کمتر از 2× حجم لاگ باشد، rotation متوقف می‌شود (هشدار) و فقط لاگ‌های
+     * تاریخ‌دار قدیمی حذف می‌شوند که هزینهٔ فضا ندارند.
      */
-    protected function rotateMainLog(Filesystem $files, int $maxBytes, int $backups, int $logDays, bool $dryRun): void
+    protected function rotateMainLog(Filesystem $files, int $maxBytes, int $backups, int $logDays, ?int $freeSpaceBytes, bool $dryRun): void
     {
         $logFile = storage_path('logs/laravel.log');
         $logsDir = storage_path('logs');
@@ -128,7 +163,11 @@ class StorageCleanupCommand extends Command
             $sizeMb = round($files->size($logFile) / 1024 / 1024, 1);
             $limitMb = round($maxBytes / 1024 / 1024, 1);
 
-            if ($dryRun) {
+            if (! $this->rotationSafe($files, $logFile, $freeSpaceBytes)) {
+                $this->warn(($dryRun ? '[dry-run] ' : '')
+                    . "Log rotation SKIPPED: free disk space is below 2x the log size ({$sizeMb} MB). "
+                    . 'Copytruncate could exceed the quota. Free space first, then re-run.');
+            } elseif ($dryRun) {
                 $this->info("[dry-run] laravel.log ({$sizeMb} MB) exceeds {$limitMb} MB — would rotate (keep {$backups} backups).");
             } else {
                 try {
@@ -180,7 +219,11 @@ class StorageCleanupCommand extends Command
                 if ($file->getMTime() < $cutoff) {
                     $count++;
                     if (! $dryRun) {
-                        $files->delete($file->getPathname());
+                        try {
+                            $files->delete($file->getPathname());
+                        } catch (\Throwable $e) {
+                            $this->warn("Failed to delete old log {$basename}: {$e->getMessage()}");
+                        }
                     }
                 }
             }
@@ -189,5 +232,22 @@ class StorageCleanupCommand extends Command
                 $this->info(($dryRun ? '[dry-run] Would delete ' : 'Deleted ') . "{$count} old rotated log files (older than {$logDays} days).");
             }
         }
+    }
+
+    /**
+     * آیا فضای آزاد کافی برای یک copytruncate ایمن (2× حجم لاگ) وجود دارد؟
+     */
+    private function rotationSafe(Filesystem $files, string $logFile, ?int $freeSpaceBytes): bool
+    {
+        $needed = $files->size($logFile) * 2;
+
+        if ($freeSpaceBytes === null) {
+            $freeSpaceBytes = disk_free_space(dirname($logFile));
+            if ($freeSpaceBytes === false || $freeSpaceBytes === 0) {
+                return false;
+            }
+        }
+
+        return $freeSpaceBytes >= $needed;
     }
 }
