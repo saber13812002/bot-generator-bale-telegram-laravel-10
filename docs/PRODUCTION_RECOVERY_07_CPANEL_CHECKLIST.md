@@ -1,5 +1,43 @@
 # PRODUCTION-RECOVERY-07 — cPanel Terminal Checklist (Deployment + Storage Maintenance)
 
+## ⚡ Sharabe Beheshti midnight-send bug — cron fix (found 2026-11-07)
+
+The server crontab line that feeds the Sharabe Beheshti audio into the RSS pipeline is
+**broken**: it is missing the `app:` prefix, so `artisan` prints
+`Command "add_mp3_to_rss_for_sharabebeheshti" is not defined.` and the error is silenced
+(`>> /dev/null 2>&1`). The job has therefore **never run**.
+
+Broken line (from `crontab -l`):
+```
+46 2 * * * cd /home/pardisa2/bots && /usr/local/bin/php artisan add_mp3_to_rss_for_sharabebeheshti  >> /dev/null 2>&1
+```
+
+**Diagnosis block (read-only, run first, paste output back):**
+```bash
+cd /home/pardisa2/bots
+date
+/usr/local/bin/php artisan add_mp3_to_rss_for_sharabebeheshti ; echo "exit=$?"
+/usr/local/bin/php artisan tinker --execute="
+\$rows = \App\Models\RssFeedWebOrigin::where('media_id','like','7777777777%')->orderByDesc('id')->limit(5)->get(['id','media_id','created_at']);
+echo \$rows->isEmpty() ? 'NONE FOUND - add_mp3 has never succeeded' : \$rows->toJson(JSON_UNESCAPED_UNICODE), PHP_EOL;
+"
+/usr/local/bin/php artisan pipeline:status
+```
+
+**Fix (after diagnosis confirms)** — replace the broken line with the corrected one
+(`app:` prefix added; `30 20 * * *` = 00:30 Tehran / 20:30 UTC on a UTC server):
+```bash
+crontab -l > /tmp/cron.current
+grep -v "add_mp3_to_rss_for_sharabebeheshti" /tmp/cron.current > /tmp/cron.new
+echo '30 20 * * * cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp3_to_rss_for_sharabebeheshti >> /dev/null 2>&1' >> /tmp/cron.new
+crontab /tmp/cron.new
+rm -f /tmp/cron.current /tmp/cron.new
+crontab -l | grep sharabebeheshti   # must show the app:-prefixed line only
+```
+
+Downstream is healthy (same crontab): `*/14 * * * * app:rss-post-to-translate` and the
+scheduler's `*/15 app:rss_read_translate` will pick up the new item and publish it.
+
 > Target: `/home/pardisa2/bots` on shared hosting (IP `80.191.92.187`, user `pardisa2`).
 > SSH from the local machine is **not reachable** — single authorized attempt on port 22
 > timed out (2026-11-06 ~10:35 IRST). Per mission rules: no port scanning, no bypass.
