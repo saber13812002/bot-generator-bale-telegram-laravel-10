@@ -16,20 +16,25 @@ class ProductLinkMessageHelper
 
     public static function needsParseMode(?string $platformSlug): bool
     {
-        return in_array($platformSlug, ['eitaa', 'telegram'], true);
+        return in_array($platformSlug, ['telegram'], true);
     }
 
     /**
      * parse_mode مستقل برای هر پیام‌رسان:
-     * - telegram : html (مستندات رسمی)
-     * - eitaa    : html (سازگار با API تلگرام؛ تست زنده‌شده)
+     * - telegram : html (مستندات رسمی — core.telegram.org/bots/api#formatting-options)
+     * - eitaa    : بدون parse_mode — در مستندات رسمی ایتایار
+     *              (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf) هیچ پارامتر
+     *              parse_mode یا فرمت HTML وجود ندارد (پارامترهای sendMessage فقط:
+     *              chat_id, text, title, disable_notification, reply_to_message_id,
+     *              date, pin, viewCountForDelete). API پارامترهای ناشناخته را نادیده
+     *              می‌گیرد و متن را به‌صورت خام نمایش می‌دهد → HTML خام در کلاینت دیده
+     *              می‌شود. کلاینت ایتا URL ساده را خودکار لینک‌دار می‌کند.
      * - bale/soroush/rubika : بدون parse_mode (در API آن‌ها مستند نیست)
      */
     public static function parseModeForPlatform(?string $platformSlug): ?string
     {
         return match ($platformSlug) {
             'telegram' => 'html',
-            'eitaa' => 'html',
             default => null,
         };
     }
@@ -40,8 +45,10 @@ class ProductLinkMessageHelper
         $escapedLabel = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
 
         return match ($platformSlug) {
-            'eitaa', 'telegram' => '<a href="' . $escapedUrl . '">' . $escapedLabel . '</a>',
+            'telegram' => '<a href="' . $escapedUrl . '">' . $escapedLabel . '</a>',
             'bale' => '[' . $label . '](' . $url . ')',
+            // eitaa: URL ساده — در مستندات رسمی ایتایار parse_mode/HTML وجود ندارد و
+            // کلاینت URL ساده را خودکار لینک‌دار می‌کند (همان رویکرد soroush/rubika).
             default => $label . ': ' . $url,
         };
     }
@@ -77,13 +84,17 @@ class ProductLinkMessageHelper
     }
 
     /**
-     * ایتا — لینک داخل متن.
-     * API ایتا (eitaayar) سازگار با API تلگرام است؛ HTML <a href> در production
-     * این پروژه استفاده و تست زنده‌شده است. مستندات رسمی مستقل ایتا موجود نیست.
+     * ایتا — لینک ساده (خودرسان).
+     * مستندات رسمی ایتایار (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf):
+     * پارامترهای sendMessage فقط chat_id, text, title, disable_notification,
+     * reply_to_message_id, date, pin, viewCountForDelete است — هیچ پارامتر
+     * parse_mode یا فرمت HTML وجود ندارد و متن به‌صورت خام (verbatim) رندر می‌شود.
+     * ارسال HTML <a href> باعث نمایش تگ خام در کلاینت می‌شود (باگ RCA).
+     * کلاینت ایتا URL ساده را خودکار لینک‌دار می‌کند (همان رویکرد soroush/rubika).
      */
     public static function eitaaSignatureLink(string $url): string
     {
-        return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '">' . $url . '</a>';
+        return $url;
     }
 
     /**
@@ -224,16 +235,10 @@ class ProductLinkMessageHelper
 
     public static function buildFullMessage(string $shareUrl, ?string $title = null, bool $withIcon = false, ?string $platformSlug = 'eitaa'): string
     {
-        if ($withIcon) {
-            $escapedUrl = htmlspecialchars($shareUrl, ENT_QUOTES, 'UTF-8');
-            $escapedLabel = htmlspecialchars(self::productLinkLabel(), ENT_QUOTES, 'UTF-8');
-            $link = '<a title="' . $escapedLabel . '" href="' . $escapedUrl . '" target="_blank" rel="noopener">'
-                . '<i class="xf xf-eitaa fs-3"></i> '
-                . $escapedLabel
-                . '</a>';
-        } else {
-            $link = self::buildShortLink($shareUrl, self::productLinkLabel(), $platformSlug);
-        }
+        // باگ RCA: API رسمی ایتایار parse_mode/HTML ندارد؛ هر تگ HTML خام در کلاینت
+        // رندر می‌شود. حتی حالت withIcon هم باید ساده باشد (پارامتر صرفاً برای
+        // سازگاری امضا نگه داشته شده است).
+        $link = self::buildShortLink($shareUrl, self::productLinkLabel(), $platformSlug);
 
         $parts = [self::buildSharabeBeheshtiIntro(), $link];
         if ($title !== null && $title !== '') {

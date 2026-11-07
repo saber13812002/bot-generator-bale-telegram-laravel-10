@@ -27,8 +27,9 @@ use App\Helpers\ProductLinkMessageHelper;
  *  none      : بدون امضا
  *
  * Fallback‌های امن (پیش‌بینی‌پذیر):
- *  - هر پلتفرمی که فرمت inline تأییدشده ندارد (soroush/rubika) → فرمت ساده
- *    «برچسب + لینک در خط بعد» (خودرسان).
+ *  - هر پلتفرمی که فرمت inline تأییدشده ندارد (eitaa/soroush/rubika) →
+ *    فرمت ساده «برچسب + لینک در خط بعد» (خودرسان). ایتا در مستندات رسمی
+ *    parse_mode/HTML ندارد و متن verbatim رندر می‌شود (باگ RCA: نمایش تگ خام).
  *  - label حاوی کاراکترهای مخربِ Markdown ([ ] ( ) # * _ ~ `) در بله →
  *    همان فرمت ساده (جلوگیری از شکست رندر/تزریق).
  *  - در فرمت HTML، برچسب و URL هر دو با htmlspecialchars escape می‌شوند
@@ -60,7 +61,7 @@ class SignatureRenderer
      *
      * @return array{
      *   text: string,             # بک‌اسپیس + خطوط امضا (برای پیوستن به متن پست)
-     *   parse_mode: string|null,  # html برای telegram/eitaa، وگرنه null
+     *   parse_mode: string|null,  # html فقط برای telegram، وگرنه null (eitaa: plain — بدون parse_mode در مستندات رسمی)
      *   type: string,             # نوعی که در نهایت رندر شد (پس از fallback)
      *   fallback: bool,           # آیا از fallback امن استفاده شد؟
      *   button: array|null        # markup دکمه (فقط type=button + پلتفرم پشتیبانی‌شده)
@@ -159,7 +160,10 @@ class SignatureRenderer
 
         // فلت‌فرم‌های HTML: escape برچسب (خط برچسب جدا از خط لینک escape می‌شود
         // — در خط برچسب ما "label:" را به‌صورت خام می‌نویسیم)
-        if (in_array($platform, ['telegram', 'eitaa'], true)) {
+        // فقط تلگرام: در مستندات رسمی ایتایار parse_mode/HTML وجود ندارد و متن
+        // verbatim رندر می‌شود (ارسال HTML → نمایش تگ خام؛ باگ RCA). ایتا به
+        // فرمت سادهٔ خودرسان پایین سقوط می‌کند.
+        if (SignatureCapability::supportsInlineHtml($platform)) {
             // فرمت «برچسب:\nلینک» — دقیقاً هم‌فرمت با خروجی قدیمی buildSignature
             // (برای سطرهای legacy: signature_enabled = null) تا ظاهر امضا تغییر نکند.
             $labelLine = $label !== '' ? htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . ":\n" : '';
@@ -188,7 +192,9 @@ class SignatureRenderer
             ];
         }
 
-        // soroush/rubika/bale-ناامن: فرمت ساده (برچسب + لینک خودرسان)
+        // eitaa/soroush/rubika/bale-ناامن: فرمت ساده (برچسب + لینک خودرسان)
+        // (ایتا: API رسمی parse_mode ندارد و متن verbatim است؛ کلاینت URL را
+        // خودکار لینک‌دار می‌کند — همان رویکرد soroush/rubika)
         $plainLine = $label !== '' ? $label . ':' . "\n" . $url : $url;
 
         return [
@@ -236,7 +242,9 @@ class SignatureRenderer
         }
 
         $layout = $layout === self::LAYOUT_MULTI_LINE ? self::LAYOUT_MULTI_LINE : self::LAYOUT_SINGLE_LINE;
-        $isHtml = in_array($platform, ['telegram', 'eitaa'], true);
+        // فقط تلگرام فرمت HTML دارد؛ ایتا در مستندات رسمی parse_mode ندارد
+        // (متن verbatim) → فرمت سادهٔ خودرسان (خودکار لینک‌دارشده در کلاینت).
+        $isHtml = SignatureCapability::supportsInlineHtml($platform);
         $parseMode = $isHtml ? 'html' : null;
         $separator = $separator !== '' ? $separator : ' | ';
         $fallback = false;
@@ -257,7 +265,7 @@ class SignatureRenderer
             } elseif ($platform === 'bale' && $label !== null && self::markdownSafeLabel($label)) {
                 $lines[] = ['display' => $label, 'rendered' => '[' . $label . '](' . $url . ')'];
             } else {
-                // soroush/rubika و bale-ناامن: فرمت سادهٔ خودرسان
+                // eitaa/soroush/rubika و bale-ناامن: فرمت سادهٔ خودرسان
                 // (لینک بدون برچسب «fallback» نیست — فرمت ساده همان فرمت بومی است)
                 if ($label !== null) {
                     $fallback = true;
@@ -387,7 +395,9 @@ class SignatureRenderer
      */
     private static function linkLine(string $url, string $platform): string
     {
-        if (in_array($platform, ['telegram', 'eitaa'], true)) {
+        // فقط تلگرام HTML دارد؛ ایتا در مستندات رسمی parse_mode ندارد و متن
+        // verbatim رندر می‌شود (ارسال HTML → نمایش تگ خام؛ باگ RCA) → URL ساده.
+        if (SignatureCapability::supportsInlineHtml($platform)) {
             $escaped = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
 
             return '<a href="' . $escaped . '">' . $escaped . '</a>';
@@ -406,7 +416,9 @@ class SignatureRenderer
      */
     private static function escapeForPlatform(string $label, string $platform): string
     {
-        return in_array($platform, ['telegram', 'eitaa'], true)
+        // escape فقط برای فرمت HTML (تلگرام) — ایتا plain است (متن verbatim) و
+        // escape در آن علامت‌های & و مشابه را خام نمایش می‌دهد.
+        return SignatureCapability::supportsInlineHtml($platform)
             ? htmlspecialchars($label, ENT_QUOTES, 'UTF-8')
             : $label;
     }

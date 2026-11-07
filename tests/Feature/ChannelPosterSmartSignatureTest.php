@@ -1045,8 +1045,9 @@ class ChannelPosterSmartSignatureTest extends TestCase
         }
         $this->assertCount(5, $byPlatform);
         $this->assertSame('t' . "\n\n[ب](https://ble.ir/ch)", $byPlatform['bale']['text']);
-        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">ا</a>", $byPlatform['eitaa']['text']);
-        $this->assertSame('html', $byPlatform['eitaa']['parse_mode']);
+        // official Eitaa API has no parse_mode/HTML — plain "label: url" (client auto-linkifies)
+        $this->assertSame('t' . "\n\nا: https://eitaa.ir/ch", $byPlatform['eitaa']['text']);
+        $this->assertNull($byPlatform['eitaa']['parse_mode']);
         $this->assertSame('t' . "\n\nس: https://soroush.me/ch", $byPlatform['soroush']['text']);
         $this->assertSame('t' . "\n\nر: https://rubika.ir/ch", $byPlatform['rubika']['text']);
         $this->assertSame('t' . "\n\n<a href=\"https://t.me/ch\">ت</a>", $byPlatform['telegram']['text']);
@@ -1089,8 +1090,8 @@ class ChannelPosterSmartSignatureTest extends TestCase
             $byPlatform['telegram']['text']
         );
         $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
-        // aitaa: only its own link
-        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">ایتا</a>", $byPlatform['eitaa']['text']);
+        // aitaa: only its own link — plain URL (no HTML in official Eitaa API)
+        $this->assertSame('t' . "\n\nایتا: https://eitaa.ir/ch", $byPlatform['eitaa']['text']);
     }
 
     // ------------------------------------------------------------------
@@ -1136,8 +1137,8 @@ class ChannelPosterSmartSignatureTest extends TestCase
         $this->assertSame('t' . "\n\n[در بله](https://ble.ir/ch)", $byPlatform['bale']['text']);
         $this->assertSame('t' . "\n\nدر سروش: https://soroush.me/ch", $byPlatform['soroush']['text']);
         $this->assertSame('t' . "\n\nدر روبیکا: https://rubika.ir/ch", $byPlatform['rubika']['text']);
-        $this->assertSame('t' . "\n\n<a href=\"https://eitaa.ir/ch\">در ایتا</a>", $byPlatform['eitaa']['text']);
-        $this->assertSame('html', $byPlatform['eitaa']['parse_mode']);
+        $this->assertSame('t' . "\n\nدر ایتا: https://eitaa.ir/ch", $byPlatform['eitaa']['text']);
+        $this->assertNull($byPlatform['eitaa']['parse_mode']);
         $this->assertSame('t' . "\n\n<a href=\"https://t.me/ch\">در تلگرام</a>", $byPlatform['telegram']['text']);
         $this->assertSame('html', $byPlatform['telegram']['parse_mode']);
     }
@@ -1666,8 +1667,9 @@ class ChannelPosterSmartSignatureTest extends TestCase
             function (ChannelPosterDestination $d) use ($platform) {
                 $label = $d->signature_label ?? $d->channel_link;
                 return match ($platform) {
-                    'telegram', 'eitaa' => "<a href=\"{$d->channel_link}\">{$label}</a>",
+                    'telegram' => "<a href=\"{$d->channel_link}\">{$label}</a>",
                     'bale' => "[{$label}]({$d->channel_link})",
+                    // eitaa/soroush/rubika: plain "label: url" (official Eitaa API has no parse_mode/HTML)
                     default => $label . ': ' . $d->channel_link,
                 };
             },

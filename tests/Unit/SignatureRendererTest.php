@@ -12,9 +12,9 @@ use Tests\TestCase;
  * Contract (architecture directive): the DB stores SEMANTIC signature data
  * (label, url, type, enabled); this class renders the final platform-specific
  * output at publish time. Fallbacks must be predictable and safe:
- *  - no verified inline format (soroush/rubika)  -> plain "label:\nurl"
+ *  - no verified inline format (soroush/rubika/eitaa) -> plain "label:\nurl"
  *  - unsafe Markdown label on bale               -> plain fallback
- *  - HTML platforms (telegram/eitaa)             -> htmlspecialchars (ENT_QUOTES)
+ *  - HTML platforms (telegram only)              -> htmlspecialchars (ENT_QUOTES)
  *  - unsupported URL button                      -> fallback to inline (never drop the link)
  */
 class SignatureRendererTest extends TestCase
@@ -37,15 +37,18 @@ class SignatureRendererTest extends TestCase
         $this->assertNull($res['button']);
     }
 
-    public function test_eitaa_inline_uses_same_html_format_as_telegram(): void
+    public function test_eitaa_inline_falls_back_to_plain_url_no_html(): void
     {
+        // Official Eitaa API has no parse_mode/HTML param — HTML <a> tags render
+        // verbatim in the client (RCA). Eitaa must fall back to a plain URL
+        // (client auto-linkifies), like soroush/rubika.
         $res = SignatureRenderer::render('eitaa', $this->url, SignatureRenderer::TYPE_INLINE, 'کانال ما');
 
-        $this->assertSame(
-            "\n\nکانال ما:\n<a href=\"https://t.me/ch\">https://t.me/ch</a>",
-            $res['text']
-        );
-        $this->assertSame('html', $res['parse_mode']);
+        $this->assertSame("\n\nکانال ما:\nhttps://t.me/ch", $res['text']);
+        $this->assertNull($res['parse_mode']);
+        $this->assertTrue($res['fallback']);
+        $this->assertStringNotContainsString('<', $res['text']);
+        $this->assertStringNotContainsString('a href', $res['text']);
     }
 
     public function test_telegram_escapes_url_and_label_for_html_injection(): void
@@ -362,16 +365,15 @@ class SignatureRendererTest extends TestCase
     {
         $res = SignatureRenderer::render($platform, $this->url, SignatureRenderer::TYPE_BUTTON, 'برو');
 
-        // link must never be dropped: rendered in the platform's own inline format
-        $expected = $platform === 'eitaa'
-            ? "\n\nبرو:\n<a href=\"$this->url\">$this->url</a>"
-            : "\n\nبرو:\n$this->url";
-
-        $this->assertSame($expected, $res['text']);
+        // link must never be dropped: rendered in the platform's own inline format.
+        // soroush/rubika/eitaa all fall back to a plain label + URL line (no HTML —
+        // the official Eitaa API has no parse_mode, HTML tags render verbatim, RCA).
+        $this->assertSame("\n\nبرو:\n$this->url", $res['text']);
         $this->assertSame(SignatureRenderer::TYPE_INLINE, $res['type']);
         $this->assertTrue($res['fallback']);
         $this->assertNull($res['button']);
-        $this->assertSame($platform === 'eitaa' ? 'html' : null, $res['parse_mode']);
+        $this->assertNull($res['parse_mode']);
+        $this->assertStringNotContainsString('<', $res['text']);
     }
 
     /** @return array<string, array{0: string}> */
@@ -589,10 +591,10 @@ class SignatureRendererTest extends TestCase
         $this->assertFalse(SignatureCapability::supportsUrlButton('rubika'));
     }
 
-    public function test_capability_matrix_flags_html_inline_for_telegram_and_eitaa(): void
+    public function test_capability_matrix_flags_html_inline_for_telegram_only(): void
     {
         $this->assertTrue(SignatureCapability::supportsInlineHtml('telegram'));
-        $this->assertTrue(SignatureCapability::supportsInlineHtml('eitaa'));
+        $this->assertFalse(SignatureCapability::supportsInlineHtml('eitaa'));
         $this->assertFalse(SignatureCapability::supportsInlineHtml('bale'));
         $this->assertFalse(SignatureCapability::supportsInlineHtml('soroush'));
         $this->assertFalse(SignatureCapability::supportsInlineHtml('rubika'));

@@ -6,13 +6,19 @@
 
 | پلتفرم | سِنکس | parse_mode |
 |---|---|---|
-| Eita (ایتا) | `<a href="https://...">https://...</a>` | `html` |
+| Eita (ایتا) | `https://...` (لینک ساده — کلاینت خودکار لینک‌دار می‌کند) | بدون parse_mode (رسمی: در API ایتا parse_mode/HTML وجود ندارد) |
 | Telegram (تلگرام) | `<a href="https://...">https://...</a>` | `html` |
 | Bale (بله) | `[https://...](https://...)` | بدون parse_mode (بله مارک‌داون لینک را بومی رندر می‌کند) |
 | Soroush (سروش) | `https://...` (لینک ساده) | بدون parse_mode (کلاينت سروش parse_mode را حذف می‌کند — «BLOCKED») |
 | Rubika (روبیکا) | `https://...` (لینک ساده) | بدون parse_mode (کلاينت روبیکا parse_mode را حذف می‌کند — «BLOCKED») |
 
 نکته: برای سروش/روبیکا، چون parse_mode در API آن‌ها مستند نیست، کلاینت‌های ما (`SoroushBotClient`/`RubikaBotClient`) parse_mode را قبل از ارسال حذف می‌کنند («BLOCKED»)؛ بنابراین فقط لینک ساده ارسال می‌شود.
+
+> **⚠️ اصلاح ایتا (2026-11-07 — باگ RCA):** تست زندهٔ قدیمی ایتا (message_id 177667926) پیام را
+> «پذیرفته» بود ولی چون API رسمی ایتایار ([`OFFICIAL/EitaaYar_API_Documentation.pdf`](OFFICIAL/EitaaYar_API_Documentation.pdf))
+> هیچ پارامتر `parse_mode`/HTML ندارد، تگ‌های `<a href>` **خام** در کلاینت نمایش داده می‌شدند
+> (فرض سازگاری تلگرام، غلط). فرمت فعلی ایتا = **لینک ساده بدون parse_mode** — دقیقا‌ً مثل
+> سروش/روبیکا؛ `parseModeForPlatform('eitaa')` حالا `null` برمی‌گرداند.
 
 ## 🏗️ معماری / نقاط تغییر
 
@@ -24,10 +30,10 @@
 
 2. **ساختار لینک — `ProductLinkMessageHelper::signatureLink(string $url, ?string $platformSlug = null)`**
    در [`app/Helpers/ProductLinkMessageHelper.php`](../app/Helpers/ProductLinkMessageHelper.php)
-   - `eitaa/telegram` → `<a href="url">url</a>` (با htmlspecialchars)
+   - `telegram` → `<a href="url">url</a>` (با htmlspecialchars)
    - `bale` → `[url](url)`
-   - سایر → `url`
-   - `parseModeForPlatform()` هم از همین helper می‌آید (`html` برای ایتا/تلگرام، بقیه `null`).
+   - سایر (eitaa/soroush/rubika) → `url`
+   - `parseModeForPlatform()` هم از همین helper می‌آید (`html` فقط برای تلگرام، بقیه `null`).
 
 3. **append امضا به‌جای هر مقصد — در حلقهٔ publish**
    - [`app/Services/ChannelPosterQueuePublishService.php`](../app/Services/ChannelPosterQueuePublishService.php): امضا **داخل حلقهٔ مقصدها** برای هر مقصد جدا ساخته می‌شود (قبلاً یک‌بار قبل از حلقه اضافه می‌شد و همهٔ مقصدها همهٔ کانال‌ها را می‌دیدند).
@@ -72,7 +78,7 @@
 | پلتفرم | روش ۱ — لینک داخل متن | روش ۲ — دکمه URL |
 |---|---|---|
 | Telegram | ✅ HTML `<a href>` + `parse_mode=html` — **رسمی** (core.telegram.org) | ✅ InlineKeyboardButton.url — **رسمی** |
-| Eita | ⚠️ HTML سازگار با API تلگرام — **تست زنده‌شده** (مستندات رسمی مستقل ندارد) | ❌ کلاینت فعلی (`call_eitaa_api`) reply_markup ارسال نمی‌کند |
+| Eita | ⛔ رسمی: HTML/parse_mode وجود ندارد → **لینک ساده** (ارسال HTML = نمایش تگ خام — باگ RCA اصلاح‌شده) | ❌ در سند رسمی نیست (کلاینت reply_markup نمی‌فرستد) |
 | Bale | ⚠️ Markdown `[url](url)` — دیده‌شده در کتابخانه‌ها، **بدون سند رسمی** (تست زنده‌شده) | ⚠️ SDK بله `buildInlineKeyboardButton` را دارد — **بدون تأیید رسمی** |
 | Soroush | ⛔ parse_mode مستند نیست؛ کلاینت حذف می‌کند → لینک ساده (خودرسان) | ⛔ inline keyboard مستند نیست |
 | Rubika | ⛔ parse_mode مستند نیست؛ کلاینت حذف می‌کند → لینک ساده (خودرسان) | ⛔ inline keyboard مستند نیست |
@@ -82,7 +88,7 @@
 در [`app/Helpers/ProductLinkMessageHelper.php`](../app/Helpers/ProductLinkMessageHelper.php) — هر پیام‌رسان متد مستقل خود را دارد (نه یک `match` مشترک):
 
 - `telegramSignatureLink()` — HTML (مستندات رسمی)
-- `eitaaSignatureLink()` — HTML (سازگاری تلگرام، تست زنده)
+- `eitaaSignatureLink()` — لینک ساده (رسمی: بدون parse_mode؛ باگ RCA)
 - `baleSignatureLink()` — Markdown (کتابخانه‌ها)
 - `soroushSignatureLink()` — لینک ساده (parse_mode BLOCKED)
 - `rubikaSignatureLink()` — لینک ساده (parse_mode BLOCKED)
@@ -124,7 +130,7 @@ php artisan app:test-signature-link \
 |---|---|---|---|---|
 | Telegram | 151370482 (ربات قرآن) | 169519 | ✅ | ✅ دکمه ارسال شد |
 | Bale | 485750575 (ربات مادر) | 1184 | ✅ | ✅ دکمه ارسال شد (رندر در کلاینت بله باید چشمی تأیید شود) |
-| Eita | 8419225 | 177667926 | ✅ | — کلاینت ایتا reply_markup ندارد |
+| Eita | 8419225 | 177667926 | ✅ پیام پذیرفته شد — **اما رندر لینک اشتباه بود** (تگ HTML خام؛ API ایتا parse_mode ندارد → باگ RCA، اصلاح‌شده 2026-11-07) | — کلاینت ایتا reply_markup ندارد |
 
 ⚠️ برای **بله** رندر واقعی دکمه/لینک را باید یک‌بار چشمی در اپلیکیشن بررسی کنید (سند رسمی ندارد). برای **تلگرام** هر دو روش رسمی و تأییدشده‌اند.
 
@@ -141,9 +147,9 @@ php artisan app:test-signature-link \
   سروش/روبیکا). ذخیره از طریق `ChannelPosterBotService::updateSignatureSettings()`.
 - **رندرر در زمان انتشار**: [`SignatureRenderer`](../../app/Services/ChannelPoster/SignatureRenderer.php)
   بر اساس [`SignatureCapability`](../../app/Services/ChannelPoster/SignatureCapability.php)
-  خروجی هر پلتفرم را می‌سازد (telegram/eitaa = `<a href>` + `parse_mode=html`؛ bale = Markdown
-  لینک با فال‌بک امن؛ soroush/rubika = plain) — همان جدول فرمت‌دهی بخش اول این سند، حالا
-  در یک کلاس واحد و تست‌شده.
+  خروجی هر پلتفرم را می‌سازد (telegram = `<a href>` + `parse_mode=html`؛ bale = Markdown
+  لینک با فال‌بک امن؛ eitaa/soroush/rubika = plain — ایتا بر اساس سند رسمی بدون parse_mode) —
+  همان جدول فرمت‌دهی بخش اول این سند، حالا در یک کلاس واحد و تست‌شده.
 - **دکمهٔ URL** (`type=button`): فقط تلگرام/بله (capability matrix)؛ بقیه → فال‌بک به inline + پرچم `fallback`.
 - **guard کپشن**: اگر امضا طول caption را از 1024 عبور دهد، امضا حذف و متن اصلی دست‌نخورده می‌ماند.
 - **retry صف**: مقصدهای موفق (طبق `channel_poster_publish_logs`) دوباره ارسال نمی‌شوند → امضای دوتایی در retry رخ نمی‌دهد.

@@ -21,12 +21,12 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
                             {--rss-channel=0 : rss_channels.id for token (0 = use env token)}
                             {--chat-id= : Target chat_id (required if no rss channel)}
                             {--token= : Eitaa bot token override (default: env BOT_EITAA_TOKEN_SABER)}
-                            {--variant= : Send only one variant: 1=html+icon, 2=html simple, 3=plain url (default: 2)}
+                            {--variant= : Send only one variant: 1=plain label+url, 2=plain url, 3=plain url no-intro (default: 1)}
                             {--all-variants : Send all 3 format variants for comparison}
                             {--list : List available Eitaa channels/targets and Sharabe Beheshti ids}
                             {--dry-run : Preview messages without sending to Eitaa}';
 
-    protected $description = 'Test Eitaa product page link messages for Sharabe Beheshti (HTML with icon, HTML simple, plain URL)';
+    protected $description = 'Test Eitaa product page link messages for Sharabe Beheshti (plain URLs only — official Eitaa API has no parse_mode/HTML; client auto-linkifies bare URLs)';
 
     public function handle(): int
     {
@@ -65,7 +65,7 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
 
         $variantFilter = $this->option('variant');
         if (!$this->option('all-variants') && ($variantFilter === null || $variantFilter === '')) {
-            $variantFilter = '2';
+            $variantFilter = '1';
         }
         if ($variantFilter !== null && $variantFilter !== '') {
             $key = (int) $variantFilter - 1;
@@ -255,22 +255,31 @@ class TestEitaaSharabeBeheshtiProductLink extends Command
         return env('BOT_EITAA_TOKEN_SABER') ?: env('EITAA_BOT_TOKEN') ?: null;
     }
 
+    /**
+     * واریانت‌های تست — فقط فرمت ساده (بدون HTML/parse_mode).
+     *
+     * باگ RCA: مستندات رسمی ایتایار (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf)
+     * پارامتر parse_mode/HTML ندارد؛ متن verbatim رندر می‌شود و کلاینت URL ساده را
+     * خودکار لینک‌دار می‌کند. واریانت‌های قدیمی HTML حذف شدند.
+     */
     private function buildVariants(string $shareUrl, string $title): array
     {
+        $intro = EitaaProductLinkMessageHelper::buildSharabeBeheshtiIntro();
+
         return [
             [
-                'label' => '1) HTML with xf-eitaa icon (parse_mode=html)',
-                'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: true, platformSlug: 'eitaa'),
-                'parse_mode' => 'html',
-            ],
-            [
-                'label' => '2) HTML simple link (parse_mode=html)',
+                'label' => '1) Plain label + URL (no parse_mode — production format)',
                 'message' => EitaaProductLinkMessageHelper::buildFullMessage($shareUrl, $title, withIcon: false, platformSlug: 'eitaa'),
-                'parse_mode' => 'html',
+                'parse_mode' => null,
             ],
             [
-                'label' => '3) Plain URL (no HTML)',
+                'label' => '2) Plain intro + bare URL (no parse_mode)',
                 'message' => EitaaProductLinkMessageHelper::buildPlainUrlMessage($shareUrl, $title),
+                'parse_mode' => null,
+            ],
+            [
+                'label' => '3) Minimal: bare URL + title (no parse_mode)',
+                'message' => $shareUrl . "\n\n" . $intro . "\n" . $title,
                 'parse_mode' => null,
             ],
         ];

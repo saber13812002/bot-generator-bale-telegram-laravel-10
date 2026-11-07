@@ -303,38 +303,62 @@ class BotHelper
 " . $caption, $photoUrl, $parseMode);
     }
 
+    /**
+     * سازندهٔ فیلدهای POST برای API رسمی ایتایار (eitaa) — خالص و قابل تست.
+     *
+     * مستندات رسمی: docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf
+     * (نسخهٔ آزمایشی، از https://eitaayar.ir/api):
+     * - متدها: getMe, sendMessage, sendFile
+     * - sendMessage: chat_id(اجباری), text(اجباری), title, disable_notification,
+     *   reply_to_message_id, date, pin, viewCountForDelete
+     * - sendFile: همان sendMessage به‌جز اینکه به‌جای text از caption استفاده می‌شود
+     *   (اجباری: file)
+     * - هیچ پارامتر parse_mode یا فرمت HTML وجود ندارد؛ متن verbatim رندر می‌شود.
+     *
+     * باگ RCA: ارسال parse_mode=html + تگ‌های <a href> باعث نمایش HTML خام در
+     * کلاینت ایتا می‌شد (API پارامتر ناشناخته را نادیده می‌گیرد).
+     *
+     * تصمیم کاربر: در sendFile هر دو caption (طبق مستندات رسمی) و text
+     * (سازگاری با رفتار فعلی production) با همان مقدار ارسال شوند.
+     */
+    public static function buildEitaaApiFields($chat_id, string $text, bool $isFile = false): array
+    {
+        // عمداً parse_mode ارسال نمی‌شود — در مستندات رسمی ایتایار وجود ندارد.
+        if ($isFile) {
+            return [
+                'chat_id' => $chat_id,
+                'caption' => $text,
+                'text' => $text,
+            ];
+        }
+
+        return [
+            'chat_id' => $chat_id,
+            'text' => $text,
+        ];
+    }
+
     private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null, $parseMode = null)
     {
         $uri = 'https://eitaayar.ir/api/' . $bot_token . ($photoUrl ? '/sendFile' : '/sendMessage');
 
-//        if ($photoUrl)
-//            dd($uri);
-        //
         $request = curl_init($uri);
         curl_setopt($request, CURLOPT_POST, true);
         curl_setopt($request, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
 
-        $postFields = [
-            'chat_id' => $chat_id,
-            'text' => $text,
-        ];
-
-        if ($parseMode !== null && $parseMode !== '') {
-            $postFields['parse_mode'] = $parseMode;
-        }
+        // $parseMode برای سازگاری امضا نگه داشته شده ولی عمداً نادیده گرفته می‌شود:
+        // در مستندات رسمی ایتایار (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf)
+        // هیچ پارامتر parse_mode/HTML وجود ندارد و متن verbatim رندر می‌شود.
+        $postFields = self::buildEitaaApiFields($chat_id, $text, $isFile = (bool) $photoUrl);
 
         // Check if a file path is provided
         if ($photoUrl) {
             $cleanUrl = self::removeQueryParameters($photoUrl);
 
             $localFilePath = self::downloadImage($cleanUrl);
-            // It's a URL, add it as a string
-//            dd($localFilePath);
-//            $postFields['file'] = $cleanUrl; // Use the URL directly
-            $postFields['file'] = new \CurlFile(realpath($localFilePath)); // Use the URL directly
+            $postFields['file'] = new \CurlFile(realpath($localFilePath));
         }
-//        dd($postFields,$bot_token);
 
 
 //        if ($photoUrl)

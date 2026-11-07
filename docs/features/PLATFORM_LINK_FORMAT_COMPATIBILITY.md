@@ -76,7 +76,7 @@
 |---|---|---|---|---|---|
 | Telegram | `POST https://api.telegram.org/bot{token}/sendMessage` | `parse_mode` ∈ {html, MarkdownV2, Markdown} | ✅ `inline_keyboard[].url` | 4096 | 1024 |
 | Bale | `POST https://tapi.bale.ai/bot{token}/send_message` (SDK) | ❌ `OFFICIAL_DOC_NOT_FOUND` | ⚠️ فقط جامعه (SDK) | مستند نیست | مستند نیست |
-| Eitaa | `POST https://eitaayar.ir/api/{token}/sendMessage` | ⚠️ سازگاری تلگرام (`parse_mode=html` تست زنده) | ⛔ کلاینت ایتا نمی‌فرستد | (فرض: 4096) | (فرض: 1024) |
+| Eitaa | `POST https://eitaayar.ir/api/{token}/sendMessage` | ⛔ رسمی: **هیچ پارامتر فرمت‌دهی نیست** (بدون parse_mode/HTML — سند رسمی) | ⛔ کلاینت ایتا نمی‌فرستد | (مستند نیست) | sendFile با `caption` (رسمی) — حد مستند نیست |
 | Soroush | `POST https://api.splus.ir/bot{token}/sendMessage` | ✅ رسمی: `parse_mode` (MarkdownV2/HTML/legacy Markdown) + `reply_markup` — **live-unverified** | ✅ رسمی — live-unverified | 1–4096 (رسمی) | مستند نیست |
 | Rubika | `POST https://botapi.rubika.ir/v3/{token}/sendMessage` (JSON) | ❌ `OFFICIAL_DOC_NOT_FOUND` — فقط `text` | ⚠️ `inline_keypad` رسمی است ولی فرمت دکمهٔ url مستند نیست | مستند نیست | مستند نیست |
 
@@ -90,13 +90,13 @@
 |---|---|---|---|---|---|---|
 | 1 | **متن ساده** | `OFFICIAL_CONFIRMED` + `MOCK_TESTED` + `LIVE_API_ACCEPTED` | `COMMUNITY_DOCUMENTED` + `MOCK_TESTED` + `LIVE_API_ACCEPTED` (1184) | `MOCK_TESTED` + `LIVE_API_ACCEPTED` (177667926) | `OFFICIAL_CONFIRMED` + `MOCK_TESTED` (live ندارد) | `OFFICIAL_CONFIRMED` + `MOCK_TESTED` + `LIVE_API_ACCEPTED` (call واقعی، 2xx) |
 | 2 | **لینک خام** (URL عاری در متن) | `OFFICIAL_CONFIRMED` — کلاینت خودکار URL را لینک‌دار می‌کند | `UNVERIFIED` — رفتار کلاینت مستند نیست | `UNVERIFIED` | `UNVERIFIED` — رفتار کلاینت مستند نیست | `UNVERIFIED` — رفتار کلاینت مستند نیست |
-| 3 | **لینک inline با برچسب** (label روی URL) | `OFFICIAL_CONFIRMED` + `LIVE_API_ACCEPTED` (169519) + `CLIENT_RENDER_VERIFIED` | `LIVE_API_ACCEPTED` (1184) — رندر کلاینت **نمی‌دانیم** ⚠️ | `LIVE_API_ACCEPTED` (177667926) + `CLIENT_RENDER_VERIFIED` (سند تست زنده ✅) | `UNVERIFIED` — سند فرمت label-on-URL نشان نمی‌دهد؛ ما plain می‌فرستیم | `OFFICIAL_DOC_NOT_FOUND` — کلاینت را خودکار لینک‌دار می‌کند؟ `UNVERIFIED` |
-| 4 | **HTML** `<a href>` + `parse_mode=html` | `OFFICIAL_CONFIRMED` + `LIVE_API_ACCEPTED` + `CLIENT_RENDER_VERIFIED` | `UNSUPPORTED` — `parse_mode` در API بله نیست | `LIVE_API_ACCEPTED` — سند رسمی مستقل ندارد (`OFFICIAL_DOC_NOT_FOUND` در مورد سند) | `OFFICIAL_CONFIRMED` (سند رسمی §1.3) ولی **live-unverified**؛ کلاینت پروژه نمی‌فرستد | `OFFICIAL_DOC_NOT_FOUND` — کلاینت نمی‌فرستد |
+| 3 | **لینک inline با برچسب** (label روی URL) | `OFFICIAL_CONFIRMED` + `LIVE_API_ACCEPTED` (169519) + `CLIENT_RENDER_VERIFIED` | `LIVE_API_ACCEPTED` (1184) — رندر کلاینت **نمی‌دانیم** ⚠️ | `UNSUPPORTED` — HTML در مستندات رسمی نیست و verbatim رندر می‌شود (باگ RCA)؛ فرمت تولیدی: plain label + URL | `UNVERIFIED` — سند فرمت label-on-URL نشان نمی‌دهد؛ ما plain می‌فرستیم | `OFFICIAL_DOC_NOT_FOUND` — کلاینت را خودکار لینک‌دار می‌کند؟ `UNVERIFIED` |
+| 4 | **HTML** `<a href>` + `parse_mode=html` | `OFFICIAL_CONFIRMED` + `LIVE_API_ACCEPTED` + `CLIENT_RENDER_VERIFIED` | `UNSUPPORTED` — `parse_mode` در API بله نیست | `UNSUPPORTED` — رسمی: parse_mode وجود ندارد؛ ارسال HTML → نمایش تگ خام در کلاینت (باگ RCA) | `OFFICIAL_CONFIRMED` (سند رسمی §1.3) ولی **live-unverified**؛ کلاینت پروژه نمی‌فرستد | `OFFICIAL_DOC_NOT_FOUND` — کلاینت نمی‌فرستد |
 | 5 | **Markdown** `[label](url)` / legacy | `OFFICIAL_CONFIRMED` (legacy Markdown) | `COMMUNITY_DOCUMENTED` + `LIVE_API_ACCEPTED` (1184) — رندر کلاینت **نمی‌دانیم** ⚠️ | `UNVERIFIED` — سازگاری تلگرام محتمل، تست‌نشده | `OFFICIAL_CONFIRMED` (legacy Markdown در سند) — live-unverified | `OFFICIAL_DOC_NOT_FOUND` |
 | 6 | **MarkdownV2** | `OFFICIAL_CONFIRMED` (escape `\` اجباری) | `OFFICIAL_DOC_NOT_FOUND` → در عمل `UNSUPPORTED` | `UNVERIFIED` | `OFFICIAL_CONFIRMED` (سند رسمی) — live-unverified، استفاده نمی‌کنیم | `OFFICIAL_DOC_NOT_FOUND` |
 | 7 | **Entities** (MessageEntity) | `OFFICIAL_CONFIRMED` + `MOCK_TESTED` | `OFFICIAL_DOC_NOT_FOUND` | `UNVERIFIED` | `OFFICIAL_DOC_NOT_FOUND` | `OFFICIAL_DOC_NOT_FOUND` |
 | 8 | **دکمهٔ URL** (inline keyboard url) | `OFFICIAL_CONFIRMED` + `LIVE_API_ACCEPTED` (169519) + `CLIENT_RENDER_VERIFIED` | `COMMUNITY_DOCUMENTED` + `LIVE_API_ACCEPTED` (1184 «دکمه ارسال شد») — رندر کلاینت **نمی‌دانیم** ⚠️ | `UNSUPPORTED` — کلاینت ایتا `reply_markup` نمی‌فرستد | `OFFICIAL_CONFIRMED` (پارامتر `reply_markup` در سند رسمی) — live-unverified، پروژه استفاده نمی‌کند | `OFFICIAL_DOC_NOT_FOUND` — `inline_keypad` رسمی است ولی دکمهٔ url در models مستند نیست |
-| 9 | **لینک در کپشن رسانه** | `OFFICIAL_CONFIRMED` (caption ≤1024 + parse_mode) + `LIVE_API_ACCEPTED` | `UNVERIFIED` — کپشن بله بدون parse_mode | `LIVE_API_ACCEPTED` — حد 1024 فرض از تلگرام | `OFFICIAL_CONFIRMED` (پارامترهای فرمت در سند) — حد کپشن مستند نیست | `UNVERIFIED` — `sendFile` با `text`، حد مستند نیست |
+| 9 | **لینک در کپشن رسانه** | `OFFICIAL_CONFIRMED` (caption ≤1024 + parse_mode) + `LIVE_API_ACCEPTED` | `UNVERIFIED` — کپشن بله بدون parse_mode | `OFFICIAL_CONFIRMED` — رسمی: sendFile با `caption` (اجباری file)؛ بدون parse_mode؛ حد مستند نیست | `OFFICIAL_CONFIRMED` (پارامترهای فرمت در سند) — حد کپشن مستند نیست | `UNVERIFIED` — `sendFile` با `text`، حد مستند نیست |
 | 10 | **فارسی/انگلیسی مخلوط** | `OFFICIAL_CONFIRMED` (UTF-8) + `MOCK_TESTED` + `LIVE_API_ACCEPTED` (لیبل فارسی «در بله»/«در تلگرام» در تست زنده) | `MOCK_TESTED` + `LIVE_API_ACCEPTED` (متن فارسی در 1184) | `MOCK_TESTED` + `LIVE_API_ACCEPTED` (متن فارسی در 177667926) | `MOCK_TESTED` — live ندارد | `MOCK_TESTED` + `LIVE_API_ACCEPTED` (متن فارسی در call واقعی) |
 | 11 | **URL با query / پرانتز / کاراکتر خاص** (مثلاً `?ref=1&x=(p)`) | `OFFICIAL_CONFIRMED` (قواعد escape در docs) + `MOCK_TESTED` (تست escape injection) | `UNVERIFIED` — پرانتز در URL داخل Markdown ریسک است؛ فقط mock | `MOCK_TESTED` — escape HTML روی URL | `MOCK_TESTED` (plain) | `MOCK_TESTED` (plain) |
 
@@ -158,24 +158,34 @@
 
 ### 6.3 Eitaa
 
-- **پارامترهای دقیق:** سازگار با API تلگرام (از طریق `BotHelper` — raw HTTP روی
-  `https://eitaayar.ir/api/{token}/sendMessage`). `parse_mode=html` **در production تست زنده شده**.
-  سند رسمی مستقل **نیست** → خودِ سند `OFFICIAL_DOC_NOT_FOUND` است.
-- **`reply_markup`: کلاینت ایتا نمی‌فرستد** (سند تست زنده) → در عمل `UNSUPPORTED`؛ پروژه
-  برای ایتا دکمه نمی‌فرستد (`SignatureCapability::supportsUrlButton()` = false).
-- **نمونه payload معتبر:**
+- **پارامترهای دقیق (رسمی):** سند رسمی ایتایار —
+  [`docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf`](OFFICIAL/EitaaYar_API_Documentation.pdf)
+  (دریافت از `https://eitaayar.ir/api`) — فقط ۳ متد دارد: `getMe`, `sendMessage`, `sendFile`.
+  پارامترهای `sendMessage`: `chat_id` (اجباری), `text` (اجباری), `title`, `disable_notification`,
+  `reply_to_message_id`, `date`, `pin`, `viewCountForDelete` — **هیچ پارامتر `parse_mode` یا
+  فرمت HTML وجود ندارد** و متن **verbatim** رندر می‌شود. `sendFile` به‌جای `text` از `caption`
+  استفاده می‌کند (`file` اجباری). پاسخ: بولین `ok` برای موفقیت.
+- **باگ RCA (اصلاح‌شده 2026-11-07):** production قبلاً `parse_mode=html` + تگ `<a href>` برای
+  ایتا می‌فرستاد؛ چون API پارامتر فرمت‌دهی ندارد، کلاینت تگ‌ها را **خام** نمایش می‌داد
+  (تست زنده 177667926 فقط «پذیرش پیام» را اثبات می‌کرد، نه رندر لینک). فرمت تولیدی فعلی:
+  **URL ساده** (کلاینت ایتا آن را خودکار لینک‌دار می‌کند) + `parse_mode` هرگز ارسال نمی‌شود.
+  برای `sendFile` هر دو فیلد `caption` و `text` با همان مقدار ارسال می‌شوند
+  (تصمیم کاربر: caption = رسمی، text = اثبات‌شده در production).
+- **`reply_markup`: در سند رسمی نیست** → `UNSUPPORTED`؛ پروژه برای ایتا دکمه نمی‌فرستد
+  (`SignatureCapability::supportsUrlButton()` = false).
+- **نمونه payload معتبر (فرمت فعلی — بدون parse_mode):**
 
 ```json
 {
   "chat_id": "8419225",
-  "text": "متن اصلی\nدر ایتا:\n<a href=\"https://eitaa.com/mychannel\">https://eitaa.com/mychannel</a>",
-  "parse_mode": "html"
+  "text": "متن اصلی\nدر ایتا:\nhttps://eitaa.com/mychannel"
 }
 ```
 
-- **وضعیت‌ها:** html `LIVE_API_ACCEPTED` (177667926) + `CLIENT_RENDER_VERIFIED` (سند ✅ تست زنده)؛
-  Markdown/entities `UNVERIFIED` (سازگاری تلگرام محتمل، تست‌نشده)؛ دکمه `UNSUPPORTED`؛
-  حد کپشن 1024 **فرض** از تلگرام است.
+- **وضعیت‌ها:** html/parse_mode `UNSUPPORTED` (رسمی: وجود ندارد)؛ لینک inline = URL ساده
+  (client-auto-linkified, `UNVERIFIED` برای خودِ لینک‌دار شدن اما در عمل فرمت بومی
+  soroush/rubika/eitaa)؛ Markdown/entities `UNSUPPORTED` (رسمی)؛ دکمه `UNSUPPORTED`؛
+  کپشن `sendFile` `OFFICIAL_CONFIRMED` (فیلد `caption` در سند رسمی).
 
 ### 6.4 Soroush Plus
 
@@ -253,15 +263,16 @@
 [`SignatureCapability`](../../app/Services/ChannelPoster/SignatureCapability.php).
 
 1. **`type=inline` (پیش‌فرض):**
-   - telegram/eitaa → `<a href="url">url</a>` با `parse_mode=html`؛ label و URL هر دو
+   - telegram → `<a href="url">url</a>` با `parse_mode=html`؛ label و URL هر دو
      `htmlspecialchars` (ایمن در برابر HTML-injection).
    - bale → `[url](url)`؛ اگر label بفرسته شود و **Markdown-safe** نباشد
      (شامل `[\]()#*_~` `` ` `` یا `\`) → plain `label:\nurl` بدون parse_mode (فال‌بک امن).
-   - soroush/rubika → plain `label:\nurl` (هرگز parse_mode/Markdown نمی‌فرستد).
+   - eitaa/soroush/rubika → plain `label:\nurl` (هرگز parse_mode/Markdown نمی‌فرستد؛
+     ایتا: رسمی — بدون پارامتر فرمت‌دهی، متن verbatim، باگ RCA).
 2. **`type=button`:** فقط telegram/bale (`supportsUrlButton` در capability matrix). بقیه →
    **فال‌بک به inline** + پرچم `fallback=true` (شکست خاموش وجود ندارد).
-3. **بدون label:** لینک خام به سبک پلتفرم (anchor html برای telegram/eitaa، Markdown برای bale،
-   plain برای بقیه) — `parse_mode` فقط وقتی label هست تنظیم می‌شود.
+3. **بدون label:** لینک خام به سبک پلتفرم (anchor html فقط برای telegram، Markdown برای bale،
+   plain URL برای بقیه) — `parse_mode` فقط برای telegram تنظیم می‌شود.
 4. **طول:** guard کپشن با `fitsCaption(base, sig, 1024)` — اگر امضا کپشن را از 1024 عبور داد،
    **امضا حذف می‌شود** و متن اصلی هرگز truncate نمی‌شود + `Log::warning`.
    - **واحدهای اندازه‌گیری (ممیزی CP-RELEASE-GATE، 2026-10-25):** guard با `mb_strlen()` روی
@@ -290,7 +301,8 @@
 
 | فایل | پوشش |
 |---|---|
-| [`tests/Unit/SignatureRendererTest.php`](../../tests/Unit/SignatureRendererTest.php) | 33 تست: telegram/eitaa anchor html + escape injection؛ bale Markdown + فال‌بک label ناامن (حلقه بر روی کاراکترهای مخرب)؛ soroush/rubika plain؛ raw/plain/none/empty/composite؛ دکمه در telegram/bale + fallback در بقیه؛ `fitsCaption` شامل مرز 1024؛ `renderLegacy`؛ sanity capability matrix |
+| [`tests/Unit/SignatureRendererTest.php`](../../tests/Unit/SignatureRendererTest.php) | 56 تست: telegram anchor html + escape injection؛ eitaa plain-URL بدون parse_mode (باگ RCA) + فال‌بک؛ bale Markdown + فال‌بک label ناامن (حلقه بر روی کاراکترهای مخرب)؛ soroush/rubika plain؛ raw/plain/none/empty/composite؛ دکمه در telegram/bale + fallback در بقیه؛ `renderMulti` single/multi-line؛ `fitsCaption` شامل مرز 1024؛ `renderLegacy`؛ `renderHandle`؛ sanity capability matrix |
+| [`tests/Unit/EitaaApiPayloadTest.php`](../../tests/Unit/EitaaApiPayloadTest.php) | 18 تست: قرارداد payload رسمی ایتایار — تولید URL ساده بدون تگ HTML (حتی withIcon)؛ `parse_mode` فقط برای telegram؛ فیلدهای دقیق `buildEitaaApiFields` (sendMessage: فقط chat_id/text؛ sendFile: caption+text هم‌مقدار، بدون parse_mode/file)؛ بلاک‌های Sharabe بدون تگ برای ایتا + regression telegram/bale/soroush/rubika |
 | [`tests/Feature/ChannelPosterSignatureManagementTest.php`](../../tests/Feature/ChannelPosterSignatureManagementTest.php) | 15 تست: ویزارد 3 قدم end-to-end (enabled/disabled/بدون‌برچسب/لینک نامعتبر/بازگشت/مسیر متنی بله-خیر)، `buildSignature` برای هر پلتفرم، ردیف legacy با `signature_enabled=null`، guard کپشن در صف، retry بدون امضای دوتایی، ارسال فوری با/بدون امضا |
 | [`tests/Unit/RubikaBotClientTest.php`](../../tests/Unit/RubikaBotClientTest.php) | 26 تست: شکل payload روبیکا (بدون parse_mode)، alias `message_id` (فقط `id` — `chat_id` طبق قرارداد رسمی شناسهٔ چت است و پذیرفته نمی‌شود)، ردِ پاکت‌های خطای API در 2xx (حتی با `message_id` درون پاکت خطا)، `diagnose()` بدون نشت secret، `correlation_id` |
 | [`tests/Feature/ChannelPosterRubikaTestSendTest.php`](../../tests/Feature/ChannelPosterRubikaTestSendTest.php) | 12 تست: موفقیت، alias `id`، ردِ `chat_id`-تنها با لاگ تشخیصی، خطای API، HTTP 403، **HTTP 429**، timeout، پاسخ غیر-JSON (هیچ‌کدام secret را لاگ نمی‌کنند) |
@@ -310,7 +322,8 @@
 |---|---|
 | soroush parse_mode/Markdown | سند رسمی تأیید می‌کند ولی live-unverified → پیاده/تست نمی‌کنیم تا تست زنده مجاز انجام نشود |
 | rubika parse_mode/Markdown/entities | `OFFICIAL_DOC_NOT_FOUND` — بدون سند رسمی پیاده نمی‌کنیم |
-| eitaa دکمه url | `UNSUPPORTED` (کلاینت نمی‌فرستد) |
+| eitaa دکمه url | `UNSUPPORTED` (در سند رسمی نیست) |
+| eitaa parse_mode/HTML | `UNSUPPORTED` — رسمی: پارامتر وجود ندارد (ارسال HTML = باگ نمایش تگ خام) |
 | entities برای غیرتلگرام | `OFFICIAL_DOC_NOT_FOUND` |
 | test زندهٔ سروس/رووبیکا برای امضا | بدون مجوز صریح اجرا نمی‌شود |
 
@@ -327,11 +340,15 @@
 3. **رووبیکا:** (الف) envelope خطای واقعی را هنگام یک call ناموفق ثبت کنید؛ (ب) تأیید کنید آیا
    کلاینت روبیکا URL ساده را خودکار لینک‌دار می‌کند؛ (ج) اگر نمونهٔ جامعه `AliRn76/rubika-bot`
    دکمهٔ url را در `inline_keypad` نشان داد، با call زنده تأیید کنید قبل از هر پیاده‌سازی.
-4. **ایتا:** اگر سند رسمی مستقل پیدا شد، `OFFICIAL_DOC_NOT_FOUND`های مربوطه ارتقا می‌یابند.
+4. **ایتا:** ✅ سند رسمی پیدا و ذخیره شد
+   ([`OFFICIAL/EitaaYar_API_Documentation.pdf`](OFFICIAL/EitaaYar_API_Documentation.pdf)) —
+   وضعیت‌های مربوطه ارتقا یافتند (html/parse_mode → `UNSUPPORTED`؛ caption sendFile →
+   `OFFICIAL_CONFIRMED`). باگ RCA (HTML خام در کلاینت) اصلاح شد؛ فرمت تولیدی = URL ساده.
 5. **قاعدهٔ عمومی:** هیچ `CLIENT_RENDER_VERIFIED` بدون مشاهدهٔ بصری ثبت نمی‌شود؛ هیچ
    `LIVE_API_ACCEPTED` بدون `message_id` واقعی ثبت نمی‌شود.
 
 ---
 
-*این سند با کد فعلی (2026-10-25) هم‌خوان است: `SignatureCapability::matrix()` همین وضعیت‌ها را
+*این سند با کد فعلی (2026-11-07، پس از اصلاح باگ ایتا بر اساس سند رسمی) هم‌خوان است:
+`SignatureCapability::matrix()` همین وضعیت‌ها را
 برنامه‌پذیر نگه می‌دارد و `SignatureRenderer` فقط بر اساس همان capability matrix تصمیم می‌گیرد.*

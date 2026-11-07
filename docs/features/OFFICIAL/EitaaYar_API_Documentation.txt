@@ -1,0 +1,153 @@
+                               )eitaayar.ir(     
+
+        .  API            
+          .    json     url     
+
+                                                                                        .    
+
+                                                                 :     API  
+
+                                                      :          
+https://eitaayar.ir/api/TOKEN/METHOD_NAME
+
+                                                                         .       :TOKEN
+                                                         .         :METHOD_NAME
+POST  GET     )case-insensitive(  .       API   
+                                         :          .  
+
+                                                                                                               URL query string
+                                                                                                                application/json
+                                                                                      application/x-www-form-urlencoded
+                                                                                                           multipart/form-data
+
+false  true    ok     .   json        
+             false         true  .
+        true   .   ok       . 
+
+                                                                              .      
+
+https://eitaa.com/Yavar :   1    ­    
+                            : 
+
+                                          getMe .1
+                                 sendMessage .2
+                                sendDocument .3
+
+                                                                                                :getMe  .1
+      API                  
+
+                                                                            :     .
+
+{
+                 "ok": true,
+                 "result": {
+                                  "id": 112233,
+                                  "is_bot": true,
+                                  "first_name": "",
+                                  "last_name": "eitaayar",
+                                  "username": "testAdmin"
+                 }
+
+}
+
+                                                                                       :sendMessage  .2
+
+text    json                   
+                                                                                           .  
+
+                                                                                         :  
+
+  .                    :chat_id
+                                                     )( .  @   username    
+                                                                 )chat_id=eitaayar   chat_id=1404 :(
+                                                                    )( .      :text
+
+                   )( .                 :title
+     )( .    notification           :disable_notification
+
+https://eitaa.com/Yavar :   2     ­    
+      message          :reply_to_message_id
+                                                        )( .          
+
+     .  Unix Timestamp              :date
+time     php     .  )  (1    : :  
+
+                                                                                          )( . 
+
+                              )( .             1    :pin
+
+  )( .                 :viewCountForDelete
+
+.   false   ok            :
+
+                                                                                :       
+
+{
+                 "ok": true,
+                 "result": {
+                                  " message_id": 85917,
+                                  " from":{
+                                                   "id": 112233,
+                                                   "is_bot": true,
+                                                   "first_name": "",
+                                                   "last_name": "eitaayar",
+                                                   "username": "testAdmin"
+                                  },
+                                  "chat":{
+                                                   "id": 112233,
+                                                   "type": "public",
+                                                   "username": "eitaa"
+
+                                  },
+                                  "date": 1560849434,
+                                  "text": " "
+                 }
+}
+
+https://eitaa.com/Yavar :                                                    3    ­    
+                                                                                             :sendFile  .3
+
+.    ...           sendMessage    
+    :             sendMessage     
+
+                                                                                         :  
+
+                                       )( .               :file
+
+caption     caption       sendMessage   text     :caption
+                                                                                         )( .  
+
+                                                        .  .gif          :
+
+                                                               )  sample.gif  sample.mp4 :(
+
+                                            .  .webp           
+
+                                                            )  sample.webp  sample.png :(
+
+                                                                           :       
+
+{
+                 "ok": true,
+                 "result": {
+                                  " message_id": 85917,
+                                  " from":{
+                                                   "id": 112233,
+                                                   "is_bot": true,
+                                                   "first_name": "",
+                                                   "last_name": "eitaayar",
+                                                   "username": "testAdmin"
+                                  },
+                                  "chat":{
+                                                   "id": 112233,
+                                                   "type": "public",
+                                                   "username": "eitaa"
+                                  },
+                                  "date": 1560849434,
+                                  "caption": " "
+                 }
+
+                   .  https://eitaayar.ir/testApi         API   
+
+https://eitaa.com/Yavar :   4    ­    
+

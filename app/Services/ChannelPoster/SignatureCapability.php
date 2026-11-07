@@ -100,28 +100,28 @@ class SignatureCapability
             ],
             'eitaa' => [
                 'parse_mode_html' => [
-                    'status' => self::LIVE_API_ACCEPTED,
-                    'note' => 'سازگار با API تلگرام؛ در production تست زنده‌شده؛ مستندات رسمی مستقل ندارد',
+                    'status' => self::UNSUPPORTED,
+                    'note' => 'مستندات رسمی ایتایار (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf): پارامترهای sendMessage فقط chat_id/text/title/disable_notification/reply_to_message_id/date/pin/viewCountForDelete — parse_mode وجود ندارد و متن verbatim رندر می‌شود (ارسال HTML → نمایش تگ خام؛ باگ RCA)',
                 ],
                 'markdown' => [
-                    'status' => self::UNVERIFIED,
-                    'note' => 'سازگاری با تلگرام محتمل اما تست‌نشده',
+                    'status' => self::UNSUPPORTED,
+                    'note' => 'در مستندات رسمی نیافت؛ متن verbatim است',
                 ],
                 'inline_link' => [
-                    'status' => self::LIVE_API_ACCEPTED,
-                    'note' => '<a href> html در production (message_id 177641559)',
+                    'status' => self::UNVERIFIED,
+                    'note' => 'HTML <a href> در مستندات رسمی نیست و verbatim رندر می‌شود (باگ RCA)؛ کلاینت ایتا URL ساده را خودکار لینک‌دار می‌کند → فرمت تولیدی: URL ساده',
                 ],
                 'url_button' => [
                     'status' => self::UNSUPPORTED,
-                    'note' => 'کلاینت ایتا reply_markup نمی‌فرستد؛ preview فقط‌متن است (⛔ در LINKED_SIGNATURE.md)',
+                    'note' => 'کلاینت ایتا reply_markup نمی‌فرستد؛ در مستندات رسمی هم متد/پارامتر دکمه وجود ندارد',
                 ],
                 'caption_link' => [
-                    'status' => self::LIVE_API_ACCEPTED,
-                    'note' => 'سازگار با تلگرام؛ حد caption=1024 فرض‌شده از تلگرام (فرض محفظه)',
+                    'status' => self::OFFICIAL_CONFIRMED,
+                    'note' => 'مستندات رسمی ایتایار: sendFile به‌جای text از caption استفاده می‌کند (اجباری: file) — با URL ساده، بدون parse_mode',
                 ],
                 'entities' => [
-                    'status' => self::UNVERIFIED,
-                    'note' => 'سازگاری با تلگرام محتمل اما تست‌نشده',
+                    'status' => self::UNSUPPORTED,
+                    'note' => 'در مستندات رسمی نیافت؛ متن verbatim است',
                 ],
             ],
             'soroush' => [
@@ -181,10 +181,15 @@ class SignatureCapability
 
     /**
      * آیا پلتفرم می‌تواند با parse_mode=html لینک inline (HTML <a href>) رندر کند؟
+     *
+     * فقط telegram: در مستندات رسمی ایتایار
+     * (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf) پارامتر parse_mode/HTML
+     * وجود ندارد و متن verbatim رندر می‌شود (ارسال HTML → نمایش تگ خام؛ باگ RCA).
+     * ایتا به فرمت URL ساده (خودکار لینک‌دارشده در کلاینت) سقوط می‌کند.
      */
     public static function supportsInlineHtml(string $platform): bool
     {
-        return in_array($platform, ['telegram', 'eitaa'], true);
+        return in_array($platform, ['telegram'], true);
     }
 
     /**
