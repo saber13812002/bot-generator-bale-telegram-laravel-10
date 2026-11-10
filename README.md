@@ -51,6 +51,7 @@ php artisan test --compact  # تست‌ها
 | سند | برای چه؟ |
 |---|---|
 | **[`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md)** | ⭐ **مرجع اصلی agent** — هویت پروژه، قوانین طلایی، نقشهٔ زیرسیستم‌ها، عیب‌یابی، قرارداد تست، امنیت |
+| **[`docs/PROJECT_MASTER_MAP.md`](docs/PROJECT_MASTER_MAP.md)** | 🗺️ **نقشهٔ جامع** — توپولوژی Git (کدوم شاخه به کجا ربط دارد)، Production و deploy، ایندکس کامل مستندات، action items باز |
 | **[`docs/JOBS_AND_SCHEDULER.md`](docs/JOBS_AND_SCHEDULER.md)** | مرجع رسمی همهٔ 30 job/cron entry (13 داده برای هرکدام)، قفل‌های همزمانی، تبدیل UTC↔تهران |
 | **[`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md)** | deploy / migrate / cron / diagnose / rollback روی سرور |
 | **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** | معماری، لایه‌ها، جریان داده، تصمیمات معماری، نقاط ضعف |

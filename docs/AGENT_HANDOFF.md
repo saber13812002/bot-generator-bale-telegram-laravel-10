@@ -246,6 +246,7 @@ cron schedule:run ──► app:rss_read_translate  (Kernel: everyFifteenMinutes
 | سند | محتوا |
 |---|---|
 | [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) | **این فایل** — نقطهٔ شروع agent |
+| [`docs/PROJECT_MASTER_MAP.md`](PROJECT_MASTER_MAP.md) | **نقشهٔ جامع (audit 2026-11-10):** توپولوژی Git (کدوم شاخه به کجا ربط دارد)، Production و deploy، نقشهٔ زیرسیستم‌ها، ایندکس کامل مستندات، action items باز |
 | [`docs/JOBS_AND_SCHEDULER.md`](docs/JOBS_AND_SCHEDULER.md) | مرجع رسمی همهٔ jobها (13 داده برای هرکدام)، قفل‌ها، UTC↔تهران، دیباگ cron |
 | [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md) | Deploy / migrate / diagnose / rollback |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | معماری کلی، دیاگرام جریان، نقش‌ها |
