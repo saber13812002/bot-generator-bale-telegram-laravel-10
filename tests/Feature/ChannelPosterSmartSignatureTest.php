@@ -104,6 +104,7 @@ class ChannelPosterSmartSignatureTest extends TestCase
             'layout' => 'single_line',
             'separator' => ' | ',
             'selected_destinations' => [],
+            'link_order' => [],
             'random_count' => 2,
             'application_policy' => 'always_apply',
         ], $dest->signature_settings);
@@ -1317,6 +1318,7 @@ class ChannelPosterSmartSignatureTest extends TestCase
             'layout' => 'single_line',
             'separator' => ' | ',
             'selected_destinations' => [],
+            'link_order' => [],
             'random_count' => 2,
             'application_policy' => 'always_apply',
         ], $fresh->signature_settings);

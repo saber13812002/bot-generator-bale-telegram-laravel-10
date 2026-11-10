@@ -751,10 +751,37 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             SignatureSettingsService::POLICY_ALL_CHANNELS,
             SignatureSettingsService::POLICY_EXCLUDE_SELF,
         ], true)) {
-            $selected = collect($selected)
-                ->sortBy(fn (ChannelPosterDestination $d) => SignatureSettingsService::PLATFORM_PRIORITY[$d->platform] ?? PHP_INT_MAX)
-                ->values()
-                ->all();
+            $order = (array) ($settings['link_order'] ?? []);
+            if ($order === []) {
+                $selected = collect($selected)
+                    ->sortBy(fn (ChannelPosterDestination $d) => SignatureSettingsService::PLATFORM_PRIORITY[$d->platform] ?? PHP_INT_MAX)
+                    ->values()
+                    ->all();
+            } else {
+                // CP-SIGNATURE-LINK-ORDER (T9): explicit user-defined order wins;
+                // ids not listed are appended by the default platform priority.
+                $byId = [];
+                foreach ($selected as $sel) {
+                    $byId[(int) $sel->id] = $sel;
+                }
+                $ordered = [];
+                foreach ($order as $id) {
+                    $id = (int) $id;
+                    if ($id > 0 && isset($byId[$id])) {
+                        $ordered[] = $byId[$id];
+                        unset($byId[$id]);
+                    }
+                }
+                ksort($byId);
+                $ordered = array_merge(
+                    $ordered,
+                    collect($byId)
+                        ->sortBy(fn (ChannelPosterDestination $d) => SignatureSettingsService::PLATFORM_PRIORITY[$d->platform] ?? PHP_INT_MAX)
+                        ->values()
+                        ->all()
+                );
+                $selected = $ordered;
+            }
         }
 
         $links = [];

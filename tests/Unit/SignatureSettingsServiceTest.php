@@ -68,6 +68,7 @@ class SignatureSettingsServiceTest extends TestCase
             'layout' => SignatureSettingsService::LAYOUT_SINGLE_LINE,
             'separator' => ' | ',
             'selected_destinations' => [],
+            'link_order' => [],
             'random_count' => 2,
             'application_policy' => SignatureSettingsService::APPLY_ALWAYS,
         ], SignatureSettingsService::defaults());

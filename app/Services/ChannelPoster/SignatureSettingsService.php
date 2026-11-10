@@ -105,6 +105,7 @@ class SignatureSettingsService
      *   layout: string,
      *   separator: string,
      *   selected_destinations: int[],
+     *   link_order: int[],
      *   random_count: int,
      *   application_policy: string
      * }
@@ -117,6 +118,7 @@ class SignatureSettingsService
             'layout' => self::LAYOUT_SINGLE_LINE,
             'separator' => self::SEPARATOR_DEFAULT,
             'selected_destinations' => [],
+            'link_order' => [],
             'random_count' => 2,
             'application_policy' => self::APPLY_ALWAYS,
         ];
@@ -161,6 +163,15 @@ class SignatureSettingsService
             is_array($sel) ? array_map('intval', $sel) : [],
             fn (int $id) => $id > 0
         ));
+
+        // link_order (T9): ترتیب دلخواه لینک‌ها برای all_channels/exclude_self.
+        // فقط اعداد مثبت (destination id)، بدون تکرار، با حفظ ترتیب درج.
+        // اگر خالی بماند، ترتیب پیش‌فرض T4 اعمال می‌شود.
+        $lo = $merged['link_order'];
+        $merged['link_order'] = array_values(array_unique(array_filter(
+            is_array($lo) ? array_map('intval', $lo) : [],
+            fn (int $id) => $id > 0
+        )));
 
         $count = (int) ($merged['random_count'] ?? 2);
         $merged['random_count'] = max(1, min($count, 50));

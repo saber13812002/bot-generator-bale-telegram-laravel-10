@@ -528,6 +528,82 @@ class ChannelPosterBotServiceTest extends TestCase
         );
     }
 
+    public function test_smart_all_channels_link_order_overrides_default_order(): void
+    {
+        // T9: link_order با سروش اول → در مقصد تلگرام، خط اول = سروش
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $rubika = $this->makeDest($bot->id, 'rubika', 1);
+        $tg = $this->makeDest($bot->id, 'telegram', 2, ['signature_type' => 'inline']);
+        $bale = $this->makeDest($bot->id, 'bale', 3);
+        $soroush = $this->makeDest($bot->id, 'soroush', 4);
+        $eitaa = $this->makeDest($bot->id, 'eitaa', 5);
+
+        $tg->update(['signature_settings' => SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'all_channels',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+            'link_order' => [$soroush->id, $eitaa->id, $bale->id, $tg->id, $rubika->id],
+        ])]);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertSame(
+            "\n\n"
+            . '<a href="https://soroushlink.example/4">در سروش</a>'
+            . ' | <a href="https://eitaa' . 'link.example/5">در ایتا</a>'
+            . ' | <a href="https://balelink.example/3">در بله</a>'
+            . ' | <a href="https://telegramlink.example/2">در تلگرام</a>'
+            . ' | <a href="https://rubika' . 'link.example/1">در روبیکا</a>',
+            $sig['text']
+        );
+    }
+
+    public function test_smart_link_order_partial_appends_missing_by_platform_priority(): void
+    {
+        // T9: idهای غایب در link_order به انتها، به ترتیب priority اضافه می‌شوند
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $rubika = $this->makeDest($bot->id, 'rubika', 1);
+        $tg = $this->makeDest($bot->id, 'telegram', 2, ['signature_type' => 'inline']);
+        $this->makeDest($bot->id, 'bale', 3);
+        $this->makeDest($bot->id, 'soroush', 4);
+        $eitaa = $this->makeDest($bot->id, 'eitaa', 5);
+
+        // فقط روبیکا و ایتا در ترتیب دلخواه؛ غایب‌ها: bale → soroush → telegram
+        $tg->update(['signature_settings' => SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'all_channels',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+            'link_order' => [$rubika->id, $eitaa->id],
+        ])]);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertSame(
+            "\n\n"
+            . '<a href="https://rubika' . 'link.example/1">در روبیکا</a>'
+            . ' | <a href="https://eitaa' . 'link.example/5">در ایتا</a>'
+            . ' | <a href="https://balelink.example/3">در بله</a>'
+            . ' | <a href="https://soroushlink.example/4">در سروش</a>'
+            . ' | <a href="https://telegramlink.example/2">در تلگرام</a>',
+            $sig['text']
+        );
+    }
+
+    public function test_normalize_sanitizes_link_order(): void
+    {
+        // T9: فقط اعداد مثبت، بدون تکرار، با حفظ ترتیب
+        $n = SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'all_channels',
+            'link_order' => [5, 3, 5, '2', -1, 0, 'x', 7],
+        ]);
+        $this->assertSame([5, 3, 2, 7], $n['link_order']);
+
+        $this->assertSame([], SignatureSettingsService::normalize(['link_order' => 'junk'])['link_order']);
+        $this->assertSame([], SignatureSettingsService::normalize(['link_order' => null])['link_order']);
+        $this->assertSame([], SignatureSettingsService::defaults()['link_order']);
+    }
+
     public function test_smart_custom_policy_keeps_user_pick_order(): void
     {
         // استثنای مصوب: custom → ترتیب انتخاب کاربر حفظ می‌شود
