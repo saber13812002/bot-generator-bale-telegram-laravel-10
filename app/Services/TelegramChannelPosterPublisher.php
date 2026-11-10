@@ -412,13 +412,15 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 
             // ── 3) متن خالص ──────────────────────────────────────────────
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
-                $text = $caption !== '' ? $caption : trans('bot.channel_poster_empty_text');
-                $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa', $parseMode);
-                if ($parseMode !== null && ! $this->isOk($result) && self::isParseError($result)) {
-                    // HTML خراب (مثلاً < یا & در متن) → retry خودکار بدون parse_mode
-                    Log::info('[ChannelPoster][publish] parse_mode retry (text, eitaa)');
-                    $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa');
-                }
+                // T6 (addendum B): متن ایتا از seam قابل‌تست publishEitaaText
+                // ارسال می‌شود — parse_mode آنجا صریحا null زده می‌شود (API
+                // رسمی ایتایار چنین پارامتری ندارد و متن verbatim است).
+                $result = $this->publishEitaaText(
+                    $caption !== '' ? $caption : trans('bot.channel_poster_empty_text'),
+                    (string) $botToken,
+                    $channelChatId,
+                    null // T6 (addendum B): ایتا هرگز parse_mode نمی‌گیرد — null صریح در شاخه (seam نیز defensive null دارد)
+                );
 
                 return $this->withError(
                     ['success' => $this->isOk($result), 'message_id' => $this->extractMessageId($result)],
@@ -563,6 +565,36 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
 
             return ['success' => false, 'message_id' => null, 'error' => $safeError];
         }
+    }
+
+    /**
+     * T6 (addendum B) — seam قابل‌تست: ارسال متن خالص به ایتایار.
+     *
+     * Hardening: در مستندات رسمی ایتایار (docs/features/OFFICIAL/
+     * EitaaYar_API_Documentation.pdf) هیچ پارامتر parse_mode/HTML وجود ندارد
+     * و متن verbatim رندر می‌شود (ارسال HTML → نمایش تگ خام در کلاینت؛ باگ
+     * RCA). به همین دلیل parse_mode را — حتی اگر مسیر بالادستی مقدار غیرصفر
+     * فرستاده باشد — صریحاً و عمداً null می‌کنیم تا هیچ‌وقت HTML خام به API
+     * ایتا نرسد. پارامتر $parseMode برای سازگاری امضا نگهداری شده است.
+     *
+     * @return mixed پاسخ خام API (array یا string) — wrap در publish()
+     */
+    public function publishEitaaText(string $text, string $botToken, string $channelChatId, ?string $parseMode): mixed
+    {
+        // T6 (addendum B): ایتا هرگز parse_mode نمی‌گیرد — null اجباری.
+        // retry خطای parse (T5) برای ایتا دیگر مسیر فعالی ندارد چون متن
+        // امضاها توسط SignatureRenderer برای ایتا همیشه plain رندر می‌شود؛
+        // guard زیر فقط به‌عنوان safety-net دفاعی نگه داشته شده است.
+        $parseMode = null;
+
+        $result = BotHelper::sendMessageEitaaSupport($text, $botToken, $channelChatId, 'eitaa', $parseMode);
+
+        if ($parseMode !== null && ! $this->isOk($result) && self::isParseError($result)) {
+            Log::info('[ChannelPoster][publish] parse_mode retry (text, eitaa)');
+            $result = BotHelper::sendMessageEitaaSupport($text, $botToken, $channelChatId, 'eitaa');
+        }
+
+        return $result;
     }
 
     /**
