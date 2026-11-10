@@ -80,7 +80,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         $this->postText('default');
         $this->assertState(ChannelPosterBotController::STATE_HANDLE_CONFIRM);
         $this->assertStringContainsString(
-            '«🔰@saberblog»',
+            '«🔰 @saberblog»',
             $this->publisher->lastPrivateText()
         );
 
@@ -88,7 +88,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         $this->postCallback('cp:hndconf:yes');
         $this->assertNoState();
         $this->assertStringContainsString(
-            trans('bot.channel_poster_hnd_saved', ['preview' => '🔰@saberblog']),
+            trans('bot.channel_poster_hnd_saved', ['preview' => '🔰 @saberblog']),
             $this->publisher->lastPrivateText()
         );
 
@@ -113,7 +113,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         $this->assertCount(1, $this->publisher->publishes);
         $pub = $this->publisher->publishes[0];
         $this->assertSame('telegram', $pub['platform']);
-        $this->assertSame('سلام' . "\n\n🔰@saberblog", $pub['text']);
+        $this->assertSame('سلام' . "\n\n🔰 @saberblog", $pub['text']);
         $this->assertNull($pub['parse_mode'], 'handle signature is plain text on every platform');
         $this->assertNull($pub['reply_markup']);
 
@@ -148,7 +148,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         $this->postCallback('cp:now');
 
         $this->assertCount(1, $this->publisher->publishes);
-        $this->assertSame('سلام' . "\n\n⭐@saberblog", $this->publisher->publishes[0]['text']);
+        $this->assertSame('سلام' . "\n\n⭐ @saberblog", $this->publisher->publishes[0]['text']);
         $this->assertNull($this->publisher->publishes[0]['parse_mode']);
     }
 
@@ -183,17 +183,17 @@ class ChannelPosterHandleSignatureTest extends TestCase
         }
 
         $this->assertSame(
-            'خبر امروز' . "\n\n🔰@saberblog",
+            'خبر امروز' . "\n\n🔰 @saberblog",
             $byPlatform['telegram']['text'],
             'telegram signs from its own channel_link'
         );
         $this->assertSame(
-            'خبر امروز' . "\n\n🔰@alirezamehran_3",
+            'خبر امروز' . "\n\n🔰 @alirezamehran_3",
             $byPlatform['eitaa']['text'],
             'eitaa signs from its own channel_link'
         );
         $this->assertSame(
-            'خبر امروز' . "\n\n🔰@stackoverflow_com",
+            'خبر امروز' . "\n\n🔰 @stackoverflow_com",
             $byPlatform['bale']['text'],
             'bale signs from its own trusted channel_username even without a link'
         );
@@ -279,7 +279,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         }
 
         $this->assertSame(
-            'متن' . "\n\n🔰@saberblog",
+            'متن' . "\n\n🔰 @saberblog",
             $byPlatform['telegram']['text'],
             'handle destination keeps the plain emoji+handle signature'
         );
@@ -326,7 +326,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         // must be appended there
         $this->postSoroushText('⭐');
         $this->assertState(ChannelPosterBotController::STATE_HANDLE_CONFIRM, 'soroush');
-        $this->assertStringContainsString('«⭐@foo»', $this->publisher->lastPrivateText());
+        $this->assertStringContainsString('«⭐ @foo»', $this->publisher->lastPrivateText());
         $this->assertStringContainsString(
             trans('bot.channel_poster_platform_native_hint'),
             $this->publisher->lastPrivateText()
@@ -351,7 +351,7 @@ class ChannelPosterHandleSignatureTest extends TestCase
         $this->assertCount(1, $this->publisher->publishes);
         $pub = $this->publisher->publishes[0];
         $this->assertSame('soroush', $pub['platform']);
-        $this->assertSame('سلام سروش' . "\n\n⭐@foo", $pub['text']);
+        $this->assertSame('سلام سروش' . "\n\n⭐ @foo", $pub['text']);
         $this->assertStringNotContainsString('soroush.chat', $pub['text'], 'no full URL in the output');
         $this->assertNull($pub['parse_mode']);
         $this->assertNoTokenLeak();
