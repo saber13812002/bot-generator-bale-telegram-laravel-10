@@ -490,6 +490,53 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
         return $destination;
     }
 
+    /**
+     * حذف امضای pure_url از یک مقصد — type-aware (addendum A / Option A).
+     *
+     * فقط وقتی signature_type === 'pure_url' باشد تغییر می‌کند:
+     *   - signature_type  => TYPE_NONE
+     *   - signature_label => null
+     * هیچ ستون دیگری (signature_enabled, signature_settings, channel_link,
+     * channel_username) دست نمی‌خورد؛ امضای handle/هوشمند/legacy همان مقصد
+     * و امزای سایر مقصدها کاملاً دست‌نخورده می‌ماند.
+     *
+     * @return array{changed: bool, previous_type: ?string}
+     */
+    public function deletePureUrlSignature(int $destinationId): array
+    {
+        $destination = ChannelPosterDestination::findOrFail($destinationId);
+        $previousType = $destination->signature_type;
+
+        if ($previousType === SignatureRenderer::TYPE_PURE_URL) {
+            $destination->signature_type = SignatureRenderer::TYPE_NONE;
+            $destination->signature_label = null;
+            $destination->save();
+
+            return ['changed' => true, 'previous_type' => $previousType];
+        }
+
+        return ['changed' => false, 'previous_type' => $previousType];
+    }
+
+    /**
+     * غیرفعال‌سازی کامل همهٔ امضاها از یک مقصد — فقط با تأیید صریح کاربر.
+     *
+     * تنها مسیری است که signature_enabled را false می‌کند (addendum A).
+     *
+     * @return ChannelPosterDestination
+     */
+    public function disableAllSignatures(int $destinationId): ChannelPosterDestination
+    {
+        $destination = ChannelPosterDestination::findOrFail($destinationId);
+        $destination->signature_enabled = false;
+        $destination->signature_type = SignatureRenderer::TYPE_NONE;
+        $destination->signature_settings = null;
+        $destination->signature_label = null;
+        $destination->save();
+
+        return $destination;
+    }
+
     public function buildSignature(int $botId, string $tag, ?string $platform = null): array
     {
         $empty = ['text' => '', 'parse_mode' => null, 'button' => null];

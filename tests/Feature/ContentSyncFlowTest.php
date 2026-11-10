@@ -1099,7 +1099,7 @@ class ContentSyncFlowTest extends TestCase
 
         $rows = $msg['keyboard'];
         // مالک: ۳ منوی شخصی + پیش‌فرض ادمین‌ها + تنظیمات امضا (هوشمند) + نمایش منبع + بازگشت
-        $this->assertCount(9, $rows);
+        $this->assertCount(10, $rows);
         $labels = array_map(fn (array $row) => $row[0]['text'], $rows);
         $this->assertSame(
             [
@@ -1110,6 +1110,7 @@ class ContentSyncFlowTest extends TestCase
                 trans('bot.channel_poster_ssig_menu_entry'),
                 trans('bot.channel_poster_pur_menu_entry'),
                 trans('bot.channel_poster_hnd_menu_entry'),
+                trans('bot.channel_poster_dpl_menu_entry'),
                 trans('bot.channel_sync_menu_attr'),
                 trans('bot.channel_sync_sub_back'),
             ],
@@ -1122,7 +1123,7 @@ class ContentSyncFlowTest extends TestCase
         $this->assertSame(
             [
                 'cps:sub:dedup', 'cps:sub:time', 'cps:sub:fast', 'cps:sub:defaults', 'cp:ssig',
-                'cp:pururl', 'cp:handle', 'cps:sub:attr', 'cps:back',
+                'cp:pururl', 'cp:handle', 'cp:dpl', 'cps:sub:attr', 'cps:back',
             ],
             $callbacks
         );
@@ -1310,7 +1311,7 @@ class ContentSyncFlowTest extends TestCase
         $msg = $this->publisher->privateMessages[$last];
         $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
         $this->assertIsArray($msg['keyboard']);
-        $this->assertCount(9, $msg['keyboard']); // + تنظیمات امضا (هوشمند + pure url + handle) — فقط مالک
+        $this->assertCount(10, $msg['keyboard']); // + تنظیمات امضا (هوشمند + pure url + handle) — فقط مالک
     }
 
     /**
@@ -1326,7 +1327,7 @@ class ContentSyncFlowTest extends TestCase
         $msg = $this->publisher->privateMessages[$last];
         $this->assertSame($this->ownerChatId, $msg['chat_id']);
         $this->assertStringContainsString(trans('bot.channel_sync_settings_title'), $msg['text']);
-        $this->assertCount(9, $msg['keyboard']); // + تنظیمات امضا (هوشمند + pure url + handle) — فقط مالک
+        $this->assertCount(10, $msg['keyboard']); // + تنظیمات امضا (هوشمند + pure url + handle) — فقط مالک
 
         // ناوبری و انتخاب مقدار روی تلگرام
         $this->postCallbackAsOrigin($this->ownerChatId, 'cps:sub:time', 'telegram');

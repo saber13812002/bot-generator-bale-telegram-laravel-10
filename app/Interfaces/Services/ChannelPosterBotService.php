@@ -194,6 +194,30 @@ interface ChannelPosterBotService
     ): \App\Models\ChannelPosterPublishLog;
 
     /**
+     * حذف امضای pure_url از یک مقصد — type-aware (T7, addendum A).
+     *
+     * فقط وقتی signature_type === 'pure_url' باشد تغییر می‌کند:
+     *   - signature_type  => SignatureRenderer::TYPE_NONE
+     *   - signature_label => null
+     * ستون‌های دیگر (signature_enabled, signature_settings, channel_link,
+     * channel_username) دست نمی‌خورند.
+     *
+     * @return array{changed: bool, previous_type: ?string}
+     */
+    public function deletePureUrlSignature(int $destinationId): array;
+
+    /**
+     * غیرفعال‌سازی کامل همهٔ امضاها از یک مقصد — فقط با تأیید صریح کاربر (T7, addendum A).
+     *
+     * تنها مسیری است که signature_enabled را false می‌کند:
+     *   - signature_enabled => false
+     *   - signature_type    => SignatureRenderer::TYPE_NONE
+     *   - signature_settings => null
+     *   - signature_label   => null
+     */
+    public function disableAllSignatures(int $destinationId): \App\Models\ChannelPosterDestination;
+
+    /**
      * Build a human-readable publish report from logs.
      */
     public function buildPublishReport(array $results, \Illuminate\Support\Collection $destinations): string;

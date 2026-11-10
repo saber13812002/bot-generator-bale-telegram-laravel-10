@@ -1030,6 +1030,28 @@ Chat ID: :chat_id',
     'channel_poster_hnd_hint_emoji' => 'ایموجی را تایپ کن یا «پیش‌فرض» (یا انصراف)',
     'channel_poster_hnd_hint_yesno' => 'بله / خیر / بازگشت (یا انصراف)',
 
+    // === Delete Pure Link (CP-DELETE-PURELINK, T7) ===
+    // type-aware purelink removal: only pure_url signature is cleared.
+    'channel_poster_dpl_menu_entry' => '🗑 حذف امزای purelink',
+    'channel_poster_dpl_no_tag' => 'هنوز تگی نداری. اول /start بزن و کانال وصل کن.',
+    'channel_poster_dpl_ask_tag' => 'امزای purelink کدام تگ را پاک بکنی؟',
+    'channel_poster_dpl_no_channels' => 'این تگ کانالی ندارد.',
+    'channel_poster_dpl_pick_channel' => 'کدام کانال؟ (نوع فعلی امزای هر کانال داخل کروشه نشان داده شده: pure_url / handle / هوشمند / legacy / غیرفعال)',
+    'channel_poster_dpl_type_smart' => 'هوشمند',
+    'channel_poster_dpl_type_disabled' => 'غیرفعال',
+    'channel_poster_dpl_confirm_pur' => '👁 امزای purelink فعلی این کانال:'."\n".'«:preview»'."\n".'حذف purelink امزای دیگر (handle/هوشمند) و تنظیمات امزا را دست نمی‌زند. چیکار کنم؟',
+    'channel_poster_dpl_confirm_all' => '⚠️ «غیرفعال‌سازی کامل همهٔ امضاها» تمام امزاها و تنظیمات امزای این کانال را خاموش می‌کند (signature_enabled=false).',
+    'channel_poster_dpl_no_purelink' => 'این کانال purelink ندارد (نوع فعلی: :type).',
+    'channel_poster_dpl_btn_pur' => '🗑 حذف purelink',
+    'channel_poster_dpl_btn_all' => '⚠️ غیرفعال‌سازی کامل همهٔ امضاها',
+    'channel_poster_dpl_btn_cancel' => '✖️ انصراف',
+    'channel_poster_dpl_deleted' => '✅ امزای purelink این کانال حذف شد. امزای دیگر (handle/هوشمند) و تنظیمات دست‌نخورده ماند.',
+    'channel_poster_dpl_all_disabled' => '✅ همهٔ امزاها روی این کانال غیرفعال شد (signature_enabled=false).',
+    'channel_poster_dpl_cancelled' => 'انصراف — تنظیمات پیشین دست‌نخورده ماند.',
+    'channel_poster_dpl_invalid_number' => 'شمارهٔ گزینه را درست بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_dpl_confirm_invalid' => '«حذف» / «همه» / «انصراف» بفرست (یا از دکمه‌ها استفاده کن).',
+    'channel_poster_dpl_hint_tag' => 'شمارهٔ تگ / کانال را تایپ کن (یا انصراف)',
+    'channel_poster_dpl_hint_confirm' => 'حذف / همه / انصراف',
     // === Publish Queue ===
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
@@ -1198,5 +1220,5 @@ Chat ID: :chat_id',
     'channel_sync_help_owner_commands' => 'دستورات مخصوص مالک:'.
         "\n".'/admin {chat_id} — افزودن ادمین همگام‌سازی (بدون آرگومان: لیست ادمین‌ها)'.
         "\n".'/sign — تنظیم امضا برای تگ‌ها'.
-        "\n".'گزینه‌ی «👑 پیش‌فرض ادمین‌ها» در /settings — پیش‌فرض مشترک برای ادمین‌هایی که تنظیم شخصی ندارند',
+        "\n".'/deletepurelink — حذف نوع‌آگاه امزای purelink (امزای دیگر دست نمی‌خورد)'.        "\n".'گزینه‌ی «👑 پیش‌فرض ادمین‌ها» در /settings — پیش‌فرض مشترک برای ادمین‌هایی که تنظیم شخصی ندارند',
 ];

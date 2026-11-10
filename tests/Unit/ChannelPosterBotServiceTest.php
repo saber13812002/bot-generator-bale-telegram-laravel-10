@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
+use App\Services\ChannelPoster\SignatureRenderer;
 use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Services\ChannelPosterBotServiceImpl;
 use Tests\TestCase;
@@ -600,5 +601,96 @@ class ChannelPosterBotServiceTest extends TestCase
         // addendum D: the frozen id order [rubika, bale] is preserved —
         // NOT re-sorted by platform priority (bale would come first)
         $this->assertLessThan($posBale, $posRubika);
+    }
+
+    // ─────────── CP-DELETE-PURELINK (T7, addendum A) ───────────
+
+    public function test_delete_pure_url_signature_cleans_only_pure_url_fields(): void
+    {
+        // acceptance scenario 1: فقط pure_url پاک می‌شود؛ enabled/settings/link/username دست‌نخورده
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $settings = SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'all_channels',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+        ]);
+        $dest = $this->makeDest($bot->id, 'bale', 1, [
+            'signature_type' => SignatureRenderer::TYPE_PURE_URL,
+            'signature_label' => 'دکمهٔ خرید',
+            'signature_enabled' => true,
+            'signature_settings' => $settings,
+            'channel_username' => 'saberblog',
+        ]);
+
+        $result = $this->service->deletePureUrlSignature($dest->id);
+
+        $this->assertSame(
+            ['changed' => true, 'previous_type' => SignatureRenderer::TYPE_PURE_URL],
+            $result
+        );
+
+        $fresh = $dest->fresh();
+        $this->assertSame(SignatureRenderer::TYPE_NONE, $fresh->signature_type);
+        $this->assertNull($fresh->signature_label);
+        $this->assertTrue($fresh->signature_enabled);
+        $this->assertSame($settings, $fresh->signature_settings);
+        $this->assertSame('https://balelink.example/1', $fresh->channel_link);
+        $this->assertSame('saberblog', $fresh->channel_username);
+    }
+
+    public function test_delete_pure_url_signature_is_noop_for_handle_type(): void
+    {
+        // acceptance scenario 1: حذف purelink روی مقصدی با type=handle ⇒ no-op
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $dest = $this->makeDest($bot->id, 'telegram', 1, [
+            'signature_type' => SignatureRenderer::TYPE_HANDLE,
+            'signature_label' => SignatureRenderer::HANDLE_SIGNATURE_EMOJI,
+            'signature_enabled' => true,
+            'channel_username' => 'saberblog',
+        ]);
+
+        $result = $this->service->deletePureUrlSignature($dest->id);
+
+        $this->assertSame(
+            ['changed' => false, 'previous_type' => SignatureRenderer::TYPE_HANDLE],
+            $result
+        );
+
+        $fresh = $dest->fresh();
+        $this->assertSame(SignatureRenderer::TYPE_HANDLE, $fresh->signature_type);
+        $this->assertSame(SignatureRenderer::HANDLE_SIGNATURE_EMOJI, $fresh->signature_label);
+        $this->assertTrue($fresh->signature_enabled);
+        $this->assertSame('saberblog', $fresh->channel_username);
+    }
+
+    public function test_disable_all_signatures_is_the_only_path_to_signature_enabled_false(): void
+    {
+        // addendum A: signature_enabled=false فقط در غیرفعال‌سازی کامل همهٔ امضاها
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $settings = SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'all_channels',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+        ]);
+        $dest = $this->makeDest($bot->id, 'eitaa', 1, [
+            'signature_type' => SignatureRenderer::TYPE_PURE_URL,
+            'signature_label' => 'لینک خبرگزاری',
+            'signature_enabled' => true,
+            'signature_settings' => $settings,
+            'channel_username' => 'eitaa_channel',
+        ]);
+
+        $this->service->disableAllSignatures($dest->id);
+
+        $fresh = $dest->fresh();
+        $this->assertFalse($fresh->signature_enabled);
+        $this->assertSame(SignatureRenderer::TYPE_NONE, $fresh->signature_type);
+        $this->assertNull($fresh->signature_settings);
+        $this->assertNull($fresh->signature_label);
+        // دادهٔ کانال باقی می‌ماند
+        $this->assertSame('https://eitaa' . 'link.example/1', $fresh->channel_link);
+        $this->assertSame('eitaa_channel', $fresh->channel_username);
     }
 }

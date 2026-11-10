@@ -74,6 +74,11 @@ class ChannelPosterBotController extends Controller
     public const STATE_HANDLE_EMOJI = 'cp_hnd_awaiting_emoji';
     public const STATE_HANDLE_CONFIRM = 'cp_hnd_awaiting_confirm';
 
+    // === Delete Pure Link (CP-DELETE-PURELINK, T7) ===
+    public const STATE_DELETE_PURE_LINK_TAG = 'cp_dpl_awaiting_tag';
+    public const STATE_DELETE_PURE_LINK_CHANNEL = 'cp_dpl_awaiting_channel';
+    public const STATE_DELETE_PURE_LINK_CONFIRM = 'cp_dpl_awaiting_confirm';
+
     // === Content Sync (همگام‌سازی چندکاناله) ===
     public const STATE_SYNC_AWAITING_TEXT = 'cp_sync_awaiting_text';
     public const STATE_SYNC_AWAITING_TAG = 'cp_sync_awaiting_tag';
@@ -362,6 +367,11 @@ class ChannelPosterBotController extends Controller
                 $this->finishHandleWizard($publisher, $botItem, $type, $chatId);
                 return;
             }
+            // CP-DELETE-PURELINK (T7): cancel the /deletepurelink wizard.
+            if ($state && str_starts_with($state->state, 'cp_dpl_')) {
+                $this->finishDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
+                return;
+            }
             $this->clearState($botItem, $chatId, $type);
             $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_cancelled'));
             return;
@@ -374,6 +384,12 @@ class ChannelPosterBotController extends Controller
 
         if (is_string($text) && ($text === '/sign' || str_starts_with($text, '/sign '))) {
             $this->startSignWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        // CP-DELETE-PURELINK (T7): type-aware purelink deletion.
+        if (is_string($text) && preg_match('#^/deletepurelink\b#', $text)) {
+            $this->startDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
             return;
         }
 
@@ -507,6 +523,12 @@ class ChannelPosterBotController extends Controller
             // === CP-CHANNEL-HANDLE-SIGNATURE: معادل‌های متنی (سروش/روبیکا) ===
             if (str_starts_with($state->state, 'cp_hnd_')) {
                 $this->handleHandleText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+
+            // === CP-DELETE-PURELINK (T7): text fallback (soroush/rubika native) ===
+            if (str_starts_with($state->state, 'cp_dpl_')) {
+                $this->handleDeletePureLinkText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
 
@@ -1056,6 +1078,24 @@ class ChannelPosterBotController extends Controller
         }
         if (str_starts_with($data, 'cp:hndconf:')) {
             $this->handleHandleConfirmCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        // Handle delete-purelink wizard callbacks (CP-DELETE-PURELINK, T7)
+        if ($data === 'cp:dpl') {
+            $this->startDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (str_starts_with($data, 'cp:dpltag:')) {
+            $this->handleDeletePureLinkTagCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:dplch:')) {
+            $this->handleDeletePureLinkChannelCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:dplconf:')) {
+            $this->handleDeletePureLinkConfirmCallback($publisher, $botItem, $type, $chatId, $data);
             return;
         }
 
@@ -2764,6 +2804,321 @@ class ChannelPosterBotController extends Controller
     }
 
     // ======================================================================
+    // === CP-DELETE-PURELINK (T7, addendum A): type-aware purelink removal ===
+    // /deletepurelink: tag -> channel (shows current signature type) -> confirm.
+    // For pure_url it only clears pure_url (type=none, label=null);
+    // signature_enabled / signature_settings / channel_link / channel_username
+    // stay untouched so a handle/smart signature survives.
+    // "Disable all signatures" is a separate explicit action and is the ONLY
+    // path that sets signature_enabled=false. All steps work by button and
+    // by typed text (soroush/rubika natives).
+    // ======================================================================
+
+    private function startDeletePureLinkWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_no_tag'));
+            return;
+        }
+
+        if (count($groups) === 1) {
+            $this->showDeletePureLinkChannels($publisher, $botItem, $type, $chatId, $groups[0]['key']);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:dpltag:' . $index]];
+        }
+        $this->setState($botItem, $chatId, $type, self::STATE_DELETE_PURE_LINK_TAG, [
+            'tag_keys' => array_map(fn (array $g) => $g['key'], $groups),
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_dpl_ask_tag'), $rows, [
+            trans('bot.channel_poster_dpl_hint_tag'),
+        ]);
+    }
+
+    private function handleDeletePureLinkTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $index = (int) substr($data, 10);
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+        if ($tag === '') {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_no_tag'));
+            return;
+        }
+
+        $this->showDeletePureLinkChannels($publisher, $botItem, $type, $chatId, $tag);
+    }
+
+    /**
+     * مرحلهٔ کانال — نوع فعلی امزای هر کانال در لیست نشان داده می‌شود
+     * (pure_url / handle / هوشمند / legacy / غیرفعال).
+     */
+    private function showDeletePureLinkChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $rows[] = [['text' => "{$label} — {$title} [{$this->deletePureLinkTypeMarker($dest)}]", 'callback_data' => 'cp:dplch:' . $dest->id]];
+            $destIds[] = $dest->id;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_DELETE_PURE_LINK_CHANNEL, [
+            'tag' => $tag,
+            'dest_ids' => $destIds,
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_dpl_pick_channel'), $rows, [
+            trans('bot.channel_poster_dpl_hint_tag'),
+        ]);
+    }
+
+    /**
+     * نشانگرِ خوانا برای نوع فعلی امزای کانال
+     * (ترتیب: غیرفعال → هوشمند → pure_url → handle → legacy).
+     */
+    private function deletePureLinkTypeMarker(ChannelPosterDestination $dest): string
+    {
+        if ($dest->signature_enabled === false) {
+            return trans('bot.channel_poster_dpl_type_disabled');
+        }
+        if (SignatureSettingsService::isSmart($dest)) {
+            return trans('bot.channel_poster_dpl_type_smart');
+        }
+        return match ($dest->signature_type) {
+            SignatureRenderer::TYPE_PURE_URL => 'pure_url',
+            SignatureRenderer::TYPE_HANDLE => 'handle',
+            default => 'legacy',
+        };
+    }
+
+    /**
+     * مرحلهٔ تأیید — نوع فعلی امزای کانال انتخاب‌شده:
+     * - pure_url: preview + buttons (delete purelink / disable all / cancel).
+     * - سایر: «این کانال purelink ندارد» + (disable all / cancel).
+     */
+    private function handleDeletePureLinkChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            return;
+        }
+
+        $state = $this->getState($botItem, $chatId, $type);
+        $tag = (string) ($state?->getData('tag') ?? '');
+        $isPureUrl = $dest->signature_type === SignatureRenderer::TYPE_PURE_URL;
+        $typeLabel = $this->deletePureLinkTypeMarker($dest);
+
+        $preview = (string) $dest->channel_link;
+        if ($isPureUrl && !empty($dest->signature_label)) {
+            $preview = $dest->signature_label . "\n" . $preview;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_DELETE_PURE_LINK_CONFIRM, [
+            'destination_id' => $destId,
+            'tag' => $tag,
+            'is_pure_url' => $isPureUrl,
+            'type_label' => $typeLabel,
+        ]);
+
+        if ($isPureUrl) {
+            $message = trans('bot.channel_poster_dpl_confirm_pur', ['preview' => $preview])
+                . "\n\n" . trans('bot.channel_poster_dpl_confirm_all');
+            $this->sendNativeHintIfNeeded($publisher, $chatId, $type, $message, [
+                [['text' => trans('bot.channel_poster_dpl_btn_pur'), 'callback_data' => 'cp:dplconf:pur']],
+                [['text' => trans('bot.channel_poster_dpl_btn_all'), 'callback_data' => 'cp:dplconf:all']],
+                [['text' => trans('bot.channel_poster_dpl_btn_cancel'), 'callback_data' => 'cp:dplconf:cancel']],
+            ], [trans('bot.channel_poster_dpl_hint_confirm')]);
+            return;
+        }
+
+        $message = trans('bot.channel_poster_dpl_no_purelink', ['type' => $typeLabel])
+            . "\n\n" . trans('bot.channel_poster_dpl_confirm_all');
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, $message, [
+            [['text' => trans('bot.channel_poster_dpl_btn_all'), 'callback_data' => 'cp:dplconf:all']],
+            [['text' => trans('bot.channel_poster_dpl_btn_cancel'), 'callback_data' => 'cp:dplconf:cancel']],
+        ], [trans('bot.channel_poster_dpl_hint_confirm')]);
+    }
+
+    private function handleDeletePureLinkConfirmCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_DELETE_PURE_LINK_CONFIRM) {
+            return;
+        }
+        $choice = substr($data, strlen('cp:dplconf:'));
+        $this->applyDeletePureLinkChoice($publisher, $botItem, $type, $chatId, $state->data ?? [], $choice);
+    }
+
+    /**
+     * اعمال انتخابِ تأیید (مشترک بین مسیر دکمه و تایپ متنی).
+     */
+    private function applyDeletePureLinkChoice(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d,
+        string $choice
+    ): void {
+        if ($choice === 'cancel') {
+            $this->finishDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $dest = ChannelPosterDestination::find($destId);
+        if (!$dest || $dest->bot_id !== $botItem->id) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        if ($choice === 'all') {
+            // disable-all: the ONLY path to signature_enabled=false (explicit user confirm)
+            $this->service->disableAllSignatures($destId);
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_all_disabled'));
+            return;
+        }
+
+        if ($choice === 'pur') {
+            $result = $this->service->deletePureUrlSignature($destId);
+            $this->clearState($botItem, $chatId, $type);
+            if ($result['changed']) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_deleted'));
+            } else {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_no_purelink', [
+                    'type' => (string) $result['previous_type'],
+                ]));
+            }
+            return;
+        }
+
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_confirm_invalid'));
+    }
+
+    /**
+     * معادل متنیِ ویزارد /deletepurelink — دکمه در مبدأهای native
+     * (soroush/rubika) حذف می‌شود؛ همهٔ مراحل با تایپ هم کار می‌کنند.
+     */
+    private function handleDeletePureLinkText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $d
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $raw = trim($text);
+        $choice = mb_strtolower($raw);
+
+        if (in_array($raw, ['انصراف', 'لغو', 'cancel'], true) || in_array($choice, ['cancel'], true)) {
+            $this->finishDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_DELETE_PURE_LINK_TAG) {
+            $keys = (array) ($d['tag_keys'] ?? []);
+            if ($raw !== '' && ctype_digit($raw) && isset($keys[(int) $raw - 1])) {
+                $this->handleDeletePureLinkTagCallback($publisher, $botItem, $type, $chatId, 'cp:dpltag:' . ((int) $raw - 1));
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_DELETE_PURE_LINK_CHANNEL) {
+            $ids = array_map('intval', (array) ($d['dest_ids'] ?? []));
+            if ($raw !== '' && ctype_digit($raw) && isset($ids[(int) $raw - 1])) {
+                $this->handleDeletePureLinkChannelCallback($publisher, $botItem, $type, $chatId, $ids[(int) $raw - 1]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_DELETE_PURE_LINK_CONFIRM) {
+            $cancel = in_array($choice, ['انصراف', 'لغو', 'cancel', 'c'], true);
+            $pur = in_array($choice, ['حذف', 'purelink', 'pur', 'yes', 'y'], true);
+            $all = in_array($choice, ['همه', 'غیرفعال', 'all', 'a'], true);
+
+            if ($cancel) {
+                $this->finishDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
+                return;
+            }
+            if ($pur || $all) {
+                $this->applyDeletePureLinkChoice($publisher, $botItem, $type, $chatId, $d, $pur ? 'pur' : 'all');
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_confirm_invalid'));
+            return;
+        }
+    }
+
+    /**
+     * پایان/لغو ویزارد — حالت پاک می‌شود؛ تنظیمات پیشین دست‌نخورده.
+     */
+    private function finishDeletePureLinkWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_dpl_cancelled'));
+    }
+
+    // ======================================================================
     // === CP-SMART-SIGNATURE-SETTINGS: ویزارد تنظیمات هوشمند امضا ===
     // سیاست انتخاب لینک → (چیدمان شرطی) → پیش‌نمایش → ذخیره.
     // همهٔ مراحل هم از دکمه و هم از تایپ متنی (سروش/روبیکا) قابل عبورند.
@@ -4316,6 +4671,8 @@ class ChannelPosterBotController extends Controller
                 $rows[] = [['text' => trans('bot.channel_poster_pur_menu_entry'), 'callback_data' => 'cp:pururl']];
                 // CP-CHANNEL-HANDLE-SIGNATURE: ورودی امضای «ایموجی + شناسهٔ کوتاه کانال» (فقط مالک)
                 $rows[] = [['text' => trans('bot.channel_poster_hnd_menu_entry'), 'callback_data' => 'cp:handle']];
+                // CP-DELETE-PURELINK (T7): purelink removal entry (owner only)
+                $rows[] = [['text' => trans('bot.channel_poster_dpl_menu_entry'), 'callback_data' => 'cp:dpl']];
             }
 
             $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];
