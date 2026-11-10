@@ -41,7 +41,8 @@ class ChannelPosterMediaSender
         string $localPath,
         ?string $caption = null,
         ?string $fileName = null,
-        ?string $mimeType = null
+        ?string $mimeType = null,
+        ?string $parseMode = null
     ): array {
         $opId = substr(bin2hex(random_bytes(4)), 0, 8);
         $size = is_file($localPath) ? filesize($localPath) : 0;
@@ -69,7 +70,7 @@ class ChannelPosterMediaSender
         }
 
         try {
-            $response = $this->doUpload($token, $platform, $channelChatId, $contentType, $localPath, (string) $caption, $attachName, $mime);
+            $response = $this->doUpload($token, $platform, $channelChatId, $contentType, $localPath, (string) $caption, $attachName, $mime, $parseMode);
 
             $result = $this->parseResponse($response, $platform, $contentType, $size);
             $this->log($opId, $result['success'] ? 'upload-ok' : 'upload-failed', [
@@ -109,7 +110,8 @@ class ChannelPosterMediaSender
         string $localPath,
         string $caption,
         string $attachName,
-        string $mime
+        string $mime,
+        ?string $parseMode = null
     ): Response {
         $contents = (string) file_get_contents($localPath);
 
@@ -135,14 +137,14 @@ class ChannelPosterMediaSender
             $field = $this->mediaField($contentType);
             $base = 'https://tapi.bale.ai/bot' . $token;
 
-            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime, $parseMode);
         }
 
         if ($platform === ChannelPosterDestination::PLATFORM_TELEGRAM) {
             $field = $this->mediaField($contentType);
             $base = 'https://api.telegram.org/bot' . $token;
 
-            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime, $parseMode);
         }
 
         if ($platform === ChannelPosterDestination::PLATFORM_SOROUSH) {
@@ -151,7 +153,7 @@ class ChannelPosterMediaSender
             $field = $this->mediaField($contentType);
             $base = 'https://api.splus.ir/bot' . $token;
 
-            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime);
+            return $this->sendViaMultipart($base, $field, $token, $channelChatId, $contentType, $contents, $caption, $attachName, $mime, $parseMode);
         }
 
         if ($platform === ChannelPosterDestination::PLATFORM_RUBIKA) {
@@ -222,7 +224,8 @@ class ChannelPosterMediaSender
         string $contents,
         string $caption,
         string $attachName,
-        string $mime
+        string $mime,
+        ?string $parseMode = null
     ): Response {
         $endpoint = match ($field) {
             'photo'    => 'sendPhoto',
@@ -235,6 +238,15 @@ class ChannelPosterMediaSender
         $form = ['chat_id' => $channelChatId];
         if ($caption !== '') {
             $form['caption'] = $caption;
+        }
+
+        // T5 (addendum E): parse_mode فقط برای API رسمی تلگرام و فقط اگر
+        // غیرخالی باشد — sendViaMultipart بین بله/تلگرام/سoroush مشترک است،
+        // بنابراین با base URL مشخص می‌شود (ایتا/روبیکا هرگز نمی‌گیرند).
+        if ($parseMode !== null && $parseMode !== ''
+            && str_starts_with($base, 'https://api.telegram.org')
+        ) {
+            $form['parse_mode'] = $parseMode;
         }
 
         return Http::asMultipart()

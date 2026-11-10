@@ -1467,6 +1467,315 @@ class ChannelPosterMediaPublishTest extends TestCase
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // T5 (addendum E) — parse_mode کپشن رسانهٔ تلگرام + retry امن
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function test_telegram_media_caption_receives_parse_mode_html(): void
+    {
+        $localPath = $this->makeTempFile('tg-parse-photo.jpg', 'tg-parse-photo-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.telegram.org*' => Http::response(['ok' => true, 'result' => ['message_id' => 777]]),
+        ]);
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'photo',
+            'کپشن <b>فاتحه</b> با امضا',
+            'bale-origin-file-id',
+            'telegram',
+            '999:tg-dest-token',
+            $localPath,
+            'tg-parse-photo.jpg',
+            'image/jpeg',
+            'html'
+        );
+
+        $this->assertTrue($result['success']);
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request) {
+            $data = $this->multipartData($request);
+
+            return $request->url() === 'https://api.telegram.org/bot999:tg-dest-token/sendPhoto'
+                && ($data['parse_mode'] ?? null) === 'html'
+                && ($data['caption'] ?? null) === 'کپشن <b>فاتحه</b> با امضا';
+        });
+    }
+
+    public function test_media_parse_mode_is_never_sent_to_non_telegram_platforms(): void
+    {
+        $localPath = $this->makeTempFile('media-parse-other.jpg', 'media-parse-other-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'tapi.bale.ai*'      => Http::response(['ok' => true, 'result' => ['message_id' => 321]]),
+            'api.splus.ir*'      => Http::response(['ok' => true, 'result' => ['message_id' => 666]]),
+            'eitaayar.ir*'       => Http::response(['ok' => true, 'result' => ['message_id' => 555]]),
+            'botapi.rubika.ir*/requestSendFile' => Http::response(['upload_url' => 'https://upload.rubika.example/u/parse-other']),
+            'upload.rubika.example*'            => Http::response(['file_id' => 'f-parse-other']),
+            'botapi.rubika.ir*/sendFile'        => Http::response(['message_id' => 'm-parse-other']),
+        ]);
+
+        $bale = $publisher->publish(
+            'channel-bale-1', 'photo', 'کپشن <b>ب</b>', 'bale-origin-file-id',
+            'bale', '123:origin-token', $localPath, null, null, 'html'
+        );
+        $this->assertTrue($bale['success'], 'bale: ' . ($bale['error'] ?? ''));
+
+        $soroush = $publisher->publish(
+            'channel-sr-1', 'photo', 'کپشن <b>س</b>', 'bale-origin-file-id',
+            'soroush', '123:sr-token', $localPath, null, null, 'html'
+        );
+        $this->assertTrue($soroush['success'], 'soroush: ' . ($soroush['error'] ?? ''));
+
+        $eitaa = $publisher->publish(
+            'channel-et-1', 'photo', 'کپشن <b>ا</b>', 'bale-origin-file-id',
+            'eitaa', '123:et-token', $localPath, null, null, 'html'
+        );
+        $this->assertTrue($eitaa['success'], 'eitaa: ' . ($eitaa['error'] ?? ''));
+
+        // rubika هم هرگز parse_mode نمی‌گیرد (فرمت متفاوت)
+        $rubika = $publisher->publish(
+            'channel-rb-1', 'photo', 'کپشن <b>ر</b>', 'bale-origin-file-id',
+            'rubika', '123:rb-token', $localPath, null, null, 'html'
+        );
+        $this->assertTrue($rubika['success'], 'rubika: ' . ($rubika['error'] ?? ''));
+
+        Http::assertSent(function (Request $request) {
+            $data = $request->isMultipart()
+                ? $this->multipartData($request)
+                : $request->data();
+
+            if (str_contains($request->url(), 'tapi.bale.ai')) {
+                $this->assertArrayNotHasKey('parse_mode', $data, 'bale must not receive parse_mode');
+            }
+            if (str_contains($request->url(), 'api.splus.ir')) {
+                $this->assertArrayNotHasKey('parse_mode', $data, 'soroush must not receive parse_mode');
+            }
+            if (str_contains($request->url(), 'eitaayar.ir')) {
+                $this->assertArrayNotHasKey('parse_mode', $data, 'eitaa must never receive parse_mode');
+            }
+            if (str_contains($request->url(), 'botapi.rubika.ir') || str_contains($request->url(), 'upload.rubika.example')) {
+                $this->assertArrayNotHasKey('parse_mode', $data, 'rubika must not receive parse_mode');
+            }
+
+            return true;
+        });
+    }
+
+    public function test_telegram_media_parse_error_retries_once_without_parse_mode(): void
+    {
+        $localPath = $this->makeTempFile('tg-parse-retry.jpg', 'tg-parse-retry-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        $calls = 0;
+        Http::fake(function (Request $request) use (&$calls) {
+            $calls++;
+
+            return $calls === 1
+                ? Http::response(['ok' => false, 'error_code' => 400, 'description' => "Bad Request: can't parse entities"], 200)
+                : Http::response(['ok' => true, 'result' => ['message_id' => 555]]);
+        });
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'photo',
+            'کپشن <b>ناقص</b>',
+            'bale-origin-file-id',
+            'telegram',
+            '999:tg-dest-token',
+            $localPath,
+            'tg-parse-retry.jpg',
+            'image/jpeg',
+            'html'
+        );
+
+        $this->assertTrue($result['success'], 'retry بدون parse_mode باید موفق شود: ' . ($result['error'] ?? ''));
+        $this->assertSame('555', $result['message_id']);
+        // دقیقاً دو درخواست: اول با parse_mode، retry بدون parse_mode
+        Http::assertSentCount(2);
+        Http::assertSent(function (Request $request) {
+            $data = $this->multipartData($request);
+
+            return ($data['parse_mode'] ?? null) === 'html'
+                && ($data['caption'] ?? null) === 'کپشن <b>ناقص</b>';
+        });
+        Http::assertSent(function (Request $request) {
+            $data = $this->multipartData($request);
+
+            return !array_key_exists('parse_mode', $data)
+                && ($data['caption'] ?? null) === 'کپشن <b>ناقص</b>';
+        });
+    }
+
+    public function test_telegram_media_non_parse_api_error_never_retries(): void
+    {
+        $localPath = $this->makeTempFile('tg-parse-noretry.jpg', 'tg-parse-noretry-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.telegram.org*' => Http::response([
+                'ok'         => false,
+                'error_code' => 403,
+                'description' => 'Forbidden: bot is not a member of the channel chat',
+            ], 200),
+        ]);
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'photo',
+            'کپشن <b>ناقص</b>',
+            'bale-origin-file-id',
+            'telegram',
+            '999:tg-dest-token',
+            $localPath,
+            'tg-parse-noretry.jpg',
+            'image/jpeg',
+            'html'
+        );
+
+        $this->assertFalse($result['success']);
+        // خطای صریح API ولی نه خطای parse ⇒ بدون retry (یک درخواست)
+        Http::assertSentCount(1);
+    }
+
+    public function test_telegram_media_http_500_never_retries(): void
+    {
+        $localPath = $this->makeTempFile('tg-parse-500.jpg', 'tg-parse-500-bytes');
+
+        $publisher = $this->realPublisher('123:origin-token');
+
+        Http::fake([
+            'api.telegram.org*' => Http::response(['error' => 'internal server error'], 500),
+        ]);
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'photo',
+            'کپشن <b>ناقص</b>',
+            'bale-origin-file-id',
+            'telegram',
+            '999:tg-dest-token',
+            $localPath,
+            'tg-parse-500.jpg',
+            'image/jpeg',
+            'html'
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('HTTP 500', $result['error']);
+        // خطای سرور ⇒ بدون retry (یک درخواست)
+        Http::assertSentCount(1);
+    }
+
+    public function test_telegram_text_parse_error_retries_once_without_parse_mode(): void
+    {
+        $bot = Mockery::mock(Telegram::class);
+        $bot->shouldReceive('token')->andReturn('123:origin-token');
+        $calls = 0;
+        $contents = [];
+        $bot->shouldReceive('sendMessage')->times(2)->andReturnUsing(function (array $content) use (&$calls, &$contents) {
+            $calls++;
+            $contents[] = $content;
+
+            return $calls === 1
+                ? ['ok' => false, 'error_code' => 400, 'description' => "Bad Request: can't parse entities"]
+                : ['ok' => true, 'result' => ['message_id' => 555]];
+        });
+        $bot->shouldReceive('answerCallbackQuery')->andReturn(['ok' => true]);
+
+        $publisher = new TelegramChannelPosterPublisher($bot, 'bale', app(ChannelPosterMediaSender::class));
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'text',
+            'متن <b>امضا</b> ناقص',
+            null,
+            'telegram',
+            null,
+            null,
+            null,
+            null,
+            'html'
+        );
+
+        $this->assertTrue($result['success'], 'retry بدون parse_mode باید موفق شود');
+        $this->assertSame('555', $result['message_id']);
+        $this->assertCount(2, $contents);
+        $this->assertSame('html', $contents[0]['parse_mode'] ?? null);
+        $this->assertArrayNotHasKey('parse_mode', $contents[1], 'retry باید بدون parse_mode باشد');
+        $this->assertSame('متن <b>امضا</b> ناقص', $contents[1]['text']);
+    }
+
+    public function test_telegram_text_network_failure_never_retries(): void
+    {
+        $bot = Mockery::mock(Telegram::class);
+        $bot->shouldReceive('token')->andReturn('123:origin-token');
+        // timeout شبکه: vendor client پاکت curl_error بدون description برمی‌گرداند
+        $bot->shouldReceive('sendMessage')->once()->andReturn([
+            'ok'              => false,
+            'curl_error_code' => 28,
+            'curl_error'      => 'Operation timed out after 300001 milliseconds',
+        ]);
+        $bot->shouldReceive('answerCallbackQuery')->andReturn(['ok' => true]);
+
+        $publisher = new TelegramChannelPosterPublisher($bot, 'bale', app(ChannelPosterMediaSender::class));
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'text',
+            'متن ساده',
+            null,
+            'telegram',
+            null,
+            null,
+            null,
+            null,
+            'html'
+        );
+
+        $this->assertFalse($result['success']);
+        // timeout ⇒ بدون retry (یک فراخوانی sendMessage)
+        $this->assertSame(1, $bot->mockery_getExpectationCount('sendMessage'));
+    }
+
+    public function test_telegram_text_unknown_api_error_never_retries(): void
+    {
+        $bot = Mockery::mock(Telegram::class);
+        $bot->shouldReceive('token')->andReturn('123:origin-token');
+        $bot->shouldReceive('sendMessage')->once()->andReturn([
+            'ok'         => false,
+            'error_code' => 400,
+            'description' => 'Bad Request: chat not found',
+        ]);
+        $bot->shouldReceive('answerCallbackQuery')->andReturn(['ok' => true]);
+
+        $publisher = new TelegramChannelPosterPublisher($bot, 'bale', app(ChannelPosterMediaSender::class));
+
+        $result = $publisher->publish(
+            '-1001234567890',
+            'text',
+            'متن ساده',
+            null,
+            'telegram',
+            null,
+            null,
+            null,
+            null,
+            'html'
+        );
+
+        $this->assertFalse($result['success']);
+        // خطای غیر-parse ⇒ بدون retry (یک فراخوانی sendMessage)
+        $this->assertSame(1, $bot->mockery_getExpectationCount('sendMessage'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────
 

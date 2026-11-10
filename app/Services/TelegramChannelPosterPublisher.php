@@ -327,8 +327,31 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                     $localPath,
                     $caption !== '' ? $caption : null,
                     $fileName,
-                    $mimeType
+                    $mimeType,
+                    $parseMode
                 );
+
+                // T5 (addendum E) — retry امن: فقط در صورت خطای parse صریح
+                // API (description با pattern parse) و فقط برای تلگرام (تنها
+                // پلتفرمی که parse_mode می‌گیرد) یک‌بار بدون parse_mode.
+                // timeout/خطای شبکه و پاسخ نامشخص هرگز retry نمی‌شوند.
+                if (!$mediaResult['success']
+                    && $platform === ChannelPosterDestination::PLATFORM_TELEGRAM
+                    && $parseMode !== null && $parseMode !== ''
+                    && self::isParseErrorDescription($mediaResult['error'] ?? null)
+                ) {
+                    Log::info('[ChannelPoster][publish] parse_mode retry (media, telegram)');
+                    $mediaResult = $this->sender->send(
+                        (string) $botToken,
+                        $platform,
+                        $channelChatId,
+                        $contentType,
+                        $localPath,
+                        $caption !== '' ? $caption : null,
+                        $fileName,
+                        $mimeType
+                    );
+                }
 
                 if ($mediaResult['success']) {
                     Log::info('[ChannelPoster][publish] publish-ok (media upload)', [
@@ -391,9 +414,9 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
             if ($platform === ChannelPosterDestination::PLATFORM_EITAA) {
                 $text = $caption !== '' ? $caption : trans('bot.channel_poster_empty_text');
                 $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa', $parseMode);
-                if ($parseMode !== null && ! $this->isOk($result)) {
+                if ($parseMode !== null && ! $this->isOk($result) && self::isParseError($result)) {
                     // HTML خراب (مثلاً < یا & در متن) → retry خودکار بدون parse_mode
-                    Log::info('[ChannelPoster][publish] parse_mode retry (eitaa)');
+                    Log::info('[ChannelPoster][publish] parse_mode retry (text, eitaa)');
                     $result = BotHelper::sendMessageEitaaSupport($text, (string) $botToken, $channelChatId, 'eitaa');
                 }
 
@@ -511,10 +534,13 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 $content['reply_markup'] = json_encode($replyMarkup, JSON_UNESCAPED_UNICODE);
             }
             $result = $client->sendMessage($content);
-            if ($parseMode !== null && $parseMode !== '' && ! $this->isOk($result)) {
+            // T5 (addendum E) — retry امن: فقط در صورت خطای parse صریح API
+            // (فیلد description با pattern parse) — نه روی !isOk عمومی؛
+            // timeout/خطای شبکه و پاسخ نامشخص هرگز retry نمی‌شوند.
+            if ($parseMode !== null && $parseMode !== '' && ! $this->isOk($result) && self::isParseError($result)) {
                 // دکمه مستقل از parse_mode است → در retry هم نگه داشته می‌شود
                 // مارک‌آپ خراب (مثلاً [ یا < در متن) → retry خودکار بدون parse_mode
-                Log::info('[ChannelPoster][publish] parse_mode retry (' . $platform . ')');
+                Log::info('[ChannelPoster][publish] parse_mode retry (text, ' . $platform . ')');
                 $retry = ['chat_id' => $channelChatId, 'text' => $text];
                 if (is_array($replyMarkup) && $replyMarkup !== []) {
                     $retry['reply_markup'] = $content['reply_markup'];
@@ -655,6 +681,50 @@ class TelegramChannelPosterPublisher implements ChannelPosterPublisher
                 'error' => TokenHelper::redactTokens($e->getMessage()),
             ]);
         }
+    }
+
+    /**
+     * T5 (addendum E) — «retry امن» parse_mode:
+     *
+     * retry بدون parse_mode فقط وقتی مجاز است که پاسخ API یک «خطای parse
+     * صریح» باشد: آرایه‌ای با فیلد description که با pattern خطای parse
+     * (can't parse entities و هم‌خانواده‌ها) هم‌خوانی کند.
+     *
+     * هرگز retry نمی‌شود:
+     *  - timeout/ConnectionException: vendor client پاکت
+     *    ['ok' => false, 'curl_error_code', 'curl_error'] بدون description
+     *    برمی‌گرداند ⇒ isParseError = false.
+     *  - پاسخ نامشخص (string خام، false، آرایه بدون description).
+     */
+    public static function isParseError(mixed $result): bool
+    {
+        $normalized = $result;
+
+        if (is_string($normalized) && $normalized !== '') {
+            $decoded = json_decode($normalized, true);
+            $normalized = is_array($decoded) ? $decoded : null;
+        }
+
+        if (!is_array($normalized)) {
+            return false;
+        }
+
+        $description = $normalized['description'] ?? null;
+
+        return self::isParseErrorDescription(is_string($description) ? $description : null);
+    }
+
+    /**
+     * pattern خطای parse صریح Bot API (Telegram/Bale):
+     * «can't parse entities» و متن‌های هم‌خانواده.
+     */
+    public static function isParseErrorDescription(?string $description): bool
+    {
+        if ($description === null || trim($description) === '') {
+            return false;
+        }
+
+        return (bool) preg_match("/can'?t parse|parse.*entit|entities/i", $description);
     }
 
     private function clientFor(string $platform, ?string $botToken): Telegram
