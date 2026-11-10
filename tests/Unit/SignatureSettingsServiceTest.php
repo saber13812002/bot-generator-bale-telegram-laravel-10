@@ -531,6 +531,115 @@ class SignatureSettingsServiceTest extends TestCase
         $this->assertSame('', SignatureSettingsService::buildPreview([], $single));
     }
 
+    // ─────────── CP-SIGNATURE-LABEL-TYPE-AWARE (addendum C) ───────────
+
+    public function test_label_for_signature_matrix_by_type(): void
+    {
+        $labels = [
+            'bale' => 'در بله',
+            'telegram' => 'در تلگرام',
+            'eitaa' => 'در ایتا',
+            'soroush' => 'در سروش',
+            'rubika' => 'در روبیکا',
+        ];
+
+        // انواع label لینک (+ دادهٔ legacy با type خالی) → label کاربر
+        $this->assertSame(
+            'کانال خبری',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['signature_label' => 'کانال خبری', 'signature_type' => 'inline']),
+                $labels
+            )
+        );
+        $this->assertSame(
+            'کانال خبری',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['signature_label' => 'کانال خبری', 'signature_type' => 'composite']),
+                $labels
+            )
+        );
+        $this->assertSame(
+            'کانال خبری',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['signature_label' => 'کانال خبری', 'signature_type' => null]),
+                $labels
+            )
+        );
+
+        // pure_url: label متنِ پیام است — هرگز label لینک
+        $this->assertSame(
+            'در بله',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['signature_label' => 'لینک خبرگزاری ما', 'signature_type' => 'pure_url']),
+                $labels
+            )
+        );
+
+        // handle: label ایموجی است — هرگز label لینک
+        $this->assertSame(
+            'در بله',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['signature_label' => '⭐', 'signature_type' => 'handle']),
+                $labels
+            )
+        );
+
+        // raw/plain/button/none: هرگز label لینک
+        foreach (['raw', 'plain', 'button', 'none'] as $type) {
+            $this->assertSame(
+                'در بله',
+                SignatureSettingsService::labelForSignature(
+                    $this->dest(['signature_label' => 'X', 'signature_type' => $type]),
+                    $labels
+                ),
+                "type={$type}"
+            );
+        }
+
+        // بدون label → label پلتفرم
+        $this->assertSame(
+            'در بله',
+            SignatureSettingsService::labelForSignature($this->dest(['signature_type' => 'inline']), $labels)
+        );
+        $this->assertSame(
+            'در تلگرام',
+            SignatureSettingsService::labelForSignature(
+                $this->dest(['platform' => 'telegram', 'signature_type' => 'inline']),
+                $labels
+            )
+        );
+    }
+
+    public function test_build_preview_never_leaks_label_of_other_signature_types(): void
+    {
+        $pure = $this->dest(['signature_label' => 'لینک خبرگزاری ما', 'signature_type' => 'pure_url']);
+        $handle = $this->dest(['signature_label' => '⭐', 'signature_type' => 'handle']);
+        $inline = $this->dest(['signature_label' => 'خبری', 'signature_type' => 'inline']);
+
+        $single = $this->smartSettings(['layout' => 'single_line', 'separator' => ' | ']);
+
+        // label از نوع pure_url/handle برچسب لینک نیست → پیش‌نمایش لینک کانال را نشان می‌دهد
+        $this->assertSame($pure->channel_link, SignatureSettingsService::buildPreview([$pure], $single));
+        $this->assertSame($handle->channel_link, SignatureSettingsService::buildPreview([$handle], $single));
+        $this->assertStringNotContainsString(
+            'لینک خبرگزاری ما',
+            SignatureSettingsService::buildPreview([$pure, $inline], $single)
+        );
+        $this->assertStringNotContainsString(
+            '⭐',
+            SignatureSettingsService::buildPreview([$handle, $inline], $single)
+        );
+
+        // label inline همچنان برچسب لینک است
+        $this->assertSame('خبری', SignatureSettingsService::buildPreview([$inline], $single));
+
+        $multi = $this->smartSettings(['layout' => 'multi_line']);
+        $this->assertSame(
+            "خبری\n" . $pure->channel_link,
+            SignatureSettingsService::buildPreview([$inline, $pure], $multi)
+        );
+    }
+
     public function test_policy_lists(): void
     {
         $this->assertSame(

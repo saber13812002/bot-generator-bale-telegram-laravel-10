@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Models\Bot;
 use App\Models\ChannelPosterDestination;
+use App\Services\ChannelPoster\SignatureSettingsService;
 use App\Services\ChannelPosterBotServiceImpl;
 use Tests\TestCase;
 use Tests\UsesChannelPosterSqlite;
@@ -329,5 +330,139 @@ class ChannelPosterBotServiceTest extends TestCase
         $this->service->assignTagToUntagged($bot->id, 'شراب بهشتی');
         $this->assertFalse($this->service->hasUntagged($bot->id));
         $this->assertCount(1, $this->service->resolveByTag($bot->id, 'شراب بهشتی'));
+    }
+
+    // ─────────── CP-SIGNATURE-LABEL-TYPE-AWARE (addendum C) ───────────
+
+    private function makeDest(int $botId, string $platform, int $n, array $attrs = []): ChannelPosterDestination
+    {
+        return ChannelPosterDestination::create(array_merge([
+            'bot_id' => $botId,
+            'platform' => $platform,
+            'channel_chat_id' => 'sig-' . $platform . $n,
+            'channel_link' => 'https://' . $platform . 'link.example/' . $n,
+            'is_active' => true,
+            'verified_at' => now(),
+        ], $attrs));
+    }
+
+    public function test_smart_all_channels_does_not_leak_pure_url_label(): void
+    {
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $tg = $this->makeDest($bot->id, 'telegram', 1, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'all_channels',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+            ]),
+        ]);
+        $this->makeDest($bot->id, 'bale', 2, [
+            'signature_label' => 'لینک خبرگزاری ما',
+            'signature_type' => 'pure_url',
+        ]);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertNotEmpty($sig['text']);
+        $this->assertStringNotContainsString('لینک خبرگزاری ما', $sig['text']);
+        // label لینک بله باید برچسب پلتفرم باشد (در تلگرام = HTML anchor «در بله»)
+        $this->assertStringContainsString('در بله', $sig['text']);
+    }
+
+    public function test_smart_all_channels_does_not_leak_handle_emoji(): void
+    {
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $tg = $this->makeDest($bot->id, 'telegram', 1, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'all_channels',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+            ]),
+        ]);
+        $this->makeDest($bot->id, 'soroush', 2, [
+            'signature_label' => '⭐',
+            'signature_type' => 'handle',
+            'channel_username' => 'sabernews',
+        ]);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertNotEmpty($sig['text']);
+        $this->assertStringNotContainsString('⭐', $sig['text']);
+        $this->assertStringContainsString('در سروش', $sig['text']);
+    }
+
+    public function test_smart_all_channels_keeps_inline_and_legacy_labels(): void
+    {
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $tg = $this->makeDest($bot->id, 'telegram', 1, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'all_channels',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+            ]),
+        ]);
+        // inline: label کاربر = label لینک
+        $this->makeDest($bot->id, 'bale', 2, ['signature_label' => 'خبری', 'signature_type' => 'inline']);
+        // legacy (type خالی): label کاربر = label لینک (سازگاری دادهٔ قدیمی)
+        $this->makeDest($bot->id, 'soroush', 3, ['signature_label' => 'خبر', 'signature_type' => null]);
+        // بدون label: label پلتفرم
+        $this->makeDest($bot->id, 'rubika', 4, ['signature_type' => 'inline']);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertNotEmpty($sig['text']);
+        $this->assertStringContainsString('خبری', $sig['text']);
+        // رندر در تلگرام (HTML): label هر مقصد داخل anchor همان پلتفرمِ مقصدِ رندر
+        $this->assertStringContainsString('<a href="https://soroushlink.example/3">خبر</a>', $sig['text']);
+        $this->assertStringContainsString('<a href="https://rubikalink.example/4">در روبیکا</a>', $sig['text']);
+    }
+
+    public function test_legacy_paths_interpret_label_only_by_their_own_type(): void
+    {
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+
+        // pure_url legacy: label متنِ خودِ pure_url است (نه label لینک) — رندر متن
+        $pure = $this->makeDest($bot->id, 'bale', 1, [
+            'signature_label' => 'لینک خبرگزاری ما',
+            'signature_type' => 'pure_url',
+        ]);
+        $sig = $this->service->buildSignatureForDestination($pure);
+        $this->assertSame("\n\nلینک خبرگزاری ما\nhttps://balelink.example/1", $sig['text']);
+        $this->assertNull($sig['parse_mode']);
+
+        // handle legacy: label ایموجی است؛ خروجی بدون لینک و بدون برچسب پلتفرم
+        $handle = $this->makeDest($bot->id, 'telegram', 2, [
+            'signature_label' => '⭐',
+            'signature_type' => 'handle',
+            'channel_username' => 'sabernews',
+        ]);
+        $sig = $this->service->buildSignatureForDestination($handle);
+        $this->assertSame("\n\n⭐ @sabernews", $sig['text']);
+        $this->assertNull($sig['parse_mode']);
+
+        // none legacy: امضای خالی
+        $none = $this->makeDest($bot->id, 'telegram', 3, ['signature_type' => 'none']);
+        $this->assertSame('', $this->service->buildSignatureForDestination($none)['text']);
+
+        // inline legacy: label کاربر در خط مستقل + anchor (فرمت legacy: «برچسب:\nلینک»)
+        $inline = $this->makeDest($bot->id, 'telegram', 4, ['signature_label' => 'خبری', 'signature_type' => 'inline']);
+        $sig = $this->service->buildSignatureForDestination($inline);
+        $this->assertSame(
+            "\n\nخبری:\n<a href=\"https://telegramlink.example/4\">https://telegramlink.example/4</a>",
+            $sig['text']
+        );
+        $this->assertSame('html', $sig['parse_mode']);
+
+        // inline legacy بدون label کاربر → برچسب پلتفرم (رفتار legacy موجود)
+        $plain = $this->makeDest($bot->id, 'telegram', 5, ['signature_type' => 'inline']);
+        $sig = $this->service->buildSignatureForDestination($plain);
+        $this->assertSame(
+            "\n\nدر تلگرام:\n<a href=\"https://telegramlink.example/5\">https://telegramlink.example/5</a>",
+            $sig['text']
+        );
     }
 }

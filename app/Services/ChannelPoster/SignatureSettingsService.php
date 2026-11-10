@@ -68,6 +68,21 @@ class SignatureSettingsService
     public const SEPARATOR_DEFAULT = ' | ';
 
     /**
+     * CP-SIGNATURE-LABEL-TYPE-AWARE (addendum C): انواعی که در آن‌ها
+     * `signature_label` به‌عنوان «برچسب لینک» تفسیر می‌شود.
+     *
+     * ستون signature_label چندمعنایی است:
+     *  - pure_url : متن دلخواه پیام (نه label لینک)
+     *  - handle   : ایموجی (نه label لینک)
+     *  - inline/composite یا null/خالی (legacy) : label لینک
+     *  - raw/plain/button/none : label لینک نیست
+     */
+    private const LABEL_AS_LINK_TYPES = [
+        SignatureRenderer::TYPE_INLINE,
+        SignatureRenderer::TYPE_COMPOSITE,
+    ];
+
+    /**
      * پیش‌فرض کامل تنظیمات هوشمند (وقتی بخشی از JSON نگه‌داری نشده باشد).
      *
      * @return array{
@@ -508,7 +523,49 @@ class SignatureSettingsService
     }
 
     /**
+     * آیا ستون `signature_label` این مقصد به‌عنوان «برچسب لینک» تفسیر می‌شود؟
+     *
+     * CP-SIGNATURE-LABEL-TYPE-AWARE (addendum C): label فقط برای انواع link
+     * (inline/composite) و دادهٔ legacy با type خالی برچسب لینک است؛ در
+     * pure_url متن پیام و در handle ایموجی است — هرگز برچسب لینک.
+     */
+    public static function labelIsLinkLabel(?string $type): bool
+    {
+        $type = $type === null ? '' : trim((string) $type);
+
+        return $type === '' || in_array($type, self::LABEL_AS_LINK_TYPES, true);
+    }
+
+    /**
+     * برچسب مناسب لینکِ $d — نوع‌آگاه (CP-SIGNATURE-LABEL-TYPE-AWARE, addendum C).
+     *
+     *  - type ∈ {inline, composite} یا null/خالی (legacy) و label کاربر پر
+     *    است → label کاربر.
+     *  - هر type دیگر (pure_url/handle/raw/plain/button/none) → برچسب پلتفرم؛
+     *    یعنی متن دلخواه pure_url یا ایموجی handle هرگز به‌عنوان برچسب
+     *    لینک‌های دیگر استفاده نمی‌شود.
+     *  - label خالی → برچسب پلتفرم.
+     *
+     * @param array<string, string> $platformLabels مثال: ['bale' => 'در بله', ...]
+     */
+    public static function labelForSignature(ChannelPosterDestination $d, array $platformLabels): string
+    {
+        if (self::labelIsLinkLabel($d->signature_type)
+            && $d->signature_label !== null
+            && trim((string) $d->signature_label) !== ''
+        ) {
+            return (string) $d->signature_label;
+        }
+
+        return $platformLabels[$d->platform] ?? $d->platform;
+    }
+
+    /**
      * پیش‌نمایش متن سادهٔ امضا (بدون فرمت پلتفرم) — برای ویزارد/تنظیمات.
+     *
+     * برچسب‌ها نوع‌آگاه انتخاب می‌شوند (CP-SIGNATURE-LABEL-TYPE-AWARE):
+     * label فقط برای انواع link تفسیر می‌شود؛ در غیر این صورت (یا بدون
+     * label) لینک کانال نمایش داده می‌شود.
      *
      * @param array<int, ChannelPosterDestination> $selected
      */
@@ -516,10 +573,11 @@ class SignatureSettingsService
     {
         $items = [];
         foreach ($selected as $d) {
-            $label = !empty($d->signature_label)
+            $items[] = self::labelIsLinkLabel($d->signature_type)
+                && $d->signature_label !== null
+                && trim((string) $d->signature_label) !== ''
                 ? (string) $d->signature_label
                 : (string) $d->channel_link;
-            $items[] = $label;
         }
 
         if ($items === []) {

@@ -84,7 +84,7 @@ trait UsesChannelPosterSqlite
             $table->string('channel_title')->nullable();
             $table->string('channel_link', 255)->nullable();
             $table->string('signature_label', 255)->nullable();
-            $table->string('signature_type', 20)->default('inline');
+            $table->string('signature_type', 20)->nullable()->default('inline');
             $table->boolean('signature_enabled')->nullable();
             $table->json('signature_settings')->nullable();
             $table->string('channel_username', 128)->nullable();

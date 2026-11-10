@@ -697,10 +697,13 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             if (empty($sel->channel_link)) {
                 continue;
             }
-            $selLabel = $sel->signature_label !== null && $sel->signature_label !== ''
-                ? (string) $sel->signature_label
-                : ($platformLabels[$sel->platform] ?? $sel->platform);
-            $links[] = ['url' => (string) $sel->channel_link, 'label' => $selLabel];
+            // CP-SIGNATURE-LABEL-TYPE-AWARE (addendum C): label فقط برای انواع
+            // link (inline/composite/legacy) برچسب لینک است؛ متن pure_url یا
+            // ایموجی handle هرگز به‌عنوان برچسب لینک نمایش داده نمی‌شود.
+            $links[] = [
+                'url' => (string) $sel->channel_link,
+                'label' => SignatureSettingsService::labelForSignature($sel, $platformLabels),
+            ];
         }
 
         if ($links === []) {
