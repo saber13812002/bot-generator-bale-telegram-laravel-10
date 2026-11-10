@@ -354,9 +354,9 @@ class SignatureSettingsServiceTest extends TestCase
             'selected_destinations' => [$c->id, $b->id],
         ])]);
 
-        // eligible order is preserved, not the pick order
+        // pick order is preserved (addendum D: custom = user's pick order)
         $this->assertSame(
-            [$b->id, $c->id],
+            [$c->id, $b->id],
             array_map(fn ($x) => $x->id, SignatureSettingsService::resolveSelected($d, $this->coll($a, $b, $c, $d)))
         );
 

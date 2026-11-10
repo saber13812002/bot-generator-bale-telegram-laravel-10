@@ -692,6 +692,24 @@ class ChannelPosterBotServiceImpl implements ChannelPosterBotService
             $frozenSelection
         );
 
+        // CP-SIGNATURE-DEFAULT-ORDER (addendum D): the deterministic
+        // policies all_channels/exclude_self are sorted by platform
+        // priority (independent of DB row order):
+        // Eitaa → Bale → Soroush → Telegram → Rubika.
+        // Approved exceptions: custom (user pick order) and random
+        // (frozen order) — resolveSelected already returns the approved
+        // order for those; self_only_plus_eitaa keeps self first
+        // (documented policy contract).
+        if (in_array($settings['link_selection_policy'], [
+            SignatureSettingsService::POLICY_ALL_CHANNELS,
+            SignatureSettingsService::POLICY_EXCLUDE_SELF,
+        ], true)) {
+            $selected = collect($selected)
+                ->sortBy(fn (ChannelPosterDestination $d) => SignatureSettingsService::PLATFORM_PRIORITY[$d->platform] ?? PHP_INT_MAX)
+                ->values()
+                ->all();
+        }
+
         $links = [];
         foreach ($selected as $sel) {
             if (empty($sel->channel_link)) {

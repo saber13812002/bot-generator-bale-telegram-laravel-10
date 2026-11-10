@@ -336,7 +336,8 @@ class ChannelPosterSmartSignatureTest extends TestCase
         $this->assertState(ChannelPosterBotController::STATE_SSIG_APPLY);
         $this->postCallback('cp:ssigap:always_apply');
         $this->assertState(ChannelPosterBotController::STATE_SSIG_PREVIEW);
-        $this->assertStringContainsString('«SR' . "\n" . 'TG»', $this->publisher->lastPrivateText());
+        // addendum D: preview keeps the user's pick order (telegram then soroush)
+        $this->assertStringContainsString('«TG' . "\n" . 'SR»', $this->publisher->lastPrivateText());
 
         $this->postCallback('cp:ssigpv:yes');
         $this->assertNoState();
@@ -826,8 +827,9 @@ class ChannelPosterSmartSignatureTest extends TestCase
         $this->assertNotNull($rubikaPub);
         $this->assertNull($rubikaPub['parse_mode']);
         $this->assertStringNotContainsString('href', $rubikaPub['text']);
+        // addendum D: all_channels uses platform priority (bale → telegram → rubika)
         $this->assertSame(
-            't' . "\n\nکانال بله: https://ble.ir/ch | کانال روبیکا: https://rubika.ir/ch | کانال تلگرام: https://t.me/ch",
+            't' . "\n\nکانال بله: https://ble.ir/ch | کانال تلگرام: https://t.me/ch | کانال روبیکا: https://rubika.ir/ch",
             $rubikaPub['text']
         );
 
@@ -954,8 +956,8 @@ class ChannelPosterSmartSignatureTest extends TestCase
             't' . "\n\nب1: https://ble.ir/ch | در تلگرام: https://t.me/ch",
             $byPlatform['soroush']['text']
         );
-        // telegram: both eligible links, tag (insertion) order — no
-        // self-first reordering in all_channels
+        // telegram: both eligible links in platform priority order
+        // (bale → telegram) — no self-first reordering in all_channels
         $this->assertSame(
             't' . "\n\n<a href=\"https://ble.ir/ch\">ب1</a> | <a href=\"https://t.me/ch\">در تلگرام</a>",
             $byPlatform['telegram']['text']
@@ -1659,10 +1661,14 @@ class ChannelPosterSmartSignatureTest extends TestCase
         array $order
     ): string {
         $ids = array_map('intval', (array) ($frozen[$dest->id] ?? []));
-        $selected = array_values(array_filter(
-            $order,
-            fn (ChannelPosterDestination $d) => in_array($d->id, $ids, true)
-        ));
+        // addendum D: rendered order = frozen id order (not tag order)
+        $byId = collect($order)->keyBy(fn (ChannelPosterDestination $d) => $d->id);
+        $selected = [];
+        foreach ($ids as $id) {
+            if (isset($byId[$id])) {
+                $selected[] = $byId[$id];
+            }
+        }
         $lines = array_map(
             function (ChannelPosterDestination $d) use ($platform) {
                 $label = $d->signature_label ?? $d->channel_link;

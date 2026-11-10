@@ -465,4 +465,140 @@ class ChannelPosterBotServiceTest extends TestCase
             $sig['text']
         );
     }
+
+    public function test_smart_all_channels_uses_default_platform_order(): void
+    {
+        // addendum D: ترتیب پیش‌فرض = Eitaa→Bale→Soroush→Telegram→Rubika
+        // (مستقل از ترتیب درج در دیتابیس)
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $rubika = $this->makeDest($bot->id, 'rubika', 1);
+        $tg = $this->makeDest($bot->id, 'telegram', 2, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'all_channels',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+            ]),
+        ]);
+        $bale = $this->makeDest($bot->id, 'bale', 3);
+        $soroush = $this->makeDest($bot->id, 'soroush', 4);
+        $eitaa = $this->makeDest($bot->id, 'eitaa', 5);
+
+        $sig = $this->service->buildSignatureForDestination($tg);
+        $this->assertSame(
+            "\n\n"
+            . '<a href="https://eitaa' . 'link.example/5">در ایتا</a>'
+            . ' | <a href="https://balelink.example/3">در بله</a>'
+            . ' | <a href="https://soroushlink.example/4">در سروش</a>'
+            . ' | <a href="https://telegramlink.example/2">در تلگرام</a>'
+            . ' | <a href="https://rubika' . 'link.example/1">در روبیکا</a>',
+            $sig['text']
+        );
+    }
+
+    public function test_smart_exclude_self_uses_default_platform_order(): void
+    {
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        // in insertion order: rubika, telegram, soroush(dest), bale, eitaa
+        $this->makeDest($bot->id, 'rubika', 1);
+        $this->makeDest($bot->id, 'telegram', 2);
+        $dest = $this->makeDest($bot->id, 'soroush', 3, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'exclude_self',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+            ]),
+        ]);
+        $this->makeDest($bot->id, 'bale', 4);
+        $this->makeDest($bot->id, 'eitaa', 5);
+
+        $sig = $this->service->buildSignatureForDestination($dest);
+        // soroush renders plain text (no HTML) in platform priority order
+        $this->assertSame(
+            "\n\n"
+            . 'در ایتا: https://eitaa' . 'link.example/5'
+            . ' | در بله: https://balelink.example/4'
+            . ' | در تلگرام: https://telegramlink.example/2'
+            . ' | در روبیکا: https://rubika' . 'link.example/1',
+            $sig['text']
+        );
+    }
+
+    public function test_smart_custom_policy_keeps_user_pick_order(): void
+    {
+        // استثنای مصوب: custom → ترتیب انتخاب کاربر حفظ می‌شود
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $bale = $this->makeDest($bot->id, 'bale', 1);
+        $tg = $this->makeDest($bot->id, 'telegram', 2, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'custom',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+                'selected_destinations' => [$bale->id],
+            ]),
+        ]);
+        $soroush = $this->makeDest($bot->id, 'soroush', 3);
+        $rubika = $this->makeDest($bot->id, 'rubika', 4, [
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'custom',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+                'selected_destinations' => [],
+            ]),
+        ]);
+        // custom picks: rubika first, then bale (reverse of platform priority)
+        $rubika->update(['signature_settings' => SignatureSettingsService::normalize([
+            'enabled' => true,
+            'link_selection_policy' => 'custom',
+            'layout' => 'single_line',
+            'separator' => ' | ',
+            'selected_destinations' => [$rubika->id, $bale->id],
+        ])]);
+
+        $sig = $this->service->buildSignatureForDestination($rubika);
+        // rubika (user pick #1) must come BEFORE bale (user pick #2)
+        $posRubika = mb_strpos($sig['text'], 'https://rubikalink.example/4');
+        $posBale = mb_strpos($sig['text'], 'https://balelink.example/1');
+        $this->assertNotFalse($posRubika);
+        $this->assertNotFalse($posBale);
+        $this->assertLessThan($posBale, $posRubika);
+    }
+
+    public function test_smart_random_policy_keeps_frozen_order(): void
+    {
+        // استثنای مصوب: random → ترتیب فریزشده دست‌نخورده می‌ماند
+        $bot = Bot::create(['endpoint_id' => 'webhook-channel-poster', 'bale_bot_token' => '1:token']);
+        $bale = $this->makeDest($bot->id, 'bale', 1);
+        $rubika = $this->makeDest($bot->id, 'rubika', 2);
+        $tg = $this->makeDest($bot->id, 'telegram', 3, [
+            'signature_type' => 'inline',
+            'signature_settings' => SignatureSettingsService::normalize([
+                'enabled' => true,
+                'link_selection_policy' => 'random',
+                'layout' => 'single_line',
+                'separator' => ' | ',
+                'random_count' => 2,
+            ]),
+        ]);
+        // eligible order = insertion: bale, rubika, telegram. Frozen picks
+        // rubika + bale — the rendered order must NOT be re-sorted by
+        // platform priority (bale before rubika) just because the policy
+        // engine knows priorities.
+        $frozen = [$tg->id => [$rubika->id, $bale->id]];
+
+        $sig = $this->service->buildSignatureForDestination($tg, $frozen);
+        $posRubika = mb_strpos($sig['text'], 'https://rubikalink.example/2');
+        $posBale = mb_strpos($sig['text'], 'https://balelink.example/1');
+        $this->assertNotFalse($posRubika);
+        $this->assertNotFalse($posBale);
+        // addendum D: the frozen id order [rubika, bale] is preserved —
+        // NOT re-sorted by platform priority (bale would come first)
+        $this->assertLessThan($posBale, $posRubika);
+    }
 }

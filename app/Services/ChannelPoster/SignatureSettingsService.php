@@ -83,6 +83,20 @@ class SignatureSettingsService
     ];
 
     /**
+     * CP-SIGNATURE-DEFAULT-ORDER (addendum D): ترتیب پیش‌فرض نمایش لینک‌ها
+     * در سیاست‌های قطعی all_channels/exclude_self — مستقل از ترتیب درج
+     * مقصدها در دیتابیس: ایتا ← بله ← سروش ← تلگرام ← روبیکا.
+     * استثنائات: custom (ترتیب انتخاب کاربر)، random (ترتیب فریزشده).
+     */
+    public const PLATFORM_PRIORITY = [
+        ChannelPosterDestination::PLATFORM_EITAA => 0,
+        ChannelPosterDestination::PLATFORM_BALE => 1,
+        ChannelPosterDestination::PLATFORM_SOROUSH => 2,
+        ChannelPosterDestination::PLATFORM_TELEGRAM => 3,
+        ChannelPosterDestination::PLATFORM_RUBIKA => 4,
+    ];
+
+    /**
      * پیش‌فرض کامل تنظیمات هوشمند (وقتی بخشی از JSON نگه‌داری نشده باشد).
      *
      * @return array{
@@ -323,9 +337,15 @@ class SignatureSettingsService
             // انتخاب فریزشدهٔ صف — برای retry/resend دقیقاً همان امضا
             $ids = $frozenSelection[$dest->id] ?? ($frozenSelection[(string) $dest->id] ?? null);
             if ($ids !== null) {
-                $selected = $eligible->filter(
-                    fn (ChannelPosterDestination $d) => in_array($d->id, array_map('intval', (array) $ids), true)
-                )->values()->all();
+                // CP-SIGNATURE-DEFAULT-ORDER (addendum D): frozen order =
+                // exactly the stored (frozen id) order, not tag order
+                $byId = $eligible->keyBy(fn (ChannelPosterDestination $d) => $d->id);
+                $selected = [];
+                foreach (array_map('intval', (array) $ids) as $id) {
+                    if (isset($byId[$id]) && !in_array($id, array_map(fn ($x) => $x->id, $selected), true)) {
+                        $selected[] = $byId[$id];
+                    }
+                }
                 if ($selected !== []) {
                     return $selected;
                 }
@@ -375,10 +395,15 @@ class SignatureSettingsService
 
         if ($policy === self::POLICY_CUSTOM) {
             $wanted = $settings['selected_destinations'];
-            $selected = $eligible
-                ->filter(fn (ChannelPosterDestination $d) => in_array($d->id, $wanted, true))
-                ->values()
-                ->all();
+            // CP-SIGNATURE-DEFAULT-ORDER (addendum D): custom = user's pick
+            // order (stored click order), not tag order
+            $byId = $eligible->keyBy(fn (ChannelPosterDestination $d) => $d->id);
+            $selected = [];
+            foreach (array_map('intval', (array) $wanted) as $id) {
+                if (isset($byId[$id]) && !in_array($id, array_map(fn ($x) => $x->id, $selected), true)) {
+                    $selected[] = $byId[$id];
+                }
+            }
             // خود مقصد را هم اگر لینک دارد در نظر بگیریم (custom معمولاً صریح است
             // ولی حذف خود نباید امضای خالی بسازد)
             if ($selected === [] && !empty($dest->channel_link)) {
