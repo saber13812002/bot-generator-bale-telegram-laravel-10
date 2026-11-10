@@ -494,14 +494,126 @@ class SignatureRendererTest extends TestCase
         }
     }
 
-    public function test_render_multi_multi_line_plain_platforms_label_line_then_url(): void
+    public function test_render_multi_multi_line_soroush_and_eitaa_two_lines_per_link(): void
     {
-        $res = SignatureRenderer::renderMulti('soroush', self::LINKS, 'multi_line');
+        // قرارداد multi-line (addendum D): label خط اول + لینک خط دوم —
+        // هم‌فرمت render() برای هر پلتفرمِ non-HTML.
+        foreach (['soroush', 'eitaa'] as $platform) {
+            $res = SignatureRenderer::renderMulti($platform, self::LINKS, 'multi_line');
+
+            $this->assertSame(
+                "\n\n"
+                . "کانال بله:\nhttps://ble.ir/ch"
+                . "\n"
+                . "کانال تلگرام:\nhttps://t.me/ch"
+                . "\n"
+                . "https://soroush.me/ch",
+                $res['text'],
+                $platform
+            );
+            $this->assertNull($res['parse_mode'], $platform);
+        }
+    }
+
+    public function test_render_multi_multi_line_bale_markdown_label_line_then_link_line(): void
+    {
+        $res = SignatureRenderer::renderMulti('bale', self::LINKS, 'multi_line');
 
         $this->assertSame(
-            "\n\nکانال بله: https://ble.ir/ch\nکانال تلگرام: https://t.me/ch\nhttps://soroush.me/ch",
+            "\n\n"
+            . "کانال بله:\n[https://ble.ir/ch](https://ble.ir/ch)"
+            . "\n"
+            . "کانال تلگرام:\n[https://t.me/ch](https://t.me/ch)"
+            . "\n"
+            . "https://soroush.me/ch",
             $res['text']
         );
+        $this->assertNull($res['parse_mode']);
+    }
+
+    public function test_render_multi_multi_line_bale_unsafe_markdown_label_keeps_plain_two_lines(): void
+    {
+        $res = SignatureRenderer::renderMulti('bale', [
+            ['url' => 'https://ble.ir/ch', 'label' => 'کانال [بله]'],
+        ], 'multi_line');
+
+        // برچسب ناامن Markdown → لینک خالص + برچسب خام (دو خط، بدون Markdown)
+        $this->assertSame(
+            "\n\nکانال [بله]:\nhttps://ble.ir/ch",
+            $res['text']
+        );
+        $this->assertNull($res['parse_mode']);
+        $this->assertTrue($res['fallback']);
+    }
+
+    public function test_render_multi_deduplicates_identical_urls(): void
+    {
+        // قرارداد multi-line (addendum D): هر url فقط یک‌بار نمایش داده می‌شود
+        // (اولین label برنده است) — در هر دو layout.
+        $links = [
+            ['url' => 'https://ble.ir/ch', 'label' => 'اولین'],
+            ['url' => 'https://ble.ir/ch', 'label' => 'دومین'],
+            ['url' => 'https://t.me/ch', 'label' => 'تلگرام'],
+        ];
+
+        $multi = SignatureRenderer::renderMulti('soroush', $links, 'multi_line');
+        $this->assertSame(
+            "\n\nاولین:\nhttps://ble.ir/ch\nتلگرام:\nhttps://t.me/ch",
+            $multi['text']
+        );
+
+        $single = SignatureRenderer::renderMulti('telegram', $links, 'single_line');
+        $this->assertSame(
+            "\n\n<a href=\"https://ble.ir/ch\">اولین</a> | <a href=\"https://t.me/ch\">تلگرام</a>",
+            $single['text']
+        );
+        $this->assertSame(1, substr_count($single['text'], 'https://ble.ir/ch'));
+    }
+
+    public function test_render_multi_five_platform_semantic_parity_multi_line(): void
+    {
+        // قرارداد multi-line (addendum D): برای یک مجموعهٔ لینک، هر ۵ پلتفرم
+        // برچسب‌ها و urlها را (در معنای نمایش) یک‌بار و هم‌ترتیب دارد.
+        $links = [
+            ['url' => 'https://eitaa.ir/ch', 'label' => 'در ایتا'],
+            ['url' => 'https://ble.ir/ch', 'label' => 'در بله'],
+            ['url' => 'https://soroush.me/ch', 'label' => 'در سروش'],
+            ['url' => 'https://t.me/ch', 'label' => 'در تلگرام'],
+            ['url' => 'https://rubika.ir/ch', 'label' => 'در روبیکا'],
+        ];
+
+        foreach (['eitaa', 'bale', 'soroush', 'telegram', 'rubika'] as $platform) {
+            $res = SignatureRenderer::renderMulti($platform, $links, 'multi_line');
+            $text = $res['text'];
+
+            // هر url فقط در خط لینک خود: bale → [url](url) دو بار، بقیه یک بار
+            $expectedUrlCount = $platform === 'bale' ? 2 : 1;
+            foreach ($links as $link) {
+                $this->assertSame(
+                    $expectedUrlCount,
+                    substr_count($text, $link['url']),
+                    "$platform: url {$link['url']} must appear exactly $expectedUrlCount times"
+                );
+            }
+
+            // ترتیب برچسب‌ها = ترتیب ورود (هم‌ترتیب در همهٔ پلتفرم‌ها)
+            $last = -1;
+            foreach ($links as $link) {
+                $pos = mb_strpos($text, $link['label']);
+                $this->assertNotFalse($pos, "$platform: label {$link['label']} missing");
+                $this->assertGreaterThan($last, $pos, "$platform: label order broken at {$link['label']}");
+                $last = $pos;
+            }
+
+            // هر label خط جداگانه‌ای دارد (برچسب: + خط جدید)
+            foreach ($links as $link) {
+                $this->assertStringContainsString(
+                    $link['label'] . ":\n",
+                    $text,
+                    "$platform: label {$link['label']} must end its own line"
+                );
+            }
+        }
     }
 
     public function test_render_multi_escapes_html_injection_for_anchors(): void

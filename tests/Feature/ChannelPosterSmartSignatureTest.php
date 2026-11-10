@@ -174,10 +174,10 @@ class ChannelPosterSmartSignatureTest extends TestCase
         $balePub = $this->publisher->publishes[0];
         $tgPub = $this->publisher->publishes[1];
 
-        // Bale (plain Markdown): multi_line = one link per line; the label is
-        // already part of the [label](url) link, so no separate label line.
+        // Bale (plain Markdown): multi_line two-line contract (addendum D) —
+        // label line + link line, markdown [url](url) only for safe labels.
         $this->assertSame(
-            'hello' . "\n\n[کانال ما](https://ble.ir/ch)\n[در تلگرام](https://t.me/ch)",
+            'hello' . "\n\nکانال ما:\n[https://ble.ir/ch](https://ble.ir/ch)\nدر تلگرام:\n[https://t.me/ch](https://t.me/ch)",
             $balePub['text']
         );
         $this->assertNull($balePub['parse_mode']);

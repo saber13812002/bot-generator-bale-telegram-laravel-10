@@ -232,10 +232,21 @@ class SignatureRenderer
         string $layout,
         string $separator = ' | '
     ): array {
-        $links = array_values(array_filter(
-            $links,
-            fn (array $l) => trim((string) ($l['url'] ?? '')) !== ''
-        ));
+        // CP-SIGNATURE-MULTILINE (addendum D): url خالی‌ها حذف + dedup بر اساس
+        // url — هر لینک فقط یک‌بار نمایش داده می‌شود (اولین label برنده است).
+        $seen = [];
+        $links = array_values(array_filter($links, function (array $l) use (&$seen) {
+            $u = trim((string) ($l['url'] ?? ''));
+            if ($u === '') {
+                return false;
+            }
+            if (isset($seen[$u])) {
+                return false;
+            }
+            $seen[$u] = true;
+
+            return true;
+        }));
 
         if ($links === []) {
             return self::empty('multi');
@@ -278,18 +289,26 @@ class SignatureRenderer
         }
 
         if ($layout === self::LAYOUT_MULTI_LINE) {
-            // هر لینک در یک خط مستقل:
-            //  - پلتفرم‌های ساده: «برچسب: لینک» (خود rendered برچسب را دارد)
-            //  - پلتفرم‌های html: خط برچسب جدا + لینک 앵کر
+            // قرارداد دوخطه (addendum D): هر ورودی در خط مستقل و حالت
+            // label‌دار = «برچسب:» خط اول + لینک خط دوم — هم‌فرمت render()
+            //  - html (تلگرام): خط برچسب جدا + 앵کر
+            //  - bale: Markdown [url](url) فقط وقتی برچسب امن است (همان
+            //    منطق single-line همین تابع)؛ وگرنه url خالص
+            //  - بقیه: url خالص (خودرسان)
             $out = [];
             foreach ($links as $i => $link) {
+                $label = trim((string) ($link['label'] ?? ''));
+                $label = $label !== '' ? mb_substr($label, 0, 64) : '';
                 if ($isHtml) {
-                    $label = trim((string) ($link['label'] ?? ''));
                     $out[] = $label !== ''
                         ? $label . ':' . "\n" . $lines[$i]['rendered']
                         : $lines[$i]['rendered'];
                 } else {
-                    $out[] = $lines[$i]['rendered'];
+                    $url = trim((string) $link['url']);
+                    $linkLine = ($platform === 'bale' && $label !== '' && self::markdownSafeLabel($label))
+                        ? '[' . $url . '](' . $url . ')'
+                        : $url;
+                    $out[] = $label !== '' ? $label . ':' . "\n" . $linkLine : $linkLine;
                 }
             }
             $text = "\n\n" . implode("\n", $out);
