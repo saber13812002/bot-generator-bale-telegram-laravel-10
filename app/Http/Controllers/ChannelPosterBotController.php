@@ -2573,7 +2573,8 @@ class ChannelPosterBotController extends Controller
         array $d
     ): void {
         $emoji = !empty($d['emoji']) ? (string) $d['emoji'] : SignatureRenderer::HANDLE_SIGNATURE_EMOJI;
-        $preview = $emoji . '@' . (string) ($d['handle'] ?? '');
+        // دقیقا‌ً هم‌فرمت با renderHandle: «{emoji} @{handle}»
+        $preview = $emoji . ' @' . (string) ($d['handle'] ?? '');
         $this->setState($botItem, $chatId, $type, self::STATE_HANDLE_CONFIRM, $d);
         $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_poster_hnd_confirm', ['preview' => $preview]), [
             [
@@ -2744,7 +2745,8 @@ class ChannelPosterBotController extends Controller
 
         $this->clearState($botItem, $chatId, $type);
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_saved', [
-            'preview' => ($emoji ?? SignatureRenderer::HANDLE_SIGNATURE_EMOJI) . '@' . $handle,
+            // دقیقاً هم‌فرمت با renderHandle: «{emoji} @{handle}» (فاصلهٔ امن)
+            'preview' => ($emoji ?? SignatureRenderer::HANDLE_SIGNATURE_EMOJI) . ' @' . $handle,
         ]));
     }
 

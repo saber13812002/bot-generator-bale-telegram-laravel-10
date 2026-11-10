@@ -613,7 +613,7 @@ class SignatureRendererTest extends TestCase
     {
         $result = SignatureRenderer::renderHandle('telegram', 'saberblog');
 
-        $this->assertSame("\n\n\u{1F530}@saberblog", $result['text']);
+        $this->assertSame("\n\n\u{1F530} @saberblog", $result['text']);
         $this->assertNull($result['parse_mode']);
         $this->assertSame(SignatureRenderer::TYPE_HANDLE, $result['type']);
         $this->assertFalse($result['fallback']);
@@ -630,13 +630,13 @@ class SignatureRendererTest extends TestCase
             }
             $this->assertSame($expected, $result, "platform {$platform} must match the others");
         }
-        $this->assertSame("\n\n⭐@saberblog", $expected['text']);
+        $this->assertSame("\n\n⭐ @saberblog", $expected['text']);
     }
 
     public function test_handle_custom_emoji_and_at_prefix_stripping(): void
     {
-        $this->assertSame("\n\n⭐@saberblog", SignatureRenderer::renderHandle('bale', '@saberblog', '⭐')['text']);
-        $this->assertSame("\n\n⭐@saberblog", SignatureRenderer::renderHandle('bale', '  @saberblog  ', '⭐')['text']);
+        $this->assertSame("\n\n⭐ @saberblog", SignatureRenderer::renderHandle('bale', '@saberblog', '⭐')['text']);
+        $this->assertSame("\n\n⭐ @saberblog", SignatureRenderer::renderHandle('bale', '  @saberblog  ', '⭐')['text']);
     }
 
     /**

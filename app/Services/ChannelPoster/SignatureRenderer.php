@@ -344,7 +344,8 @@ class SignatureRenderer
     /**
      * امضای «ایموجی + شناسهٔ کوتاه کانال» (CP-CHANNEL-HANDLE-SIGNATURE).
      *
-     * خروجی همیشه plain است: «{emoji}@{handle}» در خط آخر متن، بدون هیچ
+     * خروجی همیشه plain است: «{emoji} @{handle}» (با فاصلهٔ امن بین ایموجی
+     * و @handle) در خط آخر متن، بدون هیچ
      * URL، anchor یا Markdown (parse_mode = null). اگر شناسه معتبر نباشد
      * (خالی/همه‌عددی/بیش از 64 کاراکتر/کاراکتر نامعتبر) امضا ساخته نمی‌شود —
      * هیچ مقدار تخمینی تولید نمی‌شود.
@@ -354,7 +355,7 @@ class SignatureRenderer
      * @param string|null $emoji ایموجی دلخواه (null/خالی = پیش‌فرض 🔰)
      *
      * @return array{
-     *   text: string,             # «\n\n{emoji}@{handle}» یا ''
+     *   text: string,             # «\n\n{emoji} @{handle}» یا ''
      *   parse_mode: string|null,  # همیشه null
      *   type: string,             # TYPE_HANDLE
      *   fallback: bool,           # همیشه false
@@ -382,7 +383,10 @@ class SignatureRenderer
         }
 
         return [
-            'text' => "\n\n" . $emoji . '@' . $handle,
+            // فاصلهٔ امن بین ایموجی و @handle (CP-SIGNATURE-EMOJI-SPACE):
+            // «🔰 @handle» — بدون فاصله، در بعضی کلاینت‌ها @handle به‌عنوان
+            // mentions render نمی‌شود/به‌هم می‌چسبد.
+            'text' => "\n\n" . $emoji . ' @' . $handle,
             'parse_mode' => null,
             'type' => self::TYPE_HANDLE,
             'fallback' => false,
