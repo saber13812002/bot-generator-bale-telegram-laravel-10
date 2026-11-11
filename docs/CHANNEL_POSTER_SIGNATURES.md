@@ -36,6 +36,13 @@
 صورت برچسب پلتفرم (مثلاً «در بله») استفاده می‌شود. ایموجی handle یا متن pure_url **هرگز**
 به لینک‌های دیگر یا پیش‌نمایش نشت نمی‌کند (سناریوهای ۳ و ۴).
 
+**یک امضای فعال بر مقصد — تصمیم مالک (Option A پلن):** ترکیب هم‌زمان سه نوع امضا
+(pure_url + handle + smart) روی یک مقصد **حمایت نمی‌شود و لازم نیست**؛ ستون
+`signature_type` تکی است (last-writer-wins) و هر ویزارد فقط فیلدهای نوع خودش را می‌زند.
+سلسله‌مراتب رندر (هر پست): `signature_enabled=false` → هیچ امضا ←
+`signature_settings ≠ null` → موتور هوشمند (type را نادیده می‌گیرد) ← وگرنه legacy بر
+اساس `signature_type`. Option B (جدول مستقل + نمایش هم‌زمان) مصوب نشد.
+
 ---
 
 ## ۳. تنظیمات هوشمند (`signature_settings` JSON)
@@ -170,6 +177,7 @@
 | `4a709f2a` | T7 — `/deletepurelink` type-aware |
 | `d1ca421f` | T8 — `SignatureScenariosTest` (۱۰ سناریوی پذیرش) |
 | `277c977a` | T9 — `link_order` (ترتیب دلخواه + fallback priority) |
+| `4851503c` | T10 — این سند + به‌روزرسانی PROJECT_MASTER_MAP + رگرسیون (852 passed در آن لحظه) |
 
 ---
 
@@ -183,10 +191,22 @@
   بدون هیچ HTML خام + parse_mode null؛ ۱۰) retry دقیقاً یک‌بار برای parse error + حفظ
   تنظیمات مقصد دیگر.
 - واحدی: `SignatureRendererTest`، `SignatureSettingsServiceTest`، `ChannelPosterBotServiceTest`
-  (شامل ۳ تست جدید T9)، `ChannelHandleExtractorTest`.
+  (شامل تست‌های T9)، `ChannelHandleExtractorTest`.
 - Feature: `ChannelPosterSmartSignatureTest` (ویزارد/پریست/صف)،
   `ChannelPosterEitaaHardeningTest`، `ChannelPosterMediaPublishTest` (retry/رسانه)،
   `ContentSyncFlowTest`.
+- **تست‌های ترنزیشن (release-gate 2026-11-11) — ۷ رفتار مصوب در ۱۰ تست واقعی:**
+  - `tests/Unit/SignatureStateTransitionTest.php` (۶ تست): pure→handle، handle→smart،
+    smart→pure (هرکدام با `assertSame` بایت‌دقیق خروجی پیش/بعد + ایزولیشن مقصد دوم)،
+    `disableAllSignatures` روی ۴ نوع، ماتریس `/deletepurelink` روی ۶ نوع،
+    ایزولیشن تنظیمات بین مقصدها پس از ترنزیشن‌های ترکیبی.
+  - `tests/Feature/SignatureStateTransitionFeatureTest.php` (۴ تست، webhook واقعی
+    بله → ویزارد → publish): هر ۳ ترنزیشن با خروجی پابلیش بایت‌دقیق (label/emoji/anchor
+    قدیمی نمانده، خروجی مقصد همتگ بی‌تغییر) + ماتریس ویزارد `/deletepurelink`
+    (دکمهٔ حذف فقط برای pure_url، cancel بی‌اثر، publish نهایی plain در برابر `🔰 @handle`).
 
-**آخرین رگرسیون کامل (2026-11-10):** `852 passed / 2 skipped / 0 failed (5037 assertions)`
-— خروجی `2 deprecated` نویز vendor روی PHP 8.5 محلی است، نه شکست.
+**آخرین رگرسیون کامل:**
+- 2026-11-10 (T10، PHP 8.5 محلی): `852 passed / 2 skipped / 0 failed (5037 assertions)`.
+- **2026-11-11 (release-gate):** PHP 8.2.12 → `864 passed / 2 skipped / 0 failed (5367 assertions, 138.79s)`؛
+  PHP 8.5.5 → `862 passed + 2 deprecated / 2 skipped / 0 failed (5367 assertions, 90.35s)` —
+  `2 deprecated` نویز vendor روی PHP 8.5 است، نه شکست.

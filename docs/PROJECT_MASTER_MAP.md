@@ -3,7 +3,8 @@
 > **این سند چیست؟** نتیجهٔ یک بررسی کامل (audit) از کل مخزن، تاریخ‌سازِ Git، محیط Production و تمام زیرسیستم‌ها. هدف: هر agent یا توسعه‌دهنده‌ای که دفعات بعدی وارد مخزن می‌شود، با خواندن این فایل بداند **کدوم شاخه به کجا ربط دارد، Production کجاست، هر پروژه/ماژول چه می‌کند و هر مستند کجاست.**
 > **نکتهٔ روش‌شناسی:** همهٔ یافته‌های این سند ۲۰۲۶-۱۱-۱۰ (تاریخ UTC) مستقیماً از `git`، فایل‌ها و کد تأیید شده‌اند (نه حدس). جایی که چیزی تأییدنیست، با «تأییدنشده» برچسب خورده است.
 > **سند مکمل اصلی:** [`docs/AGENT_HANDOFF.md`](AGENT_HANDOFF.md) (قوانین و ریکاوری). این فایل **نقشهٔ کلی و گیت** را پوشش می‌دهد.
-> **به‌روزرسانی T10 (2026-11-10):** بخش‌های ۲.۲/۲.۳/۳.۱/۴.۴/۶/۷/۸ به‌روز شدند — HEAD = `277c977a` (T9)، رگرسیون **852 passed**. مرجع امضای کانال: [`docs/CHANNEL_POSTER_SIGNATURES.md`](CHANNEL_POSTER_SIGNATURES.md).
+> **به‌روزرسانی T10 (2026-11-10) — ⏳ Snapshot تاریخی:** در لحظهٔ commit T10، HEAD = `277c977a` (T9) بود و رگرسیون **852 passed**؛ خودِ commit T10 (`4851503c`) بعداً این وضعیت را جایگزین کرد. این خط فقط تاریخچه است. مرجع امضای کانال: [`docs/CHANNEL_POSTER_SIGNATURES.md`](CHANNEL_POSTER_SIGNATURES.md).
+> **به‌روزرسانی release-gate (2026-11-11):** HEAD = `4851503c` (T10)؛ دو فایل تست ترنزیشن جدید (`tests/Unit/SignatureStateTransitionTest.php` + `tests/Feature/SignatureStateTransitionFeatureTest.php` — ۱۰ تست / 330 assertion). رگرسیون کامل: **PHP 8.2.12: 864 passed / 2 skipped / 5367 assertions** و **PHP 8.5.5: 862 passed + 2 deprecated / 2 skipped / 5367 assertions**.
 
 ---
 
@@ -69,7 +70,7 @@
 
 | شاخه | commit نوین | تاریخ | نسل | به کجا ربط دارد |
 |---|---|---|---|---|
-| **`15esfand1404`** (لوکال، جاری) | `277c977a` (T9) | 2026-11-10 | B | **★ Production + شاخهٔ کاری فعال.** ۶ commit جلوتر از origin (T4–T9 push نشده — scope `cp-signature:`). «۱۵ اسفند ۱۴۰۴» = نام تاریخ شروع. |
+| **`15esfand1404`** (لوکال، جاری) | `4851503c` (T10) | 2026-11-11 | B | **★ Production + شاخهٔ کاری فعال.** ۷ commit جلوتر از origin (T4–T10 push نشده — scope `cp-signature:`). «۱۵ اسفند ۱۴۰۴» = نام تاریخ شروع. |
 | `origin/15esfand1404` | `64de7a3a` (T3) | 2026-11-10 | B | آخرین نسخهٔ push شده = T3 (multi-line contract). زنجیرهٔ `e66bd888` ← T1 ← T2 ← T3 روی GitHub است؛ T4–T9 محلی‌اند. |
 | `fix/content-pipeline-recovery` | `60880a6c` | 2026-10-18 | B | ancestor از `15esfand1404` — شاخهٔ ریکاوری RSS که merged شد؛ دیگر مستقل نیست. |
 | `tuning12khordad` | `da283ace` | 2026-03-06 | B | ancestor از `15esfand1404` — شاخهٔ قدیمی‌تر (امتیازدهی/رسانه). نامش شبیه `tuning12khordad` قدیمی است ولی در نسل B است. |
@@ -77,14 +78,16 @@
 | `origin/main2` (= origin/HEAD) | `c6b0eca9` | 2026-08-12 | A | **پیش‌فرض GitHub است ولی Production از آن deploy نمی‌کند.** آخرش commit «plan» است. |
 | 10 شاخهٔ remote قدیمی (2023-2026) | — | 2023 تا 2026-01 | A | شاخه‌های فیچر ربات قرآن (v5.86 → v6.18)، nova، voice_of_islam و… — تاریخ‌نگاری نسل A. |
 
-### ۲.۳ وضعیت لحظهٔ audit (2026-11-10)
+### ۲.۳ وضعیت لحظهٔ audit (2026-11-10) — Snapshot تاریخی + وضعیت نهایی (2026-11-11)
 
 | مورد | وضعیت |
 |---|---|
 | شاخهٔ کاری لوکال | `15esfand1404` |
-| Push‌شده/نشده | `e66bd888` + T1–T3 **روی GitHub** (origin = `64de7a3a`)؛ **T4–T9 (`76468b01`…`277c977a`) push نشده** |
-| فایل untracked | `docs/superpowers/` (پلن v2 امضا) — add به git یا gitignore |
-| درخت | تمیز (فقط همان فایل untracked) |
+| Push‌شده/نشده | `e66bd888` + T1–T3 **روی GitHub** (origin = `64de7a3a`)؛ **T4–T10 (`76468b01`…`4851503c`) push نشده** |
+| فایل untracked (لحظهٔ audit 2026-11-10) | `docs/superpowers/` (پلن v2 امضا) |
+| فایل untracked (release-gate 2026-11-11، قبل از finalization) | + `tests/Unit/SignatureStateTransitionTest.php` + `tests/Feature/SignatureStateTransitionFeatureTest.php` (تست‌های جدید ترنزیشن) |
+| درخت (2026-11-11، بعد از finalization) | **تمیز** — پلن + ۲ فایل تست + همین MASTER_MAP در commit نهایی‌سازی (scope `cp-signature:`) وارد git شدند؛ فایل زائد ۰‌بایتی `$ok }` (حاصل خطای typing ترمینال، 2026-11-11 15:17) حذف شد |
+| Deploy (2026-11-11) | **انجام نشده** — پراکشن همچنان `0b8f990d`/`cb5b8423`؛ push + deploy فقط بعد از تأیید مالک |
 | `origin/HEAD` | → `origin/main2` (نسل legacy) — **مهم:** اگر کسی clone کند، default branch `main2` است و **باید** `git checkout 15esfand1404` بزند. |
 
 ### ۲.۴ Tags
@@ -124,9 +127,9 @@
 ```
 دوران‌شدهٔ قبلی:  d69ef082  (PRODUCTION-STABILIZATION-06)
 هدف تأییدشده:     0b8f990d  (storage pruning + free-space guard)   ← push شده (داخل cb5b8423)
-بعد از آن روی 15esfand1404: cb5b8423 → e66bd888 → T1 → T2 → T3 (64de7a3a) → [T4–T9: 277c977a محلی، push نشده]
+بعد از آن روی 15esfand1404: cb5b8423 → e66bd888 → T1 → T2 → T3 (64de7a3a) → [T4–T10: 4851503c محلی، push نشده]
 ```
-به‌روزرسانی T10 (2026-11-10): `e66bd888` + T1–T3 **به GitHub رفته‌اند** (origin/15esfand1404 = `64de7a3a`) ولی **deploy به پراکشن اجرا نشده** — پراکشن همچنان **تا `0b8f990d`** (یا `cb5b8423`) است؛ T4–T9 (۶ commit) push نشده‌اند و بعد از push باید deploy شوند.
+به‌روزرسانی T10 (2026-11-10): `e66bd888` + T1–T3 **به GitHub رفته‌اند** (origin/15esfand1404 = `64de7a3a`) ولی **deploy به پراکشن اجرا نشده** — پراکشن همچنان **تا `0b8f990d`** (یا `cb5b8423`) است؛ T4–T10 (۷ commit) push نشده‌اند و بعد از push باید deploy شوند.
 
 ### ۳.۲ crontab واقعی پراکشن (مهم‌تر از «فقط یک خط»)
 
@@ -211,7 +214,7 @@ Smoke test بعد از deploy: `curl https://bots.pardisania.ir/api/v1/quran/lan
 | `routes/api.php` (215 خط، 37 webhook) | ورودی اصلی + REST API (quran، missions با `api.token`، metadata) |
 | `routes/bot-owner.php`، `routes/web.php` | پنل مالک + وب (Idea/Ticket، OTP) |
 | `lang/` (de-DE، en، es，ur，zh-CN) | 6 زبان UI |
-| `tests/` | ~852 تست (آخرین اجرای 2026-11-10/T10: **852 passed / 2 skipped / 0 failed — 5037 assertions**) |
+| `tests/` | ~864 تست (آخرین اجرای 2026-11-11/release-gate: **864 passed / 2 skipped / 0 failed — 5367 assertions** روی PHP 8.2.12؛ PHP 8.5.5: 862 passed + 2 deprecated / 5367 assertions) |
 
 ### ۴.۵ گروه‌های env (از [`.env.example`](../.env.example) — 234 خط)
 
@@ -304,6 +307,8 @@ Smoke test بعد از deploy: `curl https://bots.pardisania.ir/api/v1/quran/lan
 | 2026-10-19 (PHP 8.5 محلی) | **399 passed / 2 skipped / 2 deprecated — 2205 assertions, 0 failure** (108s) |
 | قبل از deploy RECOVERY-07 (2026-11-07) | **779 passed / 4559 assertions / 0 failed** |
 | 2026-11-10 (T10، PHP 8.5 محلی) | **852 passed / 2 skipped / 0 failed — 5037 assertions** (`2 deprecated` = نویز vendor) |
+| 2026-11-11 (release-gate، PHP 8.2.12) | **864 passed / 2 skipped / 0 failed — 5367 assertions** (138.79s) |
+| 2026-11-11 (release-gate، PHP 8.5.5) | **862 passed + 2 deprecated / 2 skipped / 0 failed — 5367 assertions** (90.35s) |
 | قرارداد | `php artisan test --compact`؛ `php -l` مدرک نیست؛ عدد واقعی گزارش شود؛ deprecation محلی ≠ failure |
 
 > تفاوت 399 و 779: بین دو تاریخ تست‌های زیادی (ChannelPoster، Rubika، Eitaa، Storage) اضافه شده.
@@ -314,14 +319,14 @@ Smoke test بعد از deploy: `curl https://bots.pardisania.ir/api/v1/quran/lan
 
 | # | مورد | وضعیت |
 |---|---|---|
-| 1 | **T4–T9 (۶ commit، `76468b01`…`277c977a`) push نشده** روی `15esfand1404` (origin = `64de7a3a`/T3) | باز — بعد از push، deploy به پراکشن (پراکشن هنوز `0b8f990d`/`cb5b8423`) |
+| 1 | **T4–T10 (۷ commit، `76468b01`…`4851503c`) push نشده** روی `15esfand1404` (origin = `64de7a3a`/T3) | باز — بعد از push، deploy به پراکشن (پراکشن هنوز `0b8f990d`/`cb5b8423`) |
 | 2 | **خط cron خراب sharabe-beheshti** در crontab پراکشن (کمبود `app:`) | چک‌لیست fix در [RECOVERY-07](PRODUCTION_RECOVERY_07_CPANEL_CHECKLIST.md) — اجرا در cPanel |
 | 3 | **rotate توکن Bale لیک‌شده** در لاگ (تاریخ) | تأییدنشده — چک‌لیست در [PRODUCTION_RUNBOOK](PRODUCTION_RUNBOOK.md) |
 | 4 | تعریف تکراری `POST /api/webhook-rss` در `routes/api.php` (legacy + جدید) | شناخته‌شده — تعریف بعدی برنده است؛ نیاز به تمیزکاری |
 | 5 | 3 command بدون `withoutOverlapping()` (`task-reminder`، `users-ranking`، `test-schedule-daily-into-slack`) | شناخته‌شده در JOBS_AND_SCHEDULER |
 | 6 | `origin/HEAD` روی `main2` (legacy) است ولی پراکشن `15esfand1404` است | ریسک clone اشتباه — تغییر default branch در GitHub پیشنهاد می‌شود |
 | 7 | CI روی شاخه‌های زنده غیرفعال است (`*.x`/`master` pattern) | ریسک — اضافه‌کردن `15esfand1404` به triggers پیشنهاد می‌شود |
-| 8 | فایل‌های غول‌پیکر: `BotMotherController` 199KB، `QuranWordController` 155KB، `ChannelPosterBotController` 2520 خط | refactor پیشنهادی |
+| 8 | فایل‌های غول‌پیکر: `BotMotherController` 199KB، `QuranWordController` 155KB، `ChannelPosterBotController` 5155 خط | refactor پیشنهادی |
 | 9 | `full_sched.txt` untracked | حذف یا gitignore |
 | 10 | نسل B (fresh start) tag ندارد | ایده: اولین release tag بعد از deploy `e66bd888` |
 | 11 | فرمت canonical URL سoroush در `PostUrlParser` | تأییدنشده عملیاً |
@@ -333,7 +338,7 @@ Smoke test بعد از deploy: `curl https://bots.pardisania.ir/api/v1/quran/lan
 1. `git status -sb` → باید `15esfand1404` و درخت تمیز باشد.
 2. اگر push نشده‌ای دیدی (`e66bd888` یا بعدی‌ها) → اول push، بعد deploy.
 3. قبل از هر تغییر روی خط انتشار: `docs/AGENT_HANDOFF.md` §2 (قوانین طلایی) را بخوان.
-4. تست: `php artisan test --compact` (انتظار: ~852 passed؛ deprecation محلی = نویز).
+4. تست: `php artisan test --compact` (انتظار: ~864 passed؛ deprecation محلی = نویز).
 5. هر تغییر scheduler/cron → همزمان `docs/JOBS_AND_SCHEDULER.md` آپدیت شود.
 6. هر فیچر جدید → `docs/features/<FEATURE>.md` + سناریوی تست (طبق `.agents/rules/DOCUMENTATION_RULE.md`).
 7. کارهای پراکشنی → فقط در قالب check-list برای cPanel ترمینال (دسترسی مستقیم agent نیست).
