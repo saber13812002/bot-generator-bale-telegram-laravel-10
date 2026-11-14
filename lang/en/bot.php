@@ -302,6 +302,7 @@ return [
     'book_pixel_book_found' => 'Book "{name}" found.',
     'book_pixel_book_created' => 'Book "{name}" created successfully.',
     'book_pixel_scan_sent_for_approval' => '✅ Page scan sent for approval. After approval, it will be added to the publishing queue.',
+    'book_pixel_ocr_started' => '🔍 Extracting page text with AI…',
     'book_pixel_voice_sent' => '✅ Voice sent successfully.',
     'book_pixel_score_message' => '📊 Your Score:\n\n🎯 Total Points: {points}\n📄 Scans: {scans}\n🎤 Voices: {voices}',
     'book_pixel_no_score_yet' => 'You don\'t have any points yet. Earn points by sending scans and voices!',

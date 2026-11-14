@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\AiJob;
 use App\Services\Ai\AiErrorRedactor;
 use App\Services\AiProviderService;
+use App\Services\BookPixel\BookPixelOcrService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -138,7 +139,7 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
 
         return match ($job->feature) {
             'llm_chat'         => $this->executeLlmChat($job, $payload),
-            // 'ocr'            => ... (WS-F)
+            'ocr'              => $this->executeOcr($job, $payload),
             // 'asr'            => ... (WS-G)
             // 'tts'            => ... (WS-G)
             // 'embedding'      => ... (WS-I)
@@ -190,6 +191,14 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
             'response'         => $result['response'],
             'usage'            => $result['usage'],
         ];
+    }
+
+    /**
+     * WS-F — OCR اسکن صفحه Book Pixel.
+     */
+    protected function executeOcr(AiJob $job, array $payload): array
+    {
+        return app(BookPixelOcrService::class)->execute($job);
     }
 
     protected static function classifyChatError(string $message): string

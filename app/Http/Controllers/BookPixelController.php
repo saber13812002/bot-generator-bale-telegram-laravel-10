@@ -12,10 +12,12 @@ use App\Interfaces\Services\BookStatisticsService;
 use App\Models\Bot;
 use App\Models\BotUserState;
 use App\Models\BotUsers;
+use App\Services\BookPixel\BookPixelOcrService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Telegram;
+use Throwable;
 
 class BookPixelController extends Controller
 {
@@ -54,7 +56,11 @@ class BookPixelController extends Controller
             ]);
 
             $update = $request->json()->all() ?? $request->all();
-            
+
+            // vendor Telegram می‌خواند php://input که در webhook و تست خالی است؛
+            // همان داده را مستقیم تزریق می‌کنیم (در production همان body request است)
+            $bot->setData($update);
+
             // Check for callback query first
             if (isset($update['callback_query'])) {
                 $this->handleCallbackQuery($bot, $update['callback_query'], $type, $botId, $botMotherId);
@@ -567,7 +573,22 @@ class BookPixelController extends Controller
         $this->bookPixelService->sendToModerationGroup($scan, $botId, $bot->BotType());
 
         BotHelper::sendMessage($bot, trans('bot.book_pixel_scan_sent_for_approval'));
-        
+
+        // WS-F — OCR (اختیاری؛ شکست OCR نباید جریان Bot را بشکند)
+        try {
+            $ocr = app(BookPixelOcrService::class)
+                ->triggerForScan($scan, $bot->BotType(), $botUser->isPro($botId));
+
+            if ($ocr['dispatched'] === true) {
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_ocr_started'));
+            }
+        } catch (Throwable $e) {
+            Log::warning('[BookPixel] OCR trigger failed', [
+                'error'   => $e->getMessage(),
+                'scan_id' => $scan->id,
+            ]);
+        }
+
         // Clear state
         $this->clearState($botUser, $botMotherId);
     }

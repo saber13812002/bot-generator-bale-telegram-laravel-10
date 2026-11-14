@@ -26,11 +26,15 @@ class BookPageScan extends Model
         'rejected_at',
         'rejection_reason',
         'points_awarded',
+        'ocr_text',
+        'ocr_error',
+        'ocr_at',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'ocr_at'      => 'datetime',
     ];
 
     /**

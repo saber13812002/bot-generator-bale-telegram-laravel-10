@@ -33,6 +33,7 @@ return [
     'book_pixel_book_found'                                                        => 'کتاب "{name}" یافت شد.',
     'book_pixel_book_created'                                                      => 'کتاب "{name}" با موفقیت ثبت شد.',
     'book_pixel_scan_sent_for_approval'                                            => '✅ اسکن صفحه برای تایید ارسال شد. پس از تایید، در صف انتشار قرار می‌گیرد.',
+    'book_pixel_ocr_started'                                                       => '🔍 متن صفحه در حال استخراج با هوش مصنوعی است…',
     'book_pixel_voice_sent'                                                        => '✅ وویس با موفقیت ارسال شد.',
     'book_pixel_score_message'                                                     => '📊 امتیاز شما:\n\n🎯 مجموع امتیازات: {points}\n📄 تعداد اسکن‌ها: {scans}\n🎤 تعداد وویس‌ها: {voices}',
     'book_pixel_no_score_yet'                                                      => 'شما هنوز امتیازی ندارید. با ارسال اسکن و وویس امتیاز کسب کنید!',
