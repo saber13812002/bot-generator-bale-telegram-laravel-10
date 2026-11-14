@@ -21,6 +21,8 @@ trait UsesGrowthCompanionSqlite
 
     protected function setUpGrowthCompanionTables(): void
     {
+        Schema::dropIfExists('growth_assistant_messages');
+        Schema::dropIfExists('ai_jobs');
         Schema::dropIfExists('growth_daily_checkins');
         Schema::dropIfExists('pro_purchase_requests');
         Schema::dropIfExists('pro_users');
@@ -229,6 +231,49 @@ trait UsesGrowthCompanionSqlite
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();
+        });
+
+        // WS-H — AI queue tracking table (mirror of 2026_11_14_120100_create_ai_jobs_table)
+        // Required by AiFeatureGate capacity check (L6) + AiJobDispatcher.
+        Schema::create('ai_jobs', function (Blueprint $table) {
+            $table->id();
+            $table->string('job_id', 64)->unique();
+            $table->string('idempotency_key', 128)->unique();
+            $table->unsignedBigInteger('bot_id')->nullable()->index();
+            $table->unsignedBigInteger('customer_id')->nullable()->index();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('feature', 64)->index();
+            $table->string('priority', 32)->default('regular');
+            $table->string('state', 32)->default('PENDING')->index();
+            $table->string('provider', 64)->nullable();
+            $table->string('model', 128)->nullable();
+            $table->unsignedTinyInteger('attempt_number')->default(0);
+            $table->timestamp('due_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamp('heartbeat_at')->nullable();
+            $table->string('locked_by', 64)->nullable();
+            $table->string('error_code', 64)->nullable();
+            $table->text('result_reference')->nullable();
+            $table->json('payload')->nullable();
+            $table->timestamps();
+
+            $table->index(['state', 'due_at', 'priority', 'created_at']);
+        });
+
+        // WS-H — assistant conversation log (mirror of 2026_11_14_160000_create_growth_assistant_messages_table)
+        Schema::create('growth_assistant_messages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('growth_profile_id');
+            $table->unsignedBigInteger('bot_user_id');
+            $table->string('role', 16);
+            $table->text('content');
+            $table->json('usage')->nullable();
+            $table->string('error', 64)->nullable();
+            $table->unsignedBigInteger('ai_job_id')->nullable();
+            $table->timestamps();
+            $table->index(['growth_profile_id', 'created_at']);
         });
     }
 }

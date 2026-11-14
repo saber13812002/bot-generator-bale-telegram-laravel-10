@@ -188,4 +188,6 @@ return [
     'pro_unlimited' => 'unlimited',
     'pro_need_advanced' => 'Advanced mode is part of Growth Pro.',
     'pro_need_ai' => 'New sentences are part of Growth Pro.',
+    'assistant_thinking' => '🤖 Thinking; your reply will appear here…',
+    'assistant_unavailable' => 'The assistant is unavailable right now. You can try again or use the buttons below.',
 ];

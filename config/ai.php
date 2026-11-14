@@ -22,6 +22,7 @@ return [
     'asr_model'       => env('AI_ASR_MODEL'),
     'embedding_model' => env('AI_EMBEDDING_MODEL'),
     'tts_model'       => env('AI_TTS_MODEL'),
+    'growth_companion_model' => env('AI_GROWTH_COMPANION_MODEL'),
 
     // دستور OCR پیش‌فرض برای VisionAdapter
     'vision_ocr_prompt' => env('AI_VISION_OCR_PROMPT', 'متن این تصویر را دقیق و کامل استخراج کن. ترتیب سطرها و پاراگراف‌ها را حفظ کن. فقط متن خروجی بده.'),

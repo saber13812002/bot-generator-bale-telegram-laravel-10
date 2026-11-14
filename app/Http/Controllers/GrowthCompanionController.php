@@ -11,6 +11,7 @@ use App\Models\BotUsers;
 use App\Models\BotUserState;
 use App\Models\GrowthProfile;
 use App\Models\GrowthProfileTopic;
+use App\Services\GrowthCompanion\GrowthAssistantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -218,12 +219,54 @@ class GrowthCompanionController extends Controller
 
         $profile = $this->service->getOrCreateProfile($botUser, $botItem->id);
         if ($profile->onboarding_completed_at) {
-            $this->sendHome($messenger, $profile, $chatId, trans('growth_companion.use_buttons'));
+            if (! $this->tryAssistantMessage($messenger, $botItem, $type, $chatId, $botUser, $profile, $text)) {
+                $this->sendHome($messenger, $profile, $chatId, trans('growth_companion.use_buttons'));
+            }
 
             return;
         }
 
         $this->handleStart($messenger, $botItem, $type, $chatId, $botUser);
+    }
+
+    /**
+     * WS-H: free-text assistant (AI reply). Returns true when dispatched to AI queue.
+     * Never throws: on any failure the caller falls back to the home card.
+     */
+    private function tryAssistantMessage(
+        GrowthMessenger $messenger,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        BotUsers $botUser,
+        GrowthProfile $profile,
+        string $text
+    ): bool {
+        if ($text === '' || str_starts_with($text, '/')) {
+            return false;
+        }
+
+        if (! $profile->ai_consent) {
+            return false;
+        }
+
+        try {
+            $result = app(GrowthAssistantService::class)->triggerForMessage($profile, $botItem, $text, $botUser);
+        } catch (Throwable $e) {
+            Log::warning('Growth assistant trigger failed (fallback to home card)', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        if (! ($result['dispatched'] ?? false)) {
+            return false;
+        }
+
+        $messenger->send($chatId, trans('growth_companion.assistant_thinking'));
+
+        return true;
     }
 
     private function handleCallbackQuery(

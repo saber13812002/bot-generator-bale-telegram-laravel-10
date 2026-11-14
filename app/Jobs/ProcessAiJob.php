@@ -7,6 +7,7 @@ use App\Services\Ai\AiErrorRedactor;
 use App\Services\AiProviderService;
 use App\Services\BookPixel\BookPixelAsrService;
 use App\Services\BookPixel\BookPixelOcrService;
+use App\Services\GrowthCompanion\GrowthAssistantService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -142,9 +143,9 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
             'llm_chat'         => $this->executeLlmChat($job, $payload),
             'ocr'              => $this->executeOcr($job, $payload),
             'asr'              => $this->executeAsr($job, $payload),
+            'growth_companion' => $this->executeGrowthCompanion($job, $payload),
             // 'tts'            => ... (WS-G)
             // 'embedding'      => ... (WS-I)
-            // 'growth_companion' => ... (WS-H)
             default            => [
                 'success'      => false,
                 'error_code'   => 'feature_not_supported',
@@ -208,6 +209,14 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
     protected function executeAsr(AiJob $job, array $payload): array
     {
         return app(BookPixelAsrService::class)->execute($job);
+    }
+
+    /**
+     * WS-H — پاسخ دستیار رشدیار به متن آزاد کاربر.
+     */
+    protected function executeGrowthCompanion(AiJob $job, array $payload): array
+    {
+        return app(GrowthAssistantService::class)->execute($job);
     }
 
     protected static function classifyChatError(string $message): string
