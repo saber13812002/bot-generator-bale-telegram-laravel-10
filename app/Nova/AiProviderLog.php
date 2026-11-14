@@ -52,12 +52,12 @@ class AiProviderLog extends Resource
         ];
     }
 
-    public function authorizedToCreate(Request $request)
+    public static function authorizedToCreate(Request $request): bool
     {
         return false;
     }
 
-    public function authorizedToUpdate(Request $request)
+    public function authorizedToUpdate(Request $request): bool
     {
         return false;
     }
