@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\AiJob;
 use App\Services\Ai\AiErrorRedactor;
 use App\Services\AiProviderService;
+use App\Services\Ai\RagEmbeddingService;
 use App\Services\BookPixel\BookPixelAsrService;
 use App\Services\BookPixel\BookPixelOcrService;
 use App\Services\GrowthCompanion\GrowthAssistantService;
@@ -144,8 +145,8 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
             'ocr'              => $this->executeOcr($job, $payload),
             'asr'              => $this->executeAsr($job, $payload),
             'growth_companion' => $this->executeGrowthCompanion($job, $payload),
+            'embedding'        => $this->executeEmbedding($job, $payload),
             // 'tts'            => ... (WS-G)
-            // 'embedding'      => ... (WS-I)
             default            => [
                 'success'      => false,
                 'error_code'   => 'feature_not_supported',
@@ -217,6 +218,14 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
     protected function executeGrowthCompanion(AiJob $job, array $payload): array
     {
         return app(GrowthAssistantService::class)->execute($job);
+    }
+
+    /**
+     * WS-I — تولید/به‌روزرسانی بردار معنایی (RAG & Embedding readiness).
+     */
+    protected function executeEmbedding(AiJob $job, array $payload): array
+    {
+        return app(RagEmbeddingService::class)->execute($job);
     }
 
     protected static function classifyChatError(string $message): string
