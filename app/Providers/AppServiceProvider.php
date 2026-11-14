@@ -180,14 +180,22 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GrowthCompanionService::class, GrowthCompanionServiceImpl::class);
         $this->app->bind(GrowthMessengerFactory::class, TelegramGrowthMessengerFactory::class);
         $this->app->bind(GrowthLlmProvider::class, function () {
-            $key = config('growth.llm.api_key');
-            if (!$key) {
+            // WS-J: اولویت ۱) کلید اختصاصی GROWTH_LLM ۲) central LiteLLM ۳) Null
+            $config = (array) config('growth.llm');
+
+            if (!$config['api_key']) {
+                $config['api_key'] = config('ai.default_api_key');
+                $config['base_url'] = config('ai.default_base_url');
+                $config['model'] = (string) (config('ai.growth_companion_model') ?: config('ai.default_model'));
+            }
+
+            if (!$config['api_key']) {
                 return new \App\Services\NullGrowthLlmProvider();
             }
 
             return new \App\Services\HttpGrowthLlmProvider(
                 new \GuzzleHttp\Client(),
-                (array) config('growth.llm')
+                $config
             );
         });
         $this->app->bind(MawkibFinderService::class, MawkibFinderServiceImpl::class);

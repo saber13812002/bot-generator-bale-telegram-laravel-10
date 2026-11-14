@@ -206,8 +206,14 @@ class ActivityReportSummaryService
     public function analyze(array $stats, array $cohort): ?string
     {
         try {
-            $provider = AiProvider::active()->orderBy('id')->first()
-                ?? AiProviderService::ensureDefaultProvider();
+            // WS-J: فقط provider سالم — provider «failed» هزینه‌ی HTTP اضافی ندارد
+            $provider = AiProviderService::healthyProvider();
+
+            if (!$provider) {
+                Log::warning('[ActivityReport] No healthy AI provider; skipping analysis');
+
+                return null;
+            }
 
             $result = (new AiProviderService($provider))->chat(
                 $this->buildPrompt($stats, $cohort),

@@ -25,8 +25,10 @@ use Illuminate\Support\Facades\Log;
  *    functionality عادی bot را بشکند.
  *  - L4 برعکس بقیه رد نمی‌کند؛ result deferrable=true و reason 'deferred'
  *    برمی‌گرداند تا dispatcher job را DEFERRED کند (acceptance scenario 1).
- *  - L5/L6 برای MVP «safe-by-default» هستند: اگر provider row در DB نباشد یا
- *    health check خطا بدهد، pass می‌شود (تا WS-J/health-check سخت‌گیرتر شود).
+ *  - L5 strict (WS-J): اگر provider فعال در DB نباشد → deny 'provider_missing'
+ *    (قابلی تنظیم با config('ai.require_active_provider') — پیش‌فرض true).
+ *    exception در health check → باز هم pass ایمن (never-throw).
+ *  - L6 برای MVP «safe-by-default» است.
  */
 class AiFeatureGate
 {
@@ -115,9 +117,17 @@ class AiFeatureGate
                 return $this->result(true, 'deferred', 'در پنجره‌ی deferral (09–14 تهران) — job با DEFERRED می‌رود', true);
             }
 
-            // L5: provider health (safe-by-default)
+            // L5: provider health (WS-J: strict — بدون provider فعال → provider_missing)
             if ($this->providerHealthy() === false) {
-                return $this->result(false, 'provider_unhealthy', 'health check provider ناموفق بود');
+                $missing = \App\Models\AiProvider::active()->count() === 0;
+
+                return $this->result(
+                    false,
+                    $missing ? 'provider_missing' : 'provider_unhealthy',
+                    $missing
+                        ? 'هیچ provider فعال در ai_providers نیست (strict mode)'
+                        : 'health check provider ناموفق بود'
+                );
             }
 
             // L6: per-bot capacity
@@ -223,8 +233,11 @@ class AiFeatureGate
 
     /**
      * L5: آیا provider healthy است؟
-     * - بدون provider row در DB → true (safe-by-default؛ WS-J سخت‌گیرتر می‌کند)
+     * - strict (ai.require_active_provider، پیش‌فرض true): بدون provider row
+     *   فعال → false (deny با 'provider_missing') — WS-J
+     * - non-strict: بدون provider row → true (safe-by-default)
      * - testConnection() (GET /v1/models) ناموفق → false (ولی هرگز throw نمی‌کند)
+     * - exception در health check → safe-by-default pass + log
      * - نتیجه 30 ثانیه cache می‌شود
      */
     private function providerHealthy(): ?bool
@@ -237,7 +250,9 @@ class AiFeatureGate
         $healthy = true;
         try {
             $provider = \App\Models\AiProvider::active()->first();
-            if ($provider) {
+            if ($provider === null) {
+                $healthy = ! (bool) config('ai.require_active_provider', true);
+            } else {
                 $test = (new AiProviderService($provider))->testConnection();
                 $healthy = (bool) ($test['success'] ?? false);
             }

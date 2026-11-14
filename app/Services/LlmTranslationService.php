@@ -94,17 +94,8 @@ class LlmTranslationService
      */
     private static function selectHealthyProvider(): ?AiProvider
     {
-        $providers = AiProvider::active()->orderBy('id')->get();
-
-        // جدول خالی است → provider پیش‌فرض از config ساخته می‌شود
-        if ($providers->isEmpty()) {
-            return AiProviderService::ensureDefaultProvider();
-        }
-
-        // «سالم» = statusِ آخرین تست «failed» نباشد (null یعنی هنوز تست نشده → قابل امتحان)
-        $healthy = $providers->first(fn ($p) => $p->last_test_status !== 'failed');
-
-        return $healthy;
+        // WS-J: انتخاب مشترک همه consumerها (provider failed = بدون HTTP)
+        return AiProviderService::healthyProvider();
     }
 
     /**

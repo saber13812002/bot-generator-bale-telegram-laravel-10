@@ -53,6 +53,22 @@ class TranslationDriverTest extends TestCase
         $this->assertSame('Hello world', $result);
     }
 
+    public function test_failed_provider_returns_original_without_http(): void
+    {
+        // WS-J (guard): provider failed → LLM اصلاً کوشش نمی‌کند، بدون HTTP
+        // providerِ موجودِ setUp را failed می‌کنیم (نه اینکه provider دوم بسازیم)
+        \App\Models\AiProvider::query()->update([
+            'last_test_status' => 'failed',
+            'last_tested_at'   => now(),
+        ]);
+        Http::fake(fn () => Http::response(['error' => 'boom'], 500));
+
+        $result = TranslationService::call('Hello world');
+
+        $this->assertSame('Hello world', $result);
+        Http::assertNothingSent();
+    }
+
     public function test_empty_input_returns_empty_string(): void
     {
         $result = TranslationService::call('');

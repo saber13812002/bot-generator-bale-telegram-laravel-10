@@ -92,13 +92,16 @@ match (true) {
 $gate->isOpen('ocr', $botId);
 ```
 
-## ۵. L5 — سلامت provider (MVP: safe-by-default)
+## ۵. L5 — سلامت provider (WS-J: strict)
 
 - provider فعال در DB (`ai_providers.is_active=1`) پیدا شد → `AiProviderService::testConnection()` (GET `/v1/models`):
   `success=false` → `provider_unhealthy` (deny).
-- **بدون provider row در DB → pass** (MVP؛ در WS-J سخت‌گیرتر می‌شود).
-- exception در health check → pass + log (never-throw).
+- **بدون provider row فعال در DB:**
+  - strict mode (`config('ai.require_active_provider')` — پیش‌فرض **true**، env `AI_REQUIRE_ACTIVE_PROVIDER`) → **deny `provider_missing`** (WS-J: سخت‌گیرانه).
+  - non-strict (مثلاً در phpunit.xml `false`) → pass (safe-by-default).
+- exception در health check → pass + log (never-throw) — مثلاً نبود جدول `ai_providers` در تست‌های sqlite مختص‌به‌خود.
 - نتیجه **30 ثانیه** cache می‌شود (`ai:gate:provider_healthy`)؛ `AiFeatureGate::clearHealthCache()` برای invalidation دستی (مثلاً بعد از `ai:health-check` موفق).
+- پوشش: `tests/Feature/AiConsumerHardeningTest.php` (J1).
 
 ## ۶. L6 — ظرفیت per-bot
 

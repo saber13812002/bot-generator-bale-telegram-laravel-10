@@ -123,6 +123,27 @@ class ChannelMotivationSendTest extends TestCase
         $this->assertNull($schedule->refresh()->last_sent_at);
     }
 
+    public function test_failed_provider_run_fails_without_http(): void
+    {
+        // WS-J: provider failed → بدون هیچ HTTP call باید run fail شود
+        [$bot, $schedule] = $this->createFixture();
+        // providerِ موجودِ setUp را failed می‌کنیم (نه اینکه provider دوم بسازیم)
+        \App\Models\AiProvider::query()->update([
+            'last_test_status' => 'failed',
+            'last_tested_at'   => now(),
+        ]);
+        Carbon::setTestNow(Carbon::parse('2026-10-09 06:00:00'));
+        Http::fake(fn () => Http::response(['error' => 'boom'], 500));
+
+        $this->artisan('channel-motivation:send')
+            ->assertFailed();
+
+        $this->assertCount(0, $this->publisher->publishes);
+        $this->assertNull($schedule->refresh()->last_sent_at);
+        // admin-notification ممکن است HTTP بزند؛ اما chat/completions نه
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/v1/chat/completions'));
+    }
+
     public function test_not_due_on_thursday_is_skipped(): void
     {
         [$bot, $schedule] = $this->createFixture();

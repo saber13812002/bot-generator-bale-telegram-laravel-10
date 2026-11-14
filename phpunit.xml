@@ -26,6 +26,8 @@
         <env name="DB_DATABASE" value="pardisa2_bot_platform_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- WS-J: strict L5 در تست‌ها خاموش؛ strict جدا در AiConsumerHardeningTest test می‌شود -->
+        <env name="AI_REQUIRE_ACTIVE_PROVIDER" value="false"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="LOG_VIEWER_SECRET" value="test-log-viewer-secret-token-at-least-32-chars"/>

@@ -200,6 +200,30 @@ class AiProviderService
     }
 
     /**
+     * WS-J: انتخاب مشترک provider برای همه consumerها (ترجمه RSS، گزارش
+     * فعالیت، متن انگیزشی کانال، دروازه‌ی L5).
+     *
+     * فعال‌ترین‌ها را می‌گیرد؛ providerهایی که health-check آن‌ها را «failed»
+     * ثبت کرده (last_test_status) رد می‌کند — مگر اینکه هیچ گزینه‌ی سالمی
+     * نباشد (آن وقت null برمی‌گردد و consumer بدون HTTP کوشش می‌کند).
+     * جدول خالی → provider پیش‌فرض از config.
+     *
+     * @return AiProvider|null
+     */
+    public static function healthyProvider(): ?AiProvider
+    {
+        $providers = AiProvider::active()->orderBy('id')->get();
+
+        // جدول خالی است → provider پیش‌فرض از config ساخته می‌شود
+        if ($providers->isEmpty()) {
+            return self::ensureDefaultProvider();
+        }
+
+        // «سالم» = statusِ آخرین تست «failed» نباشد (null یعنی هنوز تست نشده → قابل امتحان)
+        return $providers->first(fn ($p) => $p->last_test_status !== 'failed');
+    }
+
+    /**
      * ایجاد خودکار provider پیش‌فرض از تنظیمات .env (config/ai.php)
      *
      * اگر رکورد provider با همان base_url موجود نباشد، ساخته می‌شود —

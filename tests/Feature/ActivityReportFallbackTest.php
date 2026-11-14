@@ -90,6 +90,22 @@ class ActivityReportFallbackTest extends TestCase
         $this->assertStringContainsString('👥 مقایسه با سایر کاربران (ناشناس):', $message);
     }
 
+    public function test_analyze_skips_failed_provider_without_http(): void
+    {
+        // WS-J: provider با last_test_status='failed' نباید اصلاً HTTP بخورد
+        // (providerِ موجودِ setUp را failed می‌کنیم)
+        \App\Models\AiProvider::query()->update([
+            'last_test_status' => 'failed',
+            'last_tested_at'   => now(),
+        ]);
+        Http::fake(fn () => Http::response(['error' => 'boom'], 500));
+
+        $message = (new ActivityReportSummaryService())->buildMessage(111, 'bale');
+
+        $this->assertStringContainsString('در دسترس نیست', $message);
+        Http::assertNothingSent();
+    }
+
     public function test_build_message_includes_llm_analysis_when_available(): void
     {
         Http::fake(fn () => Http::response([

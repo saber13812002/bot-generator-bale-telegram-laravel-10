@@ -30,6 +30,12 @@ return [
     // پلتفرم نوتیفیکیشن پیش‌فرض (bale|telegram)
     'notify_type' => env('AI_HEALTH_NOTIFY_TYPE', 'bale'),
 
+    // WS-J: strict L5 — اگر در ai_providers هیچ row فعالی نباشد، AiFeatureGate
+    // رد می‌کند (reason 'provider_missing') به‌جای safe-by-default pass.
+    // پیش‌فرض true (production)؛ در phpunit.xml false است تا تست‌های
+    // موجود بدون provider row دست‌نخورده بمانند (strict جدا test شده).
+    'require_active_provider' => env('AI_REQUIRE_ACTIVE_PROVIDER', true),
+
     // توکن و چت آیدی اختصاصی — اگر ست شد روی مقادیر پیش‌فرض می‌نویسد
     'custom_bot_token' => env('AI_CUSTOM_BOT_TOKEN', env('BOT_MOTHER_TOKEN_BALE')),
     'custom_chat_id'   => env('AI_CUSTOM_CHAT_ID', env('SUPER_ADMIN_CHAT_ID_BALE')),

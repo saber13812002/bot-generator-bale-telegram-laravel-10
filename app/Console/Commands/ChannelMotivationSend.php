@@ -123,8 +123,16 @@ class ChannelMotivationSend extends Command
     private function generateText(ChannelMotivationalSchedule $schedule): ?string
     {
         try {
-            $provider = AiProvider::active()->orderBy('id')->first()
-                ?? AiProviderService::ensureDefaultProvider();
+            // WS-J: فقط provider سالم — provider «failed» هزینه‌ی HTTP اضافی ندارد
+            $provider = AiProviderService::healthyProvider();
+
+            if (!$provider) {
+                Log::warning('[ChannelMotivation] No healthy AI provider; skipping LLM', [
+                    'schedule_id' => $schedule->id,
+                ]);
+
+                return null;
+            }
 
             $prompt = $schedule->getEffectivePrompt();
 
