@@ -12,6 +12,7 @@ use App\Interfaces\Services\BookStatisticsService;
 use App\Models\Bot;
 use App\Models\BotUserState;
 use App\Models\BotUsers;
+use App\Services\BookPixel\BookPixelAsrService;
 use App\Services\BookPixel\BookPixelOcrService;
 use Exception;
 use Illuminate\Http\Request;
@@ -631,6 +632,22 @@ class BookPixelController extends Controller
         }
 
         BotHelper::sendMessage($bot, trans('bot.book_pixel_voice_sent'));
+
+        // WS-G — ASR (اختیاری؛ شکست ASR نباید جریان Bot را بشکند)
+        try {
+            $asr = app(BookPixelAsrService::class)
+                ->triggerForVoice($voiceRecord, $type, $botUser->isPro($botId));
+
+            if ($asr['dispatched'] === true) {
+                BotHelper::sendMessage($bot, trans('bot.book_pixel_asr_started'));
+            }
+        } catch (Throwable $e) {
+            Log::warning('[BookPixel] ASR trigger failed', [
+                'error'    => $e->getMessage(),
+                'voice_id' => $voiceRecord->id,
+            ]);
+        }
+
         $this->clearState($botUser, $botMotherId);
     }
 

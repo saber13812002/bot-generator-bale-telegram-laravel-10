@@ -17,6 +17,13 @@ class BookPageVoice extends Model
         'file_id',
         'file_unique_id',
         'points_awarded',
+        'asr_text',
+        'asr_error',
+        'asr_at',
+    ];
+
+    protected $casts = [
+        'asr_at' => 'datetime',
     ];
 
     /**

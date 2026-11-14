@@ -10,6 +10,14 @@ class BookPublishingQueue extends Model
 {
     use HasFactory;
 
+    /**
+     * WS-G — اصلاح: جدول در migration به‌صورت مفرد ساخته شده
+     * (book_publishing_queue)؛ بدون این خاصیت Eloquent جدول
+     * book_publishing_queues را پیدا نمی‌کرد و همه‌ی کوئری‌ها
+     * با «table not found» شکست می‌خوردند.
+     */
+    protected $table = 'book_publishing_queue';
+
     protected $fillable = [
         'book_page_scan_id',
         'book_page_voice_id',
