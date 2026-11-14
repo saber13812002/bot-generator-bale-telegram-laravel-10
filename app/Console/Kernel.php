@@ -140,6 +140,30 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // ── صف AI (WS-D) ────────────────────────────────────────────────────
+        // worker: cron دقیقه‌ای cPanel → schedule:run → این entry → queue:work --queue=ai
+        // (Supervisor در هاستینگ اشتراکی نیست؛ docs/QUEUE_AI_WORKER.md)
+        $schedule->command('ai:queue-work')
+            ->everyMinute()
+            ->withoutOverlapping(5);
+
+        // flush jobهای DEFERRED: روزانه 14:00 Tehran = 10:30 UTC (سیاست زمان owner)
+        // + هر ۱۰ دقیقه برای تضمین «بدون جاافتادن و بدون تکرار» (idempotent)
+        $schedule->command('ai:queue-flush-deferred')
+            ->dailyAt('10:30')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('ai:queue-flush-deferred')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // recovery: PROCESSING کهنه (worker مرده/restart) + EXPIRED قدیمی‌ها + re-push گم‌شده‌ها
+        $schedule->command('ai:queue-recover-stale')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
         $schedule->command(ScheduleContentDelivery::class)
             ->hourly()

@@ -50,4 +50,35 @@ return [
             'no' => ['*'],
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Queue (WS-D)
+    |--------------------------------------------------------------------------
+    |
+    | صف مستقل و پایدار برای کارهای هوش مصنوعی (LLM/OCR/ASR/...):
+    | - اتصال صریح 'database' روی queue 'ai' — مستقل از QUEUE_CONNECTION=sync
+    |   (بقیه اپ هنوز sync می‌ماند؛ ریسک صفر برای فرآیندهای فعلی)
+    | - worker: cron دقیقه‌ای cPanel → queue:work --queue=ai --stop-when-empty
+    |   (Supervisor در هاستینگ اشتراکی نیست؛ docs/QUEUE_AI_WORKER.md)
+    | - سیاست زمان (Asia/Tehran): عادی 00–09 و 14–24 فوری، 09–14 DEFERRED؛
+    |   Pro ۲۴ ساعته. flush روزانه 14:00 (UTC 10:30) + flush هر ۱۰ دقیقه.
+    |
+    */
+    'queue' => [
+        'connection'      => 'database',
+        'queue'           => 'ai',
+        'concurrency'     => 1,          // هم‌زمانی worker (cron → یک instance در هر دقیقه)
+        'max_time'        => 50,         // ثانیه؛ worker قبل از timeout cron (60s) تمام می‌شود
+        'max_jobs'        => 200,        // سقف کار در هر اجرای worker
+        'timeout'         => 180,        // ثانیه؛ سقف عمر هر job (job-level timeout)
+        'tries'           => 3,          // تعداد تلاش‌های کل
+        'backoff'         => [30, 120, 300], // ثانیه؛ فاصله بین تلاش‌ها
+        'deferred_max_age_hours' => 48,  // DEFERRED قدیمی‌تر از این → EXPIRED
+        'stale_after_minutes'    => 20,  // PROCESSING با heartbeat کهنه‌تر از این → recover
+        'max_attempts'     => 5,         // سقف attempt قبل از FAILED (dead letter)
+        'expires_after_hours' => 24,     // سقف کلی عمر job از moment خلق
+        // سقف هم‌زمانی PROCESSING بر حسب bot (جلوگیری از انحصار یک bot)
+        'max_processing_per_bot' => 5,
+    ],
 ];
