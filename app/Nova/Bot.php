@@ -217,6 +217,53 @@ class Bot extends Resource
                 return $count > 0 ? "{$count} requests" : '0 requests';
             })->sortable()->help('تعداد درخواست در ۲۴ ساعت'),
 
+            // ===== AI Feature Flags (WS-E) =====
+            \Laravel\Nova\Fields\Section::make('AI — قابلیت‌ها (WS-E)')
+                ->description('کلیدهای هوش مصنوعی این ربات. «پیروی از سراسری» یعنی override نیست و flag سراسری (env) حاکم است.')
+                ->columns(2)
+                ->fields([
+                    \Laravel\Nova\Fields\Select::make('LLM (ai_llm_enabled)', 'ai_llm')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('گفتگو/ترجمه با LLM'),
+
+                    \Laravel\Nova\Fields\Select::make('OCR (ai_ocr_enabled)', 'ai_ocr')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('تبدیل عکس به متن (Vision)'),
+
+                    \Laravel\Nova\Fields\Select::make('ASR (ai_asr_enabled)', 'ai_asr')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('تبدیل گفتار به متن'),
+
+                    \Laravel\Nova\Fields\Select::make('RAG (ai_rag_enabled)', 'ai_rag')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('جستجوی برداری روی محتوای ربات'),
+
+                    \Laravel\Nova\Fields\Select::make('TTS (ai_tts_enabled)', 'ai_tts')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('تبدیل متن به گفتار'),
+
+                    \Laravel\Nova\Fields\Select::make('Growth Companion (ai_growth_companion_enabled)', 'ai_growth_companion')
+                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                        ->default('follow')
+                        ->displayUsingLabels()
+                        ->help('همراه رشد کاربر (مخصوصاً Pro)'),
+                ]),
+
+            \Laravel\Nova\Fields\Text::make('AI Test Group (allowlist)', 'ai_test_group')
+                ->nullable()
+                ->help('آی‌دی‌های user/customer مجاز برای rollout تدریجی، جداشده با ویرگول (مثال: 12, 34). خالی = همه.')
+                ->hideFromIndex(),
+
         ];
     }
 

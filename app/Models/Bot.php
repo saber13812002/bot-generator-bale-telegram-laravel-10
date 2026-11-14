@@ -15,6 +15,159 @@ class Bot extends Model
 
     protected $guarded = [];
 
+    protected $casts = [
+        'ai_settings' => 'array',
+    ];
+
+    /**
+     * WS-E: flag این bot برای یک capability AI (override لایه‌ی 2).
+     * null = بدون override (مقدار سراسری حاکم است).
+     * مقادیر قابل قبول: bool واقعی، یا 'on'/'off' (مقدار Select در Nova)، 'follow' = null.
+     */
+    public function aiFlag(string $feature): ?bool
+    {
+        $flags = $this->ai_settings['ai_feature_flags'] ?? [];
+
+        if (! array_key_exists($feature, $flags)) {
+            return null;
+        }
+
+        $v = $flags[$feature];
+
+        if (is_bool($v)) {
+            return $v;
+        }
+
+        return match ((string) $v) {
+            'on', 'true', '1', '1.0'   => true,
+            'off', 'false', '0', '0.0' => false,
+            default                     => null,
+        };
+    }
+
+    /** WS-E: set/remove override یک capability (null = حذف override) */
+    public function setAiFlag(string $feature, ?bool $value): self
+    {
+        $settings = $this->ai_settings ?? [];
+        $flags    = $settings['ai_feature_flags'] ?? [];
+
+        if ($value === null) {
+            unset($flags[$feature]);
+        } else {
+            $flags[$feature] = $value;
+        }
+
+        $settings['ai_feature_flags'] = $flags;
+        $this->forceFill(['ai_settings' => $settings])->save();
+
+        return $this;
+    }
+
+    /** WS-E: test group allowlist (null = بدون allowlist) */
+    public function aiTestGroup(): ?array
+    {
+        $raw = $this->ai_settings['ai_test_group'] ?? null;
+
+        return is_array($raw) && $raw !== []
+            ? array_values(array_filter(array_map('intval', $raw), fn ($v) => $v > 0))
+            : null;
+    }
+
+    /** WS-E: set/remove test group allowlist */
+    public function setAiTestGroup(?array $userIds): self
+    {
+        $settings = $this->ai_settings ?? [];
+
+        if ($userIds === null) {
+            unset($settings['ai_test_group']);
+        } else {
+            $settings['ai_test_group'] = array_values(array_filter(array_map('intval', $userIds), fn ($v) => $v > 0));
+        }
+
+        $this->forceFill(['ai_settings' => $settings])->save();
+
+        return $this;
+    }
+
+    /** WS-E: map از attribute‌های فیک Nova به capability */
+    private const AI_CAP_ATTRS = [
+        'ai_llm'               => 'llm',
+        'ai_ocr'               => 'ocr',
+        'ai_asr'               => 'asr',
+        'ai_rag'               => 'rag',
+        'ai_tts'               => 'tts',
+        'ai_growth_companion'  => 'growth_companion',
+    ];
+
+    /**
+     * WS-E: نگاشت فیلدهای Nova (Select/Text با attribute غیر-ستونی) به ai_settings.
+     * فقط در memory می‌نویسد؛ persistence با save() معمولی (Nova یا caller).
+     * مقادیر Select: 'follow'|'on'|'off' → null|true|false
+     * Text ai_test_group: '123, 456' → [123,456] (خالی → حذف)
+     */
+    public function setAttribute($key, $value)
+    {
+        if (array_key_exists($key, self::AI_CAP_ATTRS)) {
+            $cap = self::AI_CAP_ATTRS[$key];
+            $v   = match ((string) $value) {
+                'on', 'true', '1', '1.0'   => true,
+                'off', 'false', '0', '0.0' => false,
+                default                    => null,
+            };
+
+            $settings = $this->ai_settings ?? [];
+            $flags    = $settings['ai_feature_flags'] ?? [];
+            if ($v === null) {
+                unset($flags[$cap]);
+            } else {
+                $flags[$cap] = $v;
+            }
+            $settings['ai_feature_flags'] = $flags;
+            $this->ai_settings = $settings;
+            return;
+        }
+
+        if ($key === 'ai_test_group') {
+            $ids = array_values(array_filter(array_map(
+                'intval',
+                array_map('trim', explode(',', (string) $value))
+            ), fn ($n) => $n > 0));
+
+            $settings = $this->ai_settings ?? [];
+            if ($ids === []) {
+                unset($settings['ai_test_group']);
+            } else {
+                $settings['ai_test_group'] = $ids;
+            }
+            $this->ai_settings = $settings;
+            return;
+        }
+
+        parent::setAttribute($key, $value);
+    }
+
+    /**
+     * WS-E: مقادیر نمایشی فیلدهای Nova ('follow'|'on'|'off' و متن test group)
+     */
+    public function getAttribute($key)
+    {
+        if (array_key_exists($key, self::AI_CAP_ATTRS)) {
+            return match (true) {
+                $this->aiFlag(self::AI_CAP_ATTRS[$key]) === true  => 'on',
+                $this->aiFlag(self::AI_CAP_ATTRS[$key]) === false => 'off',
+                default                                           => 'follow',
+            };
+        }
+
+        if ($key === 'ai_test_group') {
+            $ids = $this->aiTestGroup();
+
+            return $ids === null ? '' : implode(', ', $ids);
+        }
+
+        return parent::getAttribute($key);
+    }
+
     /**
      * رابطه با WebhookEndpoint
      */

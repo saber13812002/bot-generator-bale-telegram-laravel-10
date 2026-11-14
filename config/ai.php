@@ -33,6 +33,26 @@ return [
     'custom_bot_token' => env('AI_CUSTOM_BOT_TOKEN', env('BOT_MOTHER_TOKEN_BALE')),
     'custom_chat_id'   => env('AI_CUSTOM_CHAT_ID', env('SUPER_ADMIN_CHAT_ID_BALE')),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Feature Flags (WS-E) — کلیدهای روشن/خاموش سراسری
+    |--------------------------------------------------------------------------
+    |
+    | لایه‌ی اول AiFeatureGate. هر capability مستقل است (decision owner #3).
+    | همه پیش‌فرض خاموش → rollout تدریجی (staged): هر bot/capability جدا
+    | روشن می‌شود. override هر bot در bots.ai_settings (لایه دوم، Nova).
+    |
+    */
+    'flags' => [
+        'ai_global_enabled'           => env('AI_FLAG_GLOBAL', false),
+        'ai_llm_enabled'              => env('AI_FLAG_LLM', false),
+        'ai_ocr_enabled'              => env('AI_FLAG_OCR', false),
+        'ai_asr_enabled'              => env('AI_FLAG_ASR', false),
+        'ai_rag_enabled'              => env('AI_FLAG_RAG', false),
+        'ai_growth_companion_enabled' => env('AI_FLAG_GROWTH', false),
+        'ai_tts_enabled'              => env('AI_FLAG_TTS', false),
+    ],
+
     // تنظیمات HTTP
     // verify: اعتبارسنجی SSL — پیش‌فرض فعال (Strict TLS)
     //   ۱/true: اعتبارسنجی با CA bundle — پیش‌فرض bundle خود رپوزیتری
