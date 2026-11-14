@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\AdminHelper;
+use App\Services\Ai\AiErrorRedactor;
 use App\Helpers\BotHelper;
 use App\Helpers\EmailAdminHelper;
 use App\Models\AiProvider;
@@ -64,17 +65,17 @@ class AiProviderService
 
             return [
                 'success' => false,
-                'message' => 'خطا: HTTP ' . $response->status() . ' — ' . mb_substr($response->body(), 0, 300),
+                'message' => 'خطا: HTTP ' . $response->status() . ' — ' . AiErrorRedactor::redact(mb_substr($response->body(), 0, 300)),
                 'models'  => [],
                 'ping_ms' => $pingMs,
             ];
         } catch (Throwable $e) {
             $pingMs = (int) round((microtime(true) - $start) * 1000);
-            Log::error('[AiProvider] Connection test failed', ['error' => $e->getMessage()]);
+            Log::error('[AiProvider] Connection test failed', ['error' => AiErrorRedactor::redact($e->getMessage())]);
 
             return [
                 'success' => false,
-                'message' => 'خطای استثنا: ' . $e->getMessage(),
+                'message' => 'خطای استثنا: ' . AiErrorRedactor::redact($e->getMessage()),
                 'models'  => [],
                 'ping_ms' => $pingMs,
             ];
@@ -132,15 +133,15 @@ class AiProviderService
 
             return [
                 'success'  => false,
-                'response' => 'HTTP ' . $response->status() . ': ' . mb_substr($response->body(), 0, 300),
+                'response' => AiErrorRedactor::redact('HTTP ' . $response->status() . ': ' . mb_substr($response->body(), 0, 300)),
                 'usage'    => [],
             ];
         } catch (Throwable $e) {
-            Log::error('[AiProvider] Chat failed', ['error' => $e->getMessage()]);
+            Log::error('[AiProvider] Chat failed', ['error' => AiErrorRedactor::redact($e->getMessage())]);
 
             return [
                 'success'  => false,
-                'response' => $e->getMessage(),
+                'response' => AiErrorRedactor::redact($e->getMessage()),
                 'usage'    => [],
             ];
         }
@@ -194,7 +195,7 @@ class AiProviderService
             $type = config('ai.notify_type', 'bale');
             BotHelper::sendMessageToSuperAdmin($message, $type);
         } catch (Throwable $e) {
-            Log::error('[AiProvider] Failed to notify admin', ['error' => $e->getMessage()]);
+            Log::error('[AiProvider] Failed to notify admin', ['error' => AiErrorRedactor::redact($e->getMessage())]);
         }
     }
 
@@ -246,7 +247,7 @@ class AiProviderService
                 BotHelper::sendMessageByChatId($bot, $provider->notify_chat_id, $message);
                 $sent++;
             } catch (Throwable $e) {
-                Log::error('[AiProvider] Failed to notify provider-specific bot', ['error' => $e->getMessage()]);
+                Log::error('[AiProvider] Failed to notify provider-specific bot', ['error' => AiErrorRedactor::redact($e->getMessage())]);
             }
         }
 
@@ -255,7 +256,7 @@ class AiProviderService
             EmailAdminHelper::sendToAllAdmins($message, 'bale');
             EmailAdminHelper::sendToAllAdmins($message, 'telegram');
         } catch (Throwable $e) {
-            Log::error('[AiProvider] Failed to notify via mother bot', ['error' => $e->getMessage()]);
+            Log::error('[AiProvider] Failed to notify via mother bot', ['error' => AiErrorRedactor::redact($e->getMessage())]);
         }
 
         // مسیر ۲: ربات ادمین قرآن (QURAN_HEFZ)
@@ -282,12 +283,12 @@ class AiProviderService
                 } catch (Throwable $e) {
                     Log::warning('[AiProvider] Failed to send via Quran bot', [
                         'chat_id' => $chatId,
-                        'error'   => $e->getMessage(),
+                        'error'   => AiErrorRedactor::redact($e->getMessage()),
                     ]);
                 }
             }
         } catch (Throwable $e) {
-            Log::error('[AiProvider] Failed to notify via Quran bot', ['error' => $e->getMessage()]);
+            Log::error('[AiProvider] Failed to notify via Quran bot', ['error' => AiErrorRedactor::redact($e->getMessage())]);
         }
 
         return $sent;
