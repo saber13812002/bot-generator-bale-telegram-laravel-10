@@ -28,6 +28,10 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <!-- WS-J: strict L5 در تست‌ها خاموش؛ strict جدا در AiConsumerHardeningTest test می‌شود -->
         <env name="AI_REQUIRE_ACTIVE_PROVIDER" value="false"/>
+        <!-- R1: stage rollout در تست‌ها = public (3) تا رفتار تست‌های WS-E
+             (open-by-default) دست‌نخورده بماند؛ fail-closed stageها جدا
+             test شده‌اند (tests/Feature/AiPilotRolloutTest.php) -->
+        <env name="AI_ROLLOUT_STAGE" value="3"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="LOG_VIEWER_SECRET" value="test-log-viewer-secret-token-at-least-32-chars"/>

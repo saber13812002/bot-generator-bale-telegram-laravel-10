@@ -13,9 +13,10 @@ use Illuminate\Support\Facades\Log;
  * برای این bot/کاربر الان مجاز است؟».
  *
  * لایه‌ها (به ترتیب؛ اولین لایه‌ی ردکننده برنده است):
- *  1. FLAG GLOBAL   — config('ai.flags.*') از env؛ کلید اصلی روشن/خاموش
+ *  1. FLAG GLOBAL   — override بدون re-deploy (ai_flags, R2) ← config('ai.flags.*') از env
  *  2. FLAG BOT      — override در bots.ai_settings (مستقلال‌سازی bot به bot)
- *  3. TEST GROUP    — allowlist user/customer ids برای rollout تدریجی (اختیاری)
+ *  2.5. ROLLOUT STAGE — (R1) stage 0/1 fail-closed allowlist؛ 2 فقط Pro؛ 3 public
+ *  3. TEST GROUP    — allowlist user/customer ids (اختیاری؛ در stage 0/1 اجباری)
  *  4. TIME WINDOW   — سیاست 09–14 تهران: Pro فوری؛ عادی در پنجره → deferrable
  *  5. PROVIDER      — سلامت provider (lazy + cache؛ safe-by-default)
  *  6. CAPACITY      — سقف jobهای open (QUEUED/PROCESSING/RETRYING) بر حسب bot
@@ -38,6 +39,18 @@ class AiFeatureGate
     public const FEATURE_RAG    = 'rag';
     public const FEATURE_TTS    = 'tts';
     public const FEATURE_GROWTH = 'growth_companion';
+
+    /**
+     * AI-PILOT-ROLLOUT-05 (R1): stageهای rollout تدریجی (L2.5).
+     * 0 = internal  — فقط حساب‌های داخلی/تستی (fail-closed)
+     * 1 = pilot     — فقط allowlist صریح (fail-closed)
+     * 2 = all-Pro   — فقط کاربران Pro (یا pro-override ثبت‌شده)
+     * 3 = public    — عمومی (سیاست زمان + allowlist اختیاری حفظ می‌شود)
+     */
+    public const STAGE_INTERNAL = 0;
+    public const STAGE_PILOT    = 1;
+    public const STAGE_PRO_ONLY = 2;
+    public const STAGE_PUBLIC   = 3;
 
     /** @var string[] */
     public const FEATURES = [
@@ -81,13 +94,13 @@ class AiFeatureGate
             }
 
             // L0.5: master kill switch — ai_global_enabled
-            if (! (bool) config('ai.flags.ai_global_enabled', false)) {
+            if (! (bool) $this->globalFlag('ai_global_enabled')) {
                 return $this->result(false, 'global_off', 'master switch ai_global_enabled خاموش است');
             }
 
             // L1: capability flag (کلید config: ai_{feature}_enabled)
             $flagKey = "ai_{$feature}_enabled";
-            $globalOn = (bool) config("ai.flags.{$flagKey}", false);
+            $globalOn = (bool) $this->globalFlag($flagKey);
             if (! $globalOn) {
                 return $this->result(false, 'global_off', "flag capability ai.flags.{$flagKey} خاموش است");
             }
@@ -98,6 +111,40 @@ class AiFeatureGate
             if (! $effective) {
                 return $this->result(false, 'bot_disabled', "flag bot {$botId} برای {$feature} خاموش است");
             }
+
+            // L2.5: ROLLOUT STAGE (AI-PILOT-ROLLOUT-05) — کنترل دسترسی بر اساس
+            // stage rollout: 0/1 = fail-closed (فقط allowlist)؛ 2 = فقط Pro؛
+            // 3 = public. بدون تغییر این لایه، لایه‌های بعد (L3+L4) اعمال می‌شوند.
+            $stage = $this->rolloutStage($botId);
+           $subject = $customerId ?? $userId ?? null;
+
+           if ($stage === self::STAGE_INTERNAL || $stage === self::STAGE_PILOT) {
+               $allowlist = $this->botTestGroup($botId);
+               if ($allowlist === null
+                   || $subject === null
+                   || ! in_array((int) $subject, array_map('intval', $allowlist), true)) {
+                   return $this->result(
+                       false,
+                       'not_in_allowlist',
+                       "stage {$stage} (fail-closed): user/customer {$subject} در allowlist bot {$botId} نیست"
+                           . ' — allowlist خالی/غیرموجود دسترسی نمی‌دهد'
+                   );
+               }
+               // ادامه به L4 (time window) — allowlist فقط مجوز ورود است (§2)
+           } elseif ($stage === self::STAGE_PRO_ONLY) {
+               $proOverride = $this->botProOverride($botId);
+               $isProNow = $isPro
+                   || ($subject !== null && in_array((int) $subject, array_map('intval', (array) $proOverride), true));
+               if (! $isProNow) {
+                   return $this->result(
+                       false,
+                       'pro_only_stage',
+                       "stage 2 (All Pro): user/customer {$subject} Pro نیست (و pro-override هم ندارد)"
+                   );
+               }
+               // ادامه به L4: Pro در deferral window فوری است
+           }
+           // STAGE_PUBLIC (3): ادامه عادی — L3 اختیاری + L4 time window
 
             // L3: test group (allowlist) — فقط وقتی set شده
             $testGroup = $this->botTestGroup($botId);
@@ -229,6 +276,55 @@ class AiFeatureGate
         $bot = \App\Models\Bot::find($botId);
 
         return $bot?->aiTestGroup();
+    }
+
+    /**
+     * L0.5/L1: مقدار یک flag سراسری — override بدون re-deploy (R2: ai_flags)
+     * در اولویت، سپس config('ai.flags.*') (env). هرگز throw نمی‌کند.
+     */
+    private function globalFlag(string $key): bool
+    {
+        try {
+           $override = AiFlagService::value($key);
+           if (is_bool($override)) {
+               return $override;
+           }
+       } catch (\Throwable $e) {
+           Log::warning('AiFeatureGate: override flag exception (safe config fallback)', [
+               'key'   => $key,
+               'error' => AiErrorRedactor::redact($e->getMessage()),
+           ]);
+       }
+
+       return (bool) config("ai.flags.{$key}", false);
+   }
+
+   /**
+    * L2.5: stage rollout — override bot (bots.ai_settings['ai_rollout_stage'])
+    * در اولویت، سپس config('ai.rollout.stage') (پیش‌فرض 0 = fail-safe).
+    */
+    private function rolloutStage(?int $botId): int
+    {
+        if ($botId !== null) {
+           $bot = \App\Models\Bot::find($botId);
+           if ($bot?->aiRolloutStage() !== null) {
+               return (int) $bot->aiRolloutStage();
+           }
+       }
+
+       return max(0, min(3, (int) config('ai.rollout.stage', self::STAGE_INTERNAL)));
+   }
+
+   /** L2.5: pro-override pilot این bot (null = تعریف نشده) — دلیگیت به Bot::aiProOverride() */
+    private function botProOverride(?int $botId): ?array
+    {
+        if ($botId === null) {
+           return null;
+        }
+
+        $bot = \App\Models\Bot::find($botId);
+
+        return $bot?->aiProOverride();
     }
 
     /**

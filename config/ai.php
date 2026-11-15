@@ -60,6 +60,27 @@ return [
         'ai_tts_enabled'              => env('AI_FLAG_TTS', false),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rollout تدریجی (AI-PILOT-ROLLOUT-05)
+    |--------------------------------------------------------------------------
+    |
+    | Stage سراسری rollout (L2.5 دروازه):
+    |  0 = internal  — فقط حساب‌های داخلی/تستی (fail-closed: بدون allowlist هیچ)
+    |  1 = pilot     — فقط customerهای allowlist صریح (fail-closed)
+    |  2 = all-Pro   — فقط کاربران Pro (یا pro-override ثبت‌شده)
+    |  3 = public    — عمومی
+    |
+    | پیش‌فرض 0 (fail-safe production): تا وقتی owner stage را صریح set نکند،
+    | AI به هیچ customer جدیدی دسترسی نمی‌دهد.
+    | override هر bot در bots.ai_settings['ai_rollout_stage'] (Nova).
+    | در phpunit.xml برابر 3 است تا رفتار تست‌های WS-E دست‌نخورده بماند.
+    |
+    */
+    'rollout' => [
+        'stage' => env('AI_ROLLOUT_STAGE', 0),
+    ],
+
     // تنظیمات HTTP
     // verify: اعتبارسنجی SSL — پیش‌فرض فعال (Strict TLS)
     //   ۱/true: اعتبارسنجی با CA bundle — پیش‌فرض bundle خود رپوزیتری
