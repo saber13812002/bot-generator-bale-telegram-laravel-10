@@ -129,4 +129,40 @@ return [
         // سقف هم‌زمانی PROCESSING بر حسب bot (جلوگیری از انحصار یک bot)
         'max_processing_per_bot' => 5,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cost estimation (AI-PILOT-ROLLOUT-05 — R3، brief §6: est. cost)
+    |--------------------------------------------------------------------------
+    |
+    | قیمت هر میلیون token به USD (بر اساس usage ذخیره‌شده روی ai_jobs).
+    | پیش‌فرض 0 = هزینه‌ای تخمین نمی‌شود (بدون rate-card) — استخر metrics
+    | عدد صفر می‌دهد نه خطا. env فقط برای override سریع است.
+    |
+    */
+    'pricing' => [
+        'input_per_million'  => env('AI_PRICING_INPUT_PER_MILLION', 0),
+        'output_per_million' => env('AI_PRICING_OUTPUT_PER_MILLION', 0),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Alerts (AI-PILOT-ROLLOUT-05 — R3، brief §7: dedup + secure admin channel)
+    |--------------------------------------------------------------------------
+    |
+    | ai:alerts-check (هر ۵ دقیقه) آستانه‌ها را بررسی می‌کند؛ هر alert
+    | با dedup در cache cooldown ثانیه تکرار نمی‌شود (brief §7). ارسال از
+    | مسیر امن موجود: AiProviderService::notifyAllAdmins (mother bot +
+    | Quran admin bot).
+    |
+    */
+    'alerts' => [
+        'enabled'                       => env('AI_ALERTS_ENABLED', true),
+        'cooldown_seconds'              => env('AI_ALERTS_COOLDOWN_SECONDS', 3600),
+        'queue_backlog_threshold'       => env('AI_ALERTS_QUEUE_BACKLOG', 100),
+        'dead_letter_window_hours'      => env('AI_ALERTS_DEAD_LETTER_HOURS', 24),
+        'error_rate_threshold_percent'  => env('AI_ALERTS_ERROR_RATE_PCT', 25),
+        'error_rate_min_volume'         => env('AI_ALERTS_ERROR_RATE_MIN_VOLUME', 20),
+        'error_rate_window_hours'       => env('AI_ALERTS_ERROR_RATE_HOURS', 24),
+    ],
 ];

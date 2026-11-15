@@ -59,7 +59,8 @@ class AiJob extends Model
         'job_id', 'idempotency_key', 'bot_id', 'customer_id', 'user_id',
         'feature', 'priority', 'state', 'provider', 'model',
         'attempt_number', 'due_at', 'expires_at', 'started_at', 'completed_at',
-        'heartbeat_at', 'locked_by', 'error_code', 'result_reference', 'payload',
+        'heartbeat_at', 'locked_by', 'error_code', 'result_reference',
+        'usage', 'payload',
     ];
 
     protected $casts = [
@@ -72,6 +73,7 @@ class AiJob extends Model
         'started_at'     => 'datetime',
         'completed_at'   => 'datetime',
         'heartbeat_at'   => 'datetime',
+        'usage'          => 'array',
         'payload'        => 'array',
     ];
 

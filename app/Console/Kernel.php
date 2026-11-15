@@ -164,6 +164,13 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping()
             ->onOneServer();
 
+        // بررسی آستانه‌های هشدار AI (brief §7): queue backlog، dead letter، error rate
+        // — هر ۵ دقیقه، با dedup cooldown در cache (تکرار alert تا cooldown تمام نشود نمی‌آید)
+        $schedule->command('ai:alerts-check')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
         $schedule->command(ScheduleContentDelivery::class)
             ->hourly()

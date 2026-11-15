@@ -257,6 +257,7 @@ trait UsesGrowthCompanionSqlite
             $table->string('error_code', 64)->nullable();
             $table->text('result_reference')->nullable();
             $table->json('payload')->nullable();
+            $table->json('usage')->nullable(); // R3 (AI-PILOT-ROLLOUT-05): usage/tokens
             $table->timestamps();
 
             $table->index(['state', 'due_at', 'priority', 'created_at']);

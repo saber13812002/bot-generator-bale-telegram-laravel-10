@@ -119,6 +119,13 @@ class ProcessAiJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        // R3 (brief §6): usage/tokens attempt موفق روی job ذخیره می‌شود
+        // (مبنای token usage و est. cost در metrics/stage-report).
+        // attempt ناموفق usage نگه نمی‌دارد (null می‌ماند).
+        if (! empty($result['usage']) && is_array($result['usage'])) {
+            $job->usage = $result['usage'];
+        }
+
         $job->markCompleted($result['result_reference'] ?? null);
 
         Log::info('[AiQueue] Job completed', [
