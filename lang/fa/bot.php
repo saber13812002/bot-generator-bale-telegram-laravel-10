@@ -21,7 +21,7 @@ return [
     'this command not recognized'                                                 => 'دستور شما منجر به هیچ کاری نشد',
     
     // Book Pixel Bot translations
-    'book_pixel_welcome'                                                          => '📚 خوش آمدید به ربات یک پیکسل کتاب!\n\nاین ربات به شما امکان به اشتراک‌گذاری صفحات کتاب را می‌دهد.',
+    'book_pixel_welcome'                                                          => "📚 خوش آمدید به ربات یک پیکسل کتاب!\n\nاین ربات به شما امکان به اشتراک‌گذاری صفحات کتاب را می‌دهد.",
     'book_pixel_ask_book_name'                                                    => 'لطفاً نام کتاب یا ISBN/شابک را ارسال کنید:',
     'book_pixel_ask_isbn'                                                         => 'لطفاً ISBN کتاب را ارسال کنید (اختیاری):',
     'book_pixel_ask_shabak'                                                       => 'لطفاً شابک کتاب را ارسال کنید (اختیاری):',
@@ -36,7 +36,7 @@ return [
     'book_pixel_ocr_started'                                                       => '🔍 متن صفحه در حال استخراج با هوش مصنوعی است…',
     'book_pixel_voice_sent'                                                        => '✅ وویس با موفقیت ارسال شد.',
     'book_pixel_asr_started'                                                       => '🎧 متن وویس در حال تبدیل با هوش مصنوعی است…',
-    'book_pixel_score_message'                                                     => '📊 امتیاز شما:\n\n🎯 مجموع امتیازات: {points}\n📄 تعداد اسکن‌ها: {scans}\n🎤 تعداد وویس‌ها: {voices}',
+    'book_pixel_score_message'                                                     => "📊 امتیاز شما:\n\n🎯 مجموع امتیازات: {points}\n📄 تعداد اسکن‌ها: {scans}\n🎤 تعداد وویس‌ها: {voices}",
     'book_pixel_no_score_yet'                                                      => 'شما هنوز امتیازی ندارید. با ارسال اسکن و وویس امتیاز کسب کنید!',
     'book_pixel_invalid_page_number'                                               => 'شماره صفحه نامعتبر است. لطفاً یک عدد صحیح ارسال کنید.',
     'book_pixel_missing_data'                                                      => 'اطلاعات ناقص است. لطفاً دوباره شروع کنید.',
@@ -48,16 +48,16 @@ return [
     'book_pixel_ask_isbn_first'                                                     => 'لطفاً شابک/ISBN کتاب را ارسال کنید:',
     'book_pixel_book_ready_no_cover'                                                => 'کتاب آماده است. می‌توانید عکس جلد ارسال کنید یا رد کنید:',
     'book_pixel_photo_received'                                                     => '✅ عکس دریافت شد.',
-    'book_pixel_help'                                                               => '📚 راهنمای ربات یک پیکسل کتاب:\n\n' .
-        '/start - شروع\n' .
-        '/help - راهنما\n' .
-        '/cover - ارسال عکس جلد\n' .
-        '/search <query> - جستجوی کتاب\n' .
-        '/drafts - لیست پیش‌نویس‌ها\n' .
-        '/cancel - لغو فرآیند\n' .
-        '/skip - رد کردن فیلد اختیاری\n' .
-        '/score - نمایش امتیاز\n' .
-        '/stats - آمار (فقط در گروه)',
+    'book_pixel_help'                                                               => "📚 راهنمای ربات یک پیکسل کتاب:\n\n" .
+        "/start - شروع\n" .
+        "/help - راهنما\n" .
+        "/cover - ارسال عکس جلد\n" .
+        "/search <query> - جستجوی کتاب\n" .
+        "/drafts - لیست پیش‌نویس‌ها\n" .
+        "/cancel - لغو فرآیند\n" .
+        "/skip - رد کردن فیلد اختیاری\n" .
+        "/score - نمایش امتیاز\n" .
+        "/stats - آمار (فقط در گروه)",
     'book_pixel_no_books_found'                                                     => 'کتابی یافت نشد.',
     'book_pixel_search_results'                                                     => 'نتایج جستجو:',
     'book_pixel_no_drafts'                                                          => 'پیش‌نویسی وجود ندارد.',

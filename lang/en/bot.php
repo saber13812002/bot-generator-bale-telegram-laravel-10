@@ -290,7 +290,7 @@ return [
     'forwarded group info note' => '💡 Note: To see complete group information (ID and name), the bot must be a member of the group.',
     
     // Book Pixel Bot translations
-    'book_pixel_welcome' => '📚 Welcome to Book Pixel Bot!\n\nThis bot allows you to share book pages.',
+    'book_pixel_welcome' => "📚 Welcome to Book Pixel Bot!\n\nThis bot allows you to share book pages.",
     'book_pixel_ask_book_name' => 'Please send the book name or ISBN/Shabak:',
     'book_pixel_ask_isbn' => 'Please send the book ISBN (optional):',
     'book_pixel_ask_shabak' => 'Please send the book Shabak (optional):',
@@ -305,7 +305,7 @@ return [
     'book_pixel_ocr_started' => '🔍 Extracting page text with AI…',
     'book_pixel_voice_sent' => '✅ Voice sent successfully.',
     'book_pixel_asr_started' => '🎧 Converting voice to text with AI…',
-    'book_pixel_score_message' => '📊 Your Score:\n\n🎯 Total Points: {points}\n📄 Scans: {scans}\n🎤 Voices: {voices}',
+    'book_pixel_score_message' => "📊 Your Score:\n\n🎯 Total Points: {points}\n📄 Scans: {scans}\n🎤 Voices: {voices}",
     'book_pixel_no_score_yet' => 'You don\'t have any points yet. Earn points by sending scans and voices!',
     'book_pixel_invalid_page_number' => 'Invalid page number. Please send a valid number.',
     'book_pixel_missing_data' => 'Missing data. Please start again.',
@@ -317,16 +317,16 @@ return [
     'book_pixel_ask_isbn_first' => 'Please send the book ISBN/Shabak:',
     'book_pixel_book_ready_no_cover' => 'Book is ready. You can send cover image or skip:',
     'book_pixel_photo_received' => '✅ Photo received.',
-    'book_pixel_help' => '📚 Book Pixel Bot Guide:\n\n' .
-        '/start - Start\n' .
-        '/help - Help\n' .
-        '/cover - Send cover image\n' .
-        '/search <query> - Search books\n' .
-        '/drafts - List drafts\n' .
-        '/cancel - Cancel process\n' .
-        '/skip - Skip optional field\n' .
-        '/score - Show score\n' .
-        '/stats - Statistics (group only)',
+    'book_pixel_help' => "📚 Book Pixel Bot Guide:\n\n" .
+        "/start - Start\n" .
+        "/help - Help\n" .
+        "/cover - Send cover image\n" .
+        "/search <query> - Search books\n" .
+        "/drafts - List drafts\n" .
+        "/cancel - Cancel process\n" .
+        "/skip - Skip optional field\n" .
+        "/score - Show score\n" .
+        "/stats - Statistics (group only)",
     'book_pixel_no_books_found' => 'No books found.',
     'book_pixel_search_results' => 'Search results:',
     'book_pixel_no_drafts' => 'No drafts available.',
