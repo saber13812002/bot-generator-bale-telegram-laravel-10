@@ -4,7 +4,7 @@
 **شاخه:** `15esfand1404` — HEAD قبل از این گزارش: `99292187` (R4 مأموریت 3)
 **ایجادشده در این مأموریت:**
 - `ad5c1f64` — Task B: Book Pixel /help real newlines + regression tests
-- `<commit A2+C>` — Task A2 runbook + این گزارش (دستور commit در انتهای بخش A)
+- `23f536ae` — Task A2+C: runbook + این گزارش
 
 ---
 
@@ -44,18 +44,14 @@
 ### خلاصه‌ی بخش A
 | مورد | وضعیت |
 |---|---|
-| فایل‌های تغییرکرده | `docs/runbooks/AI_PRODUCTION_CONNECTION_TEST.md` (جدید) |
-| commit | `<commit A2+C>` |
+| فایل‌های تغییرکرده | `docs/runbooks/AI_PRODUCTION_CONNECTION_TEST.md` (جدید) + این گزارش |
+| commit | `23f536ae` |
 | تست اجراشده | suite کامل 1027 passed / 0 failed / 2 skipped / 6054 assertions (exit 0) |
 | نتیجه‌ی واقعی | شبکه+TLS از داخلی سالم؛ production TCP connect timeout = مشکل شبکه‌ی سمت production |
 | بلوکه | ثبت توکن واقعی + رفع فایروال/روت production (A4) |
 | بعدی برای Owner | `cd ~/<project>` → curl تشخیصی §2 → Nova → API Key → §6 |
 
-**Commit (این بخش + C):**
-```bash
-git add docs/runbooks/AI_PRODUCTION_CONNECTION_TEST.md docs/AI_PRODUCTION_VERIFICATION_FINAL_REPORT.md
-git commit -m "Task A2+C: LiteLLM production connection runbook + production verification report (AI-PRODUCTION-VERIFICATION-07)"
-```
+**Commit (این بخش + C):** `23f536ae` (Task A2+C: LiteLLM production connection runbook + production verification report)
 
 ---
 
@@ -119,7 +115,7 @@ Production بدون SSH است؛ امضای واقعی هر دستور + side ef
 | مورد | وضعیت |
 |---|---|
 | فایل‌های تغییرکرده | این گزارش (بخش C) |
-| commit | `<commit A2+C>` |
+| commit | `23f536ae` |
 | تست اجراشده | suite کامل 1027/0/2skipped/6054 (شامل تمام تستهای retry/dead-letter/deferral/kill-switch) |
 | نتیجه‌ی واقعی | زیرمجموعه‌ی محلی با خروجی واقعی سبز؛ بقیه = command sheet دقیق برای Owner |
 | بلوکه | اجرای command sheet روی production (فقط Owner) |
