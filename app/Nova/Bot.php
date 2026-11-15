@@ -218,50 +218,66 @@ class Bot extends Resource
             })->sortable()->help('تعداد درخواست در ۲۴ ساعت'),
 
             // ===== AI Feature Flags (WS-E) =====
-            \Laravel\Nova\Fields\Section::make('AI — قابلیت‌ها (WS-E)')
-                ->description('کلیدهای هوش مصنوعی این ربات. «پیروی از سراسری» یعنی override نیست و flag سراسری (env) حاکم است.')
-                ->columns(2)
-                ->fields([
-                    \Laravel\Nova\Fields\Select::make('LLM (ai_llm_enabled)', 'ai_llm')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('گفتگو/ترجمه با LLM'),
+            \Laravel\Nova\Fields\Heading::make('AI — قابلیت‌ها (WS-E)')
+                ->help('کلیدهای هوش مصنوعی این ربات. «پیروی از سراسری» یعنی override نیست و flag سراسری (env) حاکم است.'),
 
-                    \Laravel\Nova\Fields\Select::make('OCR (ai_ocr_enabled)', 'ai_ocr')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('تبدیل عکس به متن (Vision)'),
+            \Laravel\Nova\Fields\Select::make('LLM (ai_llm_enabled)', 'ai_llm')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('گفتگو/ترجمه با LLM'),
 
-                    \Laravel\Nova\Fields\Select::make('ASR (ai_asr_enabled)', 'ai_asr')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('تبدیل گفتار به متن'),
+            \Laravel\Nova\Fields\Select::make('OCR (ai_ocr_enabled)', 'ai_ocr')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل عکس به متن (Vision)'),
 
-                    \Laravel\Nova\Fields\Select::make('RAG (ai_rag_enabled)', 'ai_rag')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('جستجوی برداری روی محتوای ربات'),
+            \Laravel\Nova\Fields\Select::make('ASR (ai_asr_enabled)', 'ai_asr')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل گفتار به متن'),
 
-                    \Laravel\Nova\Fields\Select::make('TTS (ai_tts_enabled)', 'ai_tts')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('تبدیل متن به گفتار'),
+            \Laravel\Nova\Fields\Select::make('RAG (ai_rag_enabled)', 'ai_rag')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('جستجوی برداری روی محتوای ربات'),
 
-                    \Laravel\Nova\Fields\Select::make('Growth Companion (ai_growth_companion_enabled)', 'ai_growth_companion')
-                        ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
-                        ->default('follow')
-                        ->displayUsingLabels()
-                        ->help('همراه رشد کاربر (مخصوصاً Pro)'),
-                ]),
+            \Laravel\Nova\Fields\Select::make('TTS (ai_tts_enabled)', 'ai_tts')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل متن به گفتار'),
+
+            \Laravel\Nova\Fields\Select::make('Growth Companion (ai_growth_companion_enabled)', 'ai_growth_companion')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('همراه رشد کاربر (مخصوصاً Pro)'),
 
             \Laravel\Nova\Fields\Text::make('AI Test Group (allowlist)', 'ai_test_group')
                 ->nullable()
-                ->help('آی‌دی‌های user/customer مجاز برای rollout تدریجی، جداشده با ویرگول (مثال: 12, 34). خالی = همه.')
+                ->help('آی‌دی‌های user/customer مجاز برای rollout تدریجی (stage 0/1)، جداشده با ویرگول (مثال: 12, 34). خالی = fail-closed: هیچ‌کس دسترسی ندارد.')
+                ->hideFromIndex(),
+
+            \Laravel\Nova\Fields\Select::make('AI Rollout Stage (ai_rollout_stage)', 'ai_rollout_stage')
+                ->options([
+                    'follow' => 'پیروی از سراسری (env AI_ROLLOUT_STAGE)',
+                    '0'      => 'Stage 0 — Internal (فقط allowlist، fail-closed)',
+                    '1'      => 'Stage 1 — Pilot (فقط allowlist)',
+                    '2'      => 'Stage 2 — All Pro (Proها + pro-override)',
+                    '3'      => 'Stage 3 — Public (باز برای همه)',
+                ])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('مرحله rollout این bot. «پیروی از سراسری» یعنی مقدار env AI_ROLLOUT_STAGE (پیش‌فرض production: 0 = fail-closed). تغییر audit log دارد.')
+                ->hideFromIndex(),
+
+            \Laravel\Nova\Fields\Text::make('AI Pro Override (pilot)', 'ai_pro_override')
+                ->nullable()
+                ->help('آی‌دی‌های customerهایی که در stage 2 (All Pro) مثل Pro رفتار کنند (بدون محدودیت plan) — جداشده با ویرگول. تغییر audit log دارد (brief §2: LOGGED override).')
                 ->hideFromIndex(),
 
         ];

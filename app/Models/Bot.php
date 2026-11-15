@@ -236,6 +236,22 @@ class Bot extends Model
             return;
         }
 
+        if ($key === 'ai_pro_override') {
+            $ids = array_values(array_filter(array_map(
+                'intval',
+                array_map('trim', explode(',', (string) $value))
+            ), fn ($n) => $n > 0));
+
+            $settings = $this->ai_settings ?? [];
+            if ($ids === []) {
+                unset($settings['ai_pro_override']);
+            } else {
+                $settings['ai_pro_override'] = $ids;
+            }
+            $this->ai_settings = $settings;
+            return;
+        }
+
         parent::setAttribute($key, $value);
     }
 
@@ -262,6 +278,12 @@ class Bot extends Model
             $stage = $this->aiRolloutStage();
 
             return $stage === null ? 'follow' : (string) $stage;
+        }
+
+        if ($key === 'ai_pro_override') {
+            $ids = $this->aiProOverride();
+
+            return $ids === null ? '' : implode(', ', $ids);
         }
 
         return parent::getAttribute($key);
