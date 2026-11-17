@@ -48,6 +48,7 @@ return [
     'book_pixel_ask_isbn_first'                                                     => 'لطفاً شابک/ISBN کتاب را ارسال کنید:',
     'book_pixel_book_ready_no_cover'                                                => 'کتاب آماده است. می‌توانید عکس جلد ارسال کنید یا رد کنید:',
     'book_pixel_photo_received'                                                     => '✅ عکس دریافت شد.',
+    'book_pixel_media_too_large'                                                    => '📎 فایل بزرگ‌تر از سقف مجاز (۵۰ مگابایت) است. لطفاً فایل کوچک‌تری ارسال کنید.',
     'book_pixel_help'                                                               => "📚 راهنمای ربات یک پیکسل کتاب:\n\n" .
         "/start - شروع\n" .
         "/help - راهنما\n" .

@@ -22,6 +22,9 @@ use Throwable;
 
 class BookPixelController extends Controller
 {
+    /** سقف مجاز فایل رسانه — قانون طلایی (docs/AGENT_HANDOFF.md): 50 MB. */
+    private const MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+
     public function __construct(
         private BookPixelService $bookPixelService,
         private BookGamificationService $gamificationService,
@@ -459,6 +462,20 @@ class BookPixelController extends Controller
         $fileId = $photo['file_id'];
         $fileUniqueId = $photo['file_unique_id'] ?? null;
 
+        // MISSION 09 — اعتبارسنجی سایز رسانه (قبل از هر ثبت draft/scan)
+        $fileSize = isset($photo['file_size']) ? (int) $photo['file_size'] : null;
+        if ($this->isMediaTooLarge($fileSize)) {
+            Log::warning('[BookPixel] Photo rejected: over media cap', [
+                'chat_id'   => $chatId,
+                'file_size' => $fileSize,
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_media_too_large'));
+            return;
+        }
+        if ($fileSize === null) {
+            Log::warning('[BookPixel] Photo accepted without file_size metadata', ['chat_id' => $chatId]);
+        }
+
         // Save to draft automatically
         $isbn = $this->getStateData($botUser, $botMotherId, 'isbn');
         $bookName = $this->getStateData($botUser, $botMotherId, 'book_name');
@@ -616,6 +633,20 @@ class BookPixelController extends Controller
         $fileId = $voice['file_id'];
         $fileUniqueId = $voice['file_unique_id'] ?? null;
 
+        // MISSION 09 — اعتبارسنجی سایز رسانه (قبل از ثبت وویس)
+        $fileSize = isset($voice['file_size']) ? (int) $voice['file_size'] : null;
+        if ($this->isMediaTooLarge($fileSize)) {
+            Log::warning('[BookPixel] Voice rejected: over media cap', [
+                'chat_id'   => $chatId,
+                'file_size' => $fileSize,
+            ]);
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_media_too_large'));
+            return;
+        }
+        if ($fileSize === null) {
+            Log::warning('[BookPixel] Voice accepted without file_size metadata', ['chat_id' => $chatId]);
+        }
+
         $voiceRecord = $this->bookPixelService->createVoice($scanId, $botUser->id, $botId, $fileId, $fileUniqueId);
 
         // Award voice points
@@ -720,6 +751,15 @@ class BookPixelController extends Controller
         ]);
 
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * آیا فایل رسانه از سقف مجاز (50 MB) عبور کرده است؟
+     * نبود `file_size` (null) = قابل اعتبارسنجی نیست → نه (caller هشدار می‌زند).
+     */
+    private function isMediaTooLarge(?int $fileSize): bool
+    {
+        return $fileSize !== null && $fileSize > self::MEDIA_MAX_BYTES;
     }
 
     private function setState(BotUsers $botUser, int $botMotherId, string $state, array $data = []): void
