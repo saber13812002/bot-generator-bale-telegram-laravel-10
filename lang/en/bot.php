@@ -318,12 +318,21 @@ return [
     'book_pixel_book_ready_no_cover' => 'Book is ready. You can send cover image or skip:',
     'book_pixel_photo_received' => '✅ Photo received.',
     'book_pixel_media_too_large' => '📎 The file is larger than the 50 MB limit. Please send a smaller file.',
+    'book_pixel_result_title' => '📋 AI request status:',
+    'book_pixel_result_empty' => 'No scan or voice has been recorded yet.',
+    'book_pixel_result_scan' => '📄 Page {page}:',
+    'book_pixel_result_voice' => '🎤 Voice of page {page}:',
+    'book_pixel_result_completed' => '✅ Completed',
+    'book_pixel_result_failed' => '❌ Error: {code}',
+    'book_pixel_result_pending' => '⏳ Processing…',
+    'book_pixel_result_not_requested' => '—',
     'book_pixel_help' => "📚 Book Pixel Bot Guide:\n\n" .
         "/start - Start\n" .
         "/help - Help\n" .
         "/cover - Send cover image\n" .
         "/search <query> - Search books\n" .
         "/drafts - List drafts\n" .
+        "/result - Track AI results\n" .
         "/cancel - Cancel process\n" .
         "/skip - Skip optional field\n" .
         "/score - Show score\n" .

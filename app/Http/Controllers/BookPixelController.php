@@ -14,6 +14,7 @@ use App\Models\BotUserState;
 use App\Models\BotUsers;
 use App\Services\BookPixel\BookPixelAsrService;
 use App\Services\BookPixel\BookPixelOcrService;
+use App\Services\BookPixel\BookPixelResultStatus;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -211,6 +212,12 @@ class BookPixelController extends Controller
         // Handle /drafts command
         if ($text == '/drafts' || $text == 'drafts' || $text == 'پیش‌نویس') {
             $this->handleDrafts($bot, $botUser, $botId);
+            return;
+        }
+
+        // Handle /result command (MISSION 09 — پیگیری نتیجه OCR/ASR)
+        if ($text == '/result' || $text == 'result' || $text == 'نتیجه') {
+            $this->handleResult($bot, $botUser, $botId);
             return;
         }
 
@@ -846,6 +853,52 @@ class BookPixelController extends Controller
     {
         $message = trans('bot.book_pixel_help');
         BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * MISSION 09 — /result: نمایش وضعیت درخواست‌های هوش مصنوعی (OCR/ASR) کاربر.
+     *
+     * فقط‌خواندنی: job نمی‌سازد و state مکالمه را تغییر نمی‌دهد تا کاربر
+     * بتواند وسط هر فرآیندی از آن استفاده کند.
+     */
+    private function handleResult(Telegram $bot, BotUsers $botUser, int $botId): void
+    {
+        $entries = app(BookPixelResultStatus::class)->forUser($botUser->id, $botId);
+
+        if (empty($entries)) {
+            BotHelper::sendMessage($bot, trans('bot.book_pixel_result_empty'));
+            return;
+        }
+
+        $lines = [trans('bot.book_pixel_result_title')];
+
+        foreach ($entries as $entry) {
+            $page = $entry['page_number'] ?? null;
+            $labelKey = $entry['type'] === 'voice'
+                ? 'bot.book_pixel_result_voice'
+                : 'bot.book_pixel_result_scan';
+
+            switch ($entry['status']) {
+                case 'completed':
+                    $statusLine = trans('bot.book_pixel_result_completed');
+                    if ($entry['preview'] !== null) {
+                        $statusLine .= "\n   «{$entry['preview']}»";
+                    }
+                    break;
+                case 'failed':
+                    $statusLine = trans('bot.book_pixel_result_failed', ['code' => $entry['code'] ?? '-']);
+                    break;
+                case 'pending':
+                    $statusLine = trans('bot.book_pixel_result_pending');
+                    break;
+                default:
+                    $statusLine = trans('bot.book_pixel_result_not_requested');
+            }
+
+            $lines[] = trans($labelKey, ['page' => $page ?? '?']) . ' ' . $statusLine;
+        }
+
+        BotHelper::sendMessage($bot, implode("\n", $lines));
     }
 
     private function handleCoverCommand(Telegram $bot, BotUsers $botUser, int $botMotherId): void

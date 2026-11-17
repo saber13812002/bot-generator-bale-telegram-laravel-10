@@ -49,12 +49,21 @@ return [
     'book_pixel_book_ready_no_cover'                                                => 'کتاب آماده است. می‌توانید عکس جلد ارسال کنید یا رد کنید:',
     'book_pixel_photo_received'                                                     => '✅ عکس دریافت شد.',
     'book_pixel_media_too_large'                                                    => '📎 فایل بزرگ‌تر از سقف مجاز (۵۰ مگابایت) است. لطفاً فایل کوچک‌تری ارسال کنید.',
+    'book_pixel_result_title'                                                       => '📋 وضعیت درخواست‌های هوش مصنوعی:',
+    'book_pixel_result_empty'                                                       => 'هنوز اسکن یا وویسی ثبت نشده است.',
+    'book_pixel_result_scan'                                                        => '📄 صفحه {page}:',
+    'book_pixel_result_voice'                                                       => '🎤 وویس صفحه {page}:',
+    'book_pixel_result_completed'                                                   => '✅ انجام شد',
+    'book_pixel_result_failed'                                                      => '❌ خطا: {code}',
+    'book_pixel_result_pending'                                                     => '⏳ در صف پردازش…',
+    'book_pixel_result_not_requested'                                               => '—',
     'book_pixel_help'                                                               => "📚 راهنمای ربات یک پیکسل کتاب:\n\n" .
         "/start - شروع\n" .
         "/help - راهنما\n" .
         "/cover - ارسال عکس جلد\n" .
         "/search <query> - جستجوی کتاب\n" .
         "/drafts - لیست پیش‌نویس‌ها\n" .
+        "/result - پیگیری نتیجه هوش مصنوعی\n" .
         "/cancel - لغو فرآیند\n" .
         "/skip - رد کردن فیلد اختیاری\n" .
         "/score - نمایش امتیاز\n" .
