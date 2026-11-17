@@ -52,6 +52,17 @@ class FakeGrowthMessenger implements GrowthMessenger
         return $last['text'] ?? null;
     }
 
+    /**
+     * All recorded sends (text + any keyboards) for a specific chat, in order.
+     */
+    public function textsSentTo(string|int $chatId): array
+    {
+        return array_values(array_filter(
+            $this->messages,
+            fn (array $s) => (string) $s['chat_id'] === (string) $chatId
+        ));
+    }
+
     public function lastKeyboard(): ?array
     {
         $lastMsg = $this->messages !== [] ? end($this->messages) : null;
