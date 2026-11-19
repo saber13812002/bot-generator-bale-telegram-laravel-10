@@ -195,4 +195,61 @@ class BotCreationWorkflowIntegrationTest extends TestCase
         $this->assertCount(2, $field->options);
         $this->assertEquals('fa', $field->options[0]['value']);
     }
+
+    /** @test */
+    public function default_steps_language_options_are_resolved(): void
+    {
+        WebhookEndpoint::factory()->create([
+            'endpoint_id' => 'book-library-reader',
+            'name' => 'Book Library Reader',
+            'description' => 'Reader bot',
+            'is_active' => true,
+            'wizard_steps' => null,
+        ]);
+
+        $steps = $this->workflowService->getStepsForEndpoint('book-library-reader');
+        $languageStep = collect($steps)->firstWhere('id', 'language');
+
+        $this->assertNotEmpty($languageStep['options'] ?? null, 'language step must have resolved options');
+        $this->assertContains('fa', array_column($languageStep['options'], 'value'));
+        $this->assertArrayNotHasKey('options_provider', $languageStep);
+    }
+
+    /** @test */
+    public function default_steps_options_resolved_when_endpoint_missing(): void
+    {
+        $steps = $this->workflowService->getStepsForEndpoint('no-such-endpoint');
+        $languageStep = collect($steps)->firstWhere('id', 'language');
+
+        $this->assertNotEmpty($languageStep['options'] ?? null, 'language step must have resolved options even when endpoint is missing');
+        $this->assertContains('en', array_column($languageStep['options'], 'value'));
+        $this->assertArrayNotHasKey('options_provider', $languageStep);
+    }
+
+    /** @test */
+    public function web_wizard_renders_language_options_for_default_steps_endpoint(): void
+    {
+        WebhookEndpoint::factory()->create([
+            'endpoint_id' => 'book-library-reader',
+            'name' => 'Book Library Reader',
+            'description' => 'Reader bot',
+            'is_active' => true,
+            'wizard_steps' => null,
+        ]);
+
+        $owner = BotOwner::factory()->create([
+            'is_pro' => true,
+            'pro_expires_at' => now()->addYear(),
+            'status' => 'active',
+        ]);
+
+        Session::put('bot_owner_id', $owner->id);
+
+        $response = $this->get(route('bot-owner.create', 'book-library-reader'));
+
+        $response->assertStatus(200);
+        $response->assertSee('زبان ربات');
+        $response->assertSee('<option value="fa">', false);
+        $response->assertSee('<option value="en">', false);
+    }
 }

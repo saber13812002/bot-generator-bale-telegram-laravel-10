@@ -348,14 +348,14 @@ class BotCreationWorkflowService implements BotCreationWorkflowInterface
             ->first();
 
         if (!$endpoint) {
-            return self::DEFAULT_STEPS;
+            return $this->resolveAllStepOptions(self::DEFAULT_STEPS);
         }
 
         $endpointSteps = $endpoint->wizard_steps ?? [];
 
         // If no custom steps defined, return defaults
         if (empty($endpointSteps)) {
-            return self::DEFAULT_STEPS;
+            return $this->resolveAllStepOptions(self::DEFAULT_STEPS);
         }
 
         // Merge: start with defaults, override/add from endpoint config
@@ -378,9 +378,15 @@ class BotCreationWorkflowService implements BotCreationWorkflowInterface
         usort($merged, fn ($a, $b) => ($a['order'] ?? 999) - ($b['order'] ?? 999));
 
         // Resolve options providers for all steps
-        $merged = array_map(fn (array $step) => $this->resolveStepOptions($step), $merged);
+        return $this->resolveAllStepOptions($merged);
+    }
 
-        return $merged;
+    /**
+     * Resolve options providers for every step in the list.
+     */
+    private function resolveAllStepOptions(array $steps): array
+    {
+        return array_map(fn (array $step) => $this->resolveStepOptions($step), $steps);
     }
 
     /**
@@ -435,8 +441,8 @@ class BotCreationWorkflowService implements BotCreationWorkflowInterface
         $allSteps = $this->getStepsForEndpoint($session->endpoint_id);
         $collected = $session->collected_data ?? [];
 
-        // Resolve options providers for all steps
-        $allSteps = array_map(fn (array $step) => $this->resolveStepOptions($step), $allSteps);
+        // Resolve options providers for all steps (idempotent, safe to run twice)
+        $allSteps = $this->resolveAllStepOptions($allSteps);
 
         return array_values(array_filter($allSteps, function ($step) use ($collected) {
             $field = FieldDefinition::fromArray($step);
