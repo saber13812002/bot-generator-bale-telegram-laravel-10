@@ -12,6 +12,7 @@ class BotBuilder
     private $title;
     private $messenger;
     private $caption;
+    private $parseMode = null;
 
     public function __construct($messenger)
     {
@@ -54,11 +55,17 @@ class BotBuilder
         return $this;
     }
 
+    public function setParseMode(?string $parseMode): static
+    {
+        $this->parseMode = $parseMode;
+        return $this;
+    }
+
     public function sendPhoto()
     {
 //        dd($this->messenger->BotType());
         if ($this->messenger->BotType() == 'eitaa') {
-            return BotHelper::sendAnyFileMessageEitaa($this->chat_id, $this->photoUrl, $this->title, $this->messenger, $this->caption);
+            return BotHelper::sendAnyFileMessageEitaa($this->chat_id, $this->photoUrl, $this->title, $this->messenger, $this->caption, $this->parseMode);
         } else if ($this->messenger->BotType() != 'gap') {
             return BotHelper::sendPhoto($this->chat_id, $this->photoUrl, $this->title, $this->messenger, $this->caption);
         } else {
@@ -71,7 +78,7 @@ class BotBuilder
     {
 //        dd($this->messenger->BotType());
         if ($this->messenger->BotType() == 'eitaa') {
-            return BotHelper::sendAnyFileMessageEitaa($this->chat_id, $this->audioUrl, $this->title, $this->messenger, $this->caption);
+            return BotHelper::sendAnyFileMessageEitaa($this->chat_id, $this->audioUrl, $this->title, $this->messenger, $this->caption, $this->parseMode);
         } else if ($this->messenger->BotType() != 'gap') {
             return BotHelper::sendAudio($this->chat_id, $this->audioUrl, $this->title, $this->messenger, $this->caption);
         }

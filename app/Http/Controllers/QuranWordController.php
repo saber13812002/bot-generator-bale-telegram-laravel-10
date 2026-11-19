@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
+use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
 use App\Helpers\QuranHelper;
 use App\Helpers\StringHelper;
 use App\Http\Requests\BotRequest;
 use App\Interfaces\Services\QuranBotUserRankingService;
 use App\Models\BotLog;
+use App\Services\ActivityReportSummaryService;
 use App\Models\BotUsers;
 use App\Models\QuranScanPage;
+use App\Models\QuranSearchSuggestion;
 use Exception;
 use Gap\SDP\Api as GapBot;
 use GuzzleHttp\Exception\GuzzleException;
@@ -27,6 +30,22 @@ class QuranWordController extends Controller
 {
 
     private QuranBotUserRankingService $quranBotUserRankingService;
+    
+    /**
+     * Normalize language code for database queries
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     * 
+     * @param string $languageCode
+     * @return string
+     */
+    private static function normalizeLanguageCodeForDatabase(string $languageCode): string
+    {
+        // اگر کد زبان شامل خط تیره است، قسمت اول را برمی‌گردانیم
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+        return $languageCode;
+    }
 
     public function __construct(QuranBotUserRankingService $quranBotUserRankingService)
     {
@@ -61,11 +80,41 @@ class QuranWordController extends Controller
     public function index(BotRequest $request)
     {
         try {
+            // لاگ برای دیباگ
+            $startTime = microtime(true);
+            Log::info('🔔 [QuranBot] Webhook received', [
+                'origin' => $request->input('origin'),
+                'bot_mother_id' => $request->input('bot_mother_id'),
+                'language' => $request->input('language'),
+                'bot_id' => $request->input('bot_id'),
+                'has_token' => $request->has('token'),
+                'timestamp' => now()->toDateTimeString()
+            ]);
 
-            if ($request->has('language')) {
-                App::setLocale($request->input('language'));
+            // تعیین زبان: اول از query string، سپس از language_code ربات در دیتابیس، در نهایت پیش‌فرض fa
+            $lang = $request->input('language') ?? $request->query('language');
+            
+            // اگر language در query string نبود، از language_code ربات از دیتابیس استفاده کن
+            if (!$lang) {
+                $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                if ($botId) {
+                    $botModel = \App\Models\Bot::find($botId);
+                    if ($botModel && $botModel->language_code) {
+                        $lang = $botModel->language_code;
+                        Log::info('🌐 [QuranBot] Language from database', [
+                            'bot_id' => $botId,
+                            'language_code' => $lang
+                        ]);
+                    }
+                }
+            }
+            
+            if ($lang) {
+                App::setLocale($lang);
+                Log::info('🌐 [QuranBot] Locale set', ['locale' => $lang]);
             } else {
                 App::setLocale("fa");
+                Log::info('🌐 [QuranBot] Locale set to default', ['locale' => 'fa']);
             }
 
             $isStartCommandShow = 1;
@@ -75,21 +124,803 @@ class QuranWordController extends Controller
                 if ($request->input('origin') == 'bale') {
                     $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_BALE");
                     $bot = new Telegram($token, 'bale');
+                    Log::info('🤖 [QuranBot] Bot instance created', ['type' => 'bale', 'has_custom_token' => $request->has('token')]);
                 } elseif ($request->input('origin') == 'telegram') {
                     $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
                     $bot = new Telegram($token);
+                    Log::info('🤖 [QuranBot] Bot instance created', ['type' => 'telegram', 'has_custom_token' => $request->has('token')]);
                 } elseif ($request->input('origin') == 'gap') {
                     $token = $request->has('token') ? $request->input('token') : env("QURAN_HEFZ_BOT_TOKEN_GAP");
                     $bot = new GapBot($token, $request);
                     $bot->sendText(env("SUPER_ADMIN_CHAT_ID_GAP"), ": " . $bot->ChatID() . " : " . $bot->Text() . " : ");
+                    Log::info('🤖 [QuranBot] Bot instance created', ['type' => 'gap', 'has_custom_token' => $request->has('token')]);
                 } else {
+                    Log::warning('⚠️ [QuranBot] Unknown origin type', ['origin' => $request->input('origin')]);
                     return 200;
                 }
 
                 $userSettings = null;
-                if ($bot->ChatID() && $request->input('bot_mother_id') && $type)
-                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $request->input('bot_mother_id'), $type);
+                // استفاده از bot_mother_id از request یا مقدار پیش‌فرض 1
+                $botMotherId = $request->input('bot_mother_id', 1);
+                
+                // بررسی callback query (برای دکمه‌های inline)
+                $update = $request->json()->all() ?? $request->all();
+                
+                // استخراج chat_id از request به صورت امن
+                $chatId = null;
+                try {
+                    if (isset($update['message']['chat']['id'])) {
+                        $chatId = $update['message']['chat']['id'];
+                    } elseif (isset($update['callback_query']['message']['chat']['id'])) {
+                        $chatId = $update['callback_query']['message']['chat']['id'];
+                    } elseif (method_exists($bot, 'ChatID')) {
+                        $chatId = $bot->ChatID();
+                    }
+                } catch (Exception $e) {
+                    // اگر خطا رخ داد، chat_id را null می‌گذاریم
+                    Log::warning('⚠️ [QuranBot] Could not extract chat_id', [
+                        'error' => $e->getMessage(),
+                        'type' => $type
+                    ]);
+                }
+                
+                Log::info('🔘 [CallbackQuery] Checking for callback_query', [
+                    'has_callback_query' => isset($update['callback_query']),
+                    'type' => $type,
+                    'chat_id' => $chatId
+                ]);
+                
+                if (isset($update['callback_query'])) {
+                    $callbackQuery = $update['callback_query'];
+                    $callbackData = $callbackQuery['data'] ?? '';
+                    $callbackChatId = $callbackQuery['message']['chat']['id'] ?? $bot->ChatID();
+                    $callbackQueryId = $callbackQuery['id'] ?? '';
+                    
+                    Log::info('🔘 [CallbackQuery] Callback query received', [
+                        'callback_data' => $callbackData,
+                        'callback_query_id' => $callbackQueryId,
+                        'chat_id' => $callbackChatId,
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+                    
+                    // پاسخ به callback query با try-catch برای جلوگیری از خطا
+                    try {
+                        if ($callbackQueryId) {
+                            Log::info('🔘 [CallbackQuery] Answering callback query', [
+                                'callback_query_id' => $callbackQueryId,
+                                'type' => $type
+                            ]);
+                            $bot->answerCallbackQuery([
+                                'callback_query_id' => $callbackQueryId,
+                                'text' => '',
+                            ]);
+                            Log::info('✅ [CallbackQuery] Callback query answered successfully', [
+                                'callback_query_id' => $callbackQueryId,
+                                'type' => $type
+                            ]);
+                        }
+                    } catch (Exception $e) {
+                        Log::error('❌ [CallbackQuery] Error answering callback query', [
+                            'error' => $e->getMessage(),
+                            'callback_query_id' => $callbackQueryId,
+                            'type' => $type,
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                    }
+                    
+                    // پردازش انتخاب زبان ترجمه از settings
+                    if ($callbackData == 'settings_select_language') {
+                        Log::info('🌐 [CallbackQuery] Processing settings_select_language', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت لیست زبان‌های موجود که ترجمه دارند
+                        $availableLanguages = \App\Models\QuranTranslation::query()
+                            ->select('language')
+                            ->distinct()
+                            ->orderBy('language')
+                            ->pluck('language')
+                            ->toArray();
+                        
+                        if (empty($availableLanguages)) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations available"));
+                            return 0;
+                        }
+                        
+                        // نام زبان‌ها
+                        $languageNames = [
+                            'fa' => '🇮🇷 فارسی',
+                            'en' => '🇬🇧 English',
+                            'ar-IQ' => '🇮🇶 العربية',
+                            'az' => '🇦🇿 Azərbaycan',
+                            'bs' => '🇧🇦 Bosanski',
+                            'de-DE' => '🇩🇪 Deutsch',
+                            'es' => '🇪🇸 Español',
+                            'fr' => '🇫🇷 Français',
+                            'he' => '🇮🇱 עברית',
+                            'it' => '🇮🇹 Italiano',
+                            'id' => '🇮🇩 Bahasa Indonesia',
+                            'sw' => '🇰🇪 Kiswahili',
+                            'pt-BR' => '🇧🇷 Português (Brasil)',
+                            'pt-PT' => '🇵🇹 Português (Portugal)',
+                            'ru' => '🇷🇺 Русский',
+                            'tr' => '🇹🇷 Türkçe',
+                            'ur' => '🇵🇰 اردو',
+                            'zh-CN' => '🇨🇳 中文',
+                        ];
+                        
+                        $message = "🌐 " . trans("bot.select translation language") . ":\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        
+                        foreach ($availableLanguages as $lang) {
+                            $langName = $languageNames[$lang] ?? $lang;
+                            $callbackDataLang = "settings_language_" . $lang;
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $langName,
+                                    'callback_data' => $callbackDataLang
+                                ];
+                            } else {
+                                $buttonRows[] = [$langName, $callbackDataLang];
+                            }
+                        }
+                        
+                        // تقسیم دکمه‌ها به ردیف‌های 2 تایی برای Telegram
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            // برای Bale
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Language selection menu sent', [
+                            'chat_id' => $callbackChatId,
+                            'languages_count' => count($availableLanguages),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش انتخاب زبان خاص
+                    if (str_starts_with($callbackData, 'settings_language_')) {
+                        $selectedLanguage = str_replace('settings_language_', '', $callbackData);
+                        
+                        Log::info('🌐 [CallbackQuery] Processing language selection', [
+                            'selected_language' => $selectedLanguage,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($selectedLanguage);
+                        
+                        // نمایش لیست ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
+                        $translations = \App\Models\QuranTranslation::query()
+                            ->where(function($query) use ($selectedLanguage, $normalizedLanguage) {
+                                $query->where('language', $selectedLanguage);
+                                if ($normalizedLanguage != $selectedLanguage) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
+                            ->distinct()
+                            ->orderBy('translator_name')
+                            ->get();
+                        
+                        if ($translations->isEmpty()) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations found for language") . ": " . $selectedLanguage);
+                            return 0;
+                        }
+                        
+                        // دریافت ترجمه پیش‌فرض فعلی کاربر
+                        $currentTranslator = $userSettings ? $userSettings->setting('quran_translation_translator') : null;
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : null;
+                        
+                        $message = "📖 " . trans("bot.available translations for language") . " (" . $selectedLanguage . "):\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        $service = new \App\Services\QuranTranslationImportService();
+                        
+                        foreach ($translations as $index => $translation) {
+                            $translatorName = $translation->translator_name;
+                            $isCurrent = ($currentLanguage == $selectedLanguage && $currentTranslator == $translatorName);
+                            $prefix = $isCurrent ? "✅ " : "";
+                            
+                            $message .= ($index + 1) . ". " . $prefix . $translatorName;
+                            if ($isCurrent) {
+                                $message .= " (" . trans("bot.current default") . ")";
+                            }
+                            $message .= "\n";
+                            
+                            $callbackDataTrans = "translation_select_" . $selectedLanguage . "_" . $translatorName;
+                            $buttonText = $prefix . $translatorName;
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $buttonText,
+                                    'callback_data' => $callbackDataTrans
+                                ];
+                            } else {
+                                $buttonRows[] = [$buttonText, $callbackDataTrans];
+                            }
+                        }
+                        
+                        $message .= "\n" . trans("bot.select translation by clicking button");
+                        
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Translations list sent for language', [
+                            'chat_id' => $callbackChatId,
+                            'language' => $selectedLanguage,
+                            'translations_count' => $translations->count(),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش مشاهده ترجمه‌های زبان فعلی
+                    if (str_starts_with($callbackData, 'settings_view_translations_')) {
+                        $language = str_replace('settings_view_translations_', '', $callbackData);
+                        
+                        Log::info('📖 [CallbackQuery] Processing view translations for language', [
+                            'language' => $language,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+                        
+                        // دریافت ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
+                        $translations = \App\Models\QuranTranslation::query()
+                            ->where(function($query) use ($language, $normalizedLanguage) {
+                                $query->where('language', $language);
+                                if ($normalizedLanguage != $language) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
+                            ->distinct()
+                            ->orderBy('translator_name')
+                            ->get();
+                        
+                        if ($translations->isEmpty()) {
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations found for language") . ": " . $language);
+                            return 0;
+                        }
+                        
+                        // دریافت ترجمه پیش‌فرض فعلی کاربر
+                        $currentTranslator = $userSettings ? $userSettings->setting('quran_translation_translator') : null;
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : null;
+                        
+                        // اگر setting وجود نداشت، از translation_id استفاده می‌کنیم
+                        if (!$currentTranslator && $userSettings) {
+                            $translationId = $userSettings->setting('translation_id');
+                            if ($translationId > 0) {
+                                $mapping = QuranHelper::mapTranslationIdToLanguageAndTranslator($translationId);
+                                $currentLanguage = $mapping['language'];
+                                $currentTranslator = $mapping['translator'];
+                            }
+                        }
+                        
+                        $message = "📖 " . trans("bot.available translations for language") . " (" . $language . "):\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        $service = new \App\Services\QuranTranslationImportService();
+                        $hasIncomplete = false;
+                        
+                        foreach ($translations as $index => $translation) {
+                            $translatorName = $translation->translator_name;
+                            $fullName = $translation->translate_full_name ?? $language . '.' . $translatorName;
+                            
+                            // بررسی کامل بودن ترجمه
+                            $completeness = $service->checkTranslationCompleteness($language, $translatorName);
+                            $isComplete = $completeness['is_complete'];
+                            
+                            if (!$isComplete) {
+                                $hasIncomplete = true;
+                            }
+                            
+                            $isCurrent = ($currentLanguage == $language && $currentTranslator == $translatorName);
+                            $prefix = $isCurrent ? "✅ " : "";
+                            
+                            // علامت‌گذاری ترجمه‌های ناقص
+                            $incompleteMark = "";
+                            if (!$isComplete) {
+                                $incompleteMark = " ⚠️ (" . $completeness['percentage'] . "%)";
+                            }
+                            
+                            $message .= ($index + 1) . ". " . $prefix . $translatorName;
+                            if ($isCurrent) {
+                                $message .= " (" . trans("bot.current default") . ")";
+                            }
+                            if (!$isComplete) {
+                                $message .= $incompleteMark;
+                            }
+                            $message .= "\n";
+                            
+                            // ایجاد دکمه برای انتخاب
+                            $callbackDataTrans = "translation_select_" . $language . "_" . $translatorName;
+                            $buttonText = ($isCurrent ? "✅ " : "") . $translatorName;
+                            if (!$isComplete) {
+                                $buttonText .= " ⚠️";
+                            }
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $buttonText,
+                                    'callback_data' => $callbackDataTrans
+                                ];
+                            } else {
+                                $buttonRows[] = [$buttonText, $callbackDataTrans];
+                            }
+                        }
+                        
+                        if ($hasIncomplete) {
+                            $message .= "\n⚠️ " . trans("bot.incomplete translations marked with warning");
+                        }
+                        
+                        $message .= "\n" . trans("bot.select translation by clicking button");
+                        
+                        if ($type == 'telegram') {
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                        } else {
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboardArray);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Translations list sent for current language', [
+                            'chat_id' => $callbackChatId,
+                            'language' => $language,
+                            'translations_count' => $translations->count(),
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش انتخاب ترجمه
+                    if (str_starts_with($callbackData, 'translation_select_')) {
+                        Log::info('📖 [CallbackQuery] Processing translation_select', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        $parts = explode("_", $callbackData);
+                        if (count($parts) >= 4) {
+                            $selectedLanguage = $parts[2];
+                            $selectedTranslator = $parts[3];
+                            
+                            Log::info('📖 [CallbackQuery] Translation selection parsed', [
+                                'language' => $selectedLanguage,
+                                'translator' => $selectedTranslator,
+                                'chat_id' => $callbackChatId
+                            ]);
+                            
+                            // دریافت userSettings
+                            $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                            
+                            // ذخیره در setting کاربر
+                            $mp3Enable = $userSettings->setting('mp3_enable');
+                            $mp3Reciter = $userSettings->setting('mp3_reciter');
+                            $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                            $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                            $translationId = $userSettings->setting('translation_id');
+                            
+                            $arr = [
+                                'mp3_reciter' => $mp3Reciter,
+                                'mp3_enable' => $mp3Enable,
+                                'quran_transliteration_tr' => $quranTransliterationTr,
+                                'quran_transliteration_en' => $quranTransliterationEn,
+                                'translation_id' => $translationId,
+                                'quran_translation_language' => $selectedLanguage,
+                                'quran_translation_translator' => $selectedTranslator
+                            ];
+                            
+                            $userSettings->settings($arr);
+                            
+                            Log::info('✅ [CallbackQuery] Translation settings saved', [
+                                'chat_id' => $callbackChatId,
+                                'language' => $selectedLanguage,
+                                'translator' => $selectedTranslator,
+                                'type' => $type
+                            ]);
+                            
+                            $message = "✅ " . trans("bot.translation changed to") . ": " . $selectedTranslator . " (" . $selectedLanguage . ")";
+                            Log::info('📤 [CallbackQuery] Sending translation confirmation message', [
+                                'chat_id' => $callbackChatId,
+                                'message_preview' => substr($message, 0, 100),
+                                'type' => $type
+                            ]);
+                            BotHelper::sendMessage($bot, $message);
+                            Log::info('✅ [CallbackQuery] Translation confirmation message sent', [
+                                'chat_id' => $callbackChatId,
+                                'type' => $type
+                            ]);
+                        } else {
+                            Log::warning('⚠️ [CallbackQuery] Invalid translation_select format', [
+                                'callback_data' => $callbackData,
+                                'parts_count' => count($parts),
+                                'chat_id' => $callbackChatId
+                            ]);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Translation selection processed successfully', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        return 0;
+                    }
+                    
+                    // پردازش callback query برای انتخاب زبان در /start
+                    if ($callbackData == 'start_use_bot_language') {
+                        Log::info('🌐 [CallbackQuery] User chose to use bot language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $pendingLanguage = $userSettings->setting('pending_language_selection');
+                        $pendingTranslator = $userSettings->setting('pending_translator_selection');
+                        
+                        if ($pendingLanguage && $pendingTranslator) {
+                            // ذخیره تنظیمات زبان
+                            $mp3Enable = $userSettings->setting('mp3_enable');
+                            $mp3Reciter = $userSettings->setting('mp3_reciter');
+                            $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                            $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                            $translationId = $userSettings->setting('translation_id');
+                            
+                            $arr = [
+                                'mp3_reciter' => $mp3Reciter,
+                                'mp3_enable' => $mp3Enable,
+                                'quran_transliteration_tr' => $quranTransliterationTr,
+                                'quran_transliteration_en' => $quranTransliterationEn,
+                                'translation_id' => $translationId,
+                                'quran_translation_language' => $pendingLanguage,
+                                'quran_translation_translator' => $pendingTranslator,
+                            ];
+                            
+                            // حذف pending flags
+                            unset($arr['pending_language_selection']);
+                            unset($arr['pending_translator_selection']);
+                            
+                            $userSettings->settings($arr);
+                            
+                            // حذف pending flags از settings
+                            $currentSettings = $userSettings->settings ?? [];
+                            unset($currentSettings['pending_language_selection']);
+                            unset($currentSettings['pending_translator_selection']);
+                            $userSettings->settings = $currentSettings;
+                            $userSettings->save();
+                            
+                            $message = "✅ " . trans("bot.translation set to") . ": " . $pendingTranslator . " (" . $pendingLanguage . ")";
+                            BotHelper::sendMessage($bot, $message);
+                            
+                            Log::info('✅ [CallbackQuery] Bot language applied to user', [
+                                'chat_id' => $callbackChatId,
+                                'language' => $pendingLanguage,
+                                'translator' => $pendingTranslator,
+                                'type' => $type
+                            ]);
+                        }
+                        
+                        return 0;
+                    }
+                    
+                    if ($callbackData == 'start_keep_current_language') {
+                        Log::info('🌐 [CallbackQuery] User chose to keep current language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        
+                        // حذف pending flags
+                        $currentSettings = $userSettings->settings ?? [];
+                        unset($currentSettings['pending_language_selection']);
+                        unset($currentSettings['pending_translator_selection']);
+                        $userSettings->settings = $currentSettings;
+                        $userSettings->save();
+                        
+                        $message = "✅ " . trans("bot.current language settings kept");
+                        BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [CallbackQuery] User kept current language', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        return 0;
+                    }
 
+                    // دکمه انتخاب قاری — نمایش لیست قاری‌های موجود
+                    if ($callbackData == 'settings_select_reciter') {
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $currentReciter = $userSettings ? $userSettings->setting('mp3_reciter') : null;
+
+                        $buttons = [];
+                        foreach (QuranHelper::getReciterRegistry() as $reciterKey => $reciterInfo) {
+                            $check = ($reciterKey === ($currentReciter ?: QuranHelper::getDefaultReciter())) ? "✅ " : "";
+                            $buttons[] = ['text' => $check . QuranHelper::getReciterName($reciterKey), 'callback_data' => 'mp3reciter_select_' . $reciterKey];
+                        }
+                        $buttons[] = ['text' => trans('bot.return to menu'), 'callback_data' => '/settings'];
+
+                        $message = trans('bot.select reciter') . "\n\n" . trans("bot.current reciter :reciter", ['reciter' => QuranHelper::getReciterName($currentReciter ?: QuranHelper::getDefaultReciter())]);
+
+                        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 2);
+
+                        Log::info('🎧 [CallbackQuery] Reciter selection menu sent', [
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+
+                        return 0;
+                    }
+
+                    // انتخاب قاری — ذخیره در تنظیمات کاربر
+                    if (str_starts_with($callbackData, 'mp3reciter_select_')) {
+                        $reciterKey = substr($callbackData, strlen('mp3reciter_select_'));
+
+                        if (!QuranHelper::hasReciter($reciterKey)) {
+                            BotHelper::sendMessage($bot, trans('bot.reciter not found'));
+                            return 0;
+                        }
+
+                        $userSettings = BotUsers::firstOrNew($callbackChatId, $botMotherId, $type);
+                        $currentSettings = $userSettings->settings ?? [];
+                        $currentSettings['mp3_reciter'] = $reciterKey;
+                        $currentSettings['mp3_enable'] = 'true';
+                        $userSettings->settings = $currentSettings;
+                        $userSettings->save();
+
+                        $message = "✅ " . trans('bot.this reciter :reciter selected', ['reciter' => QuranHelper::getReciterName($reciterKey)]);
+                        BotHelper::sendMessage($bot, $message);
+
+                        Log::info('🎧 [CallbackQuery] Reciter selected', [
+                            'chat_id' => $callbackChatId,
+                            'reciter' => $reciterKey,
+                            'type' => $type
+                        ]);
+
+                        return 0;
+                    }
+
+                    // برای دکمه‌های دیگر (مثل next/previous)، callback_data را به عنوان کامند پردازش می‌کنیم
+                    // با تنظیم update برای شبیه‌سازی پیام
+                    if ($callbackData && !str_starts_with($callbackData, 'translation_select_') && !str_starts_with($callbackData, 'copy_invite_link_') && $callbackData != 'start_use_bot_language' && $callbackData != 'start_keep_current_language') {
+                        Log::info('🔄 [CallbackQuery] Converting callback_data to command', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        
+                        // تنظیم update برای شبیه‌سازی پیام با callback_data به عنوان text
+                        $update['message'] = [
+                            'message_id' => $callbackQuery['message']['message_id'] ?? null,
+                            'from' => $callbackQuery['from'] ?? [],
+                            'chat' => $callbackQuery['message']['chat'] ?? [],
+                            'date' => $callbackQuery['message']['date'] ?? time(),
+                            'text' => $callbackData
+                        ];
+                        // حذف callback_query از update برای جلوگیری از پردازش مجدد
+                        unset($update['callback_query']);
+                        // merge کردن update جدید به request
+                        $request->merge($update);
+                        // ایجاد bot جدید با update جدید
+                        if ($type == 'bale') {
+                            $bot = new Telegram($token, 'bale');
+                        } elseif ($type == 'telegram') {
+                            $bot = new Telegram($token);
+                        }
+                        
+                        Log::info('✅ [CallbackQuery] Callback_data converted to command, continuing processing', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        // ادامه پردازش به عنوان کامند عادی (fall through)
+                    } else {
+                        Log::info('⏭️ [CallbackQuery] Callback_query not processed, returning', [
+                            'callback_data' => $callbackData,
+                            'chat_id' => $callbackChatId,
+                            'type' => $type
+                        ]);
+                        // برای callback_query های دیگر که پردازش نمی‌شوند، return می‌کنیم
+                        return 0;
+                    }
+                }
+                
+                // Guard against update types the vendor ChatID() cannot handle
+                // (message_reaction, chat_member, poll, ...): vendor Chat() reads
+                // $data['message']['chat'] unconditionally and PHP 8 raises
+                // "Undefined array key \"message\"", which Laravel turns into an
+                // ErrorException. Probe safely and skip when there is no chat.
+                $hasChat = false;
+                try {
+                    $hasChat = (bool) $bot->ChatID();
+                } catch (\Throwable) {
+                    $hasChat = false;
+                }
+
+                if (!$hasChat) {
+                    Log::info('⏭️ [QuranBot] Update without chat, skipping', [
+                        'type' => $type,
+                        'update_keys' => is_array($update) ? array_keys($update) : null,
+                    ]);
+                    return 0;
+                }
+
+                // لاگ برای دیباگ
+                Log::info('🔍 QuranWordController - Processing request', [
+                    'chat_id' => $bot->ChatID(),
+                    'bot_mother_id' => $botMotherId,
+                    'type' => $type,
+                    'bot_text' => $bot->Text(),
+                    'has_chat_id' => !empty($bot->ChatID())
+                ]);
+                
+                if ($bot->ChatID() && $botMotherId && $type) {
+                    // بررسی اینکه آیا کاربر جدید است یا قدیمی (قبل از firstOrNew)
+                    $existingUser = BotUsers::where('chat_id', $bot->ChatID())->first();
+                    $isNewUser = !$existingUser;
+                    $userSettings = BotUsers::firstOrNew($bot->ChatID(), $botMotherId, $type);
+                    
+                    // پردازش پارامتر دعوت در دستور /start
+                    $botText = $bot->Text();
+                    if (str_starts_with($botText, '/start')) {
+                        // بررسی پارامتر دعوت: /start 123456 یا /start?start=123456
+                        $referralCode = null;
+                        
+                        // روش 1: /start 123456 (مستقیم)
+                        if (preg_match('/^\/start\s+(\d+)$/i', $botText, $matches)) {
+                            $referralCode = $matches[1];
+                        }
+                        // روش 2: /start?start=123456 (از لینک)
+                        elseif (str_contains($botText, '?')) {
+                            [$command, $params] = BotHelper::getCommandRefferralWhenStart($botText, '?');
+                            if (isset($params['start'])) {
+                                $referralCode = $params['start'];
+                            }
+                        }
+                        
+                        // ذخیره invited_by اگر پارامتر وجود داشت و کاربر قبلاً invited_by نداشت
+                        if ($referralCode && !$userSettings->invited_by) {
+                            // بررسی اینکه referralCode با chat_id خود کاربر متفاوت باشد
+                            if ($referralCode != $bot->ChatID()) {
+                                $userSettings->invited_by = $referralCode;
+                                $userSettings->save();
+                                
+                                Log::info('Referral code saved', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'invited_by' => $referralCode,
+                                    'type' => $type
+                                ]);
+                            }
+                        }
+                        
+                        // مدیریت زبان کاربر: بررسی و تنظیم زبان بر اساس زبان ربات
+                        $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                        if ($botId) {
+                            $botModel = \App\Models\Bot::find($botId);
+                            if ($botModel && $botModel->language_code) {
+                                $botLanguageCode = $botModel->language_code;
+                                $normalizedBotLanguage = self::normalizeLanguageCodeForDatabase($botLanguageCode);
+                                
+                                // بررسی تنظیمات زبان کاربر
+                                $userTranslationLanguage = $userSettings->setting('quran_translation_language');
+                                $userTranslationTranslator = $userSettings->setting('quran_translation_translator');
+                                
+                                // اگر کاربر قدیمی است و زبانش فارسی است، به زبان اصلی ربات تغییر می‌دهیم
+                                if (!$isNewUser && ($userTranslationLanguage == 'fa' || !$userTranslationLanguage)) {
+                                    // پیدا کردن اولین ترجمه موجود برای زبان ربات
+                                    $translation = \App\Models\QuranTranslation::query()
+                                        ->where(function($query) use ($botLanguageCode, $normalizedBotLanguage) {
+                                            $query->where('language', $botLanguageCode)
+                                                ->orWhere('language', $normalizedBotLanguage)
+                                                ->orWhere('language', 'like', $normalizedBotLanguage . '%');
+                                        })
+                                        ->first();
+                                    
+                                    if ($translation) {
+                                        $userSettings->settings([
+                                            'quran_translation_language' => $translation->language,
+                                            'quran_translation_translator' => $translation->translator_name,
+                                        ]);
+                                        
+                                        Log::info('🌐 [Start] Updated old user language to bot language', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'old_language' => $userTranslationLanguage,
+                                            'new_language' => $translation->language,
+                                            'bot_language' => $botLanguageCode,
+                                            'type' => $type
+                                        ]);
+                                    }
+                                }
+                                // اگر کاربر جدید است یا تنظیمات زبان ندارد، از او می‌پرسیم
+                                elseif ($isNewUser || !$userTranslationLanguage) {
+                                    // پیدا کردن اولین ترجمه موجود برای زبان ربات
+                                    $translation = \App\Models\QuranTranslation::query()
+                                        ->where(function($query) use ($botLanguageCode, $normalizedBotLanguage) {
+                                            $query->where('language', $botLanguageCode)
+                                                ->orWhere('language', $normalizedBotLanguage)
+                                                ->orWhere('language', 'like', $normalizedBotLanguage . '%');
+                                        })
+                                        ->first();
+                                    
+                                    if ($translation) {
+                                        // ذخیره flag برای بعداً استفاده کنیم (در callback query)
+                                        $userSettings->settings([
+                                            'pending_language_selection' => $translation->language,
+                                            'pending_translator_selection' => $translation->translator_name,
+                                        ]);
+                                        
+                                        Log::info('🌐 [Start] New user - will ask for language selection', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'bot_language' => $botLanguageCode,
+                                            'suggested_language' => $translation->language,
+                                            'type' => $type
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // حالت جستجو — اگر کاربر در انتظار ارسال عبارت جستجو بود (دستور /search)
+                if ($bot->ChatID() && BotMotherStateHelper::getCurrentState($bot->ChatID()) === BotMotherStateHelper::STATE_WAITING_QURAN_SEARCH) {
+                    BotMotherStateHelper::clearState($bot->ChatID());
+                    $rawText = trim((string) $bot->Text());
+
+                    if ($rawText !== '' && !str_starts_with($rawText, '/')) {
+                        [$searchPhrase, $searchPageNumber] = QuranHelper::getPageNumberFromPhrase($rawText);
+                        Log::info('🔍 [Search] Stateful search phrase received', [
+                            'chat_id' => $bot->ChatID(),
+                            'search_phrase' => $searchPhrase,
+                            'page_number' => $searchPageNumber,
+                            'type' => $type
+                        ]);
+                        QuranHelper::findResultThenSend($searchPhrase, $searchPageNumber, $type, $bot, $token);
+                        return 0;
+                    }
+                    // اگر کاربر دستور (مثلاً /start) فرستاد، حالت پاک شد و پردازش عادی ادامه دارد
+                }
 
                 $arrayCommands = QuranHelper::generateArrayCommands($userSettings);
 
@@ -102,46 +933,164 @@ class QuranWordController extends Controller
 
                 $botText = Str::lower($bot->Text());
                 if ($botText == '/start') {
+                    Log::info('📝 [Command] Processing /start command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_mother_id' => $botMotherId,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "start";
                     $isStartCommandShow = 0;
-                    list($message, $messageCommands) = QuranHelper::getStringCommandsStartBot($type);
-                    $reciterCommands = QuranHelper::getSettingReciter($type);
-                    $array = [[trans('bot.word by word'), "/1"], [trans('bot.ayah after ayah'), "/sure2ayah2"], [trans('bot.List of 114 Surahs'), "/fehrest"], [trans('bot.List of 30 Juz'), "/joz"]];
-//                dd($array,$message, $messageCommands);
-                    if ($type == 'telegram') {
-                        BotHelper::sendTelegram4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array, true);
-                    } else if ($type == 'gap') {
-                        BotHelper::sendGap4InlineMessage($bot, $message . $messageCommands . $reciterCommands, $array);
-                    } else {
-                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message . $messageCommands, $inlineKeyboard);
+                    [$message, $messageCommands] = QuranHelper::getStringCommandsStartBot($type);
+
+                    $array = [
+                        [trans('bot.word by word'), "/1"],
+                        [trans('bot.ayah after ayah'), "/sure2ayah2"],
+                        [trans('bot.List of 114 Surahs'), "/fehrest"],
+                        [trans('bot.List of 30 Juz'), "/joz"],
+                        ["🔍 " . trans('bot.search'), "/search"],
+                        ["⚙️ " . trans('bot.settings menu'), "/settings"],
+                        ["❓ " . trans('bot.help'), "/help"],
+                    ];
+
+                    // دکمه‌های قاری و mp3 (برای بله به دکمه‌های اصلی اضافه می‌شوند)
+                    $buttons = $array;
+                    if ($type == 'bale') {
+                        $buttons = array_merge($buttons, $arrayCommands);
                     }
-                } elseif ((integer)(substr($bot->Text(), 1, 1)) > 0) {
+
+                    BotHelper::sendButtonGridMessage($bot, $message . $messageCommands, $buttons, $type, $token, 2);
+                    Log::info('✅ [Command] /start message sent', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'buttons_count' => count($buttons)
+                    ]);
+                    
+                    // اگر کاربر جدید است یا pending_language_selection دارد، از او می‌پرسیم
+                    if ($userSettings) {
+                        $pendingLanguage = $userSettings->setting('pending_language_selection');
+                        $pendingTranslator = $userSettings->setting('pending_translator_selection');
+                        
+                        if ($pendingLanguage && $pendingTranslator) {
+                            $botId = $request->input('bot_id') ?? $request->query('bot_id');
+                            if ($botId) {
+                                $botModel = \App\Models\Bot::find($botId);
+                                if ($botModel && $botModel->language_code) {
+                                    $botLanguageCode = $botModel->language_code;
+                                    
+                                    // پیدا کردن نام زبان برای نمایش
+                                    $languageModel = \App\Models\Language::where('code', $botLanguageCode)->first();
+                                    $languageDisplayName = $languageModel ? ($languageModel->display_name ?? $languageModel->native_name ?? $botLanguageCode) : $botLanguageCode;
+                                    
+                                    $languageQuestionMessage = "\n\n🌐 " . trans("bot.would you like to use translation in") . " " . $languageDisplayName . "?";
+                                    
+                                    $languageButtons = [];
+                                    if ($type == 'telegram') {
+                                        $languageButtons[] = [
+                                            ['text' => "✅ " . trans("bot.yes use") . " " . $languageDisplayName, 'callback_data' => 'start_use_bot_language'],
+                                            ['text' => "❌ " . trans("bot.no keep current"), 'callback_data' => 'start_keep_current_language']
+                                        ];
+                                    } else {
+                                        // برای Bale
+                                        $languageButtons[] = ["✅ " . trans("bot.yes use") . " " . $languageDisplayName, 'start_use_bot_language'];
+                                        $languageButtons[] = ["❌ " . trans("bot.no keep current"), 'start_keep_current_language'];
+                                    }
+                                    
+                                    if ($type == 'telegram') {
+                                        BotHelper::sendTelegramInlineMessageWithButtons($bot, $languageQuestionMessage, $languageButtons);
+                                    } else {
+                                        $inlineKeyboard = BotHelper::makeBaleKeyboard4button($languageButtons, []);
+                                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $languageQuestionMessage, $inlineKeyboard);
+                                    }
+                                    
+                                    Log::info('🌐 [Start] Language selection question sent', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'bot_language' => $botLanguageCode,
+                                        'pending_language' => $pendingLanguage,
+                                        'type' => $type
+                                    ]);
+                                }
+                            }
+                        }
+                    }
+                    
+                    Log::info('✅ [Command] /start command processed successfully', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
+                } elseif (str_starts_with(trim($bot->Text() ?? ''), '/') && ctype_digit(substr(trim($bot->Text()), 1))) {
+                    Log::info('📝 [Command] Processing word command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "word";
                     $wordId = QuranHelper::getWordId($bot);
                     [$message, $isEndAya] = QuranHelper::getQuranWordById($wordId);
-//                BotHelper::sendMessageToSuperAdmin("از طرف تلگرام" . ":" . $bot->Text() . ":" . $wordId . ":" . $message, 'bale');
+                    
+                    Log::info('📖 [Command] Word data retrieved', [
+                        'chat_id' => $bot->ChatID(),
+                        'word_id' => $wordId,
+                        'is_end_aya' => $isEndAya,
+                        'message_length' => strlen($message),
+                        'type' => $type
+                    ]);
+                    
                     $next = ((integer)$wordId == 88246 ? "88246" : ((integer)$wordId + 1));
                     $back = ((integer)$wordId == 1 ? "1" : ((integer)$wordId - 1));
-
-//                $messageCommands = QuranHelper::getStringCommandsWordByWord($next, $back);
 
                     if ($isEndAya != 1) {
                         $isStartCommandShow = 0;
                     }
 
-                    if ($type == 'telegram')
+                    Log::info('📤 [Command] Sending word message with next/previous buttons', [
+                        'chat_id' => $bot->ChatID(),
+                        'word_id' => $wordId,
+                        'next' => $next,
+                        'back' => $back,
+                        'type' => $type
+                    ]);
+
+                    if ($type == 'telegram') {
                         BotHelper::sendMessage2Button($bot, $message, "/" . $next, "/" . $back);
-                    else if ($type == 'gap') {
+                        Log::info('✅ [Command] Word message sent via Telegram', [
+                            'chat_id' => $bot->ChatID(),
+                            'word_id' => $wordId,
+                            'type' => $type
+                        ]);
+                    } else if ($type == 'gap') {
                         $inlineKeyboard = BotHelper::makeGapKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                         BotHelper::messageGapWithKeyboard($bot, $message, $inlineKeyboard);
+                        Log::info('✅ [Command] Word message sent via Gap', [
+                            'chat_id' => $bot->ChatID(),
+                            'word_id' => $wordId,
+                            'type' => $type
+                        ]);
                     } else {
                         $inlineKeyboard = BotHelper::makeKeyboard2button(trans('bot.next'), "/" . $next, trans('bot.previous'), "/" . $back);
                         BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                        Log::info('✅ [Command] Word message sent via Bale', [
+                            'chat_id' => $bot->ChatID(),
+                            'word_id' => $wordId,
+                            'type' => $type
+                        ]);
                     }
+                    
+                    Log::info('✅ [Command] Word command processed successfully', [
+                        'chat_id' => $bot->ChatID(),
+                        'word_id' => $wordId,
+                        'type' => $type
+                    ]);
                 } elseif (str_starts_with($botText, StringHelper::command_template_scan)) {
+                    Log::info('📝 [Command] Processing scan command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "hr";
 
@@ -151,8 +1100,23 @@ class QuranWordController extends Controller
                         if ($page > 0) {
                             $hr = (integer)substr($botText, strpos($botText, StringHelper::command_template_hr) + Str::length(StringHelper::command_template_hr));
 
+                            Log::info('📄 [Command] Scan parameters parsed', [
+                                'chat_id' => $bot->ChatID(),
+                                'page' => $page,
+                                'page_number' => $pageNumber,
+                                'hr' => $hr,
+                                'type' => $type
+                            ]);
+
                             if ($hr > 0) {
                                 if ($type == 'telegram' || $type == 'bale') {
+                                    Log::info('📄 [Command] Checking for existing scan page in database', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'hr' => $hr,
+                                        'page' => $page,
+                                        'type' => $type
+                                    ]);
+                                    
                                     $quranScanPage = QuranScanPage::query()
                                         ->whereHr($hr)
                                         ->whereType($type)
@@ -161,12 +1125,41 @@ class QuranWordController extends Controller
                                         ->first();
 
                                     if ($quranScanPage == null || $quranScanPage->count() == 0) {
+                                        Log::info('📄 [Command] Scan page not found in database, sending new scan page', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'hr' => $hr,
+                                            'page' => $page,
+                                            'type' => $type
+                                        ]);
+                                        
                                         $photoCallBack = QuranHelper::sendScanPage($bot, $pageNumber, $hr);
-                                        if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true')
+                                        if ($photoCallBack['ok'] || $photoCallBack['ok'] == 'true') {
                                             $quranScanPage = $this->saveToQuranScanPagesTable($hr, $page, $type, $photoCallBack['result']);
-                                        else
+                                            Log::info('✅ [Command] Scan page saved to database', [
+                                                'chat_id' => $bot->ChatID(),
+                                                'hr' => $hr,
+                                                'page' => $page,
+                                                'type' => $type
+                                            ]);
+                                        } else {
+                                            Log::error('❌ [Command] Error sending scan page', [
+                                                'chat_id' => $bot->ChatID(),
+                                                'hr' => $hr,
+                                                'page' => $page,
+                                                'type' => $type,
+                                                'photo_callback' => $photoCallBack
+                                            ]);
                                             BotHelper::sendMessage($bot, "error to find image scan quran");
+                                        }
                                     } else {
+                                        Log::info('📄 [Command] Scan page found in database, using cached version', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'hr' => $hr,
+                                            'page' => $page,
+                                            'type' => $type,
+                                            'file_id' => $quranScanPage->file_id
+                                        ]);
+                                        
                                         $file_id = $quranScanPage->file_id;
                                         $file = $bot->getFile($file_id);
 
@@ -177,45 +1170,129 @@ class QuranWordController extends Controller
                                         $bot->downloadFile($file['result']['file_path'], $filePath);
                                         $url = 'https://bots.pardisania.ir/api/scan?qsp=' . $quranScanPage->id . '&type=' . $type;
 
-//                                    BotHelper::sendMessageToSuperAdmin($filePath . ' - ' . $url, $type);
+                                        Log::info('📤 [Command] Sending scan page by URL', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'url' => $url,
+                                            'type' => $type
+                                        ]);
+                                        
                                         $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $url, $pageNumber, $hr);
-
+                                        
+                                        Log::info('✅ [Command] Scan page sent by URL', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'type' => $type
+                                        ]);
                                     }
                                 } else {
-
-                                    // TODO: if this code use only for gap we need to get it and save for requests we didn't get image yet
-//                                $quranScanPage = QuranScanPage::query()
-//                                    ->whereHr($hr)
-//                                    ->wherePage($page)
-                                    //    ->whereFileIsInLocalCached
-//                                    ->whereBotId(1)
-//                                    ->first();
+                                    Log::info('📄 [Command] Processing scan for Gap', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'hr' => $hr,
+                                        'page' => $page,
+                                        'type' => $type
+                                    ]);
 
                                     $filePath = '/home/pardisa2/bots/storage/app/public/scan/' . $hr . '/' . $page . '.png';
-//                                $filePath = "C:\Users\saber\saberprojects\bball\berimbasket-laravel-bot\berimbasket-laravel-bot\storage\app\public\scan\\1\\2.png";
-//                                dd($bot, $filePath, $pageNumber, $hr);
                                     $photoCallBack = QuranHelper::sendScanPageByUrl($bot, $filePath, $pageNumber, $hr);
+                                    
+                                    Log::info('✅ [Command] Scan page sent for Gap', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
                                 }
+                                
                                 if ($type == 'bale') {
+                                    Log::info('📤 [Command] Sending scan buttons for Bale', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'page_number' => $pageNumber,
+                                        'type' => $type
+                                    ]);
                                     QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot, $type);
+                                    Log::info('✅ [Command] Scan buttons sent for Bale', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
                                 }
+                                
                                 if ($type == 'telegram' || $type == 'bale') {
+                                    Log::info('🎵 [Command] Sending audio MP3 for scan page', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'page_number' => $pageNumber,
+                                        'type' => $type
+                                    ]);
                                     QuranHelper::sendAudioMp3Page($bot, $pageNumber);
+                                    Log::info('✅ [Command] Audio MP3 sent for scan page', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
                                 }
+                            } else {
+                                Log::warning('⚠️ [Command] Invalid hr value for scan command', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'hr' => $hr,
+                                    'type' => $type
+                                ]);
                             }
+                        } else {
+                            Log::warning('⚠️ [Command] Invalid page value for scan command', [
+                                'chat_id' => $bot->ChatID(),
+                                'page' => $page,
+                                'type' => $type
+                            ]);
                         }
+                    } else {
+                        Log::warning('⚠️ [Command] Scan command pattern not matched', [
+                            'chat_id' => $bot->ChatID(),
+                            'bot_text' => $bot->Text(),
+                            'type' => $type
+                        ]);
                     }
+                    
+                    Log::info('✅ [Command] Scan command processed', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                 } elseif (str_starts_with($botText, StringHelper::command_template_sure)) {
+                    Log::info('📝 [Command] Processing sure command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     if (preg_match(StringHelper::regex_sure, substr($botText, 1, Str::length($botText)), $match) == 1) {
                         $sure = (integer)$match[1];
                         if ($sure > 0) {
                             $aya = (integer)substr($botText, strpos($botText, StringHelper::command_template_ayah) + Str::length(StringHelper::command_template_ayah));
 
-                            if ($aya > 0) {
+                            Log::info('📖 [Command] Sure command parameters parsed', [
+                                'chat_id' => $bot->ChatID(),
+                                'sure' => $sure,
+                                'aya' => $aya,
+                                'type' => $type
+                            ]);
 
+                            if ($aya > 0) {
+                                QuranSearchSuggestion::create([
+                                    'search_phrase' => null,
+                                    'result_count' => 0,
+                                    'sura' => $sure,
+                                    'aya' => $aya,
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type,
+                                    'source' => QuranSearchSuggestion::SOURCE_CLICKED,
+                                ]);
                                 $isStartCommandShow = $aya % 10 == 0 ? 1 : 0;
-                                [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type);
+                                $language = $request->input('language', App::getLocale());
+                                
+                                Log::info('📖 [Command] Getting sure aya data', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'language' => $language,
+                                    'type' => $type
+                                ]);
+                                
+                                [$message, $pageNumber] = QuranHelper::getSureAye($userSettings, $sure, $aya, $type, $language);
 
                                 [$maxAyah, $sureName] = QuranHelper::getLastAyeBySurehId($sure);
                                 [$maxAyahSureGhabli, $sureGhabliName] = QuranHelper::getLastAyeBySurehId($sure != 1 ? $sure - 1 : 114);
@@ -232,272 +1309,1320 @@ class QuranWordController extends Controller
                                 if ($aya == $maxAyah || $aya == 1) {
                                     $isStartCommandShow = true;
                                 }
-//                            $messageCommands = QuranHelper::getStringCommandsAyaBaya($aya, $maxAyah, $nextAye, $lastAye, $sure, $nextSure, $lastSure);
+
+                                Log::info('📖 [Command] Sure aya data prepared', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'max_ayah' => $maxAyah,
+                                    'next_aye' => $nextAye,
+                                    'last_aye' => $lastAye,
+                                    'message_length' => strlen($message),
+                                    'type' => $type
+                                ]);
 
                                 $array = [[trans('bot.next aya'), $nextAye], [trans('bot.previous aya'), $lastAye], [trans('bot.next surah'), $nextSure], [trans('bot.previous surah'), $firstAyaOfLastSure]];
-                                if ($type == 'telegram') {
-                                    BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
-                                } else if ($type == 'gap') {
-                                    BotHelper::sendGap4InlineMessage($bot, $message, $array);
+                                
+                                Log::info('📤 [Command] Sending sure aya message with inline buttons', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'buttons_count' => count($array),
+                                    'type' => $type
+                                ]);
+                                
+                                $verseButtons = $array;
+                                if ($type == 'bale') {
+                                    $verseButtons = array_merge($verseButtons, $arrayCommands);
+                                }
+
+                                $isGap = $bot->BotType() == "gap";
+                                $verseMp3Enable = QuranHelper::getBooleanSettingsByTags($userSettings, 'mp3_enable') == "true";
+                                $audioResult = null;
+
+                                if ($verseMp3Enable && !$isGap) {
+                                    // متن آیه و دکمه‌ها به پیام صوتی وصل می‌شود و پیام متنی جداگانه حذف می‌شود
+                                    Log::info('🎵 [Command] Sending reciter audio with verse caption for aya', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'sure' => $sure,
+                                        'aya' => $aya,
+                                        'type' => $type
+                                    ]);
+                                    $audioResult = QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings, $message, $verseButtons);
+                                    if (empty($audioResult['sent'])) {
+                                        Log::warning('⚠️ [Command] Reciter audio not sent, falling back to plain text message with buttons', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type
+                                        ]);
+                                        BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+                                    }
                                 } else {
-                                    $inlineKeyboard = BotHelper::makeBaleKeyboard4button($array, $arrayCommands);
-                                    BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                                    BotHelper::sendButtonGridMessage($bot, $message, $verseButtons, $type, $token, 2);
+                                }
+                                Log::info('✅ [Command] Sure aya message sent', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'buttons_count' => count($verseButtons),
+                                    'type' => $type,
+                                    'audio_captured_chars' => $audioResult['captured'] ?? 0,
+                                ]);
+
+                                if ($type == 'bale') {
                                     QuranHelper::sendScanBaleButtons($pageNumber, $token, $bot, $type);
+                                    Log::info('✅ [Command] Scan buttons sent for Bale', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'page_number' => $pageNumber,
+                                        'type' => $type
+                                    ]);
                                 }
 
                                 if ($bot->BotType() != "gap") {
-                                    QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                    if ($audioResult === null) {
+                                        // صوت قاری یا غیرفعال است یا هنوز ارسال نشده → اینجا صدا بزن (در حالت غیرفعال no-op است)
+                                        Log::info('🎵 [Command] Sending audio MP3 for aya', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type
+                                        ]);
+                                        QuranHelper::sendAudioMp3Aye($aya, $sure, $bot, $userSettings);
+                                    }
+
                                     if (App::getLocale()) {
                                         $postfix = config("reciter.audio." . App::getLocale(), '');
                                         if ($postfix) {
+                                            Log::info('🎵 [Command] Sending audio MP3 by locale', [
+                                                'chat_id' => $bot->ChatID(),
+                                                'sure' => $sure,
+                                                'aya' => $aya,
+                                                'locale' => App::getLocale(),
+                                                'postfix' => $postfix,
+                                                'type' => $type
+                                            ]);
                                             QuranHelper::sendAudioMp3AyeByLocale($aya, $sure, $bot, $postfix, $userSettings);
+                                            Log::info('✅ [Command] Audio MP3 by locale sent', [
+                                                'chat_id' => $bot->ChatID(),
+                                                'type' => $type
+                                            ]);
                                         }
+                                    }
+                                    
+                                    Log::info('✅ [Command] Audio MP3 sent for aya', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
+                                }
+
+                                // Send PlaceQuran image if user enabled
+                                try {
+                                    $placequranEnable = $userSettings ? ($userSettings->setting('placequran_enable') == "true") : false;
+                                    if ($placequranEnable) {
+                                        Log::info('🖼️ [Command] Sending PlaceQuran image', [
+                                            'chat_id' => $bot->ChatID(),
+                                            'sure' => $sure,
+                                            'aya' => $aya,
+                                            'type' => $type,
+                                            'locale' => App::getLocale()
+                                        ]);
+                                        QuranHelper::sendPlaceQuranImage($bot, $sure, $aya, App::getLocale());
+                                    }
+                                } catch (\Throwable $e) {
+                                    Log::warning('⚠️ [Command] Failed to send PlaceQuran image', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'error' => $e->getMessage()
+                                    ]);
+                                }
+
+                                Log::info('✅ [Command] Sure command processed successfully', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'type' => $type
+                                ]);
+                            } else {
+                                Log::warning('⚠️ [Command] Invalid aya value for sure command', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'sure' => $sure,
+                                    'aya' => $aya,
+                                    'type' => $type
+                                ]);
+                            }
+                        } else {
+                            Log::warning('⚠️ [Command] Invalid sure value', [
+                                'chat_id' => $bot->ChatID(),
+                                'sure' => $sure,
+                                'type' => $type
+                            ]);
+                        }
+                    } else {
+                        Log::warning('⚠️ [Command] Sure command pattern not matched', [
+                            'chat_id' => $bot->ChatID(),
+                            'bot_text' => $bot->Text(),
+                            'type' => $type
+                        ]);
+                    }
+                // =============================================
+                // دستورات جدید ادمین
+                // =============================================
+                
+                // ///broadcast-history - تاریخچه ارسال‌های همگانی
+                } elseif (\App\Helpers\AdminHelper::isBroadcastHistoryCommand($bot->Text())) {
+                    Log::info('📋 [Command] Processing ///broadcast-history command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $historyMessage = $service->formatHistoryMessage();
+                        \App\Helpers\BotHelper::sendMessage($bot, $historyMessage);
+                        
+                        Log::info('✅ [Command] ///broadcast-history command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // ///stats - آمار کامل همه زبان‌ها
+                } elseif (\App\Helpers\AdminHelper::isStatsCommand($bot->Text())) {
+                    Log::info('📊 [Command] Processing ///stats command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $stats = $service->getStats($botMotherId);
+                        $message = $service->formatStatsMessage($stats);
+                        \App\Helpers\BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [Command] ///stats command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type,
+                            'stats_count' => count($stats)
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // ///stats xx - آمار یک زبان خاص
+                } elseif (\App\Helpers\AdminHelper::isStatsLanguageCommand($bot->Text())) {
+                    Log::info('📊 [Command] Processing ///stats language command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $language = \App\Helpers\AdminHelper::parseLanguageFromCommand($bot->Text());
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $stats = $service->getStatsByLanguage($language, $botMotherId);
+                        
+                        $message = "📊 *آمار زبان {$stats['language_name']}*\n";
+                        $message .= "────────────────\n";
+                        $message .= "👥 مجموع کاربران: {$stats['total_users']}\n";
+                        $message .= "📨 مجموع درخواست‌ها: {$stats['total_requests']}\n\n";
+                        
+                        if (!empty($stats['bots'])) {
+                            $message .= "📋 *تفکیک ربات‌ها:*\n";
+                            foreach ($stats['bots'] as $botStat) {
+                                $platformIcon = $botStat['bot_name'] && strpos($botStat['bot_name'], '_') !== false ? '📱' : '💬';
+                                $message .= "└ {$platformIcon} {$botStat['bot_name']}: {$botStat['unique_users']} کاربر | {$botStat['total_requests']} درخواست\n";
+                            }
+                        }
+                        
+                        $message .= "\n💡 برای ارسال: `////{$language} [متن]`\n";
+                        
+                        \App\Helpers\BotHelper::sendMessage($bot, $message);
+                        
+                        Log::info('✅ [Command] ///stats language command processed', [
+                            'chat_id' => $bot->ChatID(),
+                            'language' => $language,
+                            'type' => $type
+                        ]);
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // /////all ... - ارسال به همه زبان‌ها (نیاز به تأیید)
+                } elseif (\App\Helpers\AdminHelper::isBroadcastAllCommand($bot->Text())) {
+                    Log::info('📢 [Command] Processing /////all command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        if ($type == 'telegram') {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⚠️ لطفا از ربات پیام‌رسان بله، این پیام را ارسال کنید.");
+                        } else {
+                            $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
+                            $service = app(\App\Services\AdminBroadcastService::class);
+                            $result = $service->prepareBroadcastToAll($messageText, $botMotherId, $bot->ChatID());
+                            
+                            $confirmation = "📋 *تأیید ارسال پیام همگانی به همه زبان‌ها*\n";
+                            $confirmation .= "─────────────────────────────\n";
+                            $confirmation .= "👥 مجموع کاربران: {$result['total_users']}\n\n";
+                            $confirmation .= "📝 *متن پیام:*\n```\n{$messageText}\n```\n\n";
+                            $confirmation .= "✅ `/confirm` برای تأیید\n";
+                            $confirmation .= "⏰ اعتبار: ۵ دقیقه\n";
+                            
+                            \App\Helpers\BotHelper::sendMessage($bot, $confirmation);
+                        }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // ////xx ... - ارسال به زبان خاص (نیاز به تأیید)
+                } elseif (\App\Helpers\AdminHelper::isBroadcastLanguageCommand($bot->Text())) {
+                    Log::info('📢 [Command] Processing ////language command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        if ($type == 'telegram') {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⚠️ لطفا از ربات پیام‌رسان بله، این پیام را ارسال کنید.");
+                        } else {
+                            $language = \App\Helpers\AdminHelper::parseLanguageFromCommand($bot->Text());
+                            $messageText = \App\Helpers\AdminHelper::parseMessageFromBroadcast($bot->Text());
+                            
+                            $service = app(\App\Services\AdminBroadcastService::class);
+                            $stats = $service->prepareBroadcast($language, $messageText, $botMotherId, $bot->ChatID());
+                            
+                            $confirmation = $service->formatConfirmationMessage($stats, $messageText, $stats['total_users']);
+                            \App\Helpers\BotHelper::sendMessage($bot, $confirmation);
+                        }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                    }
+                    
+                // /confirm - تأیید ارسال
+                } elseif (\App\Helpers\AdminHelper::isConfirmCommand($bot->Text())) {
+                    Log::info('✅ [Command] Processing /confirm command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
+
+                    if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                        $service = app(\App\Services\AdminBroadcastService::class);
+                        $result = $service->confirmAndSend($bot->ChatID());
+                        
+                        if ($result['success']) {
+                            $report = "✅ *ارسال همگانی انجام شد*\n";
+                            $report .= "─────────────────────\n";
+                            $report .= "👥 ارسال به: {$result['sent_count']} کاربر\n";
+                            if (!empty($result['error_count'])) {
+                                $report .= "❌ خطا: {$result['error_count']}\n";
+                            }
+                            
+                            if (!empty($result['bots_report'])) {
+                                $report .= "\n📋 *تفکیک ربات‌ها:*\n";
+                                foreach ($result['bots_report'] as $botReport) {
+                                    $report .= "└ {$botReport['bot_name']}: ✅{$botReport['sent']}";
+                                    if ($botReport['errors'] > 0) {
+                                        $report .= " ❌{$botReport['errors']}";
+                                    }
+                                    $report .= "\n";
+                                }
+                            }
+                            
+                            if (!empty($result['languages_report'])) {
+                                $report .= "\n📋 *تفکیک زبان‌ها:*\n";
+                                foreach ($result['languages_report'] as $langReport) {
+                                    $report .= "└ {$langReport['language_name']}: ✅{$langReport['sent']}";
+                                    if ($langReport['errors'] > 0) {
+                                        $report .= " ❌{$langReport['errors']}";
+                                    }
+                                    $report .= "\n";
+                                    foreach ($langReport['bots'] as $botRep) {
+                                        $report .= "  └ {$botRep['bot_name']}: ✅{$botRep['sent']}\n";
                                     }
                                 }
                             }
+                            
+                            \App\Helpers\BotHelper::sendMessage($bot, $report);
+                        } else {
+                            \App\Helpers\BotHelper::sendMessage($bot, $result['message']);
                         }
+                    } else {
+                        \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
                     }
+                    
+                // =============================================
+                // دستورات قدیمی (برای backward compatibility)
+                // =============================================
+                
                 } elseif ((substr($bot->Text(), 0, 4)) == "////") {
+                    Log::info('📝 [Command] Processing //// command (message to all admins, legacy)', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "////";
 
                     $request->request->add(['to_admins' => "true"]);
 
                     $this->messageToAll($request);
+                    
+                    Log::info('✅ [Command] //// command processed', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                 } elseif ((substr($bot->Text(), 0, 3)) == "///") {
+                    Log::info('📝 [Command] Processing /// command (message to all users, legacy)', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "///";
                     $request->request->add(['to_admins' => "false"]);
                     $this->messageToAll($request);
+                    
+                    Log::info('✅ [Command] /// command processed', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                 } elseif ((substr($bot->Text(), 0, 2)) == "//") {
+                    Log::info('📝 [Command] Processing // command (search)', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "//";
                     $searchPhrase = substr($bot->Text(), 2, strlen($bot->Text()));
                     [$searchPhrase, $pageNumber] = QuranHelper::getPageNumberFromPhrase($searchPhrase);
-                    QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot);
+                    
+                    Log::info('🔍 [Command] Search parameters prepared', [
+                        'chat_id' => $bot->ChatID(),
+                        'search_phrase' => $searchPhrase,
+                        'page_number' => $pageNumber,
+                        'type' => $type
+                    ]);
+                    
+                    QuranHelper::findResultThenSend($searchPhrase, $pageNumber, $type, $bot, $token);
+                    
+                    Log::info('✅ [Command] Search command processed', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                 } elseif ((substr($bot->Text(), 0, 1)) == "/") {
+                    Log::info('📝 [Command] Processing command', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type,
+                        'bot_text' => $bot->Text(),
+                        'timestamp' => now()->toDateTimeString()
+                    ]);
 
                     $command_type = "commands";
 
                     $command = substr($botText, strpos($botText, "/") + Str::length("/"));
-                    if ($command == "fehrest") {
-                        if ($type == 'telegram') {
-                            QuranHelper::generateTelegramFehrestThenSendIt($bot);
-                        } else if ($type == 'gap') {
-                            QuranHelper::generateGapFehrestThenSendIt($bot);
+                    
+                    Log::info('📝 [Command] Command extracted', [
+                        'chat_id' => $bot->ChatID(),
+                        'command' => $command,
+                        'type' => $type
+                    ]);
+                    
+                    if (\App\Helpers\AdminHelper::isHelpAdminCommand($bot->Text())) {
+                        Log::info('📝 [Command] Processing /helpadmin command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        
+                        if (\App\Helpers\AdminHelper::isAdmin($bot->ChatID())) {
+                            $helpText = \App\Helpers\AdminHelper::getHelpAdminText();
+                            \App\Helpers\BotHelper::sendMessage($bot, $helpText);
                         } else {
+                            \App\Helpers\BotHelper::sendMessage($bot, "⛔ شما دسترسی ادمین ندارید.");
+                        }
+                    } elseif ($command == "fehrest") {
+                        Log::info('📝 [Command] Processing /fehrest command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        // اطلاع به کاربر که در حال پردازش است
+                        // BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                        
+                        if ($type == 'telegram') {
+                            Log::info('📤 [Command] Generating and sending fehrest via Telegram', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                            QuranHelper::generateTelegramFehrestThenSendIt($bot);
+                            Log::info('✅ [Command] Fehrest sent via Telegram', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        } else if ($type == 'gap') {
+                            Log::info('📤 [Command] Generating and sending fehrest via Gap', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                            QuranHelper::generateGapFehrestThenSendIt($bot);
+                            Log::info('✅ [Command] Fehrest sent via Gap', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        } else {
+                            Log::info('📤 [Command] Generating and sending fehrest via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             QuranHelper::generateBaleFehrestThenSendIt($bot, $token);
+                            Log::info('✅ [Command] Fehrest sent via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         }
                         
                         // Send last activities after fehrest with common buttons
                         $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                         if (!empty($lastActivitiesMessage)) {
+                            Log::info('📤 [Command] Sending last activities after fehrest', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
+                            Log::info('✅ [Command] Last activities sent after fehrest', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         }
+                        
+                        Log::info('✅ [Command] /fehrest command processed successfully', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
                     } else if ($command == "joz") {
+                        Log::info('📝 [Command] Processing /joz command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        
                         if ($type != 'bale') {
+                            Log::info('📤 [Command] Generating and sending joz via Telegram/Gap', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             QuranHelper::generateJozLinksThenSendItTelegram($bot);
+                            Log::info('✅ [Command] Joz sent via Telegram/Gap', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         } else {
+                            Log::info('📤 [Command] Generating and sending joz via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             QuranHelper::generateJozLinksThenSendItBale($bot);
+                            Log::info('✅ [Command] Joz sent via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         }
                         
                         // Send last activities after joz with common buttons
                         $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                         if (!empty($lastActivitiesMessage)) {
+                            Log::info('📤 [Command] Sending last activities after joz', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
+                            Log::info('✅ [Command] Last activities sent after joz', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         }
+                        
+                        Log::info('✅ [Command] /joz command processed successfully', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
                     } else if ($command == "report") {
+                        Log::info('📝 [Command] Processing /report command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        
+                        Log::info('📤 [Command] Sending processing message for report', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                        
                         $chatId = $bot->ChatID();
-                        $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
-                        $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
+                        Log::info('📊 [Command] Generating user report', [
+                            'chat_id' => $chatId,
+                            'type' => $type
+                        ]);
+                        
+                        try {
+                            $this->quranBotUserRankingService->specificUserReport($chatId, $bot);
+                            $message = trans("bot.report.this is your reports. your last 7 days activities. click on this link:") . "
                     https://bots.pardisania.ir/report?chat_id=" . $chatId . '&language=' . $request->input('language') . '&origin=' . $type;
-                        BotHelper::sendMessage($bot, $message);
-                        BotHelper::sendMessageToSuperAdmin($message, $type);
+                            
+                            Log::info('📤 [Command] Sending report message', [
+                                'chat_id' => $chatId,
+                                'type' => $type
+                            ]);
+                            BotHelper::sendMessage($bot, $message);
+                            BotHelper::sendMessageToSuperAdmin($message, $type);
+
+                            // F1: تحلیل هوشمند (LLM) فعالیت + مقایسه‌ی ناشناس با سایر کاربران
+                            // در صورت خرابی LLM، خودِ سرویس fallback ساده ارائه می‌دهد؛ اینجا هم try/catch جدا داریم.
+                            try {
+                                $summary = (new ActivityReportSummaryService())->buildMessage(
+                                    (int) $chatId,
+                                    $type,
+                                    $request->input('language') ?: null
+                                );
+                                if ($summary !== '') {
+                                    BotHelper::sendMessage($bot, $summary);
+                                }
+                            } catch (\Throwable $summaryException) {
+                                Log::warning('⚠️ [Command] Activity report summary failed (skipped)', [
+                                    'error'   => $summaryException->getMessage(),
+                                    'chat_id' => $chatId,
+                                    'type'    => $type,
+                                ]);
+                            }
+                        } catch (Exception $reportException) {
+                            Log::error('❌ [Command] Error in /report command', [
+                                'error' => $reportException->getMessage(),
+                                'file' => $reportException->getFile(),
+                                'line' => $reportException->getLine(),
+                                'chat_id' => $chatId,
+                                'type' => $type,
+                                'trace' => $reportException->getTraceAsString(),
+                            ]);
+                            $errorMsg = "❌ خطا در تولید گزارش. لطفاً دوباره تلاش کنید.";
+                            BotHelper::sendMessage($bot, $errorMsg);
+                        }
+                        
+                        Log::info('✅ [Command] /report command processed successfully', [
+                            'chat_id' => $chatId,
+                            'type' => $type
+                        ]);
                     } else if ($command == "reportall") {
+                        Log::info('📝 [Command] Processing /reportall command', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                        
                         if ($type == 'telegram') {
+                            Log::info('⚠️ [Command] /reportall not supported in Telegram', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                             BotHelper::sendMessage($bot, "❌ " . trans("bot.this command not work in telegram"));
                         } else {
                             if (AdminHelper::isAdmin($bot->ChatID())) {
+                                Log::info('📤 [Command] Sending processing message for reportall', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type
+                                ]);
+                                BotHelper::sendMessage($bot, trans("bot.processing your request"));
+                                
+                                Log::info('📊 [Command] Generating all users report', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type
+                                ]);
                                 $this->quranBotUserRankingService->allUsersReportDailyWeeklyMonthly($type);
                                 
                                 // Send last activities after reportall with common buttons
                                 $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                                 if (!empty($lastActivitiesMessage)) {
+                                    Log::info('📤 [Command] Sending last activities after reportall', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
                                     QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
+                                    Log::info('✅ [Command] Last activities sent after reportall', [
+                                        'chat_id' => $bot->ChatID(),
+                                        'type' => $type
+                                    ]);
                                 }
+                                
+                                Log::info('✅ [Command] /reportall command processed successfully', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type
+                                ]);
                             } else {
+                                Log::warning('⚠️ [Command] User is not admin for /reportall', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'type' => $type
+                                ]);
                                 BotHelper::sendMessage($bot, "🚫 " . trans("bot.you are not admin"));
                             }
                         }
                     } else if ($command == "listcommands" || $command == "help") {
+                        Log::info('📝 [Command] Processing /listcommands or /help command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        
                         $message = QuranHelper::getHelpMessage($type);
+                        Log::info('📤 [Command] Sending help message', [
+                            'chat_id' => $bot->ChatID(),
+                            'message_length' => strlen($message),
+                            'type' => $type
+                        ]);
                         BotHelper::sendMessage($bot, $message);
+                        Log::info('✅ [Command] Help message sent', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else if ($command == "search") {
+                        $searchValue = trim(substr($bot->Text(), Str::length('/search')));
+
+                        if ($searchValue !== '') {
+                            [$searchPhrase, $searchPageNumber] = QuranHelper::getPageNumberFromPhrase($searchValue);
+                            Log::info('🔍 [Command] Processing /search command with phrase', [
+                                'chat_id' => $bot->ChatID(),
+                                'search_phrase' => $searchPhrase,
+                                'type' => $type
+                            ]);
+                            QuranHelper::findResultThenSend($searchPhrase, $searchPageNumber, $type, $bot, $token);
+                        } else {
+                            BotMotherStateHelper::setState($bot->ChatID(), BotMotherStateHelper::STATE_WAITING_QURAN_SEARCH);
+                            Log::info('🔍 [Command] /search state set, waiting for phrase', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                            QuranHelper::sendMessageWithCommonButtons($bot, trans('bot.search prompt'), $type, $token);
+                        }
+                    } else if ($command == "settings") {
+                        Log::info('📝 [Command] Processing /settings command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت زبان فعلی کاربر
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : App::getLocale();
+                        if (!$currentLanguage) {
+                            $currentLanguage = App::getLocale();
+                        }
+                        
+                        $currentReciterName = QuranHelper::getReciterName($userSettings ? $userSettings->setting('mp3_reciter') : null);
+                        $mp3Enable = $userSettings ? $userSettings->setting('mp3_enable') : null;
+
+                        $message = "⚙️ " . trans("bot.settings menu") . "\n\n";
+                        $message .= "📖 " . trans("bot.current translation language") . ": " . $currentLanguage . "\n";
+                        $message .= "🎧 " . trans("bot.current reciter :reciter", ['reciter' => $currentReciterName]) . "\n";
+                        $message .= "🔊 " . trans("bot.settings mp3 status") . " : " . ($mp3Enable == "true" ? trans('bot.enabled') : trans('bot.disabled')) . "\n\n";
+                        $message .= trans("bot.select option from menu");
+
+                        $buttons = [
+                            ['text' => "🌐 " . trans("bot.select translation language"), 'callback_data' => "settings_select_language"],
+                            ['text' => "📖 " . trans("bot.view translations for current language"), 'callback_data' => "settings_view_translations_" . $currentLanguage],
+                            ['text' => "🎧 " . trans('bot.select reciter'), 'callback_data' => "settings_select_reciter"],
+                            ['text' => "🔊 " . trans("bot.settings mp3 status") . " : " . ($mp3Enable == "true" ? trans('bot.disable reciter') : trans('bot.enable reciter')), 'callback_data' => $mp3Enable == "true" ? "/mp3_false" : "/mp3_true"],
+                        ];
+
+                        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 1);
+                        
+                        Log::info('✅ [Command] Settings menu sent', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
                     } else if ($command == "lastactivities" || $command == "last") {
+                        Log::info('📝 [Command] Processing /lastactivities or /last command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        
                         // Send last activities with common buttons
                         $lastActivitiesMessage = QuranHelper::getLastActivitiesMessage($bot->ChatID(), $type);
                         if (empty($lastActivitiesMessage)) {
                             $lastActivitiesMessage = "📚 " . trans("bot.your last activities") . "\n\n" . trans("bot.no activities found");
+                            Log::info('📚 [Command] No activities found, using default message', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
                         }
+                        
+                        Log::info('📤 [Command] Sending last activities', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
                         QuranHelper::sendMessageWithCommonButtons($bot, $lastActivitiesMessage, $type, $token);
-                    }
-
-                    $subCommand = substr($command, 0, strpos($command, "_"));
-                    $value = substr($command, strpos($command, "_") + 1);
+                        Log::info('✅ [Command] Last activities sent', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else if ($command == "invite" || $command == "دعوت") {
+                        Log::info('📝 [Command] Processing /invite command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        // دستور دعوت
+                        $chatId = $bot->ChatID();
+                        Log::info('🔗 [Command] Generating invitation link', [
+                            'chat_id' => $chatId,
+                            'type' => $type
+                        ]);
+                        
+                        $invitationLink = QuranHelper::getInvitationLink($chatId, $type, $token);
+                        
+                        if (!$invitationLink) {
+                            Log::error('❌ [Command] Error generating invitation link', [
+                                'chat_id' => $chatId,
+                                'type' => $type
+                            ]);
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.error generating invitation link"));
+                            return 0;
+                        }
+                        
+                        Log::info('✅ [Command] Invitation link generated', [
+                            'chat_id' => $chatId,
+                            'invitation_link' => substr($invitationLink, 0, 50) . '...',
+                            'type' => $type
+                        ]);
+                        
+                        // پیام دعوت
+                        $message = trans("bot.invitation message") . "\n\n";
+                        $message .= "🔗 " . trans("bot.your invitation link") . ":\n";
+                        $message .= $invitationLink . "\n\n";
+                        $message .= "💡 " . trans("bot.how to invite others") . " 🤔\n";
+                        $message .= trans("bot.just forward this message") . " ⨁👉\n\n";
+                        
+                        // آمار دعوت‌شدگان (اگر وجود داشته باشد)
+                        $referralStats = $this->quranBotUserRankingService->getReferralStatistics($chatId);
+                        if ($referralStats['total_invitees'] > 0) {
+                            $message .= "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+                            $message .= $this->quranBotUserRankingService->getReferralStatisticsMessage($chatId) . "\n";
+                            Log::info('📊 [Command] Referral statistics added to message', [
+                                'chat_id' => $chatId,
+                                'total_invitees' => $referralStats['total_invitees'],
+                                'type' => $type
+                            ]);
+                        }
+                        
+                        // دکمه‌ها
+                        $buttonText = trans('bot.copy invitation link');
+                        $buttonCallback = 'copy_invite_link_' . $chatId;
+                        
+                        Log::info('📤 [Command] Sending invitation message with button', [
+                            'chat_id' => $chatId,
+                            'type' => $type
+                        ]);
+                        
+                        if ($type == 'telegram') {
+                            $buttons = [[
+                                'text' => $buttonText,
+                                'callback_data' => $buttonCallback
+                            ]];
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $buttons);
+                            Log::info('✅ [Command] Invitation message sent via Telegram', [
+                                'chat_id' => $chatId,
+                                'type' => $type
+                            ]);
+                        } else {
+                            // برای Bale
+                            $buttonArray = [[$buttonText, $buttonCallback]];
+                            $inlineKeyboard = $bot->buildInlineKeyBoard([[
+                                $bot->buildInlineKeyBoardButton($buttonText, callback_data: $buttonCallback)
+                            ]]);
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                            Log::info('✅ [Command] Invitation message sent via Bale', [
+                                'chat_id' => $chatId,
+                                'type' => $type
+                            ]);
+                        }
+                        
+                        Log::info('✅ [Command] /invite command processed successfully', [
+                            'chat_id' => $chatId,
+                            'type' => $type
+                        ]);
+                    } else if ($command == "translation_list" || $command == "translation") {
+                        Log::info('📝 [Command] Processing /translation_list or /translation command', [
+                            'chat_id' => $bot->ChatID(),
+                            'command' => $command,
+                            'type' => $type
+                        ]);
+                        
+                        // نمایش لیست ترجمه‌های موجود
+                        $language = $request->input('language', App::getLocale());
+                        if (!$language || $language == '') {
+                            $language = 'fa';
+                        }
+                        
+                        // normalize کردن کد زبان برای جستجو در دیتابیس
+                        // مثلاً ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+                        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+                        
+                        // دریافت ترجمه‌های موجود برای این زبان (هم با کد اصلی و هم normalized)
+                        $translations = \App\Models\QuranTranslation::query()
+                            ->where(function($query) use ($language, $normalizedLanguage) {
+                                $query->where('language', $language);
+                                if ($normalizedLanguage != $language) {
+                                    $query->orWhere('language', $normalizedLanguage);
+                                }
+                            })
+                            ->select('translator_name', 'translate_full_name', 'language')
+                            ->distinct()
+                            ->orderBy('translator_name')
+                            ->get();
+                        
+                        Log::info('📖 [Command] Getting translations for language', [
+                            'chat_id' => $bot->ChatID(),
+                            'language' => $language,
+                            'type' => $type
+                        ]);
+                        
+                        if ($translations->isEmpty()) {
+                            Log::warning('⚠️ [Command] No translations found for language', [
+                                'chat_id' => $bot->ChatID(),
+                                'language' => $language,
+                                'type' => $type
+                            ]);
+                            BotHelper::sendMessage($bot, "❌ " . trans("bot.no translations found for language") . ": " . $language);
+                            return 0;
+                        }
+                        
+                        Log::info('📖 [Command] Translations found', [
+                            'chat_id' => $bot->ChatID(),
+                            'language' => $language,
+                            'translations_count' => $translations->count(),
+                            'type' => $type
+                        ]);
+                        
+                        // دریافت ترجمه پیش‌فرض فعلی کاربر
+                        $currentTranslator = $userSettings ? $userSettings->setting('quran_translation_translator') : null;
+                        $currentLanguage = $userSettings ? $userSettings->setting('quran_translation_language') : null;
+                        
+                        // اگر setting وجود نداشت، از translation_id استفاده می‌کنیم
+                        if (!$currentTranslator && $userSettings) {
+                            $translationId = $userSettings->setting('translation_id');
+                            if ($translationId > 0) {
+                                $mapping = QuranHelper::mapTranslationIdToLanguageAndTranslator($translationId);
+                                $currentLanguage = $mapping['language'];
+                                $currentTranslator = $mapping['translator'];
+                            }
+                        }
+                        
+                        $message = "📖 " . trans("bot.available translations for language") . " (" . $language . "):\n\n";
+                        
+                        $buttons = [];
+                        $buttonRows = [];
+                        $service = new \App\Services\QuranTranslationImportService();
+                        $hasIncomplete = false;
+                        
+                        foreach ($translations as $index => $translation) {
+                            $translatorName = $translation->translator_name;
+                            $fullName = $translation->translate_full_name ?? $language . '.' . $translatorName;
+                            
+                            // بررسی کامل بودن ترجمه
+                            $completeness = $service->checkTranslationCompleteness($language, $translatorName);
+                            $isComplete = $completeness['is_complete'];
+                            
+                            if (!$isComplete) {
+                                $hasIncomplete = true;
+                            }
+                            
+                            $isCurrent = ($currentLanguage == $language && $currentTranslator == $translatorName);
+                            $prefix = $isCurrent ? "✅ " : "";
+                            
+                            // علامت‌گذاری ترجمه‌های ناقص
+                            $incompleteMark = "";
+                            if (!$isComplete) {
+                                $incompleteMark = " ⚠️ (" . $completeness['percentage'] . "%)";
+                            }
+                            
+                            $message .= ($index + 1) . ". " . $prefix . $translatorName;
+                            if ($isCurrent) {
+                                $message .= " (" . trans("bot.current default") . ")";
+                            }
+                            if (!$isComplete) {
+                                $message .= $incompleteMark;
+                            }
+                            $message .= "\n";
+                            
+                            // ایجاد دکمه برای انتخاب
+                            $callbackData = "translation_select_" . $language . "_" . $translatorName;
+                            $buttonText = ($isCurrent ? "✅ " : "") . $translatorName;
+                            if (!$isComplete) {
+                                $buttonText .= " ⚠️";
+                            }
+                            
+                            if ($type == 'telegram') {
+                                $buttons[] = [
+                                    'text' => $buttonText,
+                                    'callback_data' => $callbackData
+                                ];
+                            } else {
+                                // برای Bale
+                                $buttonRows[] = [$buttonText, $callbackData];
+                            }
+                        }
+                        
+                        if ($hasIncomplete) {
+                            $message .= "\n⚠️ " . trans("bot.incomplete translations marked with warning");
+                        }
+                        
+                        $message .= "\n" . trans("bot.select translation by clicking button");
+                        
+                        Log::info('📤 [Command] Sending translation list message with buttons', [
+                            'chat_id' => $bot->ChatID(),
+                            'language' => $language,
+                            'buttons_count' => count($type == 'telegram' ? $buttons : $buttonRows),
+                            'type' => $type
+                        ]);
+                        
+                        if ($type == 'telegram') {
+                            // برای Telegram، دکمه‌ها را به صورت 2 ستونی نمایش می‌دهیم
+                            $chunkedButtons = array_chunk($buttons, 2);
+                            BotHelper::sendTelegramInlineMessageWithButtons($bot, $message, $chunkedButtons);
+                            Log::info('✅ [Command] Translation list sent via Telegram', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        } else {
+                            // برای Bale - ساخت inline keyboard از آرایه
+                            $inlineKeyboardArray = [];
+                            foreach ($buttonRows as $row) {
+                                $inlineKeyboardArray[] = [[
+                                    "text" => $row[0],
+                                    "callback_data" => $row[1]
+                                ]];
+                            }
+                            $inlineKeyboard = $inlineKeyboardArray;
+                            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                            Log::info('✅ [Command] Translation list sent via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        }
+                        
+                        Log::info('✅ [Command] /translation_list command processed successfully', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
+                    } else {
+                        // پردازش دستورات با underscore (مثل /mp3_true, /trans_2)
+                        if (strpos($command, "_") !== false) {
+                            $subCommand = substr($command, 0, strpos($command, "_"));
+                            $value = substr($command, strpos($command, "_") + 1);
+                            
+                            Log::info('📝 [Command] Processing underscore command', [
+                                'chat_id' => $bot->ChatID(),
+                                'command' => $command,
+                                'sub_command' => $subCommand,
+                                'value' => $value,
+                                'type' => $type
+                            ]);
 //                dd($command, $subCommand, $value);
 
-                    if ($subCommand == "mp3") {
-                        $mp3Reciter = $userSettings->setting('mp3_reciter');
-                        $translationId = $userSettings->setting('translation_id');
-                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
-//                    dd($mp3Enable, $mp3Reciter);
-                        $arr = [
-                            'mp3_reciter' => $mp3Reciter,
-                            'mp3_enable' => $value,
-                            'quran_transliteration_tr' => $quranTransliterationTr,
-                            'quran_transliteration_en' => $quranTransliterationEn,
-                            'translation_id' => $translationId
-                        ];
+                            if ($subCommand == "mp3") {
+                                Log::info('📝 [Command] Processing /mp3 command', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'value' => $value,
+                                    'type' => $type
+                                ]);
+                                
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $translationId = $userSettings->setting('translation_id');
+                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                                
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $value,
+                                    'quran_transliteration_tr' => $quranTransliterationTr,
+                                    'quran_transliteration_en' => $quranTransliterationEn,
+                                    'translation_id' => $translationId
+                                ];
 
-                        $user = $userSettings->settings($arr);
-//                    dd($userSettings->setting('mp3_enable'));
-                        $mp3Enable = $user->setting('mp3_enable');
-//                    dd($userSettings->setting('mp3_enable'),$mp3Enable);
+                                $user = $userSettings->settings($arr);
+                                $mp3Enable = $user->setting('mp3_enable');
 
-                        $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                        $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
-                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
-                    } else if ($subCommand == "transtr") {
+                                $message = $mp3Enable == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                                $pleaseEnableDisable = $mp3Enable == "true" ? trans("bot.please disable mp3 by") : trans("bot.please enable mp3 by");
+                                
+                                Log::info('📤 [Command] Sending mp3 status message', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'mp3_enable' => $mp3Enable,
+                                    'type' => $type
+                                ]);
+                                
+                                BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /mp3_" . ($mp3Enable == "true" ? "false" : "true"));
+                                
+                                Log::info('✅ [Command] /mp3 command processed successfully', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'mp3_enable' => $mp3Enable,
+                                    'type' => $type
+                                ]);
+                            } else if ($subCommand == "imagequran") {
+                                Log::info('🖼️ [Command] Processing /imagequran command', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'value' => $value,
+                                    'type' => $type
+                                ]);
 
-                        $mp3Enable = $userSettings->setting('mp3_enable');
-                        $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $mp3Enable = $userSettings->setting('mp3_enable');
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $translationId = $userSettings->setting('translation_id');
+                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $mp3Enable,
+                                    'quran_transliteration_tr' => $quranTransliterationTr,
+                                    'quran_transliteration_en' => $quranTransliterationEn,
+                                    'translation_id' => $translationId,
+                                    'placequran_enable' => $value
+                                ];
+
+                                $user = $userSettings->settings($arr);
+                                $placequranEnable = $user->setting('placequran_enable') == "true" ? "true" : "false";
+
+                                $message = $placequranEnable == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                                $toggleCommand = "/imagequran_" . ($placequranEnable == "true" ? "false" : "true");
+
+                                Log::info('📤 [Command] Sending imagequran status message', [
+                                    'chat_id' => $bot->ChatID(),
+                                    'placequran_enable' => $placequranEnable,
+                                    'type' => $type
+                                ]);
+
+                                BotHelper::sendMessage($bot, $message . " " . $toggleCommand);
+                            } else if ($subCommand == "transtr") {
+                                $mp3Enable = $userSettings->setting('mp3_enable');
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
 //                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                        $translationId = $userSettings->setting('translation_id');
-                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                                $translationId = $userSettings->setting('translation_id');
+                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                        $arr = [
-                            'mp3_reciter' => $mp3Reciter,
-                            'mp3_enable' => $mp3Enable,
-                            'quran_transliteration_tr' => $value,
-                            'quran_transliteration_en' => $quranTransliterationEn,
-                            'translation_id' => $translationId
-                        ];
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $mp3Enable,
+                                    'quran_transliteration_tr' => $value,
+                                    'quran_transliteration_en' => $quranTransliterationEn,
+                                    'translation_id' => $translationId
+                                ];
 
-                        $user = $userSettings->settings($arr);
-                        $quranTransliterationTr = $user->setting('quran_transliteration_tr');
+                                $user = $userSettings->settings($arr);
+                                $quranTransliterationTr = $user->setting('quran_transliteration_tr');
 
-                        $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                        $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
-                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
-                    } else if ($subCommand == "transen") {
-
-                        $mp3Enable = $userSettings->setting('mp3_enable');
-                        $mp3Reciter = $userSettings->setting('mp3_reciter');
-                        $translationId = $userSettings->setting('translation_id');
-                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                $message = $quranTransliterationTr == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                                $pleaseEnableDisable = $quranTransliterationTr == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                                BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transtr_" . ($quranTransliterationTr == "true" ? "false" : "true"));
+                            } else if ($subCommand == "transen") {
+                                $mp3Enable = $userSettings->setting('mp3_enable');
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $translationId = $userSettings->setting('translation_id');
+                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
 //                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                        $arr = [
-                            'mp3_reciter' => $mp3Reciter,
-                            'mp3_enable' => $mp3Enable,
-                            'quran_transliteration_tr' => $quranTransliterationTr,
-                            'quran_transliteration_en' => $value,
-                            'translation_id' => $translationId
-                        ];
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $mp3Enable,
+                                    'quran_transliteration_tr' => $quranTransliterationTr,
+                                    'quran_transliteration_en' => $value,
+                                    'translation_id' => $translationId
+                                ];
 
-                        $user = $userSettings->settings($arr);
-                        $quranTransliterationEn = $user->setting('quran_transliteration_en');
+                                $user = $userSettings->settings($arr);
+                                $quranTransliterationEn = $user->setting('quran_transliteration_en');
 
-                        $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
-                        $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
-                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
-                    } else if ($subCommand == "trans") {
-
-                        $mp3Enable = $userSettings->setting('mp3_enable');
-                        $mp3Reciter = $userSettings->setting('mp3_reciter');
+                                $message = $quranTransliterationEn == "true" ? trans("bot.enabled") : trans("bot.disabled");
+                                $pleaseEnableDisable = $quranTransliterationEn == "true" ? trans("bot.please disable it by") : trans("bot.please enable it by");
+                                BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /transen_" . ($quranTransliterationEn == "true" ? "false" : "true"));
+                            } else if ($subCommand == "trans") {
+                                $mp3Enable = $userSettings->setting('mp3_enable');
+                                $mp3Reciter = $userSettings->setting('mp3_reciter');
 //                    $translationId = $userSettings->setting('translation_id');
-                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                                $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
-                        $arr = [
-                            'mp3_reciter' => $mp3Reciter,
-                            'mp3_enable' => $mp3Enable,
-                            'quran_transliteration_tr' => $quranTransliterationTr,
-                            'quran_transliteration_en' => $quranTransliterationEn,
-                            'translation_id' => $value
-                        ];
+                                $arr = [
+                                    'mp3_reciter' => $mp3Reciter,
+                                    'mp3_enable' => $mp3Enable,
+                                    'quran_transliteration_tr' => $quranTransliterationTr,
+                                    'quran_transliteration_en' => $quranTransliterationEn,
+                                    'translation_id' => $value
+                                ];
 
-                        $user = $userSettings->settings($arr);
-                        $translationId = $user->setting('translation_id');
+                                $user = $userSettings->settings($arr);
+                                $translationId = $user->setting('translation_id');
 
-                        $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
-                        $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
-                        BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
-                    } else if ($subCommand == "mp3reciter") {
+                                $message = $translationId == "2" ? trans("bot.trans_2") : trans("bot.trans_3");
+                                $pleaseEnableDisable = $translationId == "2" ? trans("bot.please change it to trans_3") : trans("bot.please change it to trans_2");
+                                BotHelper::sendMessage($bot, $message . " " . $pleaseEnableDisable . " /trans_" . ($translationId == "2" ? "3" : "2"));
+                            } else if ($subCommand == "mp3reciter") {
+                                if (!QuranHelper::hasReciter($value)) {
+                                    BotHelper::sendMessage($bot, trans('bot.reciter not found'));
+                                } else {
+                                    $mp3Enable = "true";
+                                    $translationId = $userSettings->setting('translation_id');
+                                    $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
+                                    $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
 
+                                    $arr = [
+                                        'mp3_reciter' => $value,
+                                        'mp3_enable' => $mp3Enable,
+                                        'quran_transliteration_tr' => $quranTransliterationTr,
+                                        'quran_transliteration_en' => $quranTransliterationEn,
+                                        'translation_id' => $translationId
+                                    ];
 
-//                    $mp3Enable = $userSettings->setting('mp3_enable');
-                        $mp3Enable = "true";
-                        $translationId = $userSettings->setting('translation_id');
-                        $quranTransliterationTr = $userSettings->setting('quran_transliteration_tr');
-                        $quranTransliterationEn = $userSettings->setting('quran_transliteration_en');
+                                    $userSettings->settings($arr);
 
-                        $arr = [
-                            'mp3_reciter' => $value,
-                            'mp3_enable' => $mp3Enable,
-                            'quran_transliteration_tr' => $quranTransliterationTr,
-                            'quran_transliteration_en' => $quranTransliterationEn,
-                            'translation_id' => $translationId
-                        ];
-
-                        $user = $userSettings->settings($arr);
-                        $mp3Reciter = $user->setting('mp3_reciter');
-
-//                    dd($userSettings->setting('mp3_reciter'));
-
-//                    dd($mp3Enable, $value);
-                        if ($mp3Enable == "true") {
-                            $message = trans('bot.this reciter :reciter selected', ['reciter' => trans('bot.' . $value)]) . "
-" . "/mp3reciter_alafasy";
-                        } else {
-                            $message = " " . trans('bot.please enable mp3 by') . " : /mp3_true";
+                                    $message = trans('bot.this reciter :reciter selected', ['reciter' => QuranHelper::getReciterName($value)]);
+                                    BotHelper::sendMessage($bot, $message);
+                                }
+                            }
                         }
-
-                        BotHelper::sendMessage($bot, $message);
                     }
                 } else {
+                    Log::warning('⚠️ [Command] Command not recognized', [
+                        'chat_id' => $bot->ChatID(),
+                        'bot_text' => $bot->Text(),
+                        'type' => $type
+                    ]);
+                    
                     $message = trans('bot.bot cant recognized your command') . " /start";
+                    Log::info('📤 [Command] Sending unrecognized command message', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                     BotHelper::sendMessage($bot, $message);
+                    Log::info('✅ [Command] Unrecognized command message sent', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
                 }
 
 
                 if ($isStartCommandShow) {
+                    Log::info('📤 [Command] Sending start command button', [
+                        'chat_id' => $bot->ChatID(),
+                        'type' => $type
+                    ]);
+                    
                     $array = [[trans("bot.return to command list"), "/start"]];
                     $message = $array[0][0];
                     if ($type == 'telegram') {
                         BotHelper::send1button($bot, $array);
                         BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
+                        Log::info('✅ [Command] Start command button sent via Telegram', [
+                            'chat_id' => $bot->ChatID(),
+                            'type' => $type
+                        ]);
                     } else if ($type == 'gap') {
 //                    BotHelper::sendStart($bot, $array);
 //                    BotHelper::sendMessage($bot, trans("bot.your ranking") . " /report");
                     } else {
                         $inlineKeyboard = BotHelper::makeBaleKeyboard1button($array);
-                        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                        $keyboardSent = BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+                        if ($keyboardSent) {
+                            Log::info('✅ [Command] Start command button sent via Bale', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        } else {
+                            Log::warning('⚠️ [Command] Start command button NOT sent via Bale (send failed — see BotHelper log)', [
+                                'chat_id' => $bot->ChatID(),
+                                'type' => $type
+                            ]);
+                        }
                     }
                 }
 
                 $request->request->add(['command_type' => $command_type]);
 
+                Log::info('📝 [QuranBot] Saving bot log', [
+                    'chat_id' => $bot->ChatID(),
+                    'command_type' => $command_type,
+                    'type' => $type
+                ]);
+                
                 LogHelper::log($request, $type, $bot);
+                
+                Log::info('✅ [QuranBot] Bot log saved', [
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type
+                ]);
 
+                $endTime = microtime(true);
+                $processingTime = round(($endTime - $startTime) * 1000, 2);
+                
+                Log::info('✅ [QuranBot] Request processed successfully', [
+                    'chat_id' => $bot->ChatID(),
+                    'command_type' => $command_type,
+                    'type' => $type,
+                    'processing_time_ms' => $processingTime,
+                    'timestamp' => now()->toDateTimeString()
+                ]);
 
             } else {
+                Log::warning('⚠️ [QuranBot] No origin in request', [
+                    'timestamp' => now()->toDateTimeString()
+                ]);
                 return ResponseAlias::HTTP_ACCEPTED;
             }
 
 
         } catch (Exception $exception) {
-            Log::info($exception->getMessage());
+            $endTime = microtime(true);
+            $processingTime = round(($endTime - $startTime) * 1000, 2);
+            
+            // بررسی اینکه آیا bot و type موجود هستند یا نه
+            $chatId = null;
+            $botText = null;
+            
+            try {
+                if (isset($bot) && is_object($bot)) {
+                    $chatId = method_exists($bot, 'ChatID') ? $bot->ChatID() : null;
+                    $botText = method_exists($bot, 'Text') ? $bot->Text() : null;
+                }
+            } catch (Exception $e) {
+                // اگر خطا در دسترسی به bot رخ داد، از request استفاده می‌کنیم
+                $update = $request->json()->all() ?? $request->all();
+                if (isset($update['message']['chat']['id'])) {
+                    $chatId = $update['message']['chat']['id'];
+                } elseif (isset($update['callback_query']['message']['chat']['id'])) {
+                    $chatId = $update['callback_query']['message']['chat']['id'];
+                }
+                if (isset($update['message']['text'])) {
+                    $botText = $update['message']['text'];
+                }
+            }
+            
+            Log::error('❌ [QuranBot] Exception occurred', [
+                'error' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTraceAsString(),
+                'chat_id' => $chatId,
+                'type' => $type ?? null,
+                'bot_text' => $botText,
+                'processing_time_ms' => $processingTime,
+                'timestamp' => now()->toDateTimeString()
+            ]);
+            
             return 0;
         }
 
@@ -512,9 +2637,22 @@ class QuranWordController extends Controller
     public
     function messageToAll(BotRequest $request)
     {
-
-        if ($request->has('language')) {
-            App::setLocale($request->input('language'));
+        // تعیین زبان: اول از query string، سپس از language_code ربات در دیتابیس، در نهایت پیش‌فرض fa
+        $lang = $request->input('language') ?? $request->query('language');
+        
+        // اگر language در query string نبود، از language_code ربات از دیتابیس استفاده کن
+        if (!$lang) {
+            $botId = $request->input('bot_id') ?? $request->query('bot_id');
+            if ($botId) {
+                $botModel = \App\Models\Bot::find($botId);
+                if ($botModel && $botModel->language_code) {
+                    $lang = $botModel->language_code;
+                }
+            }
+        }
+        
+        if ($lang) {
+            App::setLocale($lang);
         } else {
             App::setLocale("fa");
         }
@@ -548,10 +2686,13 @@ class QuranWordController extends Controller
                         $botBale = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_BALE'), 'bale');
                         $botTelegram = new Telegram(env('QURAN_HEFZ_BOT_TOKEN_TELEGRAM'), 'telegram');
 
+                        // استفاده از زبان داینامیک (از request یا language_code ربات)
+                        $broadcastLanguage = $lang ?: 'fa';
+
                         if ($request->request->get('to_admins') == "false") {
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(500))
                                 ->whereWebhookEndpointUri('webhook-quran-word')
-                                ->whereLanguage('fa')
+                                ->whereLanguage($broadcastLanguage)
                                 ->select('chat_id', 'type')
                                 ->distinct('chat_id')
                                 ->get();
@@ -559,7 +2700,7 @@ class QuranWordController extends Controller
                             $logs = BotLog::where('created_at', '>=', Carbon::now()->subDay(5))
                                 ->whereWebhookEndpointUri('webhook-quran-word')
                                 ->whereIn('chat_id', AdminHelper::getAdmins())
-                                ->whereLanguage('fa')
+                                ->whereLanguage($broadcastLanguage)
                                 ->select('chat_id', 'type')
                                 ->distinct('chat_id')
                                 ->get();
@@ -614,22 +2755,54 @@ class QuranWordController extends Controller
 
 //                                BotHelper::sendMessageToSuperAdmin(json_encode($photoCallBack['result']['photo'][0]['file_id']), $type);
 
-        $quranScanPage = new QuranScanPage();
-        $quranScanPage->hr = $hr;
-        $quranScanPage->page = $page;
-        $quranScanPage->type = $type;
-
         $index = 2;
         if ($type == 'bale')
             $index = 0;
 
-        $quranScanPage->file_id = $result['photo'][$index]['file_id'];
-        $quranScanPage->file_unique_id = $result['photo'][$index]['file_id'];
-        $quranScanPage->width = $result['photo'][$index]['width'];
-        $quranScanPage->height = $result['photo'][$index]['height'];
-        $quranScanPage->file_size = $result['photo'][$index]['file_size'];
+        $fileId = $result['photo'][$index]['file_id'];
+        $fileUniqueId = $result['photo'][$index]['file_unique_id'] ?? $result['photo'][$index]['file_id'];
+        $width = $result['photo'][$index]['width'];
+        $height = $result['photo'][$index]['height'];
+        $fileSize = $result['photo'][$index]['file_size'];
+
+        // ذخیره در جدول جدید (bot_uploaded_files)
+        $request = request();
+        $botId = $request->input('bot_id') ?? $request->query('bot_id') ?? 1;
+        
+        if ($botId && $type != 'gap') {
+            $fileUniqueKey = \App\Helpers\FileUploadHelper::generateFileUniqueKey('scan_page', [
+                'hr' => $hr,
+                'page' => $page
+            ], $type);
+
+            \App\Helpers\FileUploadHelper::saveUploadedFile(
+                $botId,
+                $type,
+                $fileUniqueKey,
+                'scan_page',
+                $result,
+                [
+                    'hr' => $hr,
+                    'page' => $page,
+                    'bot_type' => $type
+                ],
+                $fileId,
+                $fileUniqueId
+            );
+        }
+
+        // ذخیره در جدول قدیمی (برای backward compatibility)
+        $quranScanPage = new QuranScanPage();
+        $quranScanPage->hr = $hr;
+        $quranScanPage->page = $page;
+        $quranScanPage->type = $type;
+        $quranScanPage->file_id = $fileId;
+        $quranScanPage->file_unique_id = $fileUniqueId;
+        $quranScanPage->width = $width;
+        $quranScanPage->height = $height;
+        $quranScanPage->file_size = $fileSize;
         $quranScanPage->bot_chat_id = $result['from']['id'];
-        $quranScanPage->bot_id = 1;
+        $quranScanPage->bot_id = $botId ?? 1;
         $quranScanPage->save();
         return $quranScanPage;
     }

@@ -20,6 +20,9 @@ return new class extends Migration {
             return;
         }
 
+        // MySQL-only. Skip for SQLite (used in testing).
+        if (\DB::connection()->getDriverName() !== 'mysql') { return; }
+
         // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
         \DB::statement("ALTER TABLE `bot_logs` MODIFY COLUMN `type` ENUM('bale', 'telegram', 'gap', 'soroosh') NULL");
     }
@@ -38,6 +41,9 @@ return new class extends Migration {
         if (!Schema::hasColumn('bot_logs', 'type')) {
             return;
         }
+
+        // MySQL-only. Skip for SQLite (used in testing).
+        if (\DB::connection()->getDriverName() !== 'mysql') { return; }
 
         // استفاده از raw SQL برای تغییر enum (به دلیل مشکل Doctrine DBAL)
         \DB::statement("ALTER TABLE `bot_logs` MODIFY COLUMN `type` ENUM('bale', 'telegram') NULL");

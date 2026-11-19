@@ -1,0 +1,1379 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Helpers\AdminHelper;
+use App\Helpers\BotHelper;
+use App\Models\ContentNote;
+use Illuminate\Support\Facades\Log;
+use App\Helpers\ContentBotAdminHelper;
+use App\Interfaces\Services\BookLibraryDeliveryService;
+use App\Interfaces\Services\BookLibraryPlanService;
+use App\Interfaces\Services\BookLibraryService;
+use App\Interfaces\Services\ContentDeliveryService;
+use App\Interfaces\Services\ContentQueueService;
+use App\Jobs\ContentBroadcastJob;
+use App\Models\Bot;
+use App\Models\BotUsers;
+use App\Models\ContentBroadcastJob as ContentBroadcastJobModel;
+use App\Models\ContentPendingUpload;
+use App\Models\ContentCategory;
+use App\Models\ContentItem;
+use App\Models\LibraryUserBook;
+use App\Models\LibraryBotConfig;
+use App\Services\BotAdminKieService;
+use App\Services\ContentAdminService;
+use App\Services\ContentDeliveryServiceImpl;
+use App\Services\ContentQueueServiceImpl;
+use Exception;
+use Illuminate\Http\Request;
+use Telegram;
+
+/**
+ * ربات کتابخانه مستقل — همه چیز با یک ربات
+ * این ربات به تنهایی هم دسته‌بندی را نشان می‌دهد، هم محتوا را ارسال می‌کند،
+ * هم مدیریت ادمین را انجام می‌دهد (بدون نیاز به ربات دوم)
+ */
+class BookLibraryReaderController extends Controller
+{
+    public function __construct(
+        private BookLibraryService $bookLibraryService,
+        private BookLibraryDeliveryService $deliveryService,
+        private readonly BotAdminKieService $adminKieService,
+        private ContentQueueService $queueService,
+        private ContentDeliveryService $contentDeliveryService,
+        private BookLibraryPlanService $planService,
+        private ContentAdminService $adminService,
+    ) {}
+
+    public function webhook(Request $request): int
+    {
+        Log::info('📖 [BookLibrary] Webhook received', [
+            'has_origin' => $request->has('origin'),
+            'has_bot_id' => $request->has('bot_id'),
+            'has_token' => $request->has('token'),
+            'bot_id_param' => $request->input('bot_id'),
+            'origin_param' => $request->input('origin'),
+        ]);
+
+        try {
+            if (!$request->has('origin')) {
+                return 200;
+            }
+
+            $type = $request->input('origin');
+            $botMotherId = (int) $request->input('bot_mother_id', 1);
+            $botId = $request->input('bot_id') ? (int) $request->input('bot_id') : null;
+
+            $bot = $this->createBotInstance($request, $type, $botId);
+            if (!$bot) {
+                return 200;
+            }
+
+            $update = $request->json()->all() ?? $request->all();
+            $chatId = $bot->ChatID();
+
+            if (isset($update['callback_query'])) {
+                $this->handleCallbackQuery($bot, $update['callback_query'], $chatId, $type, $botMotherId, $botId);
+                return 200;
+            }
+
+            $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
+            $instanceBotId = $this->resolveBotId($botUser, $botId);
+
+            // آپلود فایل توسط ادمین
+            if ($this->handleMediaUpload($bot, $update, $botUser, $instanceBotId, $type, $chatId)) {
+                return 200;
+            }
+
+            $text = $bot->Text() ?? '';
+            if ($text !== '') {
+                $this->handleTextMessage($bot, trim($text), $botUser, $chatId, $type, $botMotherId, $instanceBotId, $update, $request);
+            }
+
+            return 200;
+        } catch (Exception $e) {
+            Log::error('❌ [BookLibrary] Error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return 500;
+        }
+    }
+
+    private function createBotInstance(Request $request, string $type, ?int $botId): ?Telegram
+    {
+        $token = null;
+        if ($request->has('token')) {
+            $token = $request->input('token');
+        } elseif ($botId) {
+            $botModel = Bot::find($botId);
+            $token = $type === 'bale' ? $botModel?->bale_bot_token : $botModel?->telegram_bot_token;
+        }
+        if (!$token) return null;
+        return $type === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+    }
+
+    private function resolveBotId(BotUsers $botUser, ?int $botId): int
+    {
+        if ($botId) {
+            $botUser->settings(['library_bot_instance_id' => $botId]);
+            return $botId;
+        }
+        return (int) $botUser->setting('library_bot_instance_id', 0);
+    }
+
+    /**
+     * پیدا کردن BotUsers مناسب با اولویت رکوردی که library_bot_instance_id دارد
+     * (wizard state در این رکورد ذخیره می‌شود)
+     */
+    private function resolveBotUser(string $chatId, int $botMotherId, string $origin, ?int $botId): BotUsers
+    {
+        if ($botId) {
+            // حالت ۱: botId مشخص است → دقیقاً همان instance را جستجو کن
+            $userWithInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('settings', 'like', '%"library_bot_instance_id":' . $botId . '%')
+                ->first();
+
+            if ($userWithInstance) {
+                return $userWithInstance;
+            }
+        } else {
+            // حالت ۲: botId نیامده → اولین رکوردی که هر instance ای دارد را ترجیح بده
+            // تا wizard state (که روی همان رکورد ذخیره شده) از دست نرود
+            // فیلتر bot_id = botMotherId برای جلوگیری از برگرداندن رکورد خانواده‌ی ربات دیگر
+            $userWithAnyInstance = BotUsers::where('chat_id', $chatId)
+                ->where('origin', $origin)
+                ->where('bot_id', $botMotherId)
+                ->where('settings', 'like', '%"library_bot_instance_id"%')
+                ->first();
+
+            Log::info('🔍 [BookLibrary] resolveBotUser - search with any instance_id', [
+                'chat_id' => $chatId,
+                'origin' => $origin,
+                'found_with_any_instance' => $userWithAnyInstance ? $userWithAnyInstance->id : null,
+            ]);
+
+            if ($userWithAnyInstance) {
+                return $userWithAnyInstance;
+            }
+        }
+
+        // حالت ۳: هیچ رکوردی با instance پیدا نشد → fallback به firstOrNew
+        return BotUsers::firstOrNew($chatId, $botMotherId, $origin);
+    }
+
+    // ======================== TEXT HANDLING ========================
+
+    private function handleTextMessage(Telegram $bot, string $text, BotUsers $botUser, int $chatId, string $type, int $botMotherId, int $instanceBotId, array $update, Request $request): void
+    {
+        if (str_starts_with($text, '/start')) {
+            $this->showWelcome($bot, $botUser, $instanceBotId);
+            return;
+        }
+
+        if (in_array(mb_strtolower(trim($text)), ['/dailyreport', 'dailyreport', '/myreport'])) {
+            \Illuminate\Support\Facades\Artisan::call('user:progress-report', [
+                '--user-id' => $botUser->id,
+                '--bot-id' => $instanceBotId
+            ]);
+            return;
+        }
+
+        // ===== User Command: /whatsnew =====
+        if (in_array(mb_strtolower(trim($text)), ['/whatsnew', 'whatsnew', 'تازه ها'])) {
+            $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
+            $actualBotId = $config ? $config->bot_id : $instanceBotId;
+
+            $categories = \App\Models\ContentCategory::with('items')
+                ->where('bot_id', $actualBotId)
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
+
+            $progressRecords = \App\Models\ContentUserProgress::where('bot_user_id', $botUser->id)
+                ->where('bot_id', $actualBotId)
+                ->get()
+                ->keyBy('category_id');
+
+            $whatsNewMsg = "🆕 **پادکست‌های جدید برای شما:**\n\n";
+            $hasNew = false;
+
+            foreach ($categories as $category) {
+                $totalItems = $category->items->count();
+                $lastPosition = isset($progressRecords[$category->id]) ? $progressRecords[$category->id]->last_position : 0;
+                $newItemsCount = max(0, $totalItems - $lastPosition);
+
+                if ($newItemsCount > 0) {
+                    $hasNew = true;
+                    $whatsNewMsg .= "🔹 **{$category->title}**: {$newItemsCount} فایل جدید\n";
+                    $whatsNewMsg .= "   👉 دریافت: /category{$category->id}\n\n";
+                }
+            }
+
+            if (!$hasNew) {
+                $whatsNewMsg = "در حال حاضر هیچ فایل صوتی جدیدی برای شما اضافه نشده است. شما تمام محتواها را دریافت کرده‌اید! 🎉";
+            }
+
+            $whatsNewMsg .= \App\Helpers\BotHelper::getRandomHelpCta($botUser);
+
+            \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $whatsNewMsg);
+            return;
+        }
+
+        // ===== Admin Commands: /topusers and /sendmsg =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/topusers')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شما مجوز استفاده از این دستور را ندارید.");
+                return;
+            }
+
+            $topUsers = \App\Models\ContentUserProgress::selectRaw('bot_user_id, sum(last_position) as total_received')
+                ->where('bot_id', $instanceBotId)
+                ->groupBy('bot_user_id')
+                ->orderBy('total_received', 'desc')
+                ->limit(10)
+                ->get();
+
+            if ($topUsers->isEmpty()) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "موردی یافت نشد.");
+                return;
+            }
+
+            $userIds = $topUsers->pluck('bot_user_id')->all();
+            $botUsers = \App\Models\BotUsers::whereIn('id', $userIds)->get()->keyBy('id');
+
+            $msg = "🏆 لیست ۱۰ کاربر برتر (بر اساس تعداد فایل‌های دریافتی):\n\n";
+            $rows = [];
+            foreach ($topUsers as $index => $u) {
+                $rank = $index + 1;
+                $uUser = $botUsers[$u->bot_user_id] ?? null;
+                $name = $uUser && $uUser->alias_name ? $uUser->alias_name : 'کاربر';
+
+                $msg .= "{$rank}. {$name} (شناسه کاربر: {$u->bot_user_id}) — {$u->total_received} فایل\n";
+                if ($uUser) {
+                    $detail = "   🆔 Chat ID: {$uUser->chat_id} | 🌐 " . ($uUser->origin ?: '?');
+                    if ($uUser->email) {
+                        $detail .= " | ✉️ {$uUser->email}";
+                    }
+                    $msg .= $detail . "\n";
+                    $rows[] = [$bot->buildInlineKeyBoardButton("✉️ ارسال پیام به {$name}", callback_data: "bl:admin:sendmsg:{$u->bot_user_id}")];
+                } else {
+                    $msg .= "   ⚠️ مشخصات کاربر در سیستم موجود نیست\n";
+                }
+            }
+            $msg .= "\nبا کلیک روی دکمه می‌توانید مستقیم برای کاربر مربوطه پیام بنویسید و ارسال کنید.";
+
+            if ($rows) {
+                BotHelper::sendKeyboardMessage($bot, $msg, $bot->buildInlineKeyBoard($rows));
+            } else {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, $msg);
+            }
+            return;
+        }
+
+        // ===== /sendmsg — ارسال پیام به کاربر خاص (فقط ادمین) =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/sendmsg')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شما مجوز استفاده از این دستور را ندارید.");
+                return;
+            }
+
+            $parts = preg_split('/\s+/', trim($text), 3);
+            $targetUserId = $parts[1] ?? null;
+            $messageContent = trim($parts[2] ?? '');
+
+            if ($targetUserId !== null && $messageContent !== '') {
+                $this->sendAdminMessageToUser($bot, $targetUserId, $messageContent, (string)$chatId, $instanceBotId, $type);
+            } elseif (is_numeric((string)$targetUserId)) {
+                // فقط شناسه کاربر داده شده → ویزارد دو مرحله‌ای: حالا متن پیام را بنویسد
+                $botUser->settings(['content_wizard' => 'sendmsg_user', 'sendmsg_target_id' => (int)$targetUserId]);
+                $targetUser = \App\Models\BotUsers::find((int)$targetUserId);
+                $who = $targetUser
+                    ? "کاربر «" . ($targetUser->alias_name ?: "کاربر") . "» (شناسه: {$targetUser->id} | Chat ID: {$targetUser->chat_id})"
+                    : "کاربر با شناسه {$targetUserId}";
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "📝 برای {$who} پیام بنویسید و ارسال کنید:\n(برای لغو: /cancel)");
+            } else {
+                // بدون آرگومان (مثلاً کلیک روی دکمه راهنما) → راهنمای فرمت
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId,
+                    "✉️ فرمت ارسال پیام به کاربر خاص:\n" .
+                    "/sendmsg USER_ID متن پیام\n" .
+                    "یا فقط /sendmsg USER_ID را بفرستید و بعد متن پیام را بنویسید.\n" .
+                    "USER_ID همان «شناسه کاربر» گزارش /topusers است."
+                );
+            }
+            return;
+        }
+
+        // ===== User Command: /category {id} =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/category')) {
+            $catIdStr = trim(str_replace(['/category', ' '], '', mb_strtolower(trim($text))));
+            if (is_numeric($catIdStr)) {
+                $categoryId = (int) $catIdStr;
+
+                $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
+                $actualBotId = $config ? $config->bot_id : $instanceBotId;
+
+                $this->deliverNextInCategory($bot, $botUser, $actualBotId, $type, $categoryId);
+            } else {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شناسه دسته نامعتبر است.");
+            }
+            return;
+        }
+
+        // ===== پردازش دستور /tome برای Claim ربات =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
+            \Illuminate\Support\Facades\Log::info('📋 [BookLibraryReader] /tome command received', [
+                'text' => $text,
+                'chat_id' => $chatId,
+                'type' => $type,
+                'instance_bot_id' => $instanceBotId,
+            ]);
+            if (\App\Helpers\BotHelper::handleTomeCommand($bot, $text, (string) $chatId, $type, $botModel ?? null)) {
+                \Illuminate\Support\Facades\Log::info('✅ [BookLibraryReader] /tome command handled successfully', [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                ]);
+                return;
+            }
+            \Illuminate\Support\Facades\Log::warning('⚠️ [BookLibraryReader] /tome command returned false', [
+                'chat_id' => $chatId,
+                'text' => $text,
+            ]);
+        }
+
+        if (!$instanceBotId) {
+            BotHelper::sendMessage($bot, '❌ خطا در شناسایی ربات');
+            return;
+        }
+
+        $botModel = Bot::find($instanceBotId);
+        $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+
+        // ===== /adminkie =====
+        if ($this->adminKieService->isAdminkieCommand($text)) {
+            Log::info('📖 [BookLibrary] Handling /adminkie');
+            $result = $this->adminKieService->tryHandleFromRequest($request);
+            if ($result !== null) return;
+            BotHelper::sendMessage($bot, '❌ /adminkie قابل پردازش نیست.');
+            return;
+        }
+
+        // ===== /library_plan_confirm (پشتیبانی از هر دو فرمت با فاصله و آندرلاین) =====
+        if (str_starts_with($text, '/library_plan_confirm')) {
+            $pattern = '~^/\s*library_plan_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                try {
+                    $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+                    // confirmPlanRequest() خودش پیام فعال‌سازی (با یادآوری
+                    // هدیه‌ی مایلستون) را به کاربر ارسال می‌کند؛ اینجا فقط
+                    // اعلان برای ادمین ارسال می‌شود تا پیام دوباره نشود.
+                    $result = $planService->confirmPlanRequest($requestId, 'bot_mother_admin');
+                    if ($result['success'] ?? false) {
+                        BotHelper::sendMessage($bot, "✅ پلن #{$requestId} تایید شد.");
+                    } else {
+                        BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ فرمت: /library_plan_confirm REQUEST_ID");
+            }
+            return;
+        }
+
+        // ===== /library_plan_reject =====
+        if (str_starts_with($text, '/library_plan_reject')) {
+            $pattern = '~^/\s*library_plan_reject(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                try {
+                    $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+                    $result = $planService->rejectPlanRequest($requestId, 'bot_mother_admin');
+                    if ($result['success'] ?? false) {
+                        BotHelper::sendMessage($bot, "❌ درخواست پلن #{$requestId} رد شد.");
+                    } else {
+                        BotHelper::sendMessage($bot, "❌ خطا: " . ($result['message'] ?? 'نامشخص'));
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ فرمت: /library_plan_reject REQUEST_ID");
+            }
+            return;
+        }
+
+        // ===== /adminbot_confirm در کتابخوان =====
+        if (str_starts_with($text, '/adminbot_confirm')) {
+            $pattern = '~^/\s*adminbot_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)(?:[\s_]+([0-9]+))?~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                $mainBotId = isset($m[2]) ? (int) $m[2] : null;
+                try {
+                    $service = app(\App\Services\BotAdminKieService::class);
+                    $result = $service->confirmRequest($requestId, (int) $chatId, $mainBotId);
+                    if ($result) {
+                        $req = \App\Models\BotAdminKieRequest::find($requestId);
+                        $msg = trans('bot.admin_kie_confirmed_admin') . "\n\n🆔 Request ID: {$requestId}\n";
+                        if ($req) {
+                            $msg .= "👤 {$req->displayName()}\n💬 Chat ID: {$req->chat_id}\n🤖 Bot ID: " . ($req->bot_id ?? '—');
+                        }
+                        BotHelper::sendMessage($bot, $msg);
+                    } else {
+                        BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+                    }
+                } catch (\Throwable $e) {
+                    BotHelper::sendMessage($bot, '❌ خطا: ' . $e->getMessage());
+                }
+            } else {
+                BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
+            }
+            return;
+        }
+
+        // ===== /adminbot_reject در کتابخوان =====
+        if (str_starts_with($text, '/adminbot_reject')) {
+            $pattern = '~^/\s*adminbot_reject(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+            if (preg_match($pattern, trim($text), $m)) {
+                $requestId = (int) $m[1];
+                $req = \App\Models\BotAdminKieRequest::pending()->find($requestId);
+                if ($req) {
+                    $req->update([
+                        'status' => 'rejected',
+                        'approved_by' => $chatId,
+                        'approved_at' => now(),
+                    ]);
+                    BotHelper::sendMessage($bot, trans('bot.admin_kie_rejected_admin') . "\n🆔 Request ID: {$requestId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+                }
+            } else {
+                BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
+            }
+            return;
+        }
+
+
+        // ===== دستورات ادمین مادر =====
+        if (AdminHelper::isAdmin((string) $chatId) && $this->handleSuperAdminCommands($bot, $text, $botModel, $instanceBotId, $type)) {
+            return;
+        }
+
+        // ===== Help =====
+        if (in_array(mb_strtolower($text), ['/help', 'help', 'راهنما', '/راهنما'], true)) {
+            $message = "📖 راهنمای ربات کتابخانه\n\n";
+            $message .= "دستورات عمومی:\n";
+            $message .= "🔹 /start — شروع کار با ربات\n";
+            $message .= "🔹 /whatsnew — بررسی پادکست‌های جدید اضافه‌شده\n";
+            $message .= "🔹 /dailyreport — مشاهده کارنامه فعالیت و دریافت‌های شما\n";
+            $message .= "🔹 /help — راهنمای استفاده از ربات\n";
+            $message .= "🔹 /adminkie — درخواست ادمین شدن\n";
+            if ($isOwner) {
+                $message .= "\n🛠 دستورات مدیریت:\n";
+                $message .= "🔹 /manage — پنل مدیریت\n";
+                $message .= "🔹 /categories — لیست دسته‌بندی‌ها\n";
+                $message .= "🔹 /addcategory — دسته جدید\n";
+                $message .= "🔹 /broadcast — ارسال همگانی\n";
+            }
+            if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                $message .= "\n⚙️ دستورات ادمین:\n";
+                $message .= "🔹 /topusers — 🏆 لیست کاربران برتر (با دکمه ارسال پیام)\n";
+                if ($type === 'bale') {
+                    $message .= "🔹 [✉️ ارسال پیام به کاربر خاص](send:/sendmsg)\n";
+                } else {
+                    $message .= "🔹 /sendmsg — ✉️ ارسال پیام به کاربر خاص\n";
+                }
+                $message .= "   فرمت: /sendmsg USER_ID متن پیام\n";
+                $message .= "   (یا فقط /sendmsg USER_ID و بعد متن پیام را بفرستید)\n";
+            }
+            BotHelper::sendMessage($bot, $message);
+            $this->sendMainMenu($bot);
+            return;
+        }
+
+        // ===== دستورات مدیریت =====
+        if ($isOwner && in_array(mb_strtolower($text), ['/manage', '/مدیریت'], true)) {
+            $this->showAdminPanel($bot, $instanceBotId);
+            return;
+        }
+
+        // ویزارد ادمین (بدون $isOwner چون ویزارد قبلاً ست شده)
+        // لغو ویزارد فعال (یادداشت/سؤال و ...)
+        if (in_array(mb_strtolower(trim($text)), ['/cancel', 'لغو'], true)) {
+            $botUser->settings([
+                'content_wizard' => null,
+                'content_note_item_id' => null,
+                'content_note_type' => null,
+                'sendmsg_target_id' => null,
+            ]);
+            BotHelper::sendMessage($bot, '❌ لغو شد.');
+            return;
+        }
+
+        if ($this->handleAdminWizardText($bot, $text, $botUser, $instanceBotId, $type)) {
+            return;
+        }
+
+        if ($isOwner && str_starts_with($text, '/addFileToCategory')) {
+            $normalized = str_replace('_', ' ', $text);
+            $parts = preg_split('/\s+/', $normalized);
+            $pendingId = (int) ($parts[1] ?? 0);
+            if ($pendingId > 0) {
+                $this->adminService->showCategoryPickerForPending($bot, $instanceBotId, $pendingId);
+            } else {
+                BotHelper::sendMessage($bot, "❌ فرمت: /addFileToCategory_PENDING_ID\nمثال: /addFileToCategory_9");
+            }
+            return;
+        }
+
+        // ===== حذف pending upload =====
+        if ($isOwner && str_starts_with($text, '/deletePending_')) {
+            $pendingId = (int) str_replace('/deletePending_', '', $text);
+            if ($pendingId > 0) {
+                $deleted = $this->adminService->deletePending($pendingId, $instanceBotId);
+                BotHelper::sendMessage($bot, $deleted ? "🗑 فایل از صف انتظار حذف شد." : "❌ فایل یافت نشد.");
+            }
+            return;
+        }
+
+        // ===== نمایش ویرایشگر محتوا =====
+        if ($isOwner && str_starts_with($text, '/editContent_')) {
+            $itemId = (int) str_replace('/editContent_', '', $text);
+            if ($itemId > 0) {
+                $this->adminService->showContentEditor($bot, $instanceBotId, $itemId);
+            }
+            return;
+        }
+
+        // ===== ویرایش عنوان (با ویزارد) =====
+        if ($isOwner && str_starts_with($text, '/editTitle_')) {
+            $itemId = (int) str_replace('/editTitle_', '', $text);
+            if ($itemId > 0) {
+                $botUser->settings(['content_wizard' => 'edit_title', 'content_edit_item_id' => $itemId]);
+                BotHelper::sendMessage($bot, "📝 عنوان جدید را وارد کنید:");
+            }
+            return;
+        }
+
+        // ===== ویرایش توضیحات (با ویزارد) =====
+        if ($isOwner && str_starts_with($text, '/editDesc_')) {
+            $itemId = (int) str_replace('/editDesc_', '', $text);
+            if ($itemId > 0) {
+                $botUser->settings(['content_wizard' => 'edit_desc', 'content_edit_item_id' => $itemId]);
+                BotHelper::sendMessage($bot, "📝 توضیحات جدید را وارد کنید:");
+            }
+            return;
+        }
+
+        // ===== حذف نرم آیتم =====
+        if ($isOwner && str_starts_with($text, '/deleteItem_')) {
+            $itemId = (int) str_replace('/deleteItem_', '', $text);
+            if ($itemId > 0) {
+                $deleted = $this->adminService->deleteContentItem($itemId, $instanceBotId);
+                BotHelper::sendMessage($bot, $deleted ? "🗑 آیتم حذف شد." : "❌ آیتم یافت نشد.");
+            }
+            return;
+        }
+
+        if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
+            Log::info('📖 [BookLibrary] Setting add_category wizard', [
+                'bot_user_id' => $botUser->id,
+                'chat_id' => $botUser->chat_id,
+                'bot_user_origin' => $botUser->origin,
+                'instance_bot_id' => $instanceBotId,
+            ]);
+            $botUser->settings(['content_wizard' => 'add_category_name']);
+            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
+            return;
+        }
+
+        if ($isOwner && mb_strtolower($text) === '/broadcast') {
+            $botUser->settings(['content_wizard' => 'broadcast_message']);
+            BotHelper::sendMessage($bot, '📢 پیام همگانی را وارد کنید:');
+            return;
+        }
+
+        if ($isOwner && in_array(mb_strtolower($text), ['/categories', '/tags', '/دسته‌ها'], true)) {
+            $this->showCategoryList($bot, $instanceBotId);
+            return;
+        }
+
+        // ===== منوهای کاربر =====
+        $menuMyBooks = trans('book_library.menu_my_books');
+        $menuUpgrade = trans('book_library.menu_upgrade');
+        $menuCategories = trans('book_library.menu_categories');
+
+        if ($text === $menuMyBooks) {
+            $this->showMyProgress($bot, $botUser, $instanceBotId);
+            return;
+        }
+        if ($text === $menuUpgrade) {
+            $this->showPlanMenu($bot, $botUser, $instanceBotId);
+            return;
+        }
+        if ($text === $menuCategories) {
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, 1);
+            return;
+        }
+
+        BotHelper::sendMessage($bot, '❓ دستور نامشخص. /help را بزنید.');
+    }
+
+    // ======================== ADMIN COMMANDS ========================
+
+    private function handleSuperAdminCommands(Telegram $bot, string $text, ?Bot $botModel, int $botId, string $type): bool
+    {
+        if (str_starts_with($text, '/messagetothischatid')) {
+            $normalized = str_replace('_', ' ', $text);
+            $parts = explode(' ', $normalized, 3);
+            $targetChatId = $parts[1] ?? '';
+            $messageText = $parts[2] ?? '';
+            if (empty($targetChatId) || empty($messageText)) {
+                BotHelper::sendMessage($bot, "❌ فرمت: /messagetothischatid CHAT_ID متن پیام");
+                return true;
+            }
+            $token = $botModel?->bale_bot_token ?? $botModel?->telegram_bot_token;
+            if ($token) {
+                $origin = $botModel?->bale_bot_token ? 'bale' : 'telegram';
+                $targetBot = $origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+                BotHelper::sendMessageByChatId($targetBot, $targetChatId, "📨 پیام از ادمین:\n\n" . $messageText);
+                BotHelper::sendMessage($bot, "✅ پیام به {$targetChatId} ارسال شد.");
+            } else {
+                BotHelper::sendMessage($bot, "❌ توکن ربات یافت نشد.");
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * ارسال پیام ادمین به یک کاربر (بر اساس bot_user_id).
+     * اگر origin کاربر با origin ادمین متفاوت است، با توکن همان پلتفرم ارسال می‌شود
+     * تا پیام حتماً به دست کاربر برسد.
+     */
+    private function sendAdminMessageToUser(Telegram $bot, string $targetUserId, string $messageContent, string $adminChatId, int $instanceBotId, string $type): void
+    {
+        $targetUser = \App\Models\BotUsers::find($targetUserId);
+        if (!$targetUser) {
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
+            return;
+        }
+
+        $messenger = $bot;
+        if ($targetUser->origin && $targetUser->origin !== $type && $instanceBotId > 0) {
+            $botModel = Bot::find($instanceBotId);
+            $token = $targetUser->origin === 'bale' ? $botModel?->bale_bot_token : $botModel?->telegram_bot_token;
+            if ($token) {
+                $messenger = $targetUser->origin === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+            }
+        }
+
+        $who = $targetUser->alias_name ? $targetUser->alias_name : $targetUser->chat_id;
+        try {
+            BotHelper::sendMessageByChatId($messenger, (string)$targetUser->chat_id, "پیام ادمین:\n\n" . $messageContent);
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "✅ پیام با موفقیت به کاربر {$targetUser->id} ({$who}) ارسال شد.");
+        } catch (\Throwable $e) {
+            Log::error('❌ [BookLibrary] Failed to send admin message to user', [
+                'target_user_id' => $targetUserId,
+                'target_chat_id' => $targetUser->chat_id,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessageByChatId($bot, $adminChatId, "❌ ارسال پیام به کاربر ممکن نشد. دوباره تلاش کنید.");
+        }
+    }
+
+    private function handleAdminWizardText(Telegram $bot, string $text, BotUsers $botUser, int $botId, string $type): bool
+    {
+        $wizard = $botUser->setting('content_wizard');
+        Log::info('📖 [BookLibrary] Wizard check', [
+            'wizard_state' => $wizard,
+            'text' => $text,
+            'chat_id' => $botUser->chat_id,
+            'bot_user_id' => $botUser->id,
+            'bot_user_origin' => $botUser->origin,
+        ]);
+        if (!$wizard) return false;
+
+        // ===== ویزارد یادداشت/سؤال کاربر =====
+        if ($wizard === 'add_note') {
+            $itemId = (int) $botUser->setting('content_note_item_id', 0);
+            $noteType = $botUser->setting('content_note_type', 'note');
+            $botUser->settings(['content_wizard' => null, 'content_note_item_id' => null, 'content_note_type' => null]);
+            $item = $itemId > 0 ? ContentItem::find($itemId) : null;
+            if (!$item) {
+                BotHelper::sendMessage($bot, '❌ فایل موردنظر یافت نشد.');
+                return true;
+            }
+            try {
+                ContentNote::create([
+                    'content_item_id' => $item->id,
+                    'bot_user_id' => $botUser->id,
+                    'type' => $noteType === 'question' ? 'question' : 'note',
+                    'text' => $text,
+                ]);
+                $msg = $noteType === 'question' ? '❓' : '📝';
+                BotHelper::sendMessage($bot, "{$msg} با موفقیت ثبت شد.\nبرای مشاهده همه‌ی یادداشت‌ها: دکمه «📄 همهٔ یادداشت‌ها»");
+            } catch (\Throwable $e) {
+                Log::error('❌ [BookLibrary] Error saving content note', ['item_id' => $itemId, 'error' => $e->getMessage()]);
+                BotHelper::sendMessage($bot, '❌ خطا در ثبت یادداشت. لطفاً دوباره تلاش کنید.');
+            }
+            return true;
+        }
+
+        if ($wizard === 'add_category_name') {
+            $botUser->settings(['content_wizard' => 'add_category_broadcast', 'content_category_draft' => $text]);
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton('✅ بله، اطلاع‌رسانی شود', callback_data: 'bl:catbc:yes')],
+                [$bot->buildInlineKeyBoardButton('❌ خیر', callback_data: 'bl:catbc:no')],
+            ];
+            BotHelper::sendKeyboardMessage($bot, "🏷 دسته «{$text}» ساخته شود؟\nآیا به کاربران اطلاع‌رسانی شود؟", $bot->buildInlineKeyBoard($keyboard));
+            return true;
+        }
+
+        if ($wizard === 'broadcast_message') {
+            $botUser->settings(['content_wizard' => 'broadcast_filter', 'content_broadcast_text' => $text]);
+            $this->showBroadcastFilterPicker($bot);
+            return true;
+        }
+
+        // ===== ویزارد ویرایش عنوان =====
+        if ($wizard === 'edit_title') {
+            $itemId = (int) $botUser->setting('content_edit_item_id', 0);
+            if ($itemId > 0) {
+                $updated = $this->adminService->updateContentItem($itemId, $botId, ['title' => $text]);
+                if ($updated) {
+                    BotHelper::sendMessage($bot, "✅ عنوان با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی عنوان.');
+                }
+            }
+            $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
+        // ===== ویزارد ویرایش توضیحات =====
+        if ($wizard === 'edit_desc') {
+            $itemId = (int) $botUser->setting('content_edit_item_id', 0);
+            if ($itemId > 0) {
+                $updated = $this->adminService->updateContentItem($itemId, $botId, ['description' => $text]);
+                if ($updated) {
+                    BotHelper::sendMessage($bot, "✅ توضیحات با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی توضیحات.');
+                }
+            }
+            $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
+        // ===== ویزارد ارسال پیام به کاربر خاص (بعد از /sendmsg USER_ID یا دکمه گزارش) =====
+        if ($wizard === 'sendmsg_user') {
+            $targetUserId = (int) $botUser->setting('sendmsg_target_id', 0);
+            $botUser->settings(['content_wizard' => null, 'sendmsg_target_id' => null]);
+            if ($targetUserId > 0) {
+                $this->sendAdminMessageToUser($bot, (string)$targetUserId, $text, (string)$botUser->chat_id, $botId, $type);
+            } else {
+                BotHelper::sendMessage($bot, '❌ شناسه کاربر یافت نشد. دوباره از /sendmsg شروع کنید.');
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    // ======================== MEDIA UPLOAD ========================
+
+    private function handleMediaUpload(Telegram $bot, array $update, BotUsers $botUser, int $instanceBotId, string $type, int $chatId): bool
+    {
+        if (!$instanceBotId) return false;
+
+        $message = $update['message'] ?? [];
+        $fileId = null;
+        $fileUniqueId = null;
+        $mimeType = null;
+        $caption = $message['caption'] ?? null; // کپشنی که کاربر همراه فایل فرستاده
+
+        if (isset($message['voice'])) {
+            $fileId = $message['voice']['file_id'];
+            $fileUniqueId = $message['voice']['file_unique_id'] ?? null;
+            $mimeType = 'voice';
+        } elseif (isset($message['audio'])) {
+            $fileId = $message['audio']['file_id'];
+            $fileUniqueId = $message['audio']['file_unique_id'] ?? null;
+            $mimeType = $message['audio']['mime_type'] ?? 'audio';
+        } elseif (isset($message['document'])) {
+            $mime = $message['document']['mime_type'] ?? '';
+            if (str_contains($mime, 'audio') || str_ends_with($message['document']['file_name'] ?? '', '.mp3')) {
+                $fileId = $message['document']['file_id'];
+                $fileUniqueId = $message['document']['file_unique_id'] ?? null;
+                $mimeType = $mime;
+            }
+        }
+
+        if (!$fileId) return false;
+
+        Log::info('📖 [BookLibrary] Media upload detected', [
+            'has_caption' => $caption !== null,
+            'caption_text' => $caption,
+            'file_unique_id' => $fileUniqueId,
+            'chat_id' => $chatId,
+        ]);
+
+        // بررسی تکراری نبودن file_unique_id در صف انتظار
+        if ($fileUniqueId) {
+            $existingPending = \App\Models\ContentPendingUpload::where('file_unique_id', $fileUniqueId)
+                ->where('bot_id', $instanceBotId)
+                ->where('origin', $type)
+                ->first();
+            if ($existingPending) {
+                BotHelper::sendMessageByChatId($bot, $chatId, "✅ این فایل قبلاً ارسال شده است.\n📌 Pending ID: {$existingPending->id}\nبرای انتساب (کلیکی):\n/addFileToCategory_{$existingPending->id}");
+                return true;
+            }
+        }
+
+        $botModel = Bot::find($instanceBotId);
+        $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $chatId, $type);
+
+        // اگر ادمین است و در حالت ویزارد broadcast است
+        if ($isOwner) {
+            $wizard = $botUser->setting('content_wizard');
+            if ($wizard === 'broadcast_message') {
+                $botUser->settings([
+                    'content_wizard' => 'broadcast_filter',
+                    'content_broadcast_file_id' => $fileId,
+                    'content_broadcast_file_type' => 'audio',
+                ]);
+                $this->showBroadcastFilterPicker($bot);
+                return true;
+            }
+
+            // ادمین: مستقیم به صف Pending + نمایش دکمه‌های دسته‌بندی
+            $pending = $this->adminService->storePendingUpload($instanceBotId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
+            $this->adminService->notifyFileReceived($bot, $pending);
+            return true;
+        }
+
+        // کاربر عادی: فایل را به ادمین ارسال کن برای تایید
+        $this->forwardFileToAdmin($bot, $botModel, $instanceBotId, $chatId, $type, $fileId, $fileUniqueId, $mimeType, $botUser, $caption);
+        return true;
+    }
+
+    /**
+     * ارسال فایل کاربر به ادمین برای تایید
+     * فایل هم در صف pending ثبت می‌شود (برای انتساب بعدی با /addFileToCategory)
+     * و هم برای ادمین ارسال می‌شود تا گوش دهد
+     */
+    private function forwardFileToAdmin(Telegram $bot, ?Bot $botModel, int $botId, string $chatId, string $type, string $fileId, ?string $fileUniqueId, ?string $mimeType, BotUsers $botUser, ?string $caption = null): void
+    {
+        //先在 صف pending ثبت کن (file_id ذخیره می‌شود برای ارسال مجدد)
+        $pending = $this->adminService->storePendingUpload($botId, (string) $chatId, $type, $fileId, $fileUniqueId, $mimeType, $caption);
+
+        // اطلاع به کاربر
+        BotHelper::sendMessageByChatId($bot, $chatId, "✅ فایل شما دریافت شد (کد: {$pending->id}). پس از تایید ادمین به صف اضافه خواهد شد.");
+
+        // پیدا کردن ادمین ربات (owner)
+        $adminChatId = $type === 'bale' ? $botModel?->bale_owner_chat_id : $botModel?->telegram_owner_chat_id;
+
+        if ($adminChatId) {
+            $userName = $botUser->alias_name ?: "کاربر {$chatId}";
+            $caption = "📤 فایل جدید از {$userName}\n🆔 Chat ID: {$chatId}\n📌 Pending ID: {$pending->id}\n\nبرای انتساب به دسته (کلیکی):\n/addFileToCategory_{$pending->id}_CATEGORY_ID\n\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-items";
+
+            // ارسال فایل به ادمین
+            try {
+                if ($mimeType === 'voice') {
+                    $bot->sendVoice(['chat_id' => $adminChatId, 'voice' => $fileId, 'caption' => $caption]);
+                } else {
+                    $bot->sendAudio(['chat_id' => $adminChatId, 'audio' => $fileId, 'caption' => $caption]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[BookLibrary] Forward to admin failed', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // به ادمین مادر هم اطلاع بده
+        $botName = $botModel ? ($botModel->bale_bot_name ?: $botModel->telegram_bot_name ?: 'ربات') : 'ربات';
+        $adminMessage = "📤 کاربر {$chatId} یک فایل صوتی برای ربات «{$botName}» ارسال کرده است.\n";
+        $adminMessage .= "🆔 Pending ID: {$pending->id}\n";
+        $adminMessage .= "📌 برای انتساب: /addFileToCategory_{$pending->id}_CATEGORY_ID\n";
+        $adminMessage .= "🔗 http://bots.pardisania.ir/nova/resources/content-items";
+        $this->notifyMotherAdmins($adminMessage);
+    }
+
+    private function notifyMotherAdmins(string $message): void
+    {
+        $configs = [
+            ['token' => env('BOT_MOTHER_TOKEN_BALE'), 'type' => 'bale'],
+            ['token' => env('BOT_MOTHER_TOKEN_TELEGRAM'), 'type' => 'telegram'],
+        ];
+        foreach (\App\Helpers\AdminHelper::getAdmins() as $adminChatId) {
+            if (empty($adminChatId)) continue;
+            foreach ($configs as $config) {
+                if (empty($config['token'])) continue;
+                try {
+                    $adminBot = $config['type'] === 'bale' ? new Telegram($config['token'], 'bale') : new Telegram($config['token']);
+                    BotHelper::sendMessageByChatId($adminBot, $adminChatId, $message);
+                } catch (\Throwable $e) {
+                    Log::warning('[BookLibrary] Admin notify failed', ['error' => $e->getMessage()]);
+                }
+            }
+        }
+    }
+
+    // ======================== CALLBACK QUERY ========================
+
+    private function handleCallbackQuery(Telegram $bot, array $callbackQuery, int $chatId, string $type, int $botMotherId, ?int $botId): void
+    {
+        $callbackData = $callbackQuery['data'] ?? '';
+        // استفاده از resolveBotUser به جای firstOrNew مستقیم
+        // تا رکوردی که wizard state در آن ذخیره شده پیدا شود
+        $botUser = $this->resolveBotUser((string) $chatId, $botMotherId, $type, $botId);
+        $instanceBotId = $this->resolveBotId($botUser, $botId);
+
+        $callbackQueryId = $callbackQuery['id'] ?? null;
+        if ($callbackQueryId) {
+            $bot->answerCallbackQuery(['callback_query_id' => $callbackQueryId]);
+        }
+
+        // دکمه‌های یادداشت/سؤال/نمایش یادداشت‌ها (ارسال شده بعد از فایل صوتی)
+        if (str_starts_with($callbackData, 'bl:note:')) {
+            $itemId = (int) str_replace('bl:note:', '', $callbackData);
+            Log::info('📝 [BookLibrary] Note callback received', [
+                'item_id' => $itemId,
+                'chat_id' => $chatId,
+                'bot_user_id' => $botUser->id,
+                'instance_bot_id' => $instanceBotId,
+                'callback_data' => $callbackData,
+            ]);
+            $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'note']);
+            BotHelper::sendMessage($bot, "📝 متن یادداشت خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:question:')) {
+            $itemId = (int) str_replace('bl:question:', '', $callbackData);
+            Log::info('❓ [BookLibrary] Question callback received', [
+                'item_id' => $itemId,
+                'chat_id' => $chatId,
+                'bot_user_id' => $botUser->id,
+                'instance_bot_id' => $instanceBotId,
+                'callback_data' => $callbackData,
+            ]);
+            $botUser->settings(['content_wizard' => 'add_note', 'content_note_item_id' => $itemId, 'content_note_type' => 'question']);
+            BotHelper::sendMessage($bot, "❓ متن سؤال خود را درباره این فایل بفرستید:\n(برای لغو: /cancel)");
+            return;
+        }
+
+        if (str_starts_with($callbackData, 'bl:show_notes:')) {
+            $itemId = (int) str_replace('bl:show_notes:', '', $callbackData);
+            $this->showUserNotes($bot, $botUser, $itemId);
+            return;
+        }
+
+        // دکمه‌های پنل ادمین
+        if ($callbackData === 'bl:admin:categories') {
+            $this->showCategoryList($bot, $instanceBotId);
+            return;
+        }
+        if ($callbackData === 'bl:admin:addcat') {
+            $botUser->settings(['content_wizard' => 'add_category_name']);
+            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
+            return;
+        }
+        if ($callbackData === 'bl:admin:broadcast') {
+            $botUser->settings(['content_wizard' => 'broadcast_message']);
+            BotHelper::sendMessage($bot, '📢 پیام همگانی را وارد کنید:');
+            return;
+        }
+
+        // ===== دکمه «ارسال پیام» در گزارش /topusers =====
+        if (str_starts_with($callbackData, 'bl:admin:sendmsg:')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                BotHelper::sendMessage($bot, '❌ شما مجوز استفاده از این قابلیت را ندارید.');
+                return;
+            }
+            $targetUserId = (int) str_replace('bl:admin:sendmsg:', '', $callbackData);
+            $targetUser = \App\Models\BotUsers::find($targetUserId);
+            if (!$targetUser) {
+                BotHelper::sendMessage($bot, "❌ کاربر با شناسه {$targetUserId} یافت نشد.");
+                return;
+            }
+            $botUser->settings(['content_wizard' => 'sendmsg_user', 'sendmsg_target_id' => $targetUserId]);
+            $who = $targetUser->alias_name ? $targetUser->alias_name : 'کاربر';
+            $info = "📮 پیام را برای: {$who}\n🆔 Chat ID: {$targetUser->chat_id}";
+            if ($targetUser->email) {
+                $info .= "\n✉️ ایمیل: {$targetUser->email}";
+            }
+            $info .= "\n\nحالا متن پیام خود را بنویسید و ارسال کنید:\n(برای لغو: /cancel)";
+            BotHelper::sendMessage($bot, $info);
+            return;
+        }
+
+        // صفحه‌بندی دسته‌ها
+        if (str_starts_with($callbackData, 'bl:cat_page:')) {
+            $page = (int) str_replace('bl:cat_page:', '', $callbackData);
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, $page);
+            return;
+        }
+
+        // انتخاب دسته
+        if (str_starts_with($callbackData, 'bl:cat:')) {
+            $categoryId = (int) str_replace('bl:cat:', '', $callbackData);
+            $this->deliverNextInCategory($bot, $botUser, $instanceBotId, $type, $categoryId);
+            return;
+        }
+
+        // انتساب فایل به دسته
+        if (str_starts_with($callbackData, 'bl:acf:')) {
+            try {
+                $parts = explode(':', $callbackData);
+                $pendingId = (int) ($parts[2] ?? 0);
+                $categoryId = (int) ($parts[3] ?? 0);
+                $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
+                if ($item) {
+                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.\n📝 برای ویرایش عنوان و توضیحات:\n/editContent_{$item->id}\n🗑 برای حذف:\n/deleteItem_{$item->id}");
+                } else {
+                    BotHelper::sendMessage($bot, '❌ فایل یافت نشد.');
+                }
+            } catch (\Throwable $e) {
+                Log::error('❌ [BookLibrary] Error assigning file to category', [
+                    'pending_id' => $pendingId,
+                    'category_id' => $categoryId,
+                    'error' => $e->getMessage(),
+                ]);
+                BotHelper::sendMessage($bot, '❌ خطا در انتساب فایل به دسته. لطفاً کپشن فایل را کوتاه‌تر کنید و دوباره امتحان کنید.');
+            }
+            return;
+        }
+
+        // ساخت دسته
+        if (str_starts_with($callbackData, 'bl:catbc:')) {
+            $doBroadcast = str_ends_with($callbackData, ':yes');
+            $name = $botUser->setting('content_category_draft', '');
+            $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
+            $category = $this->adminService->createCategory($instanceBotId, $name);
+            BotHelper::sendMessage($bot, "✅ دسته «{$category->title}» ساخته شد.");
+            if ($doBroadcast) {
+                $botModel = Bot::find($instanceBotId);
+                if ($botModel) {
+                    $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
+                    BotHelper::sendMessage($bot, '📢 اطلاع‌رسانی به کاربران ارسال شد.');
+                }
+            }
+            return;
+        }
+
+        // Broadcast فیلتر
+        if (str_starts_with($callbackData, 'bl:bcf:')) {
+            $filter = str_replace('bl:bcf:', '', $callbackData);
+            $botUser->settings(['content_broadcast_filter' => $filter, 'content_wizard' => 'broadcast_confirm']);
+            $text = $botUser->setting('content_broadcast_text', '');
+            $confirm = "📢 ارسال همگانی\nفیلتر: {$filter}\n\n";
+            $confirm .= $text ? "متن:\n{$text}\n\n" : '';
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton('✅ ارسال شود', callback_data: 'bl:bcyes')],
+                [$bot->buildInlineKeyBoardButton('❌ لغو', callback_data: 'bl:bcno')],
+            ];
+            BotHelper::sendKeyboardMessage($bot, $confirm, $bot->buildInlineKeyBoard($keyboard));
+            return;
+        }
+
+        if ($callbackData === 'bl:bcyes') {
+            $this->dispatchBroadcast($bot, $botUser, $instanceBotId, (string) $chatId);
+            return;
+        }
+        if ($callbackData === 'bl:bcno') {
+            $botUser->settings(['content_wizard' => null, 'content_broadcast_text' => null, 'content_broadcast_file_id' => null, 'content_broadcast_filter' => null]);
+            BotHelper::sendMessage($bot, '❌ ارسال همگانی لغو شد.');
+            return;
+        }
+
+        // طرح/پلن
+        if (str_starts_with($callbackData, 'bl:plan:')) {
+            $plan = str_replace('bl:plan:', '', $callbackData);
+            $result = $this->planService->requestPlanUpgrade($botUser, $instanceBotId, $plan, $botUser->chat_id);
+            BotHelper::sendMessage($bot, $result['message']);
+            return;
+        }
+
+        // Quick Actions (برای کتاب‌های دریافتی قبلی)
+        if (str_starts_with($callbackData, 'bl:qa:')) {
+            $parts = explode(':', $callbackData);
+            $action = $parts[2] ?? '';
+            $userBookId = (int) ($parts[3] ?? 0);
+            $userBook = LibraryUserBook::where('id', $userBookId)->where('bot_user_id', $botUser->id)->first();
+            if ($userBook) {
+                $this->deliveryService->sendQuickAction($bot, $botUser, $userBook, $instanceBotId, $type, $action);
+            }
+            return;
+        }
+    }
+
+    // ======================== UI HELPERS ========================
+
+    private function showWelcome(Telegram $bot, BotUsers $botUser, int $botId): void
+    {
+        BotHelper::sendMessage($bot, "📖 به ربات کتابخانه خوش آمدید!\nبرای شروع یک دسته را انتخاب کنید.");
+        $this->sendMainMenu($bot);
+        if ($botId > 0) {
+            $this->showCategoryPage($bot, $botUser, $botId, 1);
+        }
+    }
+
+    private function sendMainMenu(Telegram $bot): void
+    {
+        $keyboard = [
+            [trans('book_library.menu_categories')],
+            [trans('book_library.menu_my_books')],
+            [trans('book_library.menu_upgrade')],
+        ];
+        BotHelper::sendKeyboardMessage($bot, '📋 منوی اصلی:', $bot->buildKeyBoard($keyboard, true, true));
+    }
+
+    private function showCategoryPage(Telegram $bot, BotUsers $botUser, int $botId, int $page): void
+    {
+        if ($botId <= 0) {
+            BotHelper::sendMessage($bot, '❌ خطا');
+            return;
+        }
+        $categories = $this->queueService->getCategoriesForPage($botId, $page);
+        if ($categories->isEmpty()) {
+            BotHelper::sendMessage($bot, "🏷 هیچ دسته‌بندی‌ای موجود نیست.");
+            return;
+        }
+        $keyboard = [];
+
+        // --- Recent Categories (Continue Reading) ---
+        if ($page === 1) {
+            $progressRecords = \App\Models\ContentUserProgress::with('category')
+                ->where('bot_user_id', $botUser->id)
+                ->where('bot_id', $botId)
+                ->orderBy('updated_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            $recentCategories = [];
+            foreach ($progressRecords as $progress) {
+                if (!$progress->category || !$progress->category->is_active) continue;
+
+                $totalItems = $progress->category->items()->where('is_active', true)->count();
+                if ($totalItems > $progress->last_position) {
+                    $recentCategories[] = $progress->category;
+                }
+
+                if (count($recentCategories) >= 2) break;
+            }
+
+            if (count($recentCategories) > 0) {
+                $keyboard[] = [$bot->buildInlineKeyBoardButton('👇 ⏳ ادامه فایل‌های قبلی 👇', callback_data: "ignore")];
+                $recentRow = [];
+                foreach ($recentCategories as $cat) {
+                    $recentRow[] = $bot->buildInlineKeyBoardButton('🔥 ' . $cat->title, callback_data: "bl:cat:{$cat->id}");
+                }
+                $keyboard[] = $recentRow;
+                $keyboard[] = [$bot->buildInlineKeyBoardButton('👇 🗂 همه دسته‌بندی‌ها 👇', callback_data: "ignore")];
+            }
+        }
+        // --------------------------------------------
+
+        foreach ($categories as $category) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton($category->title, callback_data: "bl:cat:{$category->id}")];
+        }
+        $maxPage = $this->queueService->getMaxCategoryPage($botId);
+        if ($page < $maxPage) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton('▶️ بعدی', callback_data: 'bl:cat_page:' . ($page + 1))];
+        }
+        BotHelper::sendKeyboardMessage($bot, '📚 دسته‌بندی‌ها:', $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function deliverNextInCategory(Telegram $bot, BotUsers $botUser, int $botId, string $type, int $categoryId): void
+    {
+        if (!$this->planService->canDeliver($botUser, $botId)) {
+            BotHelper::sendMessage($bot, trans('book_library.quota_exceeded'));
+            $this->showPlanMenu($bot, $botUser, $botId);
+            return;
+        }
+        $category = $this->queueService->findCategory($categoryId, $botId);
+        if (!$category) {
+            BotHelper::sendMessage($bot, trans('book_library.genre_not_found'));
+            return;
+        }
+        $item = $this->queueService->getNextItemForUser($botUser, $categoryId, $botId);
+        if (!$item) {
+            BotHelper::sendMessage($bot, "📭 محتوای جدیدی در دسته «{$category->title}» موجود نیست.\nبه زودی محتوای جدید اضافه خواهد شد.");
+            return;
+        }
+        $delivered = $this->contentDeliveryService->deliverNextInCategory($bot, $botUser, $item, $botId, $type);
+        if ($delivered) {
+            $this->queueService->advanceProgress($botUser, $categoryId, $botId, $item);
+        }
+    }
+
+    private function showMyProgress(Telegram $bot, BotUsers $botUser, int $botId): void
+    {
+        $progressList = $this->queueService->getUserProgressList($botUser, $botId, 10);
+        if ($progressList->isEmpty()) {
+            BotHelper::sendMessage($bot, '📖 شما هنوز کتابی دریافت نکرده‌اید. از منوی دسته‌ها شروع کنید.');
+            return;
+        }
+        $message = "📖 کتاب‌های من:\n\n";
+        foreach ($progressList as $index => $progress) {
+            $catTitle = $progress->category->title ?? 'نامشخص';
+            $itemTitle = $progress->lastItem->title ?? ('#' . $progress->last_position);
+            $message .= ($index + 1) . ". {$catTitle} — {$itemTitle}\n";
+        }
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    private function showPlanMenu(Telegram $bot, BotUsers $botUser, int $botId): void
+    {
+        $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
+        $currentPlan = trans(config('book_library.plans.' . $subscription->plan . '.label_key', 'book_library.plan.free'));
+        $currency = trans('book_library.currency');
+        $message = "⭐ پلن فعلی: {$currentPlan}\n";
+        $message .= $this->bookLibraryService->buildProgressBar($subscription) . "\n\n";
+        $message .= "پلن‌های قابل ارتقا:\n\n";
+        $keyboard = [];
+        foreach (config('book_library.paid_plans', []) as $planKey) {
+            $plan = config('book_library.plans.' . $planKey);
+            if ($plan) {
+                $label = trans($plan['label_key']);
+                $price = number_format($plan['price']);
+
+                // Demo pricing: show struck-through list price when present
+                $message .= $label . ' ';
+                if (!empty($plan['list_price'])) {
+                    $message .= trans('book_library.plan_offer_line', [
+                        'list' => number_format($plan['list_price']),
+                        'price' => $price,
+                        'currency' => $currency,
+                    ]);
+                } else {
+                    $message .= trans('book_library.plan_price_line', ['price' => $price, 'currency' => $currency]);
+                }
+                $message .= "\n";
+
+                // Button labels can't carry HTML markup — plain offer price only
+                $buttonLabel = $label . ' - ' . $price . ' ' . $currency;
+                $keyboard[] = [$bot->buildInlineKeyBoardButton($buttonLabel, callback_data: "bl:plan:{$planKey}")];
+            }
+        }
+        $message .= "\n" . trans('book_library.reward_menu_hint');
+        if (!empty($keyboard)) {
+            BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+        } else {
+            BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    private function showBroadcastFilterPicker(Telegram $bot): void
+    {
+        $filters = ['all' => 'همه کاربران', 'free' => 'کاربران رایگان', 'paid' => 'کاربران ویژه', 'active' => 'کاربران فعال'];
+        $keyboard = [];
+        foreach ($filters as $key => $label) {
+            $keyboard[] = [$bot->buildInlineKeyBoardButton($label, callback_data: "bl:bcf:{$key}")];
+        }
+        BotHelper::sendKeyboardMessage($bot, '📢 فیلتر ارسال همگانی:', $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function dispatchBroadcast(Telegram $bot, BotUsers $botUser, int $botId, string $chatId): void
+    {
+        $filter = $botUser->setting('content_broadcast_filter', 'all');
+        $job = ContentBroadcastJobModel::create([
+            'bot_id' => $botId,
+            'target_filter' => $filter,
+            'message_text' => $botUser->setting('content_broadcast_text'),
+            'file_id' => $botUser->setting('content_broadcast_file_id'),
+            'file_type' => $botUser->setting('content_broadcast_file_type'),
+            'status' => 'pending',
+            'created_by_chat_id' => $chatId,
+        ]);
+        ContentBroadcastJob::dispatch($job->id);
+        $botUser->settings([
+            'content_wizard' => null,
+            'content_broadcast_text' => null,
+            'content_broadcast_file_id' => null,
+            'content_broadcast_filter' => null,
+            'content_broadcast_file_type' => null,
+        ]);
+        BotHelper::sendMessage($bot, '✅ ارسال همگانی در صف قرار گرفت.');
+    }
+
+    // ======================== ADMIN PANEL ========================
+
+    private function showAdminPanel(Telegram $bot, int $botId): void
+    {
+        $botModel = Bot::find($botId);
+        $botName = $botModel?->bale_bot_name ?? $botModel?->telegram_bot_name ?? "Bot #{$botId}";
+        $categories = ContentCategory::where('bot_id', $botId)->where('is_active', true)->count();
+        $items = ContentItem::where('bot_id', $botId)->where('is_active', true)->count();
+
+        $message = "🛠 پنل مدیریت «{$botName}»\n\n";
+        $message .= "📊 آمار:\n";
+        $message .= "🏷 دسته‌بندی‌ها: {$categories}\n";
+        $message .= "📦 آیتم‌ها: {$items}\n\n";
+        $message .= "📋 دستورات:\n";
+        $message .= "➖ /categories — مدیریت دسته‌ها\n";
+        $message .= "➖ /addcategory — دسته جدید\n";
+        $message .= "➖ /broadcast — ارسال همگانی\n";
+        $message .= "➖ /adminkie — درخواست ادمین\n\n";
+        $message .= "💡 همچنین می‌توانید فایل صوتی بفرستید تا در صف قرار گیرد.";
+
+        $keyboard = [
+            [$bot->buildInlineKeyBoardButton('🏷 دسته‌بندی‌ها', callback_data: "bl:admin:categories")],
+            [$bot->buildInlineKeyBoardButton('➕ دسته جدید', callback_data: "bl:admin:addcat")],
+            [$bot->buildInlineKeyBoardButton('📢 ارسال همگانی', callback_data: "bl:admin:broadcast")],
+        ];
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function showCategoryList(Telegram $bot, int $botId): void
+    {
+        $categories = ContentCategory::where('bot_id', $botId)->orderBy('sort_order')->get();
+        if ($categories->isEmpty()) {
+            BotHelper::sendMessage($bot, "🏷 هیچ دسته‌بندی‌ای تعریف نشده.\nبرای افزودن: /addcategory\nیا در Nova:\n🔗 http://bots.pardisania.ir/nova/resources/content-categories");
+            return;
+        }
+        $message = "🏷 لیست دسته‌بندی‌ها:\n\n";
+        $keyboard = [];
+        foreach ($categories as $cat) {
+            $itemCount = $cat->items()->where('is_active', true)->count();
+            $status = $cat->is_active ? '✅' : '⛔';
+            $message .= "{$status} {$cat->title} ({$itemCount} آیتم)\n";
+            $keyboard[] = [$bot->buildInlineKeyBoardButton("{$cat->title} ({$itemCount})", callback_data: "bl:cat:{$cat->id}")];
+        }
+        $message .= "\n📌 روی دکمه هر دسته کلیک کنید تا محتوا دریافت کنید.";
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
+    }
+
+    private function showUserNotes(Telegram $bot, BotUsers $botUser, int $itemId): void
+    {
+        $item = $itemId > 0 ? ContentItem::find($itemId) : null;
+        if (!$item) {
+            BotHelper::sendMessage($bot, '❌ فایل موردنظر یافت نشد.');
+            return;
+        }
+
+        $notes = ContentNote::where('content_item_id', $item->id)
+            ->where('bot_user_id', $botUser->id)
+            ->latest()
+            ->take(50)
+            ->get();
+
+        $title = $item->title ?: ('#' . $item->queue_order);
+
+        if ($notes->isEmpty()) {
+            BotHelper::sendMessage($bot, "📄 هنوز یادداشتی برای «{$title}» ثبت نکرده‌اید.\nبرای ثبت: دکمه «📝 یادداشت»");
+            return;
+        }
+
+        $message = "📄 یادداشت‌ها و سؤالات شما برای «{$title}»:\n\n";
+        foreach ($notes as $index => $note) {
+            $icon = $note->type === 'question' ? '❓' : '📝';
+            $message .= "{$icon} [" . ($index + 1) . "] {$note->text}\n";
+        }
+        $message .= "\n(تعداد: {$notes->count()})";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+}

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fab1b4eff7992f8731f74f03992b12d8",
+    "content-hash": "06392e732dd67ee6b4fa56dd8a941995",
     "packages": [
         {
             "name": "amenadiel/jpgraph",
@@ -334,6 +334,83 @@
                 "source": "https://github.com/dflydev/dflydev-dot-access-data/tree/v3.0.2"
             },
             "time": "2022-10-27T11:44:00+00:00"
+        },
+        {
+            "name": "doctrine/annotations",
+            "version": "2.0.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/doctrine/annotations.git",
+                "reference": "901c2ee5d26eb64ff43c47976e114bf00843acf7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/doctrine/annotations/zipball/901c2ee5d26eb64ff43c47976e114bf00843acf7",
+                "reference": "901c2ee5d26eb64ff43c47976e114bf00843acf7",
+                "shasum": ""
+            },
+            "require": {
+                "doctrine/lexer": "^2 || ^3",
+                "ext-tokenizer": "*",
+                "php": "^7.2 || ^8.0",
+                "psr/cache": "^1 || ^2 || ^3"
+            },
+            "require-dev": {
+                "doctrine/cache": "^2.0",
+                "doctrine/coding-standard": "^10",
+                "phpstan/phpstan": "^1.10.28",
+                "phpunit/phpunit": "^7.5 || ^8.5 || ^9.5",
+                "symfony/cache": "^5.4 || ^6.4 || ^7",
+                "vimeo/psalm": "^4.30 || ^5.14"
+            },
+            "suggest": {
+                "php": "PHP 8.0 or higher comes with attributes, a native replacement for annotations"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Doctrine\\Common\\Annotations\\": "lib/Doctrine/Common/Annotations"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Guilherme Blanco",
+                    "email": "guilhermeblanco@gmail.com"
+                },
+                {
+                    "name": "Roman Borschel",
+                    "email": "roman@code-factory.org"
+                },
+                {
+                    "name": "Benjamin Eberlei",
+                    "email": "kontakt@beberlei.de"
+                },
+                {
+                    "name": "Jonathan Wage",
+                    "email": "jonwage@gmail.com"
+                },
+                {
+                    "name": "Johannes Schmitt",
+                    "email": "schmittjoh@gmail.com"
+                }
+            ],
+            "description": "Docblock Annotations Parser",
+            "homepage": "https://www.doctrine-project.org/projects/annotations.html",
+            "keywords": [
+                "annotations",
+                "docblock",
+                "parser"
+            ],
+            "support": {
+                "issues": "https://github.com/doctrine/annotations/issues",
+                "source": "https://github.com/doctrine/annotations/tree/2.0.2"
+            },
+            "abandoned": true,
+            "time": "2024-09-05T10:17:24+00:00"
         },
         {
             "name": "doctrine/cache",
@@ -3426,6 +3503,88 @@
             "time": "2024-01-09T09:30:37+00:00"
         },
         {
+            "name": "phpmailer/phpmailer",
+            "version": "v7.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/PHPMailer/PHPMailer.git",
+                "reference": "360ae911ce62e25e11249f6140fa58939f556ebe"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/PHPMailer/PHPMailer/zipball/360ae911ce62e25e11249f6140fa58939f556ebe",
+                "reference": "360ae911ce62e25e11249f6140fa58939f556ebe",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-filter": "*",
+                "ext-hash": "*",
+                "php": ">=5.5.0"
+            },
+            "require-dev": {
+                "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+                "doctrine/annotations": "^1.2.6 || ^1.13.3",
+                "php-parallel-lint/php-console-highlighter": "^1.0.0",
+                "php-parallel-lint/php-parallel-lint": "^1.3.2",
+                "phpcompatibility/php-compatibility": "^10.0.0@dev",
+                "squizlabs/php_codesniffer": "^3.13.5",
+                "yoast/phpunit-polyfills": "^1.0.4"
+            },
+            "suggest": {
+                "decomplexity/SendOauth2": "Adapter for using XOAUTH2 authentication",
+                "directorytree/imapengine": "For uploading sent messages via IMAP, see gmail example",
+                "ext-imap": "Needed to support advanced email address parsing according to RFC822",
+                "ext-mbstring": "Needed to send email in multibyte encoding charset or decode encoded addresses",
+                "ext-openssl": "Needed for secure SMTP sending and DKIM signing",
+                "greew/oauth2-azure-provider": "Needed for Microsoft Azure XOAUTH2 authentication",
+                "hayageek/oauth2-yahoo": "Needed for Yahoo XOAUTH2 authentication",
+                "league/oauth2-google": "Needed for Google XOAUTH2 authentication",
+                "psr/log": "For optional PSR-3 debug logging",
+                "symfony/polyfill-mbstring": "To support UTF-8 if the Mbstring PHP extension is not enabled (^1.2)",
+                "thenetworg/oauth2-azure": "Needed for Microsoft XOAUTH2 authentication"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "PHPMailer\\PHPMailer\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "LGPL-2.1-only"
+            ],
+            "authors": [
+                {
+                    "name": "Marcus Bointon",
+                    "email": "phpmailer@synchromedia.co.uk"
+                },
+                {
+                    "name": "Jim Jagielski",
+                    "email": "jimjag@gmail.com"
+                },
+                {
+                    "name": "Andy Prevost",
+                    "email": "codeworxtech@users.sourceforge.net"
+                },
+                {
+                    "name": "Brent R. Matzelle"
+                }
+            ],
+            "description": "PHPMailer is a full-featured email creation and transfer class for PHP",
+            "support": {
+                "issues": "https://github.com/PHPMailer/PHPMailer/issues",
+                "source": "https://github.com/PHPMailer/PHPMailer/tree/v7.0.1"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/Synchro",
+                    "type": "github"
+                }
+            ],
+            "time": "2025-11-25T07:18:09+00:00"
+        },
+        {
             "name": "phpoption/phpoption",
             "version": "1.9.2",
             "source": {
@@ -5560,6 +5719,67 @@
                 }
             ],
             "time": "2024-01-25T10:15:50+00:00"
+        },
+        {
+            "name": "swagger-api/swagger-ui",
+            "version": "v5.31.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/swagger-api/swagger-ui.git",
+                "reference": "61dddd44389bf25922639afd682f50b8a0fb5cf4"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/swagger-api/swagger-ui/zipball/61dddd44389bf25922639afd682f50b8a0fb5cf4",
+                "reference": "61dddd44389bf25922639afd682f50b8a0fb5cf4",
+                "shasum": ""
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Anna Bodnia",
+                    "email": "anna.bodnia@gmail.com"
+                },
+                {
+                    "name": "Buu Nguyen",
+                    "email": "buunguyen@gmail.com"
+                },
+                {
+                    "name": "Josh Ponelat",
+                    "email": "jponelat@gmail.com"
+                },
+                {
+                    "name": "Kyle Shockey",
+                    "email": "kyleshockey1@gmail.com"
+                },
+                {
+                    "name": "Robert Barnwell",
+                    "email": "robert@robertismy.name"
+                },
+                {
+                    "name": "Sahar Jafari",
+                    "email": "shr.jafari@gmail.com"
+                }
+            ],
+            "description": " Swagger UI is a collection of HTML, Javascript, and CSS assets that dynamically generate beautiful documentation from a Swagger-compliant API.",
+            "homepage": "http://swagger.io",
+            "keywords": [
+                "api",
+                "documentation",
+                "openapi",
+                "specification",
+                "swagger",
+                "ui"
+            ],
+            "support": {
+                "issues": "https://github.com/swagger-api/swagger-ui/issues",
+                "source": "https://github.com/swagger-api/swagger-ui/tree/v5.31.0"
+            },
+            "time": "2025-12-11T15:57:42+00:00"
         },
         {
             "name": "symfony/console",
@@ -8018,6 +8238,77 @@
             "time": "2024-02-15T11:23:52+00:00"
         },
         {
+            "name": "symfony/yaml",
+            "version": "v7.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/symfony/yaml.git",
+                "reference": "2d4fca631c00700597e9442a0b2451ce234513d3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/2d4fca631c00700597e9442a0b2451ce234513d3",
+                "reference": "2d4fca631c00700597e9442a0b2451ce234513d3",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.2",
+                "symfony/polyfill-ctype": "^1.8"
+            },
+            "conflict": {
+                "symfony/console": "<6.4"
+            },
+            "require-dev": {
+                "symfony/console": "^6.4|^7.0"
+            },
+            "bin": [
+                "Resources/bin/yaml-lint"
+            ],
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Symfony\\Component\\Yaml\\": ""
+                },
+                "exclude-from-classmap": [
+                    "/Tests/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Fabien Potencier",
+                    "email": "fabien@symfony.com"
+                },
+                {
+                    "name": "Symfony Community",
+                    "homepage": "https://symfony.com/contributors"
+                }
+            ],
+            "description": "Loads and dumps YAML files",
+            "homepage": "https://symfony.com",
+            "support": {
+                "source": "https://github.com/symfony/yaml/tree/v7.0.3"
+            },
+            "funding": [
+                {
+                    "url": "https://symfony.com/sponsor",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/fabpot",
+                    "type": "github"
+                },
+                {
+                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
+                    "type": "tidelift"
+                }
+            ],
+            "time": "2024-01-23T15:02:46+00:00"
+        },
+        {
             "name": "tijsverkoyen/css-to-inline-styles",
             "version": "v2.2.7",
             "source": {
@@ -8568,6 +8859,87 @@
                 }
             ],
             "time": "2023-05-30T22:51:52+00:00"
+        },
+        {
+            "name": "zircote/swagger-php",
+            "version": "4.11.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/zircote/swagger-php.git",
+                "reference": "7df10e8ec47db07c031db317a25bef962b4e5de1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/zircote/swagger-php/zipball/7df10e8ec47db07c031db317a25bef962b4e5de1",
+                "reference": "7df10e8ec47db07c031db317a25bef962b4e5de1",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "php": ">=7.2",
+                "psr/log": "^1.1 || ^2.0 || ^3.0",
+                "symfony/deprecation-contracts": "^2 || ^3",
+                "symfony/finder": ">=2.2",
+                "symfony/yaml": ">=3.3"
+            },
+            "require-dev": {
+                "composer/package-versions-deprecated": "^1.11",
+                "doctrine/annotations": "^1.7 || ^2.0",
+                "friendsofphp/php-cs-fixer": "^2.17 || 3.62.0",
+                "phpstan/phpstan": "^1.6",
+                "phpunit/phpunit": ">=8",
+                "vimeo/psalm": "^4.23"
+            },
+            "suggest": {
+                "doctrine/annotations": "^1.7 || ^2.0"
+            },
+            "bin": [
+                "bin/openapi"
+            ],
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "4.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "OpenApi\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Robert Allen",
+                    "email": "zircote@gmail.com"
+                },
+                {
+                    "name": "Bob Fanger",
+                    "email": "bfanger@gmail.com",
+                    "homepage": "https://bfanger.nl"
+                },
+                {
+                    "name": "Martin Rademacher",
+                    "email": "mano@radebatz.net",
+                    "homepage": "https://radebatz.net"
+                }
+            ],
+            "description": "swagger-php - Generate interactive documentation for your RESTful API using phpdoc annotations",
+            "homepage": "https://github.com/zircote/swagger-php/",
+            "keywords": [
+                "api",
+                "json",
+                "rest",
+                "service discovery"
+            ],
+            "support": {
+                "issues": "https://github.com/zircote/swagger-php/issues",
+                "source": "https://github.com/zircote/swagger-php/tree/4.11.1"
+            },
+            "time": "2024-10-15T19:20:02+00:00"
         }
     ],
     "packages-dev": [
@@ -10949,77 +11321,6 @@
             "time": "2024-03-29T14:14:55+00:00"
         },
         {
-            "name": "symfony/yaml",
-            "version": "v7.0.3",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/symfony/yaml.git",
-                "reference": "2d4fca631c00700597e9442a0b2451ce234513d3"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/2d4fca631c00700597e9442a0b2451ce234513d3",
-                "reference": "2d4fca631c00700597e9442a0b2451ce234513d3",
-                "shasum": ""
-            },
-            "require": {
-                "php": ">=8.2",
-                "symfony/polyfill-ctype": "^1.8"
-            },
-            "conflict": {
-                "symfony/console": "<6.4"
-            },
-            "require-dev": {
-                "symfony/console": "^6.4|^7.0"
-            },
-            "bin": [
-                "Resources/bin/yaml-lint"
-            ],
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Symfony\\Component\\Yaml\\": ""
-                },
-                "exclude-from-classmap": [
-                    "/Tests/"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Fabien Potencier",
-                    "email": "fabien@symfony.com"
-                },
-                {
-                    "name": "Symfony Community",
-                    "homepage": "https://symfony.com/contributors"
-                }
-            ],
-            "description": "Loads and dumps YAML files",
-            "homepage": "https://symfony.com",
-            "support": {
-                "source": "https://github.com/symfony/yaml/tree/v7.0.3"
-            },
-            "funding": [
-                {
-                    "url": "https://symfony.com/sponsor",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/fabpot",
-                    "type": "github"
-                },
-                {
-                    "url": "https://tidelift.com/funding/github/packagist/symfony/symfony",
-                    "type": "tidelift"
-                }
-            ],
-            "time": "2024-01-23T15:02:46+00:00"
-        },
-        {
             "name": "theanik/laravel-more-command",
             "version": "v1.3.0",
             "source": {
@@ -11119,12 +11420,16 @@
     ],
     "aliases": [],
     "minimum-stability": "beta",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.1"
+        "php": "^8.1",
+        "ext-curl": "*",
+        "ext-dom": "*",
+        "ext-libxml": "*",
+        "ext-simplexml": "*"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.2.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.6.0"
 }

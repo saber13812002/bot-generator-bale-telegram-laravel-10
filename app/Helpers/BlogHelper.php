@@ -18,19 +18,57 @@ class BlogHelper
 
         $request_data = json_encode($request_param);
 
-        $response = $client->request(
-            'POST',
-            url(config('blog.artisan')),
-            [
-                'headers' => [
-                    'Accept' => 'application/json',
-                    'Authorization' => 'Bearer ' . $blog_token,
-                    'Content-Type' => 'application/json'
-                ],
-                'body' => $request_data
-            ]
-        );
-        return json_decode($response->getBody(), true);
+        try {
+            $response = $client->request(
+                'POST',
+                url(config('blog.artisan')),
+                [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                        'Authorization' => 'Bearer ' . $blog_token,
+                        'Content-Type' => 'application/json'
+                    ],
+                    'body' => $request_data
+                ]
+            );
+
+            $statusCode = $response->getStatusCode();
+            
+            if ($statusCode !== 200) {
+                \Log::warning('Blog API returned non-200 status', [
+                    'status' => $statusCode,
+                    'url' => config('blog.artisan'),
+                    'body' => $response->getBody()->getContents()
+                ]);
+                return null;
+            }
+
+            return json_decode($response->getBody(), true);
+        } catch (GuzzleHttp\Exception\ClientException $e) {
+            $response = $e->getResponse();
+            \Log::error('Blog API ClientException', [
+                'url' => config('blog.artisan'),
+                'status' => $response ? $response->getStatusCode() : 'unknown',
+                'message' => $e->getMessage(),
+                'body' => $response ? $response->getBody()->getContents() : 'N/A'
+            ]);
+            return null;
+        } catch (GuzzleHttp\Exception\ServerException $e) {
+            $response = $e->getResponse();
+            \Log::error('Blog API ServerException', [
+                'url' => config('blog.artisan'),
+                'status' => $response ? $response->getStatusCode() : 'unknown',
+                'message' => $e->getMessage()
+            ]);
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('Blog API Exception', [
+                'url' => config('blog.artisan'),
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
     }
 
     public static function callApiPost($text, $authorId, $blog_token)

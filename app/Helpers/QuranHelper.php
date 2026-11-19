@@ -2,9 +2,11 @@
 
 namespace App\Helpers;
 
+use App\Models\Bot;
 use App\Models\BotLog;
 use App\Models\BotUsers;
 use App\Models\QuranAyat;
+use App\Models\QuranSearchSuggestion;
 use App\Models\QuranSurah;
 use App\Models\QuranTranslation;
 use App\Models\QuranTransliterationEn;
@@ -14,6 +16,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -21,63 +24,242 @@ use JetBrains\PhpStorm\NoReturn;
 use Saber13812002\Laravel\Fulltext\IndexedRecord;
 use Saber13812002\Laravel\Fulltext\Search;
 use Telegram;
+use App\Helpers\FileUploadHelper;
 
 class QuranHelper
 {
+    /**
+     * Supported languages list for special handling in PlaceQuran
+     * We will use 'ar,en' variant for these languages, otherwise fallback to 'ar'
+     */
+    private const PLACEQURAN_SUPPORTED_LANGUAGES = ['ar', 'en', 'ms', 'id', 'tr', 'ur', 'hi'];
 
     /**
+     * حداکثر مجاز برای caption صدا در تلگرام/بله (1024 کاراکتر)
+     */
+    private const AUDIO_CAPTION_MAX = 1024;
+
+    /**
+     * حداکثر کاراکتر برای هر پیام متنی (تلگرام/بله 4096، با کمی حاشیه امن)
+     */
+    private const TEXT_MESSAGE_MAX = 3800;
+
+    /**
+     * برچسب صوت هر کلمه در quran_words.audio
+     */
+    private const WORD_AUDIO_BASE_URL = 'https://words.audios.quranwbw.com/1/';
+
+    /**
+     * Normalize language code for database queries
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     * 
+     * @param string $languageCode
+     * @return string
+     */
+    private static function normalizeLanguageCodeForDatabase(string $languageCode): string
+    {
+        // اگر کد زبان شامل خط تیره است، قسمت اول را برمی‌گردانیم
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+        return $languageCode;
+    }
+
+    /**
+     * ارسال صوت قاری آیه (با ادغام متن آیه در کپشن در صورت امکان)
+     *
      * @param $messenger
      * @param $suraId
      * @param $ayaId
      * @param BotUsers|null $userSettings
-     * @return void
+     * @param string $verseMessage متن آیه (ترجمه + ترانه و ...) برای درج در کپشن
+     * @param array $buttons دکمه‌هایی که زیر پیام صوتی پیوست می‌شوند
+     * @return array{sent: bool, captured: int, remaining: string}
+     *   sent=آیا صوت فرستاده شد، captured=تعداد کاراکتر از verseMessage که در کپشن جای گرفت،
+     *   remaining=بقیه‌ی متن آیه که جا نشد (برای ارسال جداگانه توسط فراخواننده)
      */
-    public static function sendAudio($messenger, $suraId, $ayaId, BotUsers $userSettings = null): void
+    public static function sendAudio($messenger, $suraId, $ayaId, BotUsers $userSettings = null, string $verseMessage = '', array $buttons = []): array
     {
-        // TODO: cache
-        //
+        $result = ['sent' => false, 'captured' => 0, 'remaining' => ''];
+
         $aye = QuranAyat::query()
             ->whereSura($suraId)
             ->whereAya($ayaId)
             ->first();
-//        dd($aye->id);
+
+        if (!$aye) {
+            Log::warning('⚠️ [QuranAudio] sendAudio: ayah not found', [
+                'sura' => $suraId, 'aya' => $ayaId, 'chat_id' => $messenger->ChatID()
+            ]);
+            return $result;
+        }
 
         $chat_id = $messenger->ChatID();
+        $botType = $messenger->BotType();
 
         $mp3Enable = self::getBooleanSettingsByTags($userSettings, 'mp3_enable');
 
-        if ($mp3Enable == "true") {
-            $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
-            $audio = self::getAudioUrl($mp3Reciter, $aye);
+        if ($mp3Enable != "true") {
+            Log::info('🔇 [QuranAudio] mp3 disabled, skipping audio', [
+                'sura' => $suraId, 'aya' => $ayaId, 'chat_id' => $chat_id
+            ]);
+            return $result;
+        }
 
-            $caption = self::getSettingReciter($messenger->BotType());
+        $mp3Reciter = self::getSettingsByTags($userSettings, 'mp3_reciter');
+        self::recordReciterUsage($userSettings, $mp3Reciter);
 
-            $content = [
-                'chat_id' => $chat_id,
-                'audio' => $audio,
-//                'parse_mode' => "html",
-                // TODO:
-//            'duration' => NULL,
-//            'performer' => NULL,
-                'title' => self::getAyeDescription($aye),
-                'caption' => $caption,
-//            'disable_notification' => FALSE,
-//            'reply_to_message_id' => NULL,
-//            'reply_markup' => NULL,
-//            'parse_mode' => NULL
-            ];
+        $audio = self::getAudioUrl($mp3Reciter, $aye);
 
-//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
+        // ترکیب کپشن: متن آیه + مشخصات قاری
+        $reciterCaption = self::getSettingReciter($mp3Reciter, $botType);
+        $versePart = trim($verseMessage);
+        $caption = $reciterCaption;
+        $remaining = '';
 
-            if ($messenger->BotType() != "gap")
-                $messenger->sendAudio($content);
-            else {
-                // if not exist download then upload then deleted then save to db
-
-                // if exist and uploaded
-                $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+        if ($versePart !== '') {
+            $budget = self::AUDIO_CAPTION_MAX - mb_strlen($reciterCaption) - 4;
+            if (mb_strlen($versePart) <= $budget) {
+                $caption = $versePart . "\n\n" . $reciterCaption;
+                $result['captured'] = mb_strlen($versePart);
+            } else {
+                $chunks = self::splitTextAtPunctuation($versePart, $budget);
+                $firstChunk = array_shift($chunks);
+                $caption = $firstChunk . "\n\n" . $reciterCaption;
+                $result['captured'] = mb_strlen($firstChunk);
+                $remaining = implode("\n\n", $chunks);
             }
         }
+        $result['remaining'] = $remaining;
+
+        $title = self::getAyeDescription($aye);
+        $replyMarkup = empty($buttons) ? null : self::buildInlineKeyboard($buttons);
+
+        Log::info('🎵 [QuranAudio] Sending reciter audio (before)', [
+            'chat_id' => $chat_id,
+            'sura' => $suraId,
+            'aya' => $ayaId,
+            'reciter' => self::resolveReciter($mp3Reciter),
+            'audio_url' => $audio,
+            'caption_len' => mb_strlen($caption),
+            'remaining_len' => mb_strlen($remaining),
+            'has_buttons' => $replyMarkup !== null,
+            'bot_type' => $botType,
+        ]);
+
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        if ($botType != "gap") {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_recitation', [
+                'reciter' => self::resolveReciter($mp3Reciter),
+                'sura' => $suraId,
+                'aya' => $ayaId
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $audio,
+                'audio_recitation',
+                [
+                    'reciter' => self::resolveReciter($mp3Reciter),
+                    'sura' => $suraId,
+                    'aya' => $ayaId,
+                    'title' => $title,
+                    'caption' => $caption,
+                    'reply_markup' => $replyMarkup,
+                ]
+            );
+
+            if ($fileInfo && isset($fileInfo['file_id'])) {
+                if ($fileInfo['is_cached']) {
+                    // فایل قبلاً آپلود شده بود → این‌جا اولین و تنها ارسال است
+                    $content = [
+                        'chat_id' => $chat_id,
+                        'audio' => $fileInfo['file_id'],
+                        'title' => $title,
+                        'caption' => $caption
+                    ];
+                    if ($replyMarkup) {
+                        $content['reply_markup'] = $replyMarkup;
+                    }
+                    $response = $messenger->sendAudio($content);
+                    if (!self::apiOk($response) && $replyMarkup) {
+                        // برخی ربات‌ها reply_markup را روی صدا قبول نمی‌کنند → بدون دکمه دوباره بفرست
+                        Log::warning('⚠️ [QuranAudio] sendAudio with reply_markup failed, retrying without buttons', [
+                            'chat_id' => $chat_id,
+                            'response' => is_array($response) ? ($response['description'] ?? null) : $response,
+                        ]);
+                        unset($content['reply_markup']);
+                        $response = $messenger->sendAudio($content);
+                    }
+                    $result['sent'] = self::apiOk($response);
+                    Log::info('🎵 [QuranAudio] Reciter audio sent by file_id (after)', [
+                        'chat_id' => $chat_id,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'file_id' => $fileInfo['file_id'],
+                        'ok' => $result['sent'],
+                    ]);
+                } else {
+                    // فایل تازه در لحظه آپلود، به چت کاربر فرستاده شد → ارسال دوم یعنی تکرار (بمب دوگانه)
+                    Log::info('🎵 [QuranAudio] Audio already delivered during upload (fresh upload), skipping second send', [
+                        'chat_id' => $chat_id,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'file_id' => $fileInfo['file_id'] ?? null,
+                    ]);
+                    $result['sent'] = true;
+                }
+                return $result;
+            }
+
+            Log::warning('⚠️ [QuranAudio] getOrUploadFile failed, falling back to URL send', [
+                'chat_id' => $chat_id,
+                'sura' => $suraId,
+                'aya' => $ayaId,
+                'audio_url' => $audio,
+            ]);
+        }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
+        $content = [
+            'chat_id' => $chat_id,
+            'audio' => $audio,
+            'title' => $title,
+            'caption' => $caption,
+        ];
+        if ($replyMarkup) {
+            $content['reply_markup'] = $replyMarkup;
+        }
+
+        if ($botType != "gap") {
+            $response = $messenger->sendAudio($content);
+            if (!self::apiOk($response) && $replyMarkup) {
+                Log::warning('⚠️ [QuranAudio] URL sendAudio with reply_markup failed, retrying without buttons', [
+                    'chat_id' => $chat_id,
+                ]);
+                unset($content['reply_markup']);
+                $response = $messenger->sendAudio($content);
+            }
+            $result['sent'] = self::apiOk($response);
+            Log::info('🎵 [QuranAudio] Reciter audio sent by URL (after)', [
+                'chat_id' => $chat_id,
+                'sura' => $suraId,
+                'aya' => $ayaId,
+                'ok' => $result['sent'],
+                'response' => is_array($response) ? ($response['description'] ?? null) : null,
+            ]);
+        } else {
+            $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
+            $result['sent'] = true;
+            Log::info('🎵 [QuranAudio] Reciter audio sent via gap (after)', [
+                'chat_id' => $chat_id,
+                'sura' => $suraId,
+                'aya' => $ayaId,
+            ]);
+        }
+
+        return $result;
     }
 
     /**
@@ -108,19 +290,65 @@ class QuranHelper
 
             // https://tanzil.ir/res/audio/fa.makarem/001003.mp3
 
-            $caption = self::getSettingReciter($messenger->BotType());
+            $caption = self::getSettingReciter(self::getSettingsByTags($userSettings, 'mp3_reciter'), $messenger->BotType());
+            $title = self::getAyeDescription($aye);
+            $botType = $messenger->BotType();
 
+            // استفاده از FileUploadHelper برای چک کردن file_id
+            if ($botType != "gap") {
+                $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_translation', [
+                    'locale' => $postfix,
+                    'sura' => $suraId,
+                    'aya' => $ayaId
+                ], $botType);
+
+                $fileInfo = FileUploadHelper::getOrUploadFile(
+                    $messenger,
+                    $fileUniqueKey,
+                    $audio,
+                    'audio_translation',
+                    [
+                        'locale' => $postfix,
+                        'sura' => $suraId,
+                        'aya' => $ayaId,
+                        'title' => $title,
+                        'caption' => $caption
+                    ]
+                );
+
+                // اگر file_id موجود است، از آن استفاده می‌کنیم
+                if ($fileInfo && isset($fileInfo['file_id'])) {
+                    if ($fileInfo['is_cached']) {
+                        // فایل قبلاً آپلود شده بود → این‌جا اولین و تنها ارسال است
+                        $content = [
+                            'chat_id' => $chat_id,
+                            'audio' => $fileInfo['file_id'],
+                            'title' => $title,
+                            'caption' => $caption
+                        ];
+                        $messenger->sendAudio($content);
+                    } else {
+                        // فایل تازه در لحظه آپلود به چت کاربر فرستاده شد → ارسال دوم یعنی تکرار (بمب دوگانه)
+                        Log::info('🎵 [QuranAudio] sendAudioByLocale: audio already delivered during upload (fresh upload), skipping second send', [
+                            'chat_id' => $chat_id,
+                            'sura' => $suraId,
+                            'aya' => $ayaId,
+                            'postfix' => $postfix
+                        ]);
+                    }
+                    return;
+                }
+            }
+
+            // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
             $content = [
                 'chat_id' => $chat_id,
                 'audio' => $audio,
-                'title' => self::getAyeDescription($aye),
+                'title' => $title,
                 'caption' => $caption
-//                'parse_mode' => "html"
             ];
 
-//        dd($mp3Enable, $caption, $audio, $mp3Reciter);
-
-            if ($messenger->BotType() != "gap")
+            if ($botType != "gap")
                 $messenger->sendAudio($content);
             else {
                 $message_id = $messenger->sendAudio($chat_id, $audio, $caption, null, null, null);
@@ -129,19 +357,140 @@ class QuranHelper
     }
 
     /**
+     * بررسی موفقیت‌آمیز بودن پاسخ API مسنجر (تلگرام/بله)
+     */
+    private static function apiOk(mixed $response): bool
+    {
+        return is_array($response) && !empty($response['ok']);
+    }
+
+    /**
+     * شکستن متن در نقاط نشانه‌گذاری (فاوا/عربی/انگلیسی) طوری که هر قسمت حداکثر $maxLen کاراکتر باشد
+     *
+     * @param string $text
+     * @param int $maxLen
+     * @return string[]
+     */
+    public static function splitTextAtPunctuation(string $text, int $maxLen): array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return [];
+        }
+        if ($maxLen <= 0 || mb_strlen($text) <= $maxLen) {
+            return [$text];
+        }
+
+        $breakers = " \t\n.؟?۔:؛;،,-—–";
+        $chunks = [];
+        $rest = $text;
+
+        while (mb_strlen($rest) > $maxLen) {
+            $window = mb_substr($rest, 0, $maxLen);
+            $len = mb_strlen($window);
+            // اول آخرینِ نشانه در نیمه دوم پنجره، در غیر این‌صورت نیمه اول
+            $best = self::lastBreakerIndex($window, (int) ceil($len / 2), $len - 1, $breakers);
+            if ($best < 0) {
+                $best = self::lastBreakerIndex($window, 0, (int) ceil($len / 2) - 1, $breakers);
+            }
+            if ($best < 0) {
+                // نقطه شکست نبود → برش اجباری
+                $chunks[] = $window;
+                $rest = mb_substr($rest, $maxLen);
+                continue;
+            }
+            $chunks[] = rtrim(mb_substr($window, 0, $best + 1));
+            $rest = ltrim(mb_substr($rest, $best + 1));
+        }
+
+        if ($rest !== '') {
+            $chunks[] = $rest;
+        }
+        return $chunks;
+    }
+
+    /**
+     * آخرین مکان کاراکتر شکست در بازه [$from, $to] یا -1
+     */
+    private static function lastBreakerIndex(string $text, int $from, int $to, string $breakers): int
+    {
+        if ($to < $from) {
+            return -1;
+        }
+        for ($pos = $to; $pos >= $from; $pos--) {
+            if (strpos($breakers, mb_substr($text, $pos, 1)) !== false) {
+                return $pos;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * ساخت رشته JSON اینلاین کیبورد (reply_markup) از لیست دکمه‌ها
+     *
+     * فرمت خروجی دقیقاًَ مشابه BotHelper::sendKeyboardMessage است (JSON string).
+     * دکمه‌هایی که callback_data خالی دارند حذف می‌شوند.
+     *
+     * @param array $buttons خروجی normalizeButtonPairs یا جفت‌های [text, command]
+     * @return string رشته JSON یا '' در صورت خالی
+     */
+    public static function buildInlineKeyboard(array $buttons): string
+    {
+        $flat = BotHelper::normalizeButtonPairs($buttons);
+        $rows = [];
+        foreach (array_chunk($flat, 2) as $rowButtons) {
+            $row = [];
+            foreach ($rowButtons as $btn) {
+                if ($btn['callback_data'] === '') {
+                    continue;
+                }
+                $row[] = ['text' => $btn['text'], 'callback_data' => $btn['callback_data']];
+            }
+            if ($row !== []) {
+                $rows[] = $row;
+            }
+        }
+        if ($rows === []) {
+            return '';
+        }
+        return json_encode(['inline_keyboard' => $rows], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * ثبت تعداد استفاده از هر قاری در تنظیمات کاربر (برای آمار و رتبه‌بندی)
+     */
+    private static function recordReciterUsage(?BotUsers $userSettings, mixed $mp3Reciter): void
+    {
+        if (!$userSettings) {
+            return;
+        }
+        $reciter = self::resolveReciter($mp3Reciter);
+        try {
+            $usage = $userSettings->setting('mp3_reciter_usage', []);
+            if (!is_array($usage)) {
+                $usage = [];
+            }
+            $usage[$reciter] = ($usage[$reciter] ?? 0) + 1;
+            $userSettings->settings(['mp3_reciter_usage' => $usage]);
+        } catch (\Throwable $e) {
+            Log::warning('⚠️ [QuranAudio] recordReciterUsage failed', [
+                'reciter' => $reciter,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * @param mixed $mp3Reciter
      * @param string $type
      * @return string
      */
-    public static function getSettingReciter(string $type = 'bale'): string
+    public static function getSettingReciter(mixed $mp3Reciter = null, string $type = 'bale'): string
     {
-        $caption = "
-" . trans("bot.disable enable reciter") . ($type == 'bale' ? " /mp3_true [/mp3_true](send:/mp3_true) /mp3_false [/mp3_false](send:/mp3_false)
-" : " /mp3_true  /mp3_false
-");
-
-        $caption .= trans("bot.change reciter") . ($type == 'bale' ? " /mp3reciter_parhizgar [/mp3reciter_parhizgar](send:/mp3reciter_parhizgar) /mp3reciter_alafasy [/mp3reciter_alafasy](send:/mp3reciter_alafasy)
-" : " /mp3reciter_parhizgar  /mp3reciter_alafasy
-");
+        $current = self::resolveReciter($mp3Reciter);
+        $caption = trans("bot.current reciter :reciter", ['reciter' => self::getReciterName($current)]);
+        $caption .= "\n" . trans("bot.change reciter") . " : /settings";
+        // دستورات /mp3_true و /mp3_false از کپشن حذف شدند (با دکمه‌ها و /settings هندل می‌شوند)
         return $caption;
     }
 
@@ -159,29 +508,75 @@ class QuranHelper
     }
 
     /**
+     * Full reciter registry from config/quran_reciters.php
+     *
+     * @return array<string, array{name: array<string, string>, url: string, file: string}>
+     */
+    public static function getReciterRegistry(): array
+    {
+        return (array) config('quran_reciters.reciters', []);
+    }
+
+    /**
+     * Default reciter key (config/quran_reciters.php => default)
+     */
+    public static function getDefaultReciter(): string
+    {
+        return (string) config('quran_reciters.default', 'parhizgar');
+    }
+
+    /**
+     * Whether a reciter key exists in the registry
+     */
+    public static function hasReciter(mixed $mp3Reciter): bool
+    {
+        return array_key_exists((string) $mp3Reciter, self::getReciterRegistry());
+    }
+
+    /**
+     * Resolve a reciter key to a known registry key, falling back to the default
+     */
+    public static function resolveReciter(mixed $mp3Reciter): string
+    {
+        return self::hasReciter($mp3Reciter) ? (string) $mp3Reciter : self::getDefaultReciter();
+    }
+
+    /**
+     * Localized display name for a reciter (locale -> fa -> en -> first defined)
+     */
+    public static function getReciterName(mixed $mp3Reciter, ?string $locale = null): string
+    {
+        $key = self::resolveReciter($mp3Reciter);
+        $names = (array) (self::getReciterRegistry()[$key]['name'] ?? []);
+        if (empty($names)) {
+            return $key;
+        }
+        $locale = $locale ?: App::getLocale();
+        return $names[$locale] ?? $names['fa'] ?? $names['en'] ?? reset($names);
+    }
+
+    /**
+     * Convert western digits to Arabic-Indic digits (0-9 to ۰-۹)
+     */
+    public static function toArabicDigits(int|string $number): string
+    {
+        return strtr((string) $number, [
+            '0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴',
+            '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹',
+        ]);
+    }
+
+    /**
+     * Base audio URL for a reciter, from the registry
+     *
      * @param mixed $mp3Reciter
      * @return string
      */
     public static function getUrl(mixed $mp3Reciter): string
     {
-        $base_url = "https://cdn.islamic.network/quran/audio/128/ar.alafasy/";
-        if ($mp3Reciter == "parhizgar")
-            $base_url = "https://tanzil.net/res/audio/parhizgar/";
-        return $base_url;
-
-        //https://github.com/GlobalQuran/docs/blob/a0543eb602bab509c366b02a571a4f480a7214ec/api.yaml#L1613
-
-        // http://cdn.alquran.cloud/media/audio/ayah/fa.hedayatfarfooladvand/
-        // http://cdn.alquran.cloud/media/audio/ayah/ar.parhizgar/
-        //https://tanzil.net/res/audio/parhizgar/
-        // http://audio.globalquran.com/ar.parhizgar/mp3/48kbs/
-        // \/\/audio.globalquran.com\/fa.hedayatfarfooladvand\/mp3\/40kbs\/
-        // \/\/audio.globalquran.com\/ar.parhizgar\/mp3\/48kbs\/
-        // \/\/audio.globalquran.com\/ur.khan\/mp3\/64kbs\/
-
-        // juz
-
-        https://www.sibtayn.com/sound/ar/quran/parhizgar/
+        $key = self::resolveReciter($mp3Reciter);
+        $url = (string) (self::getReciterRegistry()[$key]['url'] ?? '');
+        return rtrim($url, '/') . '/';
     }
 
     /**
@@ -196,7 +591,7 @@ class QuranHelper
             $mp3Reciter = $userSettings->setting($tag);
 //            dd($mp3Reciter);
             if (!$mp3Reciter && $tag == "mp3_reciter")
-                $mp3Reciter = "parhizgar";
+                $mp3Reciter = self::getDefaultReciter();
             return $mp3Reciter;
         }
         return "";
@@ -240,6 +635,47 @@ class QuranHelper
 
     public static function sendScanPageByUrl($messenger, string $photoUrl, int $pageNumber, int $hr)
     {
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        $botType = $messenger->BotType();
+        if ($botType != 'gap') {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('scan_page', [
+                'hr' => $hr,
+                'page' => $pageNumber
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $photoUrl,
+                'scan_page',
+                [
+                    'hr' => $hr,
+                    'page' => $pageNumber,
+                    'bot_type' => $botType
+                ]
+            );
+
+            // اگر file_id موجود است، از آن استفاده می‌کنیم
+            if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                $chat_id = $messenger->ChatID();
+                $title = "#" . trans("bot.page") . "_" . $pageNumber;
+                $caption = $title;
+                if ($messenger->BotType() != 'bale') {
+                    $caption = self::getCaptionTelegram($pageNumber, $hr, $messenger->BotType());
+                }
+
+                $content = [
+                    'chat_id' => $chat_id,
+                    'photo' => $fileInfo['file_id'],
+                    'caption' => $caption,
+                    'parse_mode' => "HTML"
+                ];
+
+                return $messenger->sendPhoto($content);
+            }
+        }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
         return self::createTitleCaptionSendScan($messenger, $pageNumber, $hr, $photoUrl);
     }
 
@@ -278,7 +714,40 @@ class QuranHelper
         $audio = $base_url . $pageNumber . ".mp3";
 
         $caption = $pageNumber . "-" . ".mp3";
+        $botType = $messenger->BotType();
 
+        // استفاده از FileUploadHelper برای چک کردن file_id
+        if ($botType != "gap") {
+            $fileUniqueKey = FileUploadHelper::generateFileUniqueKey('audio_page', [
+                'page' => $pageNumber
+            ], $botType);
+
+            $fileInfo = FileUploadHelper::getOrUploadFile(
+                $messenger,
+                $fileUniqueKey,
+                $audio,
+                'audio_page',
+                [
+                    'page' => $pageNumber,
+                    'title' => $caption,
+                    'caption' => $caption
+                ]
+            );
+
+            // اگر file_id موجود است، از آن استفاده می‌کنیم
+            if ($fileInfo && isset($fileInfo['file_id']) && $fileInfo['is_cached']) {
+                $content = [
+                    'chat_id' => $chat_id,
+                    'audio' => $fileInfo['file_id'],
+                    'title' => $caption,
+                    'caption' => $caption,
+                    'parse_mode' => "html"
+                ];
+                return $messenger->sendAudio($content);
+            }
+        }
+
+        // اگر file_id موجود نبود یا gap است، از روش قبلی استفاده می‌کنیم
         $content = [
             'chat_id' => $chat_id,
             'audio' => $audio,
@@ -287,7 +756,7 @@ class QuranHelper
             'parse_mode' => "html"
         ];
 
-        if ($messenger->BotType() != "gap")
+        if ($botType != "gap")
             return $messenger->sendAudio($content);
 
     }
@@ -300,7 +769,7 @@ class QuranHelper
      * @return array
      * @throws \Exception
      */
-    public static function getSureAye($userSettings, $sure, $aye, $type): array
+    public static function getSureAye($userSettings, $sure, $aye, $type, $language = null): array
     {
         $quranWords = QuranWord::query()->whereSura($sure)->whereAya($aye)->get();
         $message = "";
@@ -310,44 +779,56 @@ class QuranHelper
             $pageNumber = $quranWord['page'];
         }
 
-        $threeDigitNumber = StringHelper::get3digitNumber($pageNumber);
+        // شماره آیه به ارقام عربی در انتهای متن عربی
+        $message .= " ﴿" . self::toArabicDigits((int) $aye) . "﴾";
 
-        $translationId = 2;
-
-        $userTranslationId = self::getSettingsByTags($userSettings, 'translation_id');
-
-        if ($userTranslationId > 0) {
-            $translationId = $userTranslationId;
+        // دریافت language از پارامتر یا از App::getLocale() یا از setting کاربر
+        if (!$language) {
+            $language = \Illuminate\Support\Facades\App::getLocale();
+        }
+        
+        // اگر language هنوز null است، از پیش‌فرض استفاده می‌کنیم
+        if (!$language || $language == '') {
+            $language = 'fa';
+        }
+        
+        // دریافت translator از setting کاربر
+        $translator = self::getSettingsByTags($userSettings, 'quran_translation_translator');
+        
+        // اگر translator وجود نداشت، از translation_id قدیمی استفاده می‌کنیم (برای سازگاری)
+        if (!$translator) {
+            $translationId = self::getSettingsByTags($userSettings, 'translation_id');
+            if ($translationId > 0) {
+                $mapping = self::mapTranslationIdToLanguageAndTranslator($translationId);
+                $language = $mapping['language'];
+                $translator = $mapping['translator'];
+            }
         }
 
-        $quranTranslate = QuranTranslation::query()->whereTranslationId($translationId)->whereSura($sure)->whereAya($aye)->first();
-//            dd($quranTranslate, $sure, $aye);
-
-//        if (App::getLocale() == 'fa') {
-//        }
+        // استفاده از متد جدید برای دریافت ترجمه
+        $quranTranslate = self::getQuranTranslation($language, $translator, $sure, $aye, $userSettings);
 
         if (!$quranTranslate) {
-            $logMessage = "quranTranslate in null with:translationId:" . $translationId . ")->whereSura(" . $sure . ")->whereAya(" . $aye;
+            $logMessage = "quranTranslate is null with: language:" . $language . ", translator:" . ($translator ?? 'null') . ", sura:" . $sure . ", aya:" . $aye;
             BotHelper::sendMessageToSuperAdmin($logMessage, 'bale');
             BotHelper::sendMessageToSuperAdmin($logMessage, 'telegram');
             Log::error($logMessage);
         }
 
-        $showText = false;
-        $randomNumber = rand(1, 11);
-        if ($randomNumber % 5 == 1)
-            $showText = true;
-
-        $message .= "
+        if ($quranTranslate) {
+            $message .= "
 
 " . $quranTranslate['text'] . " : (" . $sure . ":" . $aye . ")";
 
-        $index = $quranTranslate['index'];
+            $index = $quranTranslate['index'];
+        } else {
+            $index = null;
+        }
 
         $trTransliteration = self::getSettingsByTags($userSettings, 'quran_transliteration_tr');
         $enTransliteration = self::getSettingsByTags($userSettings, 'quran_transliteration_en');
 
-        if ($trTransliteration == 'true' || $enTransliteration == 'true') {
+        if ($index && ($trTransliteration == 'true' || $enTransliteration == 'true')) {
 
             $quranTransliterationTr = QuranTransliterationTr::query()->whereIndex($index)->first();
 
@@ -356,14 +837,14 @@ class QuranHelper
                 $message .= "
 
 " . $quranTransliterationTr['quran_transliteration_tr'] . "
-" . trans("bot.to disable") . ($type == 'bale' ? " /transtr_false [/transtr_false](send:/transtr_false)" : " /transtr_false ");
+" . trans("bot.to disable") . " : /transtr_false";
             }
 
             if ($enTransliteration == 'true') {
                 $message .= "
 
 " . $quranTransliterationEn['quran_transliteration_en'] . "
-" . trans("bot.to disable") . ($type == 'bale' ? " /transen_false [/transen_false](send:/transen_false)" : " /transen_false ");
+" . trans("bot.to disable") . " : /transen_false";
             }
         }
 //        else {
@@ -371,20 +852,141 @@ class QuranHelper
 //" . trans("bot.to enable transliteration") . " : /transen_true /transtr_true ";
 //        }
 
-        $message .= "
-" . ($showText ? trans("bot.help.to send scanned quran page") : "") . "
-👇 👇 👇
-/scan" . $threeDigitNumber . "hr1 " . ($type == 'bale' ? "[/scan" . $threeDigitNumber . "hr1](send:/scan" . $threeDigitNumber . "hr1)" : "");
-
-        $message .= "
-" . ($showText ? trans("bot.help.help") : "") . "
-👇 👇 👇
-/help " . ($type == 'bale' ? "[/help](send:/help) " : "");
-
-        if (!$message) {
-            $message = "این سوره و آیه پیدا نشد";
+        if (trim($message) === "") {
+            $message = trans("bot.not found") . " (" . $sure . ":" . $aye . ")";
         }
         return [$message, $pageNumber];
+    }
+
+    /**
+     * دریافت ترجمه قرآن از جدول quran_translations
+     * 
+     * @param string $language زبان ترجمه
+     * @param string|null $translator نام مترجم (اختیاری)
+     * @param int $sura شماره سوره
+     * @param int $aya شماره آیه
+     * @param BotUsers|null $userSettings تنظیمات کاربر (برای fallback به translation_id)
+     * @return QuranTranslation|null
+     */
+    public static function getQuranTranslation(string $language, ?string $translator, int $sura, int $aya, ?BotUsers $userSettings = null): ?QuranTranslation
+    {
+        // normalize کردن کد زبان برای جستجو (مثلاً ar-IQ -> ar)
+        $normalizedLanguage = self::normalizeLanguageCodeForDatabase($language);
+        
+        // اگر translator مشخص شده باشد، از آن استفاده می‌کنیم
+        if ($translator) {
+            // ابتدا با کد اصلی جستجو می‌کنیم
+            $quranTranslate = QuranTranslation::query()
+                ->where('language', $language)
+                ->where('translator_name', $translator)
+                ->where('sura', $sura)
+                ->where('aya', $aya)
+                ->first();
+            
+            if ($quranTranslate) {
+                return $quranTranslate;
+            }
+            
+            // اگر با کد اصلی پیدا نشد و normalized متفاوت است، با normalized جستجو می‌کنیم
+            if ($normalizedLanguage != $language) {
+                $quranTranslate = QuranTranslation::query()
+                    ->where('language', $normalizedLanguage)
+                    ->where('translator_name', $translator)
+                    ->where('sura', $sura)
+                    ->where('aya', $aya)
+                    ->first();
+                
+                if ($quranTranslate) {
+                    return $quranTranslate;
+                }
+            }
+        }
+        
+        // اگر translator مشخص نشده یا پیدا نشد، اولین ترجمه موجود برای آن زبان را برمی‌گردانیم
+        // ابتدا با کد اصلی جستجو می‌کنیم
+        $quranTranslate = QuranTranslation::query()
+            ->where('language', $language)
+            ->where('sura', $sura)
+            ->where('aya', $aya)
+            ->orderBy('id')
+            ->first();
+        
+        if ($quranTranslate) {
+            return $quranTranslate;
+        }
+        
+        // اگر با کد اصلی پیدا نشد و normalized متفاوت است، با normalized جستجو می‌کنیم
+        if ($normalizedLanguage != $language) {
+            $quranTranslate = QuranTranslation::query()
+                ->where('language', $normalizedLanguage)
+                ->where('sura', $sura)
+                ->where('aya', $aya)
+                ->orderBy('id')
+                ->first();
+            
+            if ($quranTranslate) {
+                return $quranTranslate;
+            }
+        }
+        
+        // اگر هنوز پیدا نشد، با دو حرف اول زبان جستجو می‌کنیم (fallback)
+        // این برای حالتی است که مثلاً ar-IQ ترجمه نداشته باشد، ar را جستجو می‌کند
+        $languagePrefix = substr($normalizedLanguage, 0, 2);
+        if (strlen($languagePrefix) == 2) {
+            // جستجو با دو حرف اول (مثلاً ar برای ar-IQ)
+            $quranTranslate = QuranTranslation::query()
+                ->where('language', 'like', $languagePrefix . '%')
+                ->where('sura', $sura)
+                ->where('aya', $aya)
+                ->orderBy('id')
+                ->first();
+            
+            if ($quranTranslate) {
+                return $quranTranslate;
+            }
+        }
+        
+        // Fallback به translation_id برای سازگاری با داده‌های قدیمی
+        if ($userSettings) {
+            $translationId = self::getSettingsByTags($userSettings, 'translation_id');
+            if ($translationId > 0) {
+                $quranTranslate = QuranTranslation::query()
+                    ->where('translation_id', $translationId)
+                    ->where('sura', $sura)
+                    ->where('aya', $aya)
+                    ->first();
+                
+                if ($quranTranslate) {
+                    return $quranTranslate;
+                }
+            }
+        }
+        
+        // Fallback به translation_id پیش‌فرض (2 = fa.ansarian)
+        $quranTranslate = QuranTranslation::query()
+            ->where('translation_id', 2)
+            ->where('sura', $sura)
+            ->where('aya', $aya)
+            ->first();
+        
+        return $quranTranslate;
+    }
+
+    /**
+     * تبدیل translation_id قدیمی به language و translator_name
+     * 
+     * @param int $translationId
+     * @return array{language: string, translator: string}
+     */
+    public static function mapTranslationIdToLanguageAndTranslator(int $translationId): array
+    {
+        $mapping = [
+            1 => ['language' => 'am', 'translator' => 'sadiq'],
+            2 => ['language' => 'fa', 'translator' => 'ansarian'],
+            3 => ['language' => 'fa', 'translator' => 'ayati'],
+        ];
+        
+        return $mapping[$translationId] ?? ['language' => 'fa', 'translator' => 'ansarian'];
     }
 
     public static function getLastAyeBySurehId(mixed $sure): array
@@ -396,8 +998,11 @@ class QuranHelper
     public static function getQuranWordById(mixed $botText): array
     {
         $idEndAya = 0;
-        $quranWords = QuranWord::query()->whereId($botText)->get()->first();
-        $word = $quranWords->count() > 0 ? $quranWords['text'] ?: '(' . $quranWords['aya'] . ')' : 0;
+        $quranWords = QuranWord::query()->whereId($botText)->first();
+        if (!$quranWords) {
+            return [0, 0];
+        }
+        $word = $quranWords['text'] ?: '(' . $quranWords['aya'] . ')';
         if ($quranWords['char_type'] == "end") {
             $idEndAya = 1;
         }
@@ -454,51 +1059,14 @@ class QuranHelper
         $message = "
 بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
 " .
-            trans('bot.this bot support 2 methods') . "
-" .
-            trans('bot.one of them') . "
-" .
-            trans('bot.word by word');
-        if ($type == 'bale') {
-            $messageCommands = "
-" .
-                trans('bot.this bot support 2 methods') . "
-" .
-                trans('bot.word by word') . "
-:/" . 1 . " [/1](send:/1)
-" .
-                trans('bot.ayah after ayah') . "
-/sure2ayah2 [/sure2ayah2](send:/sure2ayah2)
-" .
-                trans('bot.List of 114 Surahs') . "
-/fehrest [/fehrest](send:/fehrest)
-" .
-                trans('bot.List of 30 Juz') . "
-/joz [/joz](send:/joz)
-" . trans("bot.help.help") . "
-/help [/help](send:/help)
-";
-        } else {
-            $messageCommands = "
-" .
-                trans('bot.another method is') . "
-" .
-                trans('bot.ayah after ayah') . "
-" .
-                trans('bot.start from second button') . "
-
-" .
-                trans('bot.List of 114 Surahs') . "
-" .
-                trans('bot.third button') . "
-" .
-                trans('bot.List of 30 Juz') . "
-" .
-                trans('bot.forth button') . "
-";
-        }
-
-        return array($message, $messageCommands);
+            trans('bot.this bot support 2 methods') . " : " .
+            trans('bot.word by word') . " و " .
+            trans('bot.ayah after ayah') . " .\n" .
+            trans('bot.List of 114 Surahs') . " و " .
+            trans('bot.List of 30 Juz') . " نیز از منوی پایین در دسترس است.\n\n" .
+            trans('bot.search') . " : " .
+            trans('bot.search prompt');
+        return array($message, "");
     }
 
 
@@ -510,17 +1078,10 @@ class QuranHelper
      */
     public static function getResultCountText(int $resultsCount, int $pageNumber, $searchPhrase): string
     {
-        $commandNextPage = self::getCommandNextPage($searchPhrase, $pageNumber + 1);
-
         if ($resultsCount == 0) {
-            $resultText = "هیچ موردی به عنوان نتیجه جستجوی شما یافت نشد.";
-        } else {
-            $messageWhenCountMoreThanLimit = "بیش از " . config('laravel-fulltext.limit-results-page') . " مورد نتیجه یافت شد که در نسخه جاری " . config('laravel-fulltext.limit-results') . " تای اول ارسال میشه و به زودی در نسخه های بعدی میتوانید صفحات بعدی را هم جستجو کنید ";
-            $messageWhenCountLessThanLimit = " تعداد  " . $resultsCount . " مورد یافت شد .";
-
-            $resultText = $resultsCount >= config('laravel-fulltext.limit-results-page') ? $messageWhenCountMoreThanLimit . $commandNextPage : $messageWhenCountLessThanLimit;
+            return trans("bot.no results found");
         }
-        return $resultText;
+        return trans("bot.n results found", ['count' => $resultsCount]);
     }
 
     /**
@@ -530,40 +1091,60 @@ class QuranHelper
      * @param $bot
      * @return void
      */
-    #[NoReturn] public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, $bot): void
+    public static function findResultThenSend(mixed $searchPhrase, int $pageNumber, mixed $type, $bot, string $token = ''): void
     {
         $searchPhrase = IndexedRecord::normalize($searchPhrase);
         $results = self::getResultSearch($searchPhrase, $pageNumber);
-//        dd($pageNumber,$results);
-        $message = "";
+        $resultsCount = $results->count();
 
-        $resultText = self::getResultCountText($results->count(), $pageNumber, $searchPhrase) . "
-https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
-";
-//        dd($results);
+        if ($resultsCount === 1) {
+            $first = $results->first();
+            $indexable = $first->indexable ?? null;
+            if ($indexable && isset($indexable->sura, $indexable->aya)) {
+                QuranSearchSuggestion::create([
+                    'search_phrase' => mb_substr($searchPhrase, 0, 200),
+                    'result_count' => 1,
+                    'sura' => $indexable->sura,
+                    'aya' => $indexable->aya,
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                    'source' => QuranSearchSuggestion::SOURCE_SINGLE_RESULT,
+                ]);
+            }
+        }
+
+        // لیست تمیز و شماره‌دار نتایج + یک دکمه برای هر نتیجه
+        $message = "🔍 " . $searchPhrase . "\n\n" . self::getResultCountText($resultsCount, $pageNumber, $searchPhrase) . "\n";
+        $buttons = [];
         $index = ($pageNumber - 1) * config("laravel-fulltext.limit-results-page");
+
         foreach ($results as $item) {
-//            dd($item);
-            list($start, $end) = self::getHighlightMarker($type);
-            $highlight = self::highlighter($searchPhrase, $item->indexed_title, $start, $end);
-//            dd($highlight, $start, $end);
-            $message = self::getResultMessage(++$index, $item->indexable, $highlight, $type, $resultText, $message);
-//            if ($index == 14)
-//                dd($message);
-            //            self::sendMessageForEveryResult($item, $type, $bot, $message, $token);
+            $indexable = $item->indexable;
+            if (!$indexable) {
+                continue;
+            }
+            $index++;
+            $highlight = self::highlighter($searchPhrase, (string) $item->indexed_title, '<b>', '</b>');
+            $message .= $index . ". " . $highlight . "\n";
+            $buttons[] = [
+                'text' => trans('bot.surah number :sura', ['sura' => $indexable->suras->arabic . ' (' . $indexable->sura . ')']) . ' — ' . trans('bot.ayah number :aya', ['aya' => $indexable->aya]),
+                'callback_data' => '/sure' . $indexable->sura . 'ayah' . $indexable->aya,
+            ];
         }
 
-        if ($type == "bale") {
-            BotHelper::sendMessage($bot, $message . "
-" . $resultText);
-        } else {
-            BotHelper::sendMessageParseMode($bot, $message . "
-" . $resultText);
+        // دکمه صفحه بعدی در صورت وجود نتایج بیشتر
+        if ($resultsCount >= config('laravel-fulltext.limit-results-page')) {
+            $buttons[] = ['text' => '⬅️ ' . trans('bot.next page'), 'callback_data' => '//' . $searchPhrase . 'page' . ($pageNumber + 1)];
         }
 
-//        BotHelper::sendMessage($bot, $resultText);
+        // دکمه‌های مشترک (بازگشت به منو، آخرین فعالیت‌ها، جستجو)
+        foreach (self::getCommonActionButtons($type) as $commonButton) {
+            $buttons[] = ['text' => $commonButton[0], 'callback_data' => $commonButton[1]];
+        }
 
-        self::sendReportMessageToSuperAdmins($searchPhrase, $resultText, $bot);
+        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 1);
+
+        self::sendReportMessageToSuperAdmins($searchPhrase, self::getResultCountText($resultsCount, $pageNumber, $searchPhrase), $bot);
     }
 
     /**
@@ -668,50 +1249,6 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return array($start, $end);
     }
 
-    /**
-     * @param int $i
-     * @param mixed $item
-     * @param array|string|null $highlight
-     * @param mixed $type
-     * @return string
-     */
-    public static function getResultItemMessage(int $i, mixed $item, array|string|null $highlight, mixed $type): string
-    {
-        return ($i . "- سوره شماره :" . $item->suras->id . "
-" . $item->suras->arabic . "- آیه شماره " . $item->aya . "
-
---------------------
-
-" . $highlight . "
-
---------------------
-
-" . self::generateLinkCommandResult($type, $item->sura, $item->aya) . "
-دیدن نتیجه ☝☝☝
-
-");
-    }
-
-    /**
-     * @param int $count
-     * @param mixed $item
-     * @param array|string|null $highlight
-     * @param mixed $type
-     * @param string $resultText
-     * @param string $message
-     * @return string
-     */
-    public static function getResultMessage(int $count, mixed $item, array|string|null $highlight, mixed $type, string $resultText, string $message): string
-    {
-        $messageResult = self::getResultItemMessage($count, $item, $highlight, $type);
-        if ($count == 1) {
-            $message .= $resultText . "
-" . $messageResult;
-        } else {
-            $message .= $messageResult;
-        }
-        return $message;
-    }
 
     /**
      * @param string $searchPhrase
@@ -790,6 +1327,41 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         return $pageNumber < 604 ? "/scan" . ($threeDigitNumber) . "hr1" : "/scan001hr1";
     }
 
+    /**
+     * Build PlaceQuran image URL based on language preferences
+     */
+    public static function buildPlaceQuranImageUrl(int $sura, int $aya, ?string $languageCode): string
+    {
+        $normalized = $languageCode ? self::normalizeLanguageCodeForDatabase($languageCode) : 'fa';
+        $langs = in_array($normalized, self::PLACEQURAN_SUPPORTED_LANGUAGES, true) ? 'ar,en' : 'ar';
+        return "https://placequran.com/s/" . $sura . "/" . $aya . "/" . $langs;
+    }
+
+    /**
+     * Send PlaceQuran image to user based on settings and platform
+     */
+    public static function sendPlaceQuranImage($messenger, int $sura, int $aya, ?string $languageCode = null): void
+    {
+        try {
+            $chat_id = $messenger->ChatID();
+            $photoUrl = self::buildPlaceQuranImageUrl($sura, $aya, $languageCode);
+            $title = "#placequran_" . $sura . "_" . $aya;
+            $caption = "";
+
+            if ($messenger->BotType() != 'gap') {
+                BotHelper::sendPhoto($chat_id, $photoUrl, $title, $messenger, $caption);
+            } else {
+                BotHelper::sendPhotoGap($chat_id, $photoUrl, $messenger, $caption);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send PlaceQuran image', [
+                'error' => $e->getMessage(),
+                'sura' => $sura,
+                'aya' => $aya
+            ]);
+        }
+    }
+
 
     /**
      * @param int $pageNumber
@@ -804,22 +1376,16 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
         $backCommand = QuranHelper::getCommandScan($pageNumber - 1);
         $message = trans("bot.for next or previous quran page click on these buttons") . " : ";
 
-        // Add common buttons (return to menu, last activities)
-        $commonButtons = self::getCommonActionButtons($type);
-        
-        // Create keyboard with next/previous and common buttons
-        $option = [
-            array($bot->buildInlineKeyBoardButton(trans('bot.next'), callback_data: $nextCommand)),
-            array($bot->buildInlineKeyBoardButton(trans('bot.previous'), callback_data: $backCommand))
+        $buttons = [
+            // دکمه‌های اسکن صفحه: فقط «صفحه بعدی/قبلی» (نه بعدی/قبلی آیه)
+            ['text' => trans('bot.next page'), 'callback_data' => $nextCommand],
+            ['text' => trans('bot.previous page'), 'callback_data' => $backCommand],
         ];
-        
-        // Add common buttons
-        foreach ($commonButtons as $button) {
-            $option[] = array($bot->buildInlineKeyBoardButton($button[0], callback_data: $button[1]));
+        foreach (self::getCommonActionButtons($type) as $commonButton) {
+            $buttons[] = ['text' => $commonButton[0], 'callback_data' => $commonButton[1]];
         }
-        
-        $inlineKeyboard = $bot->buildInlineKeyBoard($option);
-        BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
+
+        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 2);
     }
 
 
@@ -859,11 +1425,17 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
 
     public static function getAudioFileName(mixed $mp3Reciter, $aye)
     {
-        $fileName = $aye->id;
-        if ($mp3Reciter == "parhizgar") {
-            $fileName = StringHelper::get3digitNumber($aye->sura) . StringHelper::get3digitNumber($aye->aya);
-        }
-        return $fileName;
+        $key = self::resolveReciter($mp3Reciter);
+        $pattern = (string) (self::getReciterRegistry()[$key]['file'] ?? '{ayah_id}');
+        return str_replace(
+            ['{sura_3}', '{aya_3}', '{ayah_id}'],
+            [
+                StringHelper::get3digitNumber((int) $aye->sura),
+                StringHelper::get3digitNumber((int) $aye->aya),
+                (string) $aye->id,
+            ],
+            $pattern
+        );
     }
 
     /**
@@ -1023,19 +1595,36 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     }
 
     /**
+     * ارسال صوت قاری آیه (و آیه ۱ سوره ۱ به‌عنوان بسمله برای سوره‌های دیگر)
+     * متن آیه در کپشن صوت جای می‌گیرد و دکمه‌ها زیر پیام صوتی پیوست می‌شوند.
+     *
      * @param int $aya
      * @param int $sure
      * @param Telegram $bot
      * @param BotUsers|null $userSettings
-     * @return void
+     * @param string $verseMessage متن آیه برای درج در کپشن صوت
+     * @param array $buttons دکمه‌های ناوبری زیر پیام صوتی
+     * @return array{sent: bool, captured: int, remaining: string}
      */
     public
-    static function sendAudioMp3Aye(int $aya, int $sure, $bot, BotUsers $userSettings = null): void
+    static function sendAudioMp3Aye(int $aya, int $sure, $bot, ?BotUsers $userSettings = null, string $verseMessage = '', array $buttons = []): array
     {
+        $isGap = $bot->BotType() == 'gap';
+        $verse = $isGap ? '' : $verseMessage;
+        $audioButtons = $isGap ? [] : $buttons;
+
         if ($aya == 1 && $sure != 1 && $sure != 9) {
             QuranHelper::sendAudio($bot, 1, 1, $userSettings);
         }
-        QuranHelper::sendAudio($bot, $sure, $aya, $userSettings);
+        $result = QuranHelper::sendAudio($bot, $sure, $aya, $userSettings, $verse, $audioButtons);
+
+        // اگر متن آیه کامل در کپشن جا نشد، مازاد را به‌صورت پیام متنی جداگانه ارسال می‌کنیم
+        if ($result['sent'] && $result['remaining'] !== '') {
+            foreach (self::splitTextAtPunctuation($result['remaining'], self::TEXT_MESSAGE_MAX) as $part) {
+                BotHelper::sendMessage($bot, $part);
+            }
+        }
+        return $result;
     }
 
     /**
@@ -1070,57 +1659,29 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     public
     static function generateArrayCommands(Model|bool|BotUsers $userSettings): array
     {
-        if (!$userSettings) {
-            return [
-                [
-                    "text" => trans("bot.disable enable reciter"),
-                    "callback_data" => "/mp3"
-                ],
-                [
-                    "text" => trans("bot.change reciter"),
-                    "callback_data" => "/mp3reciter"
-                ]
-            ];
-        } else {
-            $mp3Reciter = $userSettings->setting('mp3_reciter');
-            $mp3Enable = $userSettings->setting('mp3_enable');
+        $mp3Reciter = $userSettings ? $userSettings->setting('mp3_reciter') : null;
+        $mp3Enable = $userSettings ? $userSettings->setting('mp3_enable') : null;
 
-            $mp3EnableArray = [
-                "text" => trans("bot.enable reciter"),
-                "callback_data" => "/mp3_true"
-            ];
+        $resultArray = [];
 
-            $mp3DisableArray = [
+        if ($mp3Enable == "true") {
+            $resultArray[] = [
                 "text" => trans("bot.disable reciter"),
                 "callback_data" => "/mp3_false"
             ];
-
-
-            $mp3ReciterParhizgarArray = [
-                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.parhizgar')]),
-                "callback_data" => "/mp3reciter_parhizgar"
+        } else {
+            $resultArray[] = [
+                "text" => trans("bot.enable reciter"),
+                "callback_data" => "/mp3_true"
             ];
-
-            $mp3ReciterAlafasyArray = [
-                "text" => trans("bot.reciter :reciter", ['reciter' => trans('bot.alafasy')]),
-                "callback_data" => "/mp3reciter_alafasy"
-            ];
-
-            $resultArray = [];
-
-            if ($mp3Enable == "true") {
-                $resultArray[] = $mp3DisableArray;
-            } else {
-                $resultArray[] = $mp3EnableArray;
-            }
-
-            if ($mp3Reciter == "parhizgar") {
-                $resultArray[] = $mp3ReciterAlafasyArray;
-            } else {
-                $resultArray[] = $mp3ReciterParhizgarArray;
-            }
-            return $resultArray;
         }
+
+        $resultArray[] = [
+            "text" => trans("bot.change reciter") . " (" . self::getReciterName($mp3Reciter ?: self::getDefaultReciter()) . ")",
+            "callback_data" => "settings_select_reciter"
+        ];
+
+        return $resultArray;
     }
 
 
@@ -1130,89 +1691,29 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     public
     static function getHelpMessage($type): string
     {
-        if ($type == "bale")
-            return trans("bot.command list is") . "
-: /start [/start](send:/start)
-: /joz [" . trans('bot.help.list of Quran 30 parts') . "](send:/joz)
-: /fehrest [" . trans('bot.help.list of Surahs of the Quran') . "](send:/fehrest)
-: /lastactivities [" . trans('bot.last activities') . "](send:/lastactivities)
-: /report [" . trans('bot.help.your quran readings analysis report') . "](send:/report)
-: /mp3_true [" . trans('bot.help.send mp3 for selected reciter') . "](send:/mp3_true)
-: /mp3_false [" . trans('bot.help.disable sending mp3 for every ayah') . "](send:/mp3_false)
-: /mp3Reciter_parhizgar [" . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.parhizgar')]) . "](send:/mp3Reciter_parhizgar)
-: /mp3Reciter_alafasy [" . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.alafasy')]) . "](send:/mp3Reciter_alafasy)
-: /listcommands [" . trans('bot.help.list of this robot commands') . "](send:/listcommands)
-: /transen_true :  [" . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.english')]) . "](send:/transen_true)
-: /transen_false [" . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.english')]) . "](send:/transen_false)
-: /transtr_true :  [" . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.turkish')]) . "](send:/transtr_true)
-: /transtr_false [" . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "](send:/transtr_false)
-: /trans_2 :  [" . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "](send:/trans_2)
-: /trans_3 :  [" . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "](send:/trans_3)
+        $message = trans("bot.command list is") . "\n";
+        $message .= "/start\n";
+        $message .= "/joz " . trans('bot.List of 30 Juz') . "\n";
+        $message .= "/fehrest " . trans('bot.List of 114 Surahs') . "\n";
+        $message .= "/search " . trans('bot.search') . "\n";
+        $message .= "/lastactivities " . trans('bot.last activities') . "\n";
+        $message .= "/report " . trans('bot.your quran readings analysis report') . "\n";
+        $message .= "/mp3_true " . trans('bot.send mp3 for selected reciter') . "\n";
+        $message .= "/mp3_false " . trans('bot.disable sending mp3 for every ayah') . "\n";
+        $message .= "/mp3reciter_<reciter> " . trans('bot.change reciter') . "\n";
+        $message .= "/translation " . trans('bot.view available translations') . "\n";
+        $message .= "/settings " . trans('bot.settings menu') . "\n\n";
 
-[" . trans("bot.for search please type your phrase after double slash. like this") . "](send://الرحمن)
-//الرحمن
+        $message .= trans("bot.for search please type your phrase after double slash. like this") . "\n";
+        $message .= "//الرحمن\n\n";
 
-[" . trans("bot.for direct access to sura and ayah") . "](send:/sure1ayah1)
-/sure1ayah1
+        $message .= trans("bot.for direct access to sura and ayah") . "\n";
+        $message .= "/sure1ayah1\n\n";
 
-[" . trans("bot.for example if you want to go sure 2 ayah 3") . "](send:/sure2ayah3)
-/sure2ayah3
+        $message .= trans("bot.for example if you want to go sure 2 ayah 3") . "\n";
+        $message .= "/sure2ayah3\n";
 
-";
-        return trans("bot.command list is") . "
-: /start
-: /joz " . trans('bot.help.list of Quran 30 parts') . "
-: /fehrest " . trans('bot.help.list of Surahs of the Quran') . "
-: /lastactivities " . trans('bot.last activities') . "
-: /report " . trans('bot.help.your quran readings analysis report') . "
-: /mp3_true " . trans('bot.help.send mp3 for selected reciter') . "
-: /mp3_false " . trans('bot.help.disable sending mp3 for every ayah') . "
-: /mp3Reciter_parhizgar " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.parhizgar')]) . "
-: /mp3Reciter_alafasy " . trans('bot.help.choose :reciter as reciter', ['reciter' => trans('bot.alafasy')]) . "
-: /listcommands " . trans('bot.help.list of this robot commands') . "](send:/listcommands)
-: /transen_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.english')]) . "
-: /transen_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.english')]) . "
-: /transtr_true :  " . trans('bot.help.choose :language as transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
-: /transtr_false " . trans('bot.help.dont show :language transliteration', ['language' => trans('bot.transliterations.turkish')]) . "
-: /trans_2 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ansarian')]) . "
-: /trans_3 :  " . trans('bot.help.choose :translator as translation', ['translator' => trans('bot.translators.ayati')]) . "
-
-" . trans("bot.for search please type your phrase after double slash. like this") . "
-//الرحمن
-
-" . trans("bot.for direct access to sura and ayah") . "
-/sure1ayah1
-
-" . trans("bot.for example if you want to go sure 2 ayah 3") . "
-/sure2ayah3
-
-";
-    }
-
-    /**
-     * @param mixed $type
-     * @param $sure
-     * @param $ayah
-     * @return string
-     */
-    private
-    static function generateLinkCommandResult(mixed $type, $sure, $ayah): string
-    {
-        $command = "/sure" . $sure . "ayah" . $ayah;
-
-        if ($type != 'bale')
-            return $command;
-
-        return "[" . $command . "](send:" . $command . ")";
-    }
-
-    private
-    static function getCommandNextPage(string $searchPhrase, int $nextPage): string
-    {
-        return "
-" . trans("bot.to sending request for next result page please click here") . "
-[//" . $searchPhrase . "page" . $nextPage . "](send://" . $searchPhrase . "page" . $nextPage . ")";
-
+        return $message;
     }
 
     /**
@@ -1444,20 +1945,23 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     public static function getCommonActionButtons(string $type = 'bale', array $additionalButtons = []): array
     {
         $buttons = [];
-        
+
         // Add return to menu button
         $buttons[] = [trans("bot.return to menu"), "/start"];
-        
+
         // Add last activities button
         $buttons[] = [trans("bot.last activities"), "/lastactivities"];
-        
+
+        // Add search button
+        $buttons[] = [trans("bot.search"), "/search"];
+
         // Add additional buttons if provided
         foreach ($additionalButtons as $button) {
             if (is_array($button) && count($button) >= 2) {
                 $buttons[] = [$button[0], $button[1]];
             }
         }
-        
+
         return $buttons;
     }
 
@@ -1474,30 +1978,72 @@ https://quran.inoor.ir/fa/search/?query=" . $searchPhrase . "
     public static function sendMessageWithCommonButtons($bot, string $message, string $type, string $token = '', array $additionalButtons = []): void
     {
         $buttons = self::getCommonActionButtons($type, $additionalButtons);
+        BotHelper::sendButtonGridMessage($bot, $message, $buttons, $type, $token, 2);
+    }
+
+    /**
+     * ساخت لینک دعوت اختصاصی برای کاربر
+     * 
+     * @param string $chatId
+     * @param string $type (bale یا telegram)
+     * @param string|null $token (اختیاری - برای getMe API)
+     * @return string|null
+     */
+    public static function getInvitationLink(string $chatId, string $type, ?string $token = null): ?string
+    {
+        $botUsername = null;
         
-        if ($type == 'telegram') {
-            // For telegram, convert to inline keyboard format
-            $array = [];
-            foreach ($buttons as $button) {
-                $array[] = [$button[0], $button[1]];
+        // روش 1: دریافت از دیتابیس
+        if ($type == 'bale') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_BALE");
+            $bot = Bot::where('bale_bot_token', $token)->first();
+            if ($bot && $bot->bale_bot_name) {
+                $botUsername = $bot->bale_bot_name;
             }
-            BotHelper::sendTelegram4InlineMessage($bot, $message, $array, true);
-        } else if ($type == 'gap') {
-            // For gap, convert to gap keyboard format
-            $array = [];
-            foreach ($buttons as $button) {
-                $array[] = [$button[0], $button[1]];
+        } elseif ($type == 'telegram') {
+            $token = $token ?? env("QURAN_HEFZ_BOT_TOKEN_TELEGRAM");
+            $bot = Bot::where('telegram_bot_token', $token)->first();
+            if ($bot && $bot->telegram_bot_name) {
+                $botUsername = $bot->telegram_bot_name;
             }
-            BotHelper::sendGap4InlineMessage($bot, $message, $array);
-        } else {
-            // For bale
-            $option = [];
-            foreach ($buttons as $button) {
-                $option[] = array($bot->buildInlineKeyBoardButton($button[0], callback_data: $button[1]));
-            }
-            $inlineKeyboard = $bot->buildInlineKeyBoard($option);
-            BotHelper::messageWithKeyboard($token, $bot->ChatID(), $message, $inlineKeyboard);
         }
+        
+        // روش 2: دریافت از getMe API (اگر در دیتابیس نبود)
+        if (!$botUsername && $token) {
+            $cacheKey = 'bot_username_' . $type . '_' . substr($token, 0, 10);
+            $botUsername = Cache::remember($cacheKey, now()->addHours(24), function () use ($token, $type) {
+                try {
+                    $telegramBot = new Telegram($token, $type == 'bale' ? 'bale' : null);
+                    $getMe = $telegramBot->getMe();
+                    if ($getMe && isset($getMe['ok']) && $getMe['ok'] && isset($getMe['result']['username'])) {
+                        return $getMe['result']['username'];
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Could not get bot username from getMe API', [
+                        'type' => $type,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+                return null;
+            });
+        }
+        
+        if (!$botUsername) {
+            Log::warning('Bot username not found for invitation link', [
+                'chat_id' => $chatId,
+                'type' => $type
+            ]);
+            return null;
+        }
+        
+        // ساخت لینک دعوت
+        if ($type == 'bale') {
+            return "https://ble.ir/{$botUsername}?start={$chatId}";
+        } elseif ($type == 'telegram') {
+            return "https://t.me/{$botUsername}?start={$chatId}";
+        }
+        
+        return null;
     }
 }
 

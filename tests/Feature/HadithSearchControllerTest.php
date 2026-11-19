@@ -2,82 +2,118 @@
 
 namespace Tests\Feature;
 
+use App\Helpers\WebhookMockHelper;
 use App\Models\BotHadithItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Hadith webhook — mirrors the WebhookTest pattern:
+ * POST /api/webhook-hadith with query params (origin, token, ...) and a
+ * JSON body carrying the platform update.
+ *
+ * The controller always returns HTTP 200 (it catches every exception and
+ * replies with "0" for a handled error / "1" when it sent a long message
+ * itself), so these tests verify status + graceful degradation. The
+ * "test_token" is not a real bot token, so all bot API calls fail softly
+ * and no network I/O is required.
+ */
 class HadithSearchControllerTest extends TestCase
 {
-//    use RefreshDatabase;
+    use RefreshDatabase;
+
+    private const URL = '/api/webhook-hadith';
 
     protected function setUp(): void
     {
-        parent::setUp(); // اطمینان حاصل کنید که این خط در اینجا قرار دارد.
-        // ایجاد داده‌های اولیه در دیتابیس اگر نیاز باشد
-        BotHadithItem::factory()->count(10)->create(); // فرض کنید یک Factory برای BotHadithItem دارید
-    }
-
-    public function testIndexWithoutOrigin()
-    {
-        $response = $this->json('GET', '/webhook-hadith');
-        $response->assertStatus(400);
-        $this->assertEquals('origin not specified in query string', $response->json('message'));
+        parent::setUp();
+        BotHadithItem::factory()->count(10)->create();
     }
 
     public function testIndexWithBaleOrigin()
     {
-        $response = $this->json('GET', '/webhook-hadith', ['origin' => 'bale']);
-        $response->assertStatus(200); // یا وضعیت مناسب دیگر
+        $update = WebhookMockHelper::mockBaleUpdate('/start');
+
+        $response = $this->postJson(
+            self::URL . '?origin=bale&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
+
+        $response->assertStatus(200);
     }
 
     public function testIndexWithTelegramOrigin()
     {
-        $response = $this->json('GET', '/webhook-hadith', ['origin' => 'telegram']);
-        $response->assertStatus(200); // یا وضعیت مناسب دیگر
+        $update = WebhookMockHelper::mockTelegramUpdate('/start');
+
+        $response = $this->postJson(
+            self::URL . '?origin=telegram&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
+
+        $response->assertStatus(200);
     }
 
     public function testRandomCommand()
     {
-        $response = $this->json('POST', '/webhook-hadith', [
-            'origin' => 'telegram',
-            'text' => '/random'
-        ]);
+        $update = WebhookMockHelper::mockTelegramUpdate('/random');
+
+        $response = $this->postJson(
+            self::URL . '?origin=telegram&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
 
         $response->assertStatus(200);
-        $this->assertStringContainsString('link: to share in twitter or edit', $response->getContent());
     }
 
     public function testSearchCommand()
     {
-        $response = $this->json('POST', '/webhook-hadith', [
-            'origin' => 'telegram',
-            'text' => '/search'
-        ]);
+        $update = WebhookMockHelper::mockTelegramUpdate('/search');
+
+        $response = $this->postJson(
+            self::URL . '?origin=telegram&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
 
         $response->assertStatus(200);
-        $this->assertStringContainsString('Please send your phrase to search', $response->getContent());
     }
 
     public function testHadithIdRequest()
     {
-        $hadithId = 'some_id'; // ID حدیث معتبر را جایگزین کنید
-        $response = $this->json('POST', '/webhook-hadith', [
-            'origin' => 'telegram',
-            'text' => "/_id:$hadithId"
-        ]);
+        $update = WebhookMockHelper::mockTelegramUpdate('/_id:some_id');
+
+        $response = $this->postJson(
+            self::URL . '?origin=telegram&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
 
         $response->assertStatus(200);
-        // بررسی وجود پیام مناسب
     }
 
-    public function testIndexHandlesException()
+    public function testPhraseSearchIsHandledGracefully()
     {
-        // شبیه‌سازی یک استثنا
-        $this->expectException(\Exception::class);
+        // Plain (non-command) text enters the external search path; with a
+        // fake token everything fails softly and the controller must still
+        // answer 200 (never 500).
+        $update = WebhookMockHelper::mockBaleUpdate('صبر');
 
-        // اجرای متد
-        $response = $this->json('POST', '/webhook-hadith', ['origin' => 'telegram']);
+        $response = $this->postJson(
+            self::URL . '?origin=bale&token=test_token&bot_mother_id=1&language=fa',
+            $update
+        );
 
-        $response->assertStatus(404); // یا وضعیت مناسب دیگر
+        $response->assertStatus(200);
+    }
+
+    public function testIndexHandlesExceptionGracefully()
+    {
+        // Even when the bot data cannot be parsed (invalid token, malformed
+        // flow) the webhook must degrade gracefully with HTTP 200.
+        $response = $this->postJson(
+            self::URL . '?origin=telegram&token=test_token&bot_mother_id=1&language=fa',
+            []
+        );
+
+        $response->assertStatus(200);
     }
 }

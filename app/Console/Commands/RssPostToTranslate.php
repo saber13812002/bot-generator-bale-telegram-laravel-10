@@ -21,7 +21,7 @@ class RssPostToTranslate extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'ارسال ترجمه‌های آماده RSS به صف پیام‌رسان‌ها (ترجمه‌های تولیدشده قبلی)';
 
     /**
      * Execute the console command.

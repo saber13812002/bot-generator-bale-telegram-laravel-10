@@ -98,5 +98,61 @@ class BotMotherStateHelper
     const STATE_WAITING_TOKEN = 'waiting_token';
     const STATE_WAITING_TYPE = 'waiting_type';
     const STATE_WAITING_LANGUAGE = 'waiting_language';
+    const STATE_WAITING_PRESENTER_CONTENT = 'waiting_presenter_content';
+    const STATE_WAITING_RATING_CONTENT = 'waiting_rating_content';
+    const STATE_WAITING_PSYCHOLOGY_QUESTIONS = 'waiting_psychology_questions';
+    const STATE_WAITING_CATEGORY_DESCRIPTIONS = 'waiting_category_descriptions';
+    const STATE_WAITING_BROADCAST_LANGUAGE = 'waiting_broadcast_language';
+    const STATE_WAITING_BROADCAST_MESSAGE = 'waiting_broadcast_message';
+    const STATE_WAITING_QURAN_BOTS_LANGUAGE = 'waiting_quran_bots_language';
+    const STATE_WAITING_QURAN_BOTS_SOURCE = 'waiting_quran_bots_source';
+
+    // Quran bot — /search stateful flow (user is asked to send a phrase)
+    const STATE_WAITING_QURAN_SEARCH = 'waiting_quran_search';
+
+    // Content submission bot wizard
+    const STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM = 'waiting_content_bot_channel_confirm';
+    const STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD = 'waiting_content_bot_channel_forward';
+    const STATE_WAITING_CONTENT_BOT_NEED_APPROVAL = 'waiting_content_bot_need_approval';
+    const STATE_WAITING_CONTENT_BOT_GROUP_FORWARD = 'waiting_content_bot_group_forward';
+    const STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS = 'waiting_content_bot_required_approvals';
+
+    // Admin daily channel (verse/hadith/nahj/sharabe_beheshti) wizard
+    const STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE = 'waiting_daily_channel_content_type';
+    const STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW = 'waiting_daily_channel_edit_or_new';
+    const STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY = 'waiting_daily_channel_posts_per_day';
+    const STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD = 'waiting_daily_channel_bale_forward';
+    const STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD = 'waiting_daily_channel_telegram_forward';
+    const STATE_WAITING_DAILY_CHANNEL_EITAA_ID = 'waiting_daily_channel_eitaa_id';
+
+    // Admin channel with media queue wizard
+    const STATE_MEDIA_QUEUE_SELECT_OR_CREATE = 'media_queue_select_or_create';
+    const STATE_MEDIA_QUEUE_NEW_NAME = 'media_queue_new_name';
+    const STATE_MEDIA_QUEUE_ADD_ITEMS = 'media_queue_add_items';
+    const STATE_MEDIA_QUEUE_BALE = 'media_queue_bale';
+    const STATE_MEDIA_QUEUE_TELEGRAM = 'media_queue_telegram';
+    const STATE_MEDIA_QUEUE_EITAA = 'media_queue_eitaa';
+
+    // Book library — link reader bot after main bot token (reader اختیاری)
+    const STATE_WAITING_LIBRARY_READER_TOKEN = 'waiting_library_reader_token';
+    const STATE_WAITING_LIBRARY_MAIN_BOT_ID = 'waiting_library_main_bot_id';
+
+    // Content library management (/content in Bot Mother)
+    const STATE_CONTENT_MENU = 'content_menu';
+    const STATE_CONTENT_ADD_CATEGORY = 'content_add_category';
+    const STATE_CONTENT_ADD_CATEGORY_BROADCAST = 'content_add_category_broadcast';
+    const STATE_CONTENT_BROADCAST_MESSAGE = 'content_broadcast_message';
+    const STATE_CONTENT_BROADCAST_FILTER = 'content_broadcast_filter';
+
+    // F5: weekly read invitation wizard (/weeklyinvite)
+    const STATE_WEEKLY_INVITE_PICK_DESTINATION = 'weekly_invite_pick_destination';
+    const STATE_WEEKLY_INVITE_PICK_DAY = 'weekly_invite_pick_day';
+    const STATE_WEEKLY_INVITE_MAX_POST_ID = 'weekly_invite_max_post_id';
+
+    // F6: channel motivational schedule wizard (/motivation)
+    const STATE_MOTIVATION_PICK_DESTINATION = 'motivation_pick_destination';
+    const STATE_MOTIVATION_PICK_DAY = 'motivation_pick_day';
+    const STATE_MOTIVATION_PICK_FREQUENCY = 'motivation_pick_frequency';
+    const STATE_MOTIVATION_PROMPT = 'motivation_prompt';
 }
 

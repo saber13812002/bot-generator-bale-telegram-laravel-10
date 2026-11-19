@@ -1,560 +1,129 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🤖 Bots — پلتفرم مدیریت ربات‌های پیام‌رسان (Laravel 10)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
-
-# About this project
-
-
-1- This project use php and laravel to have one base code for all messengers like Bale Telegram Gap Eitaa 
-
-<p dir="rtl">
-1- این پروژه از پی اچ پی و لاراول استفاده شده. هدف اول این است که یک سورس کد برای ارتباط با همه پیام رسان ها داشته باشیم
-یک سورس برای ارتباط با پیام رسان بله سروش ایتا تلگرام گپ.
-</p>
-
-2- Messenger bots is most valuable and important for people for learn and educate
-
-<p dir="rtl">
-2- هدف دوم استفاده از روبات های تعاملی پیام رسانی ها با هدف آموزش و ارتقای دانش است
-</p>
-
-3- Bot Mother is Bot Generator that help you to create many bots with BotFather and get token. then send this token for my bot father and create your bots.
-
-list of Bot Types that you can clone it, is in next block of this document
-
-<p dir="rtl">
-3- روبات مادر میتواند برای کاربران ما هزاران روبات بسازد. در حقیقت این پلت فرم یک روبات ساز است که شما میتوانید از روبات های ما برای ساخت روبات برای خودتان استفاده کنید. کافیست از بات فادر در تلگرام و بله و سروش و گپ و ایتا توکن بگیرید و به روبات ما بدهید و نوع روبات خود را انتخاب کنید
-
-لیست روبات ها در بخش بعدی آورده شده است
-</p>
-
-4- Collaboration Content Generate Platform  
-
-<p dir="rtl">
-4- هدف چهارم تولید محتوا با استفاده از کاربران است.
-
-تولید محتوا در زمینه هایی که در جامعه نیاز به تفکر و تدبر و آموزش است.
-
-سوالات مردم و پرسش و پاسخ و درست کردن یک شبه دانشگاه مجازی در بستر روبات
-</p>
-
-5- one platform that connect to all other users need
-
-<p dir="rtl">
-5- یک بستر برای مراجعات کاربر برای یادآوری و پیگیری و مدیریت همه ابزار هایی که باید در طول روز به آنها سر بزند
-</p>
-
-
-# 📚 مستندات توسعه
-
-برای اطلاعات بیشتر در مورد نحوه توسعه ربات‌ها، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.
-
-# 🚀 فیچرهای مهم پروژه
-
-## 🤖 سیستم ربات مادر (Bot Mother)
-- ساخت و مدیریت هزاران ربات برای کاربران مختلف
-- پشتیبانی از چندین پیام‌رسان: تلگرام، بله، گپ، ایتا، سروش
-- سیستم مدیریت توکن و وب‌هوک خودکار
-- رابط یکپارچه برای تمام پیام‌رسان‌ها
-
-## 📖 ربات قرآن (Quran Bot)
-- مطالعه قرآن به صورت آیه به آیه، کلمه به کلمه، صفحه به صفحه
-- جستجوی پیشرفته در کل قرآن با فول‌تکست
-- ترجمه به زبان‌های مختلف (فارسی، انگلیسی، فرانسوی، اسپانیایی، ترکی و...)
-- فایل‌های صوتی قرائت عربی و فارسی
-- سیستم حفظ قرآن و ختم قرآن
-- نمایش صفحات اسکن شده قرآن
-- مدیریت جزو و سوره‌ها
-
-## 🌤️ ربات هواشناسی (Weather Bot)
-- دریافت اطلاعات هواشناسی از API های مختلف (OpenWeatherMap, Tomorrow.io)
-- تنظیم هشدار برای تغییرات دما و سرعت باد
-- ارسال خودکار اطلاعیه‌ها در گروه‌ها
-- پیش‌بینی آب و هوا برای 16 ساعت آینده
-
-## 📰 سیستم RSS و انتشار محتوا
-- دریافت و پردازش فیدهای RSS از منابع مختلف
-- ترجمه خودکار محتوا به زبان‌های مختلف
-- انتشار خودکار در پیام‌رسان‌ها
-- مدیریت کانال‌های RSS و دسته‌بندی محتوا
-- سیستم صف برای ترجمه و انتشار
-
-## 📱 ربات شبکه‌های اجتماعی (Social Bot)
-- انتشار خودکار محتوا در توییتر، فیس‌بوک، لینکدین، اینستاگرام
-- مدیریت یکپارچه انتشار در تمام پلتفرم‌ها
-- پشتیبانی از Chrome Extension برای ارسال محتوا
-
-## 📚 ربات حدیث (Hadith Bot)
-- جستجوی پیشرفته در کتب حدیث شیعه
-- نمایش تاریخچه جستجوهای کاربران
-- ارسال حدیث تصادفی
-
-## 📜 ربات نهج البلاغه (Nahj Bot)
-- جستجو در کل متن نهج البلاغه
-- نمایش فهرست و آیتم‌های مختلف
-
-## 🎵 سیستم Song Sara
-- مدیریت موسیقی و پلی‌لیست‌ها
-- دسته‌بندی بر اساس هنرمند، کشور، ژانر، ساز، حال و هوا
-- انتشار محتوا در RSS
-
-## 📚 کتاب‌های صوتی (Audio Books)
-- مدیریت و انتشار کتاب‌های صوتی
-- سیستم شناسه‌گذاری خودکار
-
-## 🔧 سیستم‌های پشتیبان
-- **Translation Service**: ترجمه خودکار با پشتیبانی از چندین زبان
-- **Rocket Chat Integration**: اتصال به Rocket Chat
-- **Queue System**: سیستم صف برای پردازش کارهای سنگین
-- **Activity Logging**: ثبت لاگ فعالیت‌های کاربران
-- **Report System**: سیستم گزارش‌گیری و آمارگیری
-- **Admin Panel**: پنل مدیریت با Laravel Nova
-
-## 🛠️ تکنولوژی‌های استفاده شده
-- **Framework**: Laravel 10
-- **PHP**: 8.1+
-- **Database**: MySQL
-- **Admin Panel**: Laravel Nova
-- **Full-Text Search**: Laravel Fulltext
-- **Queue**: Laravel Queue
-- **Translation**: OneAPI Translation Service
-- **Weather APIs**: OpenWeatherMap, Tomorrow.io
-
-# How to start Development
-
-## انواع ربات‌های قابل ساخت
-
-<p dir="rtl">
-انواع روبات هایی که شما میتوانید با روبات ساز ما بسازید به شرح زیر است
-</p>
-
-
-1- Weather bot
-
-<p dir="rtl">
-1- روبات هواشناسی
-
-میتوانید دمای هوا یا سرعت باد را تنظیم کنید که اگر تغییراتش زیاد بود یا از حد و کف نیاز شما بالاتر رفت یا پایین تر رفت به شما اطلاع دهد یا در گروهی که هستید پیام بگذارد.
-
-</p>
-
-
-2- Quran bot
-
-[more info](https://saber-tabatabaee.medium.com/holy-book-project-quran-telegram-bot-english-french-spanish-turkish-persian-dutch-urdu-chinese-etc-957adfd3daf2)
-
-<p dir="rtl">
-2- روبات قرآن
-که میتوانید با آن قرآن را مطالعه کنید ختم کنید
-
-- حفظ کنید
-
-- در کل سال با قرآن مانوس باشید
-
-- درخواست آیه به آیه بدهید و هر آیه را با ترجمه و فایل صوتی قرائت عربی و فارسی آن مطالعه کنید
-- درخواست کلمه به کلمه بدهید و کلمات را برای فرزند خود بخوانید و جلو بروید.
-- درخواست صفحه به صفحه بدهید و هر صفحه را به صورت فایل اسکن شده مشاهده و فایل صوتی معادل آن را ببینید
-- درخواست جستجو در کل قرآن بدهید و جستجو کنید
-- درخواست نمایش جزو به جز و فهرست 114 تایی سوره ها را بدهید و به سوره مربوط بروید
-
-[اطلاعات بیشتر](https://vrgl.ir/hp4xr)
-
-</p>
-
-
-
-
-3- Admin bot
-
-<p dir="rtl">
-3- روبات ادمین 
-
-
-که با ارسال یک مطلب به روبات در تمام پیام رسان های شما مطالب شما منتشر میشود و نیازی به مراجعات مکرر به آن پیام رسان ها نمیباشد
-
-</p>
-
-
-
-4- Social bot
-
-<p dir="rtl">
-4- روبات انتشار مطالب در شبکه های اجتماعی
-
-مطالب که برای روبات میفرستید در توییتر و فیس بوک و لینکدین و اینستاگرام به صورت اتوماتیک قرار میگیرد
-
-</p>
-
-
-5- Pray bot
-
-<p dir="rtl">
-5- روبات نماز و عبادات و نماز های مستحبی و رکعت شمار
-</p>
-
-6- Hadith bot
-
-<p dir="rtl">
-6- روبات جستجوی حدیث
-جستجو در کتب حدیث شیعه و نمایش تاریخچه جستجوها
-</p>
-
-7- Nahj bot
-
-<p dir="rtl">
-7- روبات نهج البلاغه
-جستجو و مطالعه در متن نهج البلاغه
-</p>
-
-8- RSS bot
-
-<p dir="rtl">
-8- روبات RSS
-دریافت و انتشار خودکار محتوا از فیدهای RSS
-</p>
-
-9- Audio Book bot
-
-<p dir="rtl">
-9- روبات کتاب‌های صوتی
-مدیریت و انتشار کتاب‌های صوتی
-</p>
-
-10- Song Sara bot
-
-<p dir="rtl">
-10- روبات موسیقی Song Sara
-مدیریت موسیقی و پلی‌لیست‌ها
-</p>
-
-مشاهده لیست کامل انواع روبات هایی که میتوانید برای خودتان هم بسازید در لینک زیر است
-
-[http://bots.pardisania.ir](http://bots.pardisania.ir)
-
-
-## 📚 مستندات پروژه
-
-### مستندات کلی
-- [🚀 راهنمای شروع کار](docs/GETTING-STARTED.md) - راهنمای کامل نصب و راه‌اندازی پروژه از صفر
-- [PROJECT_ROLES.md](PROJECT_ROLES.md) - نقش‌ها و مسئولیت‌های پروژه
-- [CHECKLIST.md](CHECKLIST.md) - چک‌لیست کامل پروژه
-- [README-DEVELOP.md](README-DEVELOP.md) - راهنمای توسعه
-- [.cursorrules](.cursorrules) - قوانین پروژه و SOLID
-- [راهنمای لاگینگ](docs/LOGGING-GUIDE.md) - راهنمای کامل استفاده از سیستم لاگینگ
-
-### مستندات فیچرها
-
-هر فیچر دارای مستندات جداگانه است که شامل توضیحات، نحوه استفاده، ساختار فایل‌ها و ... می‌شود.
-
-#### فیچرهای موجود:
-
-- [📝 ثبت‌نام پرسنل (Personnel Registration)](docs/features/personnel-registration.md)
-  - ثبت‌نام پرسنل جدید از طریق ربات‌های پیام‌رسان
-  - اعتبارسنجی اطلاعات و ذخیره در دیتابیس
-  - ارسال لینک ربات‌های اختصاصی
-
-- [📖 قرآن (Quran Bot)](docs/features/quran-bot.md) - *در حال آماده‌سازی*
-  - مطالعه قرآن به صورت آیه به آیه
-  - جستجو در قرآن
-  - فایل‌های صوتی و ترجمه
-
-- [🌤️ هواشناسی (Weather Bot)](docs/features/weather-bot.md) - *در حال آماده‌سازی*
-  - اطلاع‌رسانی تغییرات آب و هوا
-  - تنظیم حد و کف دما و سرعت باد
-
-- [📰 RSS Bot](docs/features/rss-bot.md) - *در حال آماده‌سازی*
-  - دریافت و انتشار مطالب RSS
-  - ترجمه خودکار مطالب
-
-- [🔗 شبکه‌های اجتماعی (Social Bot)](docs/features/social-bot.md) - *در حال آماده‌سازی*
-  - انتشار مطالب در شبکه‌های اجتماعی
-  - یکپارچه‌سازی با توییتر، فیس‌بوک، لینکدین و اینستاگرام
-
-- [👤 ادمین (Admin Bot)](docs/features/admin-bot.md) - *در حال آماده‌سازی*
-  - مدیریت و انتشار مطالب در تمام پیام‌رسان‌ها
-  - مدیریت یکپارچه
-
-- [📜 حدیث (Hadith Bot)](docs/features/hadith-bot.md) - *در حال آماده‌سازی*
-  - جستجو و مطالعه احادیث
-
-- [📚 نهج البلاغه (Nahj Bot)](docs/features/nahj-bot.md) - *در حال آماده‌سازی*
-  - مطالعه نهج البلاغه
-  - جستجو در نهج البلاغه
-
-> **نکته**: برای ایجاد مستندات برای فیچر جدید، می‌توانید از [Template موجود](docs/features/README-TEMPLATE.md) استفاده کنید.
-
-## Donate this project
-
-https://hamibash.com/quran_hefz_bale_telegram_bot
-
-## 🚀 راهنمای شروع کار
-
-این بخش شامل مراحل کامل نصب و راه‌اندازی پروژه از صفر تا اجرا است.
-
-### 1️⃣ نصب PHP یا XAMPP
-
-برای اجرای این پروژه نیاز به PHP 8.1 یا بالاتر دارید. می‌توانید یکی از روش‌های زیر را انتخاب کنید:
-
-#### روش 1: نصب XAMPP (پیشنهادی برای مبتدیان)
-
-1. از [وب‌سایت رسمی XAMPP](https://www.apachefriends.org/) آخرین نسخه را دانلود کنید
-2. XAMPP را نصب کنید (توصیه می‌شود در مسیر `C:\xampp` نصب شود)
-3. XAMPP Control Panel را باز کنید
-4. Apache و MySQL را Start کنید
-5. PHP به صورت خودکار با XAMPP نصب می‌شود
-
-#### روش 2: نصب PHP به صورت مستقل
-
-1. از [وب‌سایت رسمی PHP](https://www.php.net/downloads.php) نسخه 8.1 یا بالاتر را دانلود کنید
-2. PHP را در مسیری مانند `C:\php` استخراج کنید
-3. مسیر PHP را به متغیر محیطی PATH اضافه کنید
-4. فایل `php.ini` را ویرایش کنید و extension های زیر را فعال کنید:
-   - `extension=mbstring`
-   - `extension=zip`
-   - `extension=pdo_mysql`
-   - `extension=curl`
-   - `extension=openssl`
-
-#### بررسی نصب PHP
-
-برای اطمینان از نصب صحیح PHP، در Command Prompt یا PowerShell دستور زیر را اجرا کنید:
-
-```bash
-php -v
-```
-
-باید نسخه PHP 8.1 یا بالاتر نمایش داده شود.
-
-### 2️⃣ ریستور دیتابیس
-
-1. فایل بکاپ دیتابیس (`.sql` یا `.dump`) را آماده کنید
-2. XAMPP Control Panel را باز کنید و MySQL را Start کنید
-3. به phpMyAdmin بروید: `http://localhost/phpmyadmin`
-4. یک دیتابیس جدید ایجاد کنید (مثلاً `bot_platform`)
-5. دیتابیس را انتخاب کنید و به تب Import بروید
-6. فایل بکاپ را انتخاب کرده و Import را بزنید
-
-**یا از طریق Command Line:**
-
-```bash
-mysql -u root -p bot_platform < database_backup.sql
-```
-
-**نکته:** اگر از XAMPP استفاده می‌کنید، ممکن است رمز عبور root خالی باشد. در این صورت:
-
-```bash
-mysql -u root bot_platform < database_backup.sql
-```
-
-### 3️⃣ نصب Composer
-
-Composer یک ابزار مدیریت وابستگی‌ها برای PHP است که برای این پروژه ضروری است.
-
-1. از [وب‌سایت رسمی Composer](https://getcomposer.org/download/) آخرین نسخه را دانلود کنید
-2. فایل `Composer-Setup.exe` را اجرا کنید
-3. در حین نصب، مسیر PHP را مشخص کنید (معمولاً `C:\xampp\php\php.exe`)
-4. نصب را تکمیل کنید
-
-#### بررسی نصب Composer
-
-```bash
-composer --version
-```
-
-### 4️⃣ شروع کار
-
-پس از نصب PHP و Composer، مراحل زیر را انجام دهید:
-
-#### مرحله 1: کلون کردن پروژه (اگر از Git استفاده می‌کنید)
-
-```bash
-git clone <repository-url>
-cd bot-rad-git
-```
-
-#### مرحله 2: نصب وابستگی‌ها با Composer
-
-```bash
-composer install
-```
-
-یا اگر می‌خواهید وابستگی‌های development را هم نصب کنید:
-
-```bash
-composer install --no-dev
-```
-
-#### مرحله 3: تنظیم فایل محیطی
-
-```bash
-copy .env.example .env
-```
-
-سپس فایل `.env` را ویرایش کنید و اطلاعات دیتابیس را تنظیم کنید:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=bot_platform
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
-#### مرحله 4: تولید کلید اپلیکیشن
-
-```bash
-php artisan key:generate
-```
-
-#### مرحله 5: اجرای Migration ها
-
-```bash
-php artisan migrate
-```
-
-#### مرحله 6: Seed کردن دیتابیس (اختیاری)
-
-```bash
-php artisan db:seed
-```
-
-#### مرحله 7: ایجاد لینک Symbolic برای Storage
-
-```bash
-php artisan storage:link
-```
-
-#### مرحله 8: اجرای سرور توسعه
-
-```bash
-php artisan serve
-```
-
-پروژه شما در آدرس `http://localhost:8000` در دسترس خواهد بود.
-
-### ✅ بررسی نهایی
-
-برای اطمینان از نصب صحیح، موارد زیر را بررسی کنید:
-
-- ✅ PHP 8.1+ نصب شده است
-- ✅ Composer نصب شده است
-- ✅ دیتابیس ریستور شده است
-- ✅ فایل `.env` تنظیم شده است
-- ✅ Migration ها اجرا شده‌اند
-- ✅ سرور Laravel در حال اجرا است
-
-### 📝 نکات مهم
-
-- اگر از XAMPP استفاده می‌کنید، مطمئن شوید که Apache و MySQL در XAMPP Control Panel در حال اجرا هستند
-- در صورت بروز خطا، فایل `storage/logs/laravel.log` را بررسی کنید
-- برای محیط Production، حتماً `APP_DEBUG=false` را در فایل `.env` تنظیم کنید
-
-## 🛠️ راه‌اندازی پروژه
-
-- composer i
- - composer u
- - cp .env.example to .env
- - php artisan ke:ge
- - php artisan migrate
- - php artisan db:seed
- - extension=mbstring in php.ini
- - extension=zip in php.ini
-
-### For Nova Admin Panel
- - npm i
- - npm run dev in dev mode and npm run build in server
- - php artisan nova:user to create a new user as admin.
- - i dont know need php artisan nova:install or nova:publish or not
-
-run index on ayat
-php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
-
-### for translate:
-
-php artisan translation:sync
-
-
-
-# 📝 نکات مهم
-
-## نسخه جدید
- - migrate
- - seed rss channel origin RssChannelOriginsTableSeeder RssChannelsTableSeeder
- - set tags
- - test
-
-## دستورات تست
-
-```bash
-php artisan app:test-sendch
-```
-
-## هنگام بازگردانی بکاپ از سرور به لوکال
-
-```sql
-UPDATE `taggables` SET `taggable_id` = 3 WHERE `taggable_type` = 'App\\Models\\RssChannel' AND `taggable_id` = 1
-```
-
-# ⏰ Cron Jobs
-
-
-
-
-Minute	Hour	Day	Month	Weekday	Command	Actions
-
-*/15	22	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
-
-*/45	23	*	*	*	cd /home/pardisa2/blog && /usr/local/bin/php artisan queue:work >> /dev/null 2>&1	    
-
-0	0	*	*	0	cd /home/pardisa2/blog && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-
-59	23	10	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1	    
-
-*/20	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss_ >> /dev/null 2>&1	    
-
-*/15	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:rss-post >> /dev/null 2>&1	    
-
-58	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:boo >> /dev/null 2>&1	    
-
-57	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:gen >> /dev/null 2>&1	    
-
-*/19	*	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:get-all >> /dev/null 2>&1	    
-
-*/40	18	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_so >> /dev/null 2>&1	    
-
-4	3	*	*	*	rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/	    
-
-rm ./bots/storage/logs/laravel.log && rm ./blog/storage/logs/laravel.log && rm -R ./bots.pardisania.ir/logs/ && rm -R ./bots/logs/ && rm -R ./logs/ && rm -R ./bots/storage/app/public/images && rm -R ./tmp
-
-46	2	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:add_mp >> /dev/null 2>&1
-
-20	1	*	*	*	cd /home/pardisa2/bots && /usr/local/bin/php artisan app:update_bal >> /dev/null 2>&1
-
-# 📋 دستورات مهم
-
-```bash
-# ترجمه RSS (فقط تحلیل RSS امروز)
-php artisan app:rss_read_translate --switch
-
-# کار با صف
-php artisan queue:work
-
-# اجرای Schedule
-php artisan schedule:run
-
-# ایندکس کردن آیات قرآن
-php artisan laravel-fulltext:all \\App\\Models\\QuranAyat
-
-# همگام‌سازی ترجمه‌ها
-php artisan translation:sync
-```
+> **نقطهٔ ورود عملیاتی** برای انسان‌ها و agentها. این فایل خلاصه است؛ جزئیات در مستندات زیر.
+> اگر agent هستی: **اول [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) را بخوان.**
 
 ---
 
-**📖 برای اطلاعات بیشتر در مورد توسعه، به [README-DEVELOP.md](README-DEVELOP.md) مراجعه کنید.**
+## ⚡ این پروژه چیست؟
+
+یک سامانهٔ Laravel 10 روی **یک سرور cPanel** که کارهای زیر را انجام می‌دهد:
+
+| زیرسیستم | کاری که می‌کند |
+|---|---|
+| **Bot Mother** | ساخت/پیکربندی ~37 نوع ربات پیام‌رسان از طریق چت یا وب |
+| **Channel Poster** | انتشار چندکاناله محتوا (بله، تلگرام، ایطلا، سoroush) با صف، رسانه، watchdog و ریکاوری |
+| **Content Sync** | همگام‌سازی یک پست منتشرشده به سایر کانال‌های تگ‌شده با dedup و attribution |
+| **RSS Pipeline** | خواندن فیدها، ترجمه و انتشار خودکار در کانال‌های RSS (هر 15 دقیقه) + ریکاوری |
+| **ربات‌های تخصصی** | قرآن، حدیث، نماز، آب‌وهوا، کتاب، مأموریت، … (کاتالوگ: [`.agents/AGENTS.md`](.agents/AGENTS.md)) |
+
+**زیرساخت:** PHP 8.2.34 · MySQL · `QUEUE_CONNECTION=sync` (بدون worker) · cron واحد `schedule:run` هر دقیقه · timezone اپلیکیشن **UTC**.
+
+---
+
+## 🚀 شروع سریع
+
+```bash
+# محلی
+git clone https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10
+cd bot-generator-bale-telegram-laravel-10
+git checkout 15esfand1404
+
+composer install
+cp .env.example .env        # پر کردن DB_*, APP_KEY, tokenها
+php artisan key:generate
+php artisan migrate
+
+php artisan serve           # محلی
+php artisan test --compact  # تست‌ها
+```
+
+### Production (cPanel)
+- مسیر: `/home/pardisa2/bots`
+- **deploy:** [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md) §2 (اسکریپت آماده: [`deploy_commands.sh`](deploy_commands.sh))
+- **cron (فقط همین یک خط):** `* * * * * cd /home/pardisa2/bots && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1`
+- **تست سلامت:** `php artisan pipeline:status` (exit 1 = مشکل)
+
+---
+
+## 📚 نقشهٔ مستندات
+
+| سند | برای چه؟ |
+|---|---|
+| **[`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md)** | ⭐ **مرجع اصلی agent** — هویت پروژه، قوانین طلایی، نقشهٔ زیرسیستم‌ها، عیب‌یابی، قرارداد تست، امنیت |
+| **[`docs/PROJECT_MASTER_MAP.md`](docs/PROJECT_MASTER_MAP.md)** | 🗺️ **نقشهٔ جامع** — توپولوژی Git (کدوم شاخه به کجا ربط دارد)، Production و deploy، ایندکس کامل مستندات، action items باز |
+| **[`docs/JOBS_AND_SCHEDULER.md`](docs/JOBS_AND_SCHEDULER.md)** | مرجع رسمی همهٔ 30 job/cron entry (13 داده برای هرکدام)، قفل‌های همزمانی، تبدیل UTC↔تهران |
+| **[`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md)** | deploy / migrate / cron / diagnose / rollback روی سرور |
+| **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** | معماری، لایه‌ها، جریان داده، تصمیمات معماری، نقاط ضعف |
+| [`docs/features/`](docs/features/) | مستندات فیچر-به-فیچر + سناریوی تست (قانون: هر فیچر جدید باید اینجا مستند شود — [`.agents/rules/DOCUMENTATION_RULE.md`](.agents/rules/DOCUMENTATION_RULE.md)) |
+| [`docs/features/TEST_PREVIEW_POST.md`](docs/features/TEST_PREVIEW_POST.md) | 🧪 **پست تستی/پیش‌نمایش** — ارسال متن/عکس/صوت/ویدیو با کپشن به چت تستی از همان متدهای production (`app:send-test-preview`) |
+| [`docs/features/LINKED_SIGNATURE.md`](docs/features/LINKED_SIGNATURE.md) | 🔗 **امضای لینک‌دار** — لینک کانال در امضا به‌صورت قابل‌کلیک با نگارش مخصوص هر پیام‌رسان (ایتا/تلگرام HTML، بله مارک‌داون، سروش/روبیکا ساده) + تست اختصاصی دو روش (لینک داخل متن + دکمه URL) با `app:test-signature-link` |
+| [`docs/features/PLATFORM_LINK_FORMAT_COMPATIBILITY.md`](docs/features/PLATFORM_LINK_FORMAT_COMPATIBILITY.md) | 🔀 **سازگاری فرمت لینک در ۵ پیام‌رسان** — ماتریس ۱۱×۵ (Telegram/Bale/Eitaa/Soroush/Rubika) با پارامتر دقیق API، نمونه payload، منبع رسمی/جامعه، وضعیت Mock/Live/رندر کلاینت (OFFICIAL_CONFIRMED … OFFICIAL_DOC_NOT_FOUND) — مبنای امضای پیشرفتهٔ `/sign` |
+| [`DEPLOY_INSTRUCTIONS.md`](DEPLOY_INSTRUCTIONS.md) · [`deploy_commands.sh`](deploy_commands.sh) | دستورالعمل/اسکریپت deploy |
+| [`CHANGELOG.md`](CHANGELOG.md) | تاریخچهٔ تغییرات |
+| [`docs/SCHEDULER_CRON_PLAN.md`](docs/SCHEDULER_CRON_PLAN.md) | برنامهٔ اولیهٔ cron (⚠️ مرجع `storage:logs-cleanup` منسوخ — command وجود ندارد) |
+| [`docs/RECOVERY_ROLLOUT_PLAN.md`](docs/RECOVERY_ROLLOUT_PLAN.md) | رول‌اوت مرحله‌ای محتوا + rollback |
+| [`.agents/AGENTS.md`](.agents/AGENTS.md) | دانش‌نامهٔ پروژه (کاتالوگ 37 ربات، ساختار، env names، APIها) |
+| [`docs/API_README.md`](docs/API_README.md) + Swagger | مستندات REST API (`/api/v1/quran`, missions با `api.token`, metadata) |
+
+---
+
+## 🔌 Webhook‌ها و API
+
+- همهٔ webhook ربات‌ها زیر `/api/webhook-*` تعریف‌اند → [`routes/api.php`](routes/api.php) (کاتالوگ کامل در [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §3)
+- مهم‌ترین‌ها: `/api/webhook-channel-poster` (کانال‌پوستر)، `/api/webhook-bot-mother`، `/api/webhook-rss`، `/api/webhook-prayer-bot`، `/api/webhook-quran-word`
+- REST: `/api/v1/quran/*`، `/api/v1/missions/*` (نیاز به `api.token`)، `/api/v1/metadata`
+
+---
+
+## 🧪 قرارداد تست
+
+```bash
+php artisan test --compact
+```
+
+- آخرین اجرا (2026-10-19): **399 passed / 2 skipped / 2 deprecated — 2205 assertions، 0 failure** (PHP محلی 8.5+ نویز deprecation دارد؛ پراکشن 8.2.34)
+- هرگز `php -l` را به‌عنوان مدرک رفتار نده؛ هرگز ادعای اجرای تستی را نده که اجرا نشده است.
+
+---
+
+## ⚠️ هشدارهای امن (فقط برای agent/توسعه‌دهنده)
+
+1. **هیچ secret/توکن در مستند، commit یا لاگ.** لاگ‌های token-bearing باید از [`TokenHelper::redactTokens`](app/Helpers/TokenHelper.php) رد شوند.
+2. **توکن Bale لیک‌شده در لاگ قدیمی:** آیا rotate شده **تأییدنشده** → اقدام پراکشن: [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md) §7.
+3. **cron جدید اضافه نکن** بدون آپدیت همزمان `docs/JOBS_AND_SCHEDULER.md`؛ فقط یک خط `schedule:run` مجاز است.
+4. **موفقیت جعلی ممنوع:** status `sent`/`published` فقط با پاسخ واقعی پیام‌رسان.
+5. **اسلات‌های `daily-channel:post` (00/06/12/18 UTC) دست‌نخورده** — watchdog وابسته به آن‌هاست.
+
+---
+
+## 📂 ساختار کلیدی
+
+```
+app/Console/Kernel.php          # ⭐ 30 entry scheduler
+app/Services/                   # ~85 service (قلب منطق) + ContentSync/
+app/Http/Controllers/           # 73 controller (webhook ربات‌ها + Api)
+app/Jobs/                       # 12 job (sync queue → inline)
+app/Models/                     # 119 model
+routes/api.php                  # webhook‌ها + REST API
+docs/                           # ⭐ مستندات عملیاتی (بالا)
+tests/                          # Feature/Unit
+```
+
+جزئیات: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+<p align="center">
+  <a href="https://github.com/saber13812002/bot-generator-bale-telegram-laravel-10">GitHub</a>
+  · <a href="https://bots.pardisania.ir">🌐 Live</a>
+  · <a href="https://saber-tabatabaee.medium.com">📝 Medium</a>
+  · <a href="https://vrgl.ir/hp4xr">📖 Virgool</a>
+  · <a href="https://hamibash.com/quran_hefz_bale_telegram_bot">❤️ Hamibash</a>
+</p>
+
+---
+
+## ⚖️ License
+
+فایل `LICENSE` در مخزن وجود ندارد؛ مالکیت: Saber Tabatabaei — تماس از طریق پروفایل‌های بالا. (افزودن فایل License یک action item باز است.)

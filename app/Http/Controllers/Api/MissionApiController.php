@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Interfaces\Repositories\MissionRepository;
 use App\Models\Content;
 use App\Models\Mission;
 use App\Models\MissionContent;
@@ -15,6 +16,45 @@ use Illuminate\Support\Facades\Validator;
 
 class MissionApiController extends Controller
 {
+    public function __construct(
+        private MissionRepository $missionRepository
+    ) {
+    }
+
+    /* ------------------------------------------------------------------
+     * Tenant access helpers (security — read from token, NOT request input)
+     * ------------------------------------------------------------------ */
+
+    /**
+     * The tenant_id this request is scoped to.
+     * Super-admin: from body (null = all tenants).
+     * Tenant token: always from the token (client cannot override).
+     */
+    private function effectiveTenantId(Request $request): ?int
+    {
+        $token = $request->api_token;
+        if ($token->type === 'super_admin') {
+            return $request->input('tenant_id') !== null ? (int) $request->input('tenant_id') : null;
+        }
+        return $token->tenant_id !== null ? (int) $token->tenant_id : null;
+    }
+
+    /**
+     * Check whether the request's token may access the given mission's tenant.
+     * Returns null if allowed, or an error message if denied.
+     */
+    private function assertTenantAccess(Request $request, int $missionTenantId): ?string
+    {
+        $token = $request->api_token;
+        if ($token->type === 'super_admin') {
+            return null; // super-admin can access any tenant
+        }
+        if ($token->tenant_id === null || (int) $token->tenant_id !== (int) $missionTenantId) {
+            return 'Access denied';
+        }
+        return null;
+    }
+
     /**
      * Create a new mission with prompt and content.
      */
@@ -32,7 +72,7 @@ class MissionApiController extends Controller
             'duration' => 'nullable|integer|min:1',
             'max_personnel' => 'nullable|integer|min:1',
             'ai_id' => 'nullable|exists:ai_llms,id',
-            'tenant_id' => 'required_if:is_super_admin,true|exists:tenants,id',
+            'tenant_id' => 'required|exists:tenants,id',
         ]);
 
         if ($validator->fails()) {
@@ -46,22 +86,8 @@ class MissionApiController extends Controller
         try {
             DB::beginTransaction();
 
-            // Determine tenant_id
-            $tenantId = null;
-            
-            // If super admin, tenant_id must be provided
-            if ($request->input('is_super_admin')) {
-                $tenantId = $request->input('tenant_id');
-                if (!$tenantId) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Tenant ID is required for super admin'
-                    ], 422);
-                }
-            } else {
-                // For tenant token, use token's tenant_id
-                $tenantId = $request->api_token->tenant_id;
-            }
+            // Determine tenant_id from the token (never from client input for tenant tokens)
+            $tenantId = $this->effectiveTenantId($request);
 
             if (!$tenantId) {
                 return response()->json([
@@ -86,8 +112,8 @@ class MissionApiController extends Controller
                 'mission_id' => null, // Will be updated after mission creation
             ]);
 
-            // Create mission
-            $mission = Mission::create([
+            // Create mission via repository
+            $mission = $this->missionRepository->create([
                 'tenant_id' => $tenantId,
                 'title' => $request->input('title'),
                 'description' => $request->input('description'),
@@ -184,13 +210,10 @@ class MissionApiController extends Controller
         try {
             $mission = Mission::findOrFail($missionId);
 
-            // Check tenant access
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
-            if ($mission->tenant_id != $tenantId && !$request->input('is_super_admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
+            // Check tenant access (token-based, not client input)
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
             }
 
             // Create content
@@ -240,10 +263,14 @@ class MissionApiController extends Controller
     public function listMissions(Request $request)
     {
         try {
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
+            $tenantId = $this->effectiveTenantId($request);
 
-            $missions = Mission::where('tenant_id', $tenantId)
-                ->with(['prompt', 'content', 'ai', 'contents'])
+            $query = Mission::with(['prompt', 'content', 'ai', 'contents']);
+            if ($tenantId !== null) {
+                $query->where('tenant_id', $tenantId);
+            }
+
+            $missions = $query
                 ->orderBy('created_at', 'desc')
                 ->paginate($request->input('per_page', 15));
 
@@ -274,13 +301,10 @@ class MissionApiController extends Controller
             $mission = Mission::with(['prompt', 'content', 'ai', 'contents'])
                 ->findOrFail($missionId);
 
-            // Check tenant access
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
-            if ($mission->tenant_id != $tenantId && !$request->input('is_super_admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
+            // Check tenant access (token-based)
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
             }
 
             return response()->json([
@@ -324,13 +348,10 @@ class MissionApiController extends Controller
             $mission = Mission::findOrFail($missionId);
             $personnel = \App\Models\Personnel::findOrFail($request->input('personnel_id'));
 
-            // Check tenant access
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
-            if ($mission->tenant_id != $tenantId && !$request->input('is_super_admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
+            // Check tenant access (token-based)
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
             }
 
             // Check if personnel belongs to tenant
@@ -399,13 +420,10 @@ class MissionApiController extends Controller
             $mission = Mission::with(['prompt', 'content', 'ai', 'contents'])
                 ->findOrFail($missionId);
 
-            // Check tenant access
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
-            if ($mission->tenant_id != $tenantId && !$request->input('is_super_admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
+            // Check tenant access (token-based)
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
             }
 
             // Get mission personnel records
@@ -472,13 +490,10 @@ class MissionApiController extends Controller
             $mission = Mission::findOrFail($missionId);
             $personnel = \App\Models\Personnel::findOrFail($request->input('personnel_id'));
 
-            // Check tenant access
-            $tenantId = $request->input('tenant_id') ?? $request->api_token->tenant_id;
-            if ($mission->tenant_id != $tenantId && !$request->input('is_super_admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied'
-                ], 403);
+            // Check tenant access (token-based)
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
             }
 
             // Check if personnel belongs to tenant
@@ -522,6 +537,65 @@ class MissionApiController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to assign mission',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update the prompt text for a mission.
+     */
+    public function updatePrompt(Request $request, $missionId)
+    {
+        $validator = Validator::make($request->all(), [
+            'prompt_content' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $mission = Mission::findOrFail($missionId);
+
+            $error = $this->assertTenantAccess($request, (int) $mission->tenant_id);
+            if ($error !== null) {
+                return response()->json(['success' => false, 'message' => $error], 403);
+            }
+
+            $prompt = $mission->prompt;
+            if (!$prompt) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Mission has no prompt'
+                ], 404);
+            }
+
+            $prompt->update(['content' => $request->input('prompt_content')]);
+
+            Log::info('Mission prompt updated via API', [
+                'mission_id' => $missionId,
+                'prompt_id' => $prompt->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Prompt updated successfully',
+                'data' => $prompt
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating prompt via API', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update prompt',
                 'error' => $e->getMessage()
             ], 500);
         }

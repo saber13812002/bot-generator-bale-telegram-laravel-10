@@ -10,6 +10,11 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        // FULLTEXT indexes are MySQL-only. Skip for SQLite (used in testing).
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         Schema::table('quran_ayats', function (Blueprint $table) {
             $table->fullText('simple')->language('arabic');
         });
@@ -20,6 +25,10 @@ return new class extends Migration {
      */
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return;
+        }
+
         Schema::table('quran_ayats', function (Blueprint $table) {
             $table->dropFullText('simple');
         });

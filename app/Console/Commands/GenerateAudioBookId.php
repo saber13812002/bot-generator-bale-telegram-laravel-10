@@ -55,8 +55,38 @@ class GenerateAudioBookId extends Command
             return;
         }
 
-        // Call the API with the valid audioBookId
-        $response = AudioBookService::callDetailApi($audioBookId);
+        // Call the API with the valid audioBookId with retry logic
+        $maxRetries = 3;
+        $retryCount = 0;
+        $response = null;
+
+        while ($retryCount < $maxRetries) {
+            try {
+                $response = AudioBookService::callDetailApi($audioBookId);
+                break; // موفق بود، از حلقه خارج شو
+            } catch (\Exception $e) {
+                $retryCount++;
+                if ($retryCount >= $maxRetries) {
+                    \Log::error("Failed to call API after {$maxRetries} retries", [
+                        'audio_book_id' => $audioBookId,
+                        'error' => $e->getMessage()
+                    ]);
+                    $this->error("Failed to call API after {$maxRetries} retries");
+                    return;
+                }
+                \Log::warning("API call failed, retrying... ({$retryCount}/{$maxRetries})", [
+                    'audio_book_id' => $audioBookId,
+                    'error' => $e->getMessage()
+                ]);
+                sleep(2); // صبر 2 ثانیه قبل از retry
+            }
+        }
+
+        if ($response === null) {
+            \Log::error("API response is null after retries for ID: {$audioBookId}");
+            $this->error("API response is null after retries");
+            return;
+        }
         
         // Log response status and basic info
         \Log::info("API Response Status: {$response->status()}");

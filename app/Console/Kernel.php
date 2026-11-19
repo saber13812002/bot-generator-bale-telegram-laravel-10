@@ -2,8 +2,15 @@
 
 namespace App\Console;
 
+use App\Console\Commands\PostDailyVerseToChannels;
+use App\Console\Commands\DailyBlogReminderCommand;
+use App\Console\Commands\PostMediaQueueToChannels;
 use App\Console\Commands\RssReadTranslate;
 use App\Console\Commands\RssToBot;
+use App\Console\Commands\ScheduleBookPublishing;
+use App\Console\Commands\ScheduleContentDelivery;
+use App\Console\Commands\SendDailyQuranSuggestionToAdmins;
+use App\Console\Commands\SendPrayerWeeklyReports;
 use App\Console\Commands\TaskReminderCommand;
 use App\Console\Commands\TestScheduleDailyIntoSlack;
 use App\Console\Commands\UsersRankingCommand;
@@ -22,10 +29,204 @@ class Kernel extends ConsoleKernel
 //        $schedule->command(weatherWindCommand::class, ['speed=7'])->dailyAt("6:30"); //10:00 iran
         $schedule->command(TaskReminderCommand::class)->thursdays("20:27"); //23:57 iran
         $schedule->command(UsersRankingCommand::class)->dailyAt("20:29"); //23:59 iran
-        $schedule->command(RssReadTranslate::class)->everyFifteenMinutes();
+        // دریافت و ترجمه RSS هر ۱۵ دقیقه.
+        // ⚠️ withoutOverlapping الزامی است: قبلا‌ cron مستقل 19 دقیقه‌ای app:rss_read_translate
+        // به‌صورت همزمان با همین entry اجرا می‌شد (بدون قفل). حالا cron مستقل حذف شده
+        // (docs/SCHEDULER_CRON_PLAN.md) و قفل Cache داخل خود command خط دوم دفاع است.
+        $schedule->command(RssReadTranslate::class)
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
 //        $schedule->command(UsersRankingCommand::class)->everyFiveMinutes();
+
+        // تپش قلب scheduler: هر دقیقه ثبت می‌شود تا pipeline:status بتواند
+        // خرابی cron/schedule:run را تشخیص دهد (اگر بیش از 10 دقیقه نباشد = red).
+        // این entry سبک‌ترین entry است و قبل از بقیه schedule اجرا می‌شود.
+        $schedule->command('pipeline:heartbeat')
+            ->everyMinute()
+            ->withoutOverlapping();
+        
+        // ارسال گزارش‌های هفتگی نماز قضا با اینتروال‌های مختلف
+        
+        // هر 10 دقیقه (باکس کوچک - 5 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=5',
+            '--interval=10'
+        ])
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // هر 30 دقیقه (باکس متوسط - 10 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=10',
+            '--interval=30'
+        ])
+            ->everyThirtyMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // هر ساعت (باکس بزرگ - 10 ایمیل)
+        $schedule->command(SendPrayerWeeklyReports::class, [
+            '--batch-size=10',
+            '--interval=60'
+        ])
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+        
         if (env('TestScheduleDailyIntoSlack'))
             $schedule->command(TestScheduleDailyIntoSlack::class)->dailyAt("07:00"); //10:30 iran
+        
+        // چک کردن weather alerts هر یک ساعت
+        // (دستور: weather:check-alerts — مستقیم با cron هم قابل اجراست؛ $schedule->job فقط با schedule:run کار می‌کرد)
+        $schedule->command('weather:check-alerts')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+        
+        // انتشار صفحات کتاب (بین 7 شب تا 12 شب)
+        $schedule->command(ScheduleBookPublishing::class)
+            ->hourly()
+            ->between('19:00', '23:59')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پیشنهاد روزانه قرآن به ادمین‌ها (هر ۲۴ ساعت)
+        $schedule->command(SendDailyQuranSuggestionToAdmins::class)
+            ->dailyAt('08:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+        // ارسال گزارش کتابخانه صوتی تستی (یک‌بار در روز)
+        $schedule->command('audio:test-report')->dailyAt('10:00')->withoutOverlapping()->onOneServer();
+
+        // ارسال آیه/حدیث/نهج/شراب بهشتی به کانال‌های ادمین (اسلات‌های ۶ ساعته؛ هر config بر اساس posts_per_day در ۱/۲/۴ اسلات ارسال می‌کند)
+        // ⚠️ این اسلات‌ها UTC-محورند (ساعت سرور UTC است) و با shouldRunInSlot و PostOverdueWatchdog
+        // هم‌راسته‌اند؛ بدون تغییر همزمان آن‌ها به ساعت ایران برنگردانید (README_LEGACY.md، بخش 🚨 اصلاح مهم).
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=1'])->dailyAt('00:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=2'])->dailyAt('06:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=3'])->dailyAt('12:00')->withoutOverlapping()->onOneServer();
+        $schedule->command(PostDailyVerseToChannels::class, ['--slot=4'])->dailyAt('18:00')->withoutOverlapping()->onOneServer();
+
+        // ارسال نوبتی صف رسانه به کانال‌ها (روزانه یک بار)
+        $schedule->command(PostMediaQueueToChannels::class)
+            ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command(DailyBlogReminderCommand::class)
+            ->dailyAt('09:01')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        $schedule->command('observability:prune')
+            ->daily()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پاکسازی دوره‌ای فضای دایس (quota اشتراکی): cache فایل، sessionهای کهنه، چرخش laravel.log
+        // ⚠️ بدون withoutOverlapping/onOneServer: آن دو از cache استفاده می‌کنند و وقتی
+        // quota دایس پر باشد، قفل خودشان خطا می‌دهد و cleanup هرگز اجرا نمی‌شود.
+        $schedule->command('storage:cleanup')
+            ->dailyAt('03:30');
+
+        // بررسی سلامت سرورهای AI هر ۱ ساعت
+        $schedule->command('ai:health-check')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // گزارش ۲۴ ساعته سلامت سرویس AI (سالم → «من زنده هستم» / خراب → هشدار) به ربات مادر و ربات ادمین قرآن
+        $schedule->command('ai:daily-health-report')
+            ->dailyAt('09:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // ── صف AI (WS-D) ────────────────────────────────────────────────────
+        // worker: cron دقیقه‌ای cPanel → schedule:run → این entry → queue:work --queue=ai
+        // (Supervisor در هاستینگ اشتراکی نیست؛ docs/QUEUE_AI_WORKER.md)
+        $schedule->command('ai:queue-work')
+            ->everyMinute()
+            ->withoutOverlapping(5);
+
+        // flush jobهای DEFERRED: روزانه 14:00 Tehran = 10:30 UTC (سیاست زمان owner)
+        // + هر ۱۰ دقیقه برای تضمین «بدون جاافتادن و بدون تکرار» (idempotent)
+        $schedule->command('ai:queue-flush-deferred')
+            ->dailyAt('10:30')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->command('ai:queue-flush-deferred')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // recovery: PROCESSING کهنه (worker مرده/restart) + EXPIRED قدیمی‌ها + re-push گم‌شده‌ها
+        $schedule->command('ai:queue-recover-stale')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // بررسی آستانه‌های هشدار AI (brief §7): queue backlog، dead letter، error rate
+        // — هر ۵ دقیقه، با dedup cooldown در cache (تکرار alert تا cooldown تمام نشود نمی‌آید)
+        $schedule->command('ai:alerts-check')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // ارسال ساعتی محتوای کتابخانه (پادکست) به کاربرانی که در صف هستند
+        $schedule->command(ScheduleContentDelivery::class)
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        $schedule->command('growth:dispatch-due')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پردازش صف ارسال به کانال‌ها (هر ۵ دقیقه)
+        // (دستور: channel-poster:process — مستقیم با cron هم قابل اجراست؛ $schedule->job فقط با schedule:run کار می‌کرد)
+        $schedule->command('channel-poster:process')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // نگهبان ساعتی صف کانال: ارسال مجدد آیتم‌های عقب‌افتاده + هشدار قرمز/سبز
+        $schedule->command('channel-poster:watchdog')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // F5: دعوت هفتگی به مطالعه یک مطلب آرشیوی تصادفی (هر روز ساعت ۱۰:۰۰)
+        $schedule->command('weekly-read:invite')
+            ->dailyAt('10:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // بررسی هفتگی سلامت فیدهای RSS:
+        // - غیرفعال‌سازی فقط بعد از آستانه خطا (یک خطای گذرا دیگر فید را از بین نمی‌برد)
+        // - فیدهای غیرفعالِ سالم در همین اجرا بازفعال می‌شوند (بازتست کنترل‌شده)
+        $schedule->command('rss:feeds-health', ['--disable-dead', '--enable-healthy', '--limit=100'])
+            ->weekly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // پایش ساعتی خط لوله‌ی محتوا: heartbeat scheduler + عدم انتشار 24h + رشد رکوردهای error.
+        // هشدارها dedup/rate-limit شده‌اند (کلید Cache، suppress 6h) تا ادمین‌ها اسپم نشوند.
+        $schedule->command('pipeline:watch')
+            ->hourly()
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // لغو روزانه آیتم‌های pending قدیمی (بیش از 7 روز) در صف کانال تا محتوای کهنه منتشر نشود
+        $schedule->command('channel-poster:prune-stale')
+            ->dailyAt('04:00')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // F6: متن انگیزشی LLM برای کانال‌های اسکدیول‌شده (هر روز ساعت ۱۱:۰۰؛ روز هر کانال جدا)
+        $schedule->command('channel-motivation:send')
+            ->dailyAt('11:00')
+            ->withoutOverlapping()
+            ->onOneServer();
     }
 
     /**

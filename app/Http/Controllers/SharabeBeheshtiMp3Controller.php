@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\ProductLinkMessageHelper;
 use App\Models\SharabeBeheshtiMp3;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSharabeBeheshtiMp3Request;
@@ -46,21 +47,45 @@ class SharabeBeheshtiMp3Controller extends Controller
         return isset($params['id']) ? (string)$params['id'] : null; // اطمینان از نوع بازگشتی
     }
 
-    public static function getCaptionByCheckEvenOrOdd($number)
+    public static function getCaptionByCheckEvenOrOdd($number, ?string $platformSlug = null)
     {
-
-        $caption = "در ایتا
-https://eitaa.com/sharabebeheshti
-در بله
-https://ble.ir/sharabebeheshti
-در تلگرام
-https://t.me/sharabebeheshti_ir";
-
-        if ($number % 2 === 0) {
-            return $caption; // اگر عدد زوج باشد
-        } else {
-            return "انتشار حداکثری"; // اگر عدد فرد باشد
+        if ($number % 2 !== 0) {
+            return 'انتشار حداکثری';
         }
+
+        return ProductLinkMessageHelper::buildChannelPromoBlock($platformSlug);
+    }
+
+    public static function buildSharabeBeheshtiShareUrlById(int $id, ?string $mediumSlug = null): ?string
+    {
+        $sharab = SharabeBeheshtiMp3::find($id);
+
+        if (!$sharab) {
+            Log::warning('SharabeBeheshti mp3 not found for id: ' . $id);
+            return null;
+        }
+
+        $mediumSlug = $mediumSlug ?: 'messenger';
+
+        $baseUrl = 'https://' . $sharab->origin . '/shb' . $sharab->part;
+
+        try {
+            $randomId = random_int(1000, 9999);
+        } catch (\Exception $e) {
+            $randomId = mt_rand(1000, 9999);
+        }
+
+        $params = [
+            'random_id' => $randomId,
+            'id' => $sharab->id,
+            'utm_source' => 'saber',
+            'utm_medium' => $mediumSlug,
+            'utm_campaign' => 'campaign_khoda',
+            'utm_term' => 'term_zohoor',
+            'utm_content' => 'emamzaman',
+        ];
+
+        return $baseUrl . '?' . http_build_query($params);
     }
 
     /**

@@ -69,6 +69,10 @@ return [
     |
     */
 
+    // ⚠️ ساعت سرور Production روی UTC است (مطابق error_log). سیستم انتشار کانال
+    // (اسلات‌های 00/06/12/18، shouldRunInSlot، PostOverdueWatchdog، جدول channel_poster_queue)
+    // همگی بر پایه‌ی UTC طراحی شده‌اند؛ این مقدار را بدون مهاجرت همزمان آن منطقات
+    // و تایم‌استمپ‌های دیتابیس تغییر ندهید.
     'timezone' => 'UTC',
 
     /*
@@ -191,6 +195,11 @@ return [
          * Application Service Providers...
          */
         App\Providers\AppServiceProvider::class,
+        App\Modules\BaleOtp\Providers\BaleOtpServiceProvider::class,
+        App\Modules\BotOwner\Providers\BotOwnerServiceProvider::class,
+        App\Modules\BotRegistration\Providers\BotRegistrationServiceProvider::class,
+        App\Modules\BotCreation\Providers\BotCreationServiceProvider::class,
+        App\Modules\AdminBots\Providers\AdminBotsServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,

@@ -19,7 +19,7 @@ class TaskReminderCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'محاسبه و ارسال گزارش تکمیل تسک‌های کاربران ربات قرآن (روزانه/هفتگی/ماهانه)';
 
 
     private QuranBotUserRankingService $quranBotUserRankingService;

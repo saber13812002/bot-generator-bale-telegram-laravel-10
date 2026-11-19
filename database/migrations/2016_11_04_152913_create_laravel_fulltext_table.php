@@ -22,10 +22,14 @@ class CreateLaravelFulltextTable extends Migration
             $table->unique(['indexable_type', 'indexable_id']);
 
             $table->timestamps();
-        });
-
-        DB::connection(config('laravel-fulltext.db_connection'))->statement('ALTER TABLE laravel_fulltext ADD FULLTEXT fulltext_title(indexed_title)');
-        DB::connection(config('laravel-fulltext.db_connection'))->statement('ALTER TABLE laravel_fulltext ADD FULLTEXT fulltext_title_content(indexed_title, indexed_content)');
+            });
+    
+            // FULLTEXT indexes are MySQL-only. Skip for SQLite (used in testing).
+            $driver = DB::connection(config('laravel-fulltext.db_connection'))->getDriverName();
+            if ($driver === 'mysql') {
+                DB::connection(config('laravel-fulltext.db_connection'))->statement('ALTER TABLE laravel_fulltext ADD FULLTEXT fulltext_title(indexed_title)');
+                DB::connection(config('laravel-fulltext.db_connection'))->statement('ALTER TABLE laravel_fulltext ADD FULLTEXT fulltext_title_content(indexed_title, indexed_content)');
+            }
     }
 
     /**

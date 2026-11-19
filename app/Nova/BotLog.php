@@ -9,6 +9,9 @@ use App\Nova\Metrics\BotLogPerIsCommand;
 use App\Nova\Metrics\BotLogPerLanguage;
 use App\Nova\Metrics\BotLogPerMessengerType;
 use App\Nova\Metrics\BotLogPerText;
+use App\Nova\Metrics\UniqueBotUsers;
+use App\Nova\Metrics\UniqueBotUsersTrend;
+use App\Nova\Metrics\VoiceRequestsCount;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
@@ -81,6 +84,7 @@ class BotLog extends Resource
     public function cards(NovaRequest $request)
     {
         return [
+            // ===== Existing Cards =====
             new BotLogPerDay(),
             new BotLogPerMessengerType(),
             new BotLogPerLanguage(),
@@ -89,6 +93,10 @@ class BotLog extends Resource
             new BotLogPerIsCommand(),
             new BotLogPerText(),
 
+            // ===== New Analytics Cards =====
+            new UniqueBotUsers(),
+            new UniqueBotUsersTrend(),
+            new VoiceRequestsCount(),
         ];
     }
 

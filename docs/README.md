@@ -26,6 +26,28 @@
   - ثبت‌نام پرسنل جدید از طریق ربات‌های پیام‌رسان
   - اعتبارسنجی اطلاعات و ذخیره در دیتابیس
 
+- [🔍 ردیابی bot_id در لاگ‌ها (Bot Logs Tracking)](features/BOT_LOGS_BOT_ID_TRACKING.md)
+  - ردیابی کامل bot_id و bot_mother_id در تمام لاگ‌های سیستم
+  - امکان به‌روزرسانی لاگ‌های قدیمی
+  - Command برای به‌روزرسانی دسته‌ای لاگ‌ها
+
+- [📋 نمایشگر لاگ و سلامت ارسال](features/LOG_VIEWER_AND_BOT_HEALTH.md)
+  - صفحهٔ سری لاگ با فیلتر bot_id و کارت سلامت کانال
+- [📈 متریک پرومته ربات‌ها](features/PROMETHEUS_METRICS.md)
+  - اندپوینت `/api/metrics` با لیبل endpoint_id و bot_id
+- [🩺 هلث جیسون ربات‌ها](features/BOT_HEALTH_JSON.md)
+  - اندپوینت `/api/health` و دستور `observability:health-report`
+
+- [📤 ارسال به کانال‌ها](features/CHANNEL_POSTER_BOT.md)
+- [🌱 رشدیار (Growth Companion)](features/GROWTH_COMPANION.md)
+  - ربات مالک‌محور برای ارسال متن/عکس/صوت/ویدیو از خصوصی بله به کانال بله
+
+- [📁 سیستم مدیریت فایل‌های آپلود شده (Bot File Upload Management)](features/BOT_FILE_UPLOAD_MANAGEMENT.md)
+  - مدیریت فایل‌های آپلود شده برای جلوگیری از آپلود مجدد
+  - بهینه‌سازی سرعت با استفاده از file_id موجود
+  - Background Job برای پیش‌آپلود فایل‌های قرآن
+  - پشتیبانی از انواع فایل: اسکن صفحات، فایل‌های صوتی قرائت، ترجمه
+
 - [📖 قرآن (Quran Bot)](features/quran-bot.md) - *در حال آماده‌سازی*
 - [🌤️ هواشناسی (Weather Bot)](features/weather-bot.md) - *در حال آماده‌سازی*
 - [📰 RSS Bot](features/rss-bot.md) - *در حال آماده‌سازی*

@@ -1,0 +1,109 @@
+<?php
+
+namespace Tests\Fakes;
+
+use App\Interfaces\Services\ChannelPosterPublisher;
+
+class FakeChannelPosterPublisher implements ChannelPosterPublisher
+{
+    public array $privateMessages = [];
+    public array $testMessages = [];
+    public array $publishes = [];
+    public array $callbacks = [];
+    public bool $testSendSucceeds = true;
+    public bool $publishSucceeds = true;
+    /** @var list<string> Platforms that should always fail to publish (e.g. ['bale']). */
+    public array $failPlatforms = [];
+    /**
+     * CP-RUBIKA-RESPONSE-FIX: override for the sendTestMessage DTO.
+     * Shape: array{ok: bool, class: string, message_id: ?string, error: ?string,
+     *            http_status: ?int, permission_denied: bool}
+     * When null, a default DTO is derived from testSendSucceeds.
+     */
+    public ?array $testSendResult = null;
+
+    public function sendPrivateMessage(string $chatId, string $text, ?array $inlineKeyboardRows = null): void
+    {
+        $this->privateMessages[] = [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'keyboard' => $inlineKeyboardRows,
+        ];
+    }
+
+    public function sendTestMessage(string $channelChatId, string $text, string $platform = 'bale', ?string $botToken = null): array
+    {
+        $this->testMessages[] = [
+            'channel_chat_id' => $channelChatId,
+            'text' => $text,
+            'platform' => $platform,
+            'bot_token' => $botToken,
+        ];
+
+        if ($this->testSendResult !== null) {
+            return $this->testSendResult;
+        }
+
+        return [
+            'ok' => $this->testSendSucceeds,
+            'class' => $this->testSendSucceeds
+                ? ChannelPosterPublisher::TEST_SEND_SUCCESS_WITH_MESSAGE_ID
+                : ChannelPosterPublisher::TEST_SEND_API_REJECTED,
+            'message_id' => $this->testSendSucceeds ? 'fake-test-msg-1' : null,
+            'error' => $this->testSendSucceeds ? null : 'fake test send failure (' . $platform . ')',
+            'http_status' => null,
+            'permission_denied' => false,
+        ];
+    }
+
+    public function publish(
+        string $channelChatId,
+        string $contentType,
+        ?string $text,
+        ?string $fileId,
+        string $platform = 'bale',
+        ?string $botToken = null,
+        ?string $localPath = null,
+        ?string $fileName = null,
+        ?string $mimeType = null,
+        ?string $parseMode = null,
+        ?array $replyMarkup = null
+    ): array {
+        $this->publishes[] = [
+            'channel_chat_id' => $channelChatId,
+            'content_type' => $contentType,
+            'text' => $text,
+            'file_id' => $fileId,
+            'platform' => $platform,
+            'bot_token' => $botToken,
+            'local_path' => $localPath,
+            'file_name' => $fileName,
+            'mime_type' => $mimeType,
+            'parse_mode' => $parseMode,
+            'reply_markup' => $replyMarkup,
+        ];
+
+        $succeeds = $this->publishSucceeds && !in_array($platform, $this->failPlatforms, true);
+
+        return [
+            'success' => $succeeds,
+            'message_id' => $succeeds ? 'fake-msg-' . count($this->publishes) : null,
+            'error' => $succeeds ? null : 'fake publish failure (' . $platform . ')',
+        ];
+    }
+
+    public function answerCallback(?string $callbackId, string $text = ''): void
+    {
+        $this->callbacks[] = [
+            'callback_id' => $callbackId,
+            'text' => $text,
+        ];
+    }
+
+    public function lastPrivateText(): ?string
+    {
+        $last = end($this->privateMessages);
+
+        return $last['text'] ?? null;
+    }
+}

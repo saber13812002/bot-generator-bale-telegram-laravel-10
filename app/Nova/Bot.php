@@ -5,7 +5,12 @@ namespace App\Nova;
 use Illuminate\Http\Request;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
+use Laravel\Nova\Fields\Select;
+use Laravel\Nova\Fields\Badge;
 use Laravel\Nova\Http\Requests\NovaRequest;
+use App\Models\WebhookEndpoint;
+use App\Models\Language;
+use App\Models\BotLog;
 
 class Bot extends Resource
 {
@@ -30,6 +35,9 @@ class Bot extends Resource
      */
     public static $search = [
         'id',
+        'telegram_bot_name',
+        'bale_bot_name',
+        'endpoint_id',
     ];
 
     /**
@@ -40,53 +48,237 @@ class Bot extends Resource
      */
     public function fields(NovaRequest $request): array
     {
+        // دریافت لیست endpoint ها برای Select
+        $endpointOptions = WebhookEndpoint::where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name', 'endpoint_id')
+            ->toArray();
+
+        // دریافت لیست زبان ها برای Select
+        $languageOptions = Language::where('is_active', true)
+            ->orderBy('name')
+            ->pluck('display_name', 'code')
+            ->toArray();
+
         return [
             ID::make()->sortable(),
 
-            Text::make('telegram_owner_chat_id')
-            ->sortable(),
+            // فیلدهای جدید
+            Select::make('Webhook Endpoint', 'endpoint_id')
+                ->options($endpointOptions)
+                ->searchable()
+                ->displayUsingLabels()
+                ->sortable()
+                ->nullable()
+                ->help('انتخاب endpoint که این ربات از روی آن ساخته شده است'),
 
-            Text::make('telegram_bot_name')
-            ->sortable(),
+            Select::make('Type', 'type')
+                ->options([
+                    'telegram' => 'Telegram',
+                    'bale' => 'Bale',
+                ])
+                ->displayUsingLabels()
+                ->sortable()
+                ->nullable()
+                ->help('نوع پیام‌رسان (تلگرام یا بله)'),
 
-            Text::make('telegram_bot_token')
-            ->sortable(),
+            Select::make('Language', 'language_code')
+                ->options($languageOptions)
+                ->searchable()
+                ->displayUsingLabels()
+                ->sortable()
+                ->nullable()
+                ->help('زبان ربات - برای نمایش ترجمه‌ها از همین زبان استفاده می‌شود')
+                ->rules('max:10'),
 
-            Text::make('telegram_get_me_api_response')
-            ->sortable(),
+            // فیلدهای موجود
+            Text::make('Telegram Owner Chat ID', 'telegram_owner_chat_id')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('telegram_bot_status')
-            ->sortable(),
+            Text::make('Telegram Bot Name', 'telegram_bot_name')
+                ->sortable(),
 
-            Text::make('telegram_webhook_is_set')
-            ->sortable(),
+            Text::make('Telegram Bot Token', 'telegram_bot_token')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('bale_owner_chat_id')
-            ->sortable(),
+            Text::make('Telegram Get Me API Response', 'telegram_get_me_api_response')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('bale_bot_name')
-            ->sortable(),
+            Text::make('Telegram Bot Status', 'telegram_bot_status')
+                ->sortable(),
 
-            Text::make('bale_bot_token')
-            ->sortable(),
+            Text::make('Telegram Webhook Is Set', 'telegram_webhook_is_set')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('bale_get_me_api_response')
-            ->sortable(),
+            Text::make('Bale Owner Chat ID', 'bale_owner_chat_id')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('bale_bot_status')
-            ->sortable(),
+            Text::make('Bale Bot Name', 'bale_bot_name')
+                ->sortable(),
 
-            Text::make('bale_webhook_is_set')
-            ->sortable(),
+            Text::make('Bale Bot Token', 'bale_bot_token')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('block_strategy')
-            ->sortable(),
+            Text::make('Bale Get Me API Response', 'bale_get_me_api_response')
+                ->sortable()
+                ->hideFromIndex(),
 
-            Text::make('supported_message_types')
-            ->sortable(),
+            Text::make('Bale Bot Status', 'bale_bot_status')
+                ->sortable(),
 
-            Text::make('supported_message_template')
-            ->sortable(),
+            Text::make('Bale Webhook Is Set', 'bale_webhook_is_set')
+                ->sortable()
+                ->hideFromIndex(),
+
+            Text::make('Block Strategy', 'block_strategy')
+                ->sortable(),
+
+            Text::make('Supported Message Types', 'supported_message_types')
+                ->sortable(),
+
+            Text::make('Supported Message Template', 'supported_message_template')
+                ->sortable()
+                ->hideFromIndex(),
+
+            // ===== Content Settings =====
+            \Laravel\Nova\Fields\Textarea::make('Caption Footer', 'caption_footer')
+                ->alwaysShow()
+                ->nullable()
+                ->help('متن ثابت انتهای کپشن برای همه ارسال‌های محتوا. می‌توانید از متغیرهای {bot_name}، {bot_link_bale}، {bot_link_telegram} استفاده کنید.
+                
+✅ مثال:
+📚 برای مطالعه بیشتر به ربات ما مراجعه کنید:
+🔗 @{bot_name}'),
+
+            // ===== Activity Monitoring Fields =====
+            Text::make('Last Activity', function () {
+                return $this->last_activity_at
+                    ? $this->last_activity_at->diffForHumans()
+                    : 'No activity recorded';
+            })->sortable()->help('آخرین فعالیت ثبت شده'),
+
+            Badge::make('Health', function () {
+                $botId = $this->id;
+                $botType = $this->type ?? 'telegram';
+
+                // بر اساس bot_id + origin در bot_logs جستجو می‌کنیم
+                $latestLog = BotLog::where('bot_id', $botId)
+                    ->where('origin', $botType)
+                    ->latest()
+                    ->first();
+
+                if (!$latestLog) {
+                    return 'untested';
+                }
+
+                $hoursSinceLastActivity = $latestLog->created_at->diffInHours();
+
+                if ($hoursSinceLastActivity <= 24) {
+                    return 'healthy';
+                } elseif ($hoursSinceLastActivity <= 72) {
+                    return 'warning';
+                } else {
+                    return 'critical';
+                }
+            })->map([
+                'healthy' => 'success',
+                'warning' => 'warning',
+                'critical' => 'danger',
+                'untested' => 'info',
+            ])->sortable(),
+
+            Text::make('Last Log', function () {
+                $latestLog = BotLog::where('bot_id', $this->id)
+                    ->where('origin', $this->type ?? 'telegram')
+                    ->latest()
+                    ->first();
+
+                if (!$latestLog) {
+                    return '—';
+                }
+
+                $time = $latestLog->created_at->diffForHumans();
+                $type = $latestLog->is_command ? 'command' : 'message';
+                return "{$time} ({$type})";
+            })->hideFromIndex(),
+
+            Text::make('24h Activity', function () {
+                $count = BotLog::where('bot_id', $this->id)
+                    ->where('origin', $this->type ?? 'telegram')
+                    ->where('created_at', '>=', now()->subDay())
+                    ->count();
+
+                return $count > 0 ? "{$count} requests" : '0 requests';
+            })->sortable()->help('تعداد درخواست در ۲۴ ساعت'),
+
+            // ===== AI Feature Flags (WS-E) =====
+            \Laravel\Nova\Fields\Heading::make('AI — قابلیت‌ها (WS-E)')
+                ->help('کلیدهای هوش مصنوعی این ربات. «پیروی از سراسری» یعنی override نیست و flag سراسری (env) حاکم است.'),
+
+            \Laravel\Nova\Fields\Select::make('LLM (ai_llm_enabled)', 'ai_llm')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('گفتگو/ترجمه با LLM'),
+
+            \Laravel\Nova\Fields\Select::make('OCR (ai_ocr_enabled)', 'ai_ocr')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل عکس به متن (Vision)'),
+
+            \Laravel\Nova\Fields\Select::make('ASR (ai_asr_enabled)', 'ai_asr')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل گفتار به متن'),
+
+            \Laravel\Nova\Fields\Select::make('RAG (ai_rag_enabled)', 'ai_rag')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('جستجوی برداری روی محتوای ربات'),
+
+            \Laravel\Nova\Fields\Select::make('TTS (ai_tts_enabled)', 'ai_tts')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('تبدیل متن به گفتار'),
+
+            \Laravel\Nova\Fields\Select::make('Growth Companion (ai_growth_companion_enabled)', 'ai_growth_companion')
+                ->options(['follow' => 'پیروی از سراسری', 'on' => 'روشن', 'off' => 'خاموش'])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('همراه رشد کاربر (مخصوصاً Pro)'),
+
+            \Laravel\Nova\Fields\Text::make('AI Test Group (allowlist)', 'ai_test_group')
+                ->nullable()
+                ->help('آی‌دی‌های user/customer مجاز برای rollout تدریجی (stage 0/1)، جداشده با ویرگول (مثال: 12, 34). خالی = fail-closed: هیچ‌کس دسترسی ندارد.')
+                ->hideFromIndex(),
+
+            \Laravel\Nova\Fields\Select::make('AI Rollout Stage (ai_rollout_stage)', 'ai_rollout_stage')
+                ->options([
+                    'follow' => 'پیروی از سراسری (env AI_ROLLOUT_STAGE)',
+                    '0'      => 'Stage 0 — Internal (فقط allowlist، fail-closed)',
+                    '1'      => 'Stage 1 — Pilot (فقط allowlist)',
+                    '2'      => 'Stage 2 — All Pro (Proها + pro-override)',
+                    '3'      => 'Stage 3 — Public (باز برای همه)',
+                ])
+                ->default('follow')
+                ->displayUsingLabels()
+                ->help('مرحله rollout این bot. «پیروی از سراسری» یعنی مقدار env AI_ROLLOUT_STAGE (پیش‌فرض production: 0 = fail-closed). تغییر audit log دارد.')
+                ->hideFromIndex(),
+
+            \Laravel\Nova\Fields\Text::make('AI Pro Override (pilot)', 'ai_pro_override')
+                ->nullable()
+                ->help('آی‌دی‌های customerهایی که در stage 2 (All Pro) مثل Pro رفتار کنند (بدون محدودیت plan) — جداشده با ویرگول. تغییر audit log دارد (brief §2: LOGGED override).')
+                ->hideFromIndex(),
 
         ];
     }

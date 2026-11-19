@@ -2,7 +2,9 @@
 
 namespace App\Nova;
 
+use App\Models\BotLog;
 use Illuminate\Http\Request;
+use Laravel\Nova\Fields\Badge;
 use Laravel\Nova\Fields\ID;
 use Laravel\Nova\Fields\Text;
 use Laravel\Nova\Http\Requests\NovaRequest;
@@ -30,6 +32,8 @@ class BotKid extends Resource
      */
     public static $search = [
         'id',
+        'token',
+        'first_chat_id',
     ];
 
     /**
@@ -42,11 +46,77 @@ class BotKid extends Resource
     {
         return [
             ID::make()->sortable(),
-            Text::make('bot_mother_id'),
-            Text::make('token'),
-            Text::make('first_chat_id'),
-            Text::make('type'),
-            Text::make('locale'),
+            Text::make('Bot Mother ID', 'bot_mother_id')->sortable(),
+            Text::make('Token', 'token')
+                ->onlyOnDetail()
+                ->copyable(),
+            Text::make('First Chat ID', 'first_chat_id')->sortable(),
+            Text::make('Type', 'type')->sortable(),
+            Text::make('Locale', 'locale')->sortable(),
+
+            // ===== Activity Monitoring =====
+            Badge::make('Health', function () {
+                $firstChatId = $this->first_chat_id;
+                $type = $this->type ?? 'bale';
+
+                if (!$firstChatId) {
+                    return 'untested';
+                }
+
+                $latestLog = BotLog::where('chat_id', $firstChatId)
+                    ->where('origin', $type)
+                    ->latest()
+                    ->first();
+
+                if (!$latestLog) {
+                    return 'untested';
+                }
+
+                $hoursSince = $latestLog->created_at->diffInHours();
+
+                if ($hoursSince <= 24) {
+                    return 'healthy';
+                } elseif ($hoursSince <= 72) {
+                    return 'warning';
+                } else {
+                    return 'critical';
+                }
+            })->map([
+                'healthy' => 'success',
+                'warning' => 'warning',
+                'critical' => 'danger',
+                'untested' => 'info',
+            ])->sortable(),
+
+            Text::make('Last Activity', function () {
+                $firstChatId = $this->first_chat_id;
+                $type = $this->type ?? 'bale';
+
+                if (!$firstChatId) {
+                    return '—';
+                }
+
+                $latestLog = BotLog::where('chat_id', $firstChatId)
+                    ->where('origin', $type)
+                    ->latest()
+                    ->first();
+
+                return $latestLog ? $latestLog->created_at->diffForHumans() : 'No activity';
+            })->sortable(),
+
+            Text::make('24h Activity', function () {
+                $firstChatId = $this->first_chat_id;
+                $type = $this->type ?? 'bale';
+
+                if (!$firstChatId) {
+                    return '0';
+                }
+
+                return BotLog::where('chat_id', $firstChatId)
+                    ->where('origin', $type)
+                    ->where('created_at', '>=', now()->subDay())
+                    ->count();
+            })->sortable()->help('تعداد درخواست در ۲۴ ساعت'),
         ];
     }
 
@@ -62,7 +132,7 @@ class BotKid extends Resource
     }
 
     /**
-     * Get the filters available for the resource.
+     * Get the filters available for the request.
      *
      * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
      * @return array
@@ -73,7 +143,7 @@ class BotKid extends Resource
     }
 
     /**
-     * Get the lenses available for the resource.
+     * Get the lenses available for the request.
      *
      * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
      * @return array
@@ -84,7 +154,7 @@ class BotKid extends Resource
     }
 
     /**
-     * Get the actions available for the resource.
+     * Get the actions available for the request.
      *
      * @param  \Laravel\Nova\Http\Requests\NovaRequest  $request
      * @return array

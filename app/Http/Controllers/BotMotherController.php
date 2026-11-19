@@ -6,56 +6,210 @@ use App\Helpers\AdminHelper;
 use App\Helpers\BotHelper;
 use App\Helpers\BotMotherStateHelper;
 use App\Helpers\LogHelper;
+use App\Modules\BotRegistration\Contracts\BotRegistrationServiceInterface;
+use App\Helpers\MultiPlatformChannelWizardHelper;
 use App\Helpers\TokenHelper;
 use App\Helpers\WebhookEndpointHelper;
 use App\Http\Requests\BotRequest;
 use App\Http\Requests\StoreBotRequest;
 use App\Http\Requests\UpdateBotRequest;
+use App\Models\AdminChannelMediaQueueConfig;
+use App\Models\AdminDailyChannelConfig;
 use App\Models\Bot;
+use App\Models\ChannelMotivationalSchedule;
+use App\Models\ChannelPosterDestination;
+use App\Models\MediaQueue;
+use App\Models\MediaQueueItem;
+use App\Models\WeeklyReadInvitation;
+use App\Models\BotLog;
+use App\Models\ContentSubmissionBotConfig;
+use App\Models\LibraryBotConfig;
 use App\Models\BotUsers;
+use App\Models\PresenterBot;
+use App\Models\RatingBot;
+use App\Models\PsychologyTestBot;
+use App\Models\PsychologyTestCategory;
+use App\Models\PsychologyTestQuestion;
+use App\Models\PsychologyTestBotAdmin;
+use App\Services\BotMessageBroadcastService;
+use App\Services\ContentBotMotherService;
+use App\Services\RubikaBotClient;
+use App\Services\SoroushBotClient;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Telegram;
 use Gap\SDP\Api as GapBot;
 
 
 class BotMotherController extends Controller
 {
+    public function __construct(
+        private ContentBotMotherService $contentBotMotherService,
+        private BotRegistrationServiceInterface $registrationService
+    ) {}
+
     /**
      * Handle bot mother webhook with interactive bot creation
      * @throws Exception
      */
     public function botMotherWebhook(BotRequest $request)
     {
-        if ($request->has('origin') && $request->has('bot_mother_id')) {
-            $type = $request->input('origin');
-            $botMotherId = $request->input('bot_mother_id');
-            if ($type == 'bale') {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE"), 'bale');
-            } else {
-                $bot = new Telegram($request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM"));
-            }
+        $type = $request->input('origin')
+            ?? ($request->header('User-Agent') && str_contains($request->header('User-Agent'), 'Telegram') ? 'telegram' : 'bale');
+        $botMotherId = (int) ($request->input('bot_mother_id') ?? 1);
 
-            // چک کردن ادمین بودن کاربر
-            $chatId = $bot->ChatID();
-            if (!AdminHelper::isAdmin($chatId)) {
-                $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
-                BotHelper::sendMessage($bot, $message);
-                return;
-            }
+        Log::info('🤖 [BotMother] Webhook received', [
+            'has_origin' => $request->has('origin'),
+            'has_bot_mother_id' => $request->has('bot_mother_id'),
+            'origin' => $type,
+            'bot_mother_id' => $botMotherId,
+            'has_token' => $request->has('token'),
+        ]);
 
-            // Log the request
-            try {
-                LogHelper::log($request, $type, $bot);
-            } catch (Exception $e) {
-                Log::info($e->getMessage());
+        // Phase 4: soroush/rubika mother bots use the native clients (no vendor SDK).
+        if (in_array($type, ['soroush', 'rubika'], true)) {
+            return $this->botMotherWebhookNative($request, $type);
+        }
+
+        if ($type == 'bale') {
+            $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_BALE");
+            Log::info('🤖 [BotMother] Creating Bale bot instance', [
+                'has_custom_token' => $request->has('token'),
+                'using_env_token' => !$request->has('token'),
+            ]);
+            $bot = new Telegram($token, 'bale');
+        } else {
+            $token = $request->has('token') ? $request->input('token') : env("BOT_MOTHER_TOKEN_TELEGRAM");
+            $bot = new Telegram($token);
+        }
+
+        $update = $request->json()->all() ?: $request->all();
+        // Ensure the SDK instance (which normally reads php://input in its
+        // constructor) holds this update, so Text()/ChatID() resolve correctly
+        // even when this method is invoked in-process (e.g. delegation from
+        // the v2 workflow webhook) or in feature tests.
+        $bot->setData($update);
+
+        if (isset($update['callback_query'])) {
+            $chatId = $update['callback_query']['message']['chat']['id']
+                ?? $update['callback_query']['from']['id']
+                ?? null;
+        } elseif (isset($update['message'])) {
+            $chatId = $update['message']['chat']['id'] ?? null;
+        } elseif (isset($update['edited_message'])) {
+            $chatId = $update['edited_message']['chat']['id'] ?? null;
+        } else {
+            Log::info('🤖 [BotMother] Ignoring unsupported update type', [
+                'update_keys' => array_keys($update),
+            ]);
+
+            return response('ok', 200);
+        }
+
+        if (!$chatId) {
+            return response('ok', 200);
+        }
+
+        // لاگ کردن درخواست قبل از چک ادمین تا تمام پیام‌ها ثبت شوند
+        try {
+            LogHelper::log($request, $type, $bot);
+        } catch (Exception $e) {
+            Log::info('LogHelper error: ' . $e->getMessage());
+        }
+
+        // چک کردن ادمین بودن کاربر
+        Log::info('🤖 [BotMother] Checking admin status', [
+            'chat_id' => $chatId,
+            'type' => $type,
+            'text' => $bot->Text(),
+        ]);
+
+        if (!AdminHelper::isAdmin($chatId)) {
+            Log::warning('⚠️ [BotMother] User is not admin', [
+                'chat_id' => $chatId,
+                'text' => $bot->Text(),
+            ]);
+            $message = "❌ شما دسترسی به این ربات ندارید.\nاین ربات فقط برای ادمین‌ها قابل استفاده است.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        Log::info('✅ [BotMother] User is admin, processing request', [
+            'chat_id' => $chatId,
+        ]);
+
+            // Handle callback query (for inline buttons)
+            if (isset($update['callback_query'])) {
+                $callbackQuery = $update['callback_query'];
+                $callbackData = $callbackQuery['data'] ?? '';
+                $callbackChatId = $callbackQuery['message']['chat']['id'] ?? $chatId;
+                $currentState = BotMotherStateHelper::getCurrentState($callbackChatId);
+                $stateData = BotMotherStateHelper::getData($callbackChatId);
+
+                // Handle language selection from callback
+                if ($currentState == BotMotherStateHelper::STATE_WAITING_LANGUAGE && str_starts_with($callbackData, 'lang_')) {
+                    $selectedLanguage = str_replace('lang_', '', $callbackData);
+
+                    // Answer callback query first
+                    $bot->answerCallbackQuery([
+                        'callback_query_id' => $callbackQuery['id'],
+                        'text' => 'زبان انتخاب شد',
+                    ]);
+
+                    // Handle language selection - use callbackChatId for state management
+                    // But we need to send message to the same chat
+                    $this->handleLanguageSelectionFromCallback($bot, $selectedLanguage, $stateData, $type, $botMotherId, $callbackChatId);
+                    return;
+                }
+
+                // Handle broadcast language selection from callback
+                if ($currentState == BotMotherStateHelper::STATE_WAITING_BROADCAST_LANGUAGE && str_starts_with($callbackData, 'broadcast_lang_')) {
+                    $selectedLanguage = str_replace('broadcast_lang_', '', $callbackData);
+
+                    // Answer callback query first
+                    $bot->answerCallbackQuery([
+                        'callback_query_id' => $callbackQuery['id'],
+                        'text' => 'زبان انتخاب شد',
+                    ]);
+
+                    // Handle broadcast language selection
+                    $this->handleBroadcastLanguageSelection($bot, $selectedLanguage, $stateData, $type, $botMotherId);
+                    return;
+                }
+
+                // Handle Quran bots language selection from callback
+                if ($currentState == BotMotherStateHelper::STATE_WAITING_QURAN_BOTS_LANGUAGE && str_starts_with($callbackData, 'quran_bots_lang_')) {
+                    $selectedLanguage = str_replace('quran_bots_lang_', '', $callbackData);
+
+                    // Answer callback query first
+                    $bot->answerCallbackQuery([
+                        'callback_query_id' => $callbackQuery['id'],
+                        'text' => 'زبان انتخاب شد',
+                    ]);
+
+                    // Handle Quran bots language selection
+                    $this->handleQuranBotsLanguageSelection($bot, $selectedLanguage, $stateData, $type, $botMotherId);
+                    return;
+                }
+
+                if (str_starts_with($callbackData, 'bm:cnt:')) {
+                    $bot->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
+                    if ($this->contentBotMotherService->handleCallback($bot, $callbackData, (string) $callbackChatId, $type)) {
+                        return;
+                    }
+                }
             }
 
             $text = $bot->Text();
             $currentState = BotMotherStateHelper::getCurrentState($chatId);
             $stateData = BotMotherStateHelper::getData($chatId);
+
+            if ($this->contentBotMotherService->handleMediaInState($bot, $update, (string) $chatId)) {
+                return;
+            }
 
             // Handle /start or "ساختن" command
             if ($text == '/start' || $text == 'ساختن' || $text == '/new' || strtolower($text) == 'new') {
@@ -64,6 +218,99 @@ class BotMotherController extends Controller
             // Handle duplicate bots list command
             else if ($text == '/duplicates' || $text == '/تکراری' || $text == 'تکراری' || strtolower($text) == 'duplicates') {
                 $this->handleDuplicateBots($bot, $type);
+            }
+            // Handle statistics command
+            else if ($text == '/statistics' || $text == '/استاتستیکس' || $text == 'استاتستیکس' || strtolower($text) == 'statistics') {
+                $this->handleStatistics($bot, $type, $botMotherId);
+            }
+            // Handle broadcast command
+            else if ($text == '/broadcast' || $text == '/ارسال_همگانی' || $text == 'ارسال همگانی' || strtolower($text) == 'broadcast') {
+                $this->handleBroadcastStart($bot, $type, $botMotherId);
+            }
+            // Handle help command
+            else if ($text == '/help' || $text == '/راهنما' || $text == 'راهنما' || $text == 'help' || strtolower($text) == 'help') {
+                $this->handleHelp($bot, $type);
+            }
+            // Handle clear cache command
+            else if ($text == '/clear_cache' || $text == '/پاک_کش' || $text == 'پاک کش' || strtolower($text) == 'clear_cache' || strtolower($text) == 'clear cache') {
+                $this->handleClearCache($bot, $type, $botMotherId);
+            }
+            // Handle logs command
+            else if ($text == '/logs' || $text == '/لاگ' || $text == 'لاگ' || strtolower($text) == 'logs') {
+                $this->handleLogs($bot, $type);
+            }
+            // Handle pro_confirm command
+            else if (str_starts_with($text, '/pro_confirm')) {
+                $this->handleProConfirm($bot, $text, $type);
+            }
+            // Handle owner_pro_confirm command (Bot Owner Pro)
+            else if (str_starts_with($text, '/owner_pro_confirm')) {
+                $this->handleOwnerProConfirm($bot, $text, $type);
+            }
+            else if (str_starts_with($text, '/adminbot_confirm')) {
+                $this->handleAdminbotConfirm($bot, $text, $type);
+            }
+            else if (str_starts_with($text, '/adminbot_reject')) {
+                $this->handleAdminbotReject($bot, $text, $type);
+            }
+            else if (str_starts_with($text, '/library_plan_confirm')) {
+                $this->handleLibraryPlanConfirm($bot, $text, $type);
+            }
+            else if (str_starts_with($text, '/library_plan_reject')) {
+                $this->handleLibraryPlanReject($bot, $text, $type);
+            }
+
+            else if ($text == '/content' || $text == '/محتوا' || strtolower($text) == 'content') {
+                $this->contentBotMotherService->handleContentCommand($bot, (string) $chatId, $type);
+            }
+            // تنظیمات ربات ادمین کانال روزانه
+            else if ($text == '/daily_channel_settings' || $text == '/تنظیمات_کانال_روزانه' || strtolower($text) == 'daily_channel_settings') {
+                $this->handleDailyChannelSettings($bot, $type, $botMotherId);
+            }
+            // F5: دعوت هفتگی به مطالعه (شروع/لیست/فعال‌سازی)
+            else if (stripos($text, '/weeklyinvite') === 0) {
+                $this->handleWeeklyInviteStart($bot, substr($text, 13), $type, $botMotherId);
+            }
+            // F6: متن انگیزشی LLM کانال (شروع/لیست/فعال‌سازی)
+            else if (stripos($text, '/motivation') === 0) {
+                $this->handleMotivationStart($bot, substr($text, 11), $type, $botMotherId);
+            }
+            // Handle Quran bots introduction command
+            else if ($text == '/quran_bots' || $text == '/ربات_قرآن' || $text == 'ربات قرآن' || strtolower($text) == 'quran_bots' || strtolower($text) == 'quran bots') {
+                $this->handleQuranBotsIntroduction($bot, $type, $botMotherId);
+            }
+            // Handle Quran bots language selection
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_QURAN_BOTS_LANGUAGE) {
+                $this->handleQuranBotsLanguageSelection($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle Quran bots source selection
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_QURAN_BOTS_SOURCE) {
+                $this->handleQuranBotsSourceSelection($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle broadcast language selection
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_BROADCAST_LANGUAGE) {
+                $this->handleBroadcastLanguageSelection($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle broadcast message input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_BROADCAST_MESSAGE) {
+                $this->handleBroadcastMessageInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // F5: ویزارد دعوت هفتگی مطالعه
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION,
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY,
+                BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID,
+            ])) {
+                $this->handleWeeklyInviteWizard($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // F6: ویزارد اسکدیول متن انگیزشی LLM
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION,
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY,
+                BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY,
+                BotMotherStateHelper::STATE_MOTIVATION_PROMPT,
+            ])) {
+                $this->handleMotivationWizard($bot, $text, $stateData, $type, $botMotherId);
             }
             // Handle endpoint selection
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
@@ -81,6 +328,71 @@ class BotMotherController extends Controller
             else if ($currentState == BotMotherStateHelper::STATE_WAITING_TOKEN) {
                 $this->handleTokenInput($bot, $text, $stateData, $type, $botMotherId);
             }
+            // Handle presenter bot content input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT) {
+                $this->handlePresenterContentInput($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // Handle rating bot content input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_RATING_CONTENT) {
+                $this->handleRatingContentInput($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // Handle psychology test questions input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_PSYCHOLOGY_QUESTIONS) {
+                $this->handlePsychologyQuestionsInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            // Handle category descriptions input
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_CATEGORY_DESCRIPTIONS) {
+                $this->handleCategoryDescriptionsInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_LIBRARY_READER_TOKEN) {
+                $this->handleLibraryReaderTokenInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            else if ($currentState == BotMotherStateHelper::STATE_WAITING_LIBRARY_MAIN_BOT_ID) {
+                $this->handleLibraryMainBotIdInput($bot, $text, $stateData, $type, $botMotherId);
+            }
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_CONTENT_MENU,
+                BotMotherStateHelper::STATE_CONTENT_ADD_CATEGORY,
+                BotMotherStateHelper::STATE_CONTENT_ADD_CATEGORY_BROADCAST,
+                BotMotherStateHelper::STATE_CONTENT_BROADCAST_MESSAGE,
+                BotMotherStateHelper::STATE_CONTENT_BROADCAST_FILTER,
+            ])) {
+                if ($this->contentBotMotherService->handleTextInState($bot, $text, $stateData, (string) $chatId, $type)) {
+                    return;
+                }
+            }
+            // Content submission bot wizard
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS,
+            ])) {
+                $this->handleContentBotWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // Admin daily channel wizard (verse/hadith/nahj/sharabe_beheshti)
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID,
+            ])) {
+                $this->handleDailyChannelWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
+            // ادمین کانال با صف رسانه پویا
+            else if (in_array($currentState, [
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM,
+                BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA,
+            ])) {
+                $this->handleMediaQueueWizard($bot, $text, $stateData, $type, $botMotherId, $update ?? []);
+            }
             // Legacy support - if language is provided in request
             else if ($request->has('language')) {
                 $message = trans('bot.please wait');
@@ -91,13 +403,347 @@ class BotMotherController extends Controller
             // Unknown command
             else {
                 $message = "❓ دستور نامعتبر است.\n\n";
-                $message .= "برای شروع، دستور /start یا 'ساختن' را ارسال کنید.\n";
-                $message .= "برای مشاهده ربات‌های تکراری، دستور /duplicates یا 'تکراری' را ارسال کنید.";
+                $message .= "برای شروع مجدد ربات، /start را ارسال کنید.\n\n";
+                $message .= "برای مشاهده لیست دستورات، /help را ارسال کنید.";
+                $message .= "برای مشاهده آماردهای ربات، /statistics را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های تکراری، /duplicates را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های جدید، /new را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های فعال، /active را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های غیر فعال، /inactive را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های حذف شده، /deleted را ارسال کنید.";
+                $message .= "برای مشاهده لیست ربات‌های غیر فعال، /inactive را ارسال کنید.";
                 BotHelper::sendMessage($bot, $message);
             }
-        }
     }
 
+    /**
+     * Phase 4 — mother-bot webhook for Soroush Plus / Rubika.
+     *
+     * Uses the native clients (SoroushBotClient / RubikaBotClient) instead of
+     * the vendor Telegram SDK: the mother bot token comes from the reserved
+     * env vars SOROUSH_BOT_TOKEN / RUBIKA_BOT_TOKEN (the platform pushes its
+     * own token in the webhook URL). Only plain-text updates are supported;
+     * everything else is acknowledged silently (200).
+     *
+     * @throws Exception
+     */
+    private function botMotherWebhookNative(BotRequest $request, string $type)
+    {
+        $client = $this->nativeMotherClient($type);
+        if (!$client) {
+            return response()->json(['ok' => false, 'error' => 'mother bot token not configured'], 200);
+        }
+
+        $update = $request->json()->all() ?: $request->all();
+        $client->setData(is_array($update) ? $update : []);
+
+        $chatId = $this->extractNativeChatId($update ?? [], $type);
+        if ($chatId === null) {
+            // Update types we do not handle (e.g. rubika StartedBot) —
+            // acknowledge only.
+            return response()->json(['ok' => true]);
+        }
+
+        // لاگ کردن update (به‌همان‌سبک مسير telegram/bale) — با try/catch تا
+        // مشکل در لاگ، پاسخ webhook را خراب نکند.
+        try {
+            LogHelper::log($request, $type, $client);
+        } catch (Exception $e) {
+            Log::warning('BotMother native log failed', [
+                'type' => $type,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+            ]);
+        }
+
+        try {
+            $this->handleNativeMotherFlow($client, $type, $chatId, $request->input('bot_mother_id'));
+        } catch (Exception $e) {
+            Log::error('BotMother native webhook error', [
+                'type' => $type,
+                'chat_id' => $chatId,
+                'error' => TokenHelper::redactTokens($e->getMessage()),
+            ]);
+            BotHelper::sendMessage($client, trans('bot-owner.bot_creation_failed'));
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Build the native mother client from the reserved env token.
+     *
+     * @return SoroushBotClient|RubikaBotClient|null
+     */
+    private function nativeMotherClient(string $type)
+    {
+        $token = $type === 'soroush' ? env('SOROUSH_BOT_TOKEN') : env('RUBIKA_BOT_TOKEN');
+
+        if (!$token) {
+            Log::error('BotMother native mother token missing', [
+                'env' => $type === 'soroush' ? 'SOROUSH_BOT_TOKEN' : 'RUBIKA_BOT_TOKEN',
+            ]);
+
+            return null;
+        }
+
+        return $type === 'soroush' ? new SoroushBotClient($token) : new RubikaBotClient($token);
+    }
+
+    /**
+     * Extract the sender chat id from a soroush/rubika webhook payload.
+     * Returns null for update types that are not text messages.
+     */
+    private function extractNativeChatId(array $update, string $type): mixed
+    {
+        if ($type === 'soroush') {
+            $message = $update['message'] ?? $update['edited_message'] ?? null;
+            if ($message) {
+                return $message['chat']['id'] ?? null;
+            }
+
+            if (isset($update['callback_query'])) {
+                return $update['callback_query']['message']['chat']['id']
+                    ?? $update['callback_query']['from']['id']
+                    ?? null;
+            }
+
+            return null;
+        }
+
+        // rubika: {"update":{"type":"NewMessage","chat_id":...,"new_message":{...}}}
+        $u = $update['update'] ?? [];
+        if (($u['type'] ?? null) !== 'NewMessage') {
+            return null;
+        }
+
+        return $u['chat_id'] ?? $u['new_message']['chat_id'] ?? null;
+    }
+
+    /**
+     * Phase 4 native mother flow: /start → endpoint → language (if needed)
+     * → child token → BotRegistrationService. Admin-gated, text-only,
+     * state keys are origin-scoped ('soroush:123') so they never collide
+     * with the legacy telegram/bale state keys.
+     */
+    private function handleNativeMotherFlow(object $client, string $type, mixed $chatId, mixed $botMotherIdRaw): void
+    {
+        $stateKey = $type . ':' . $chatId;
+        $text = trim((string) $client->Text());
+
+        if (!AdminHelper::isAdmin($chatId)) {
+            BotHelper::sendMessage($client, '⛔ شما دسترسی به این ربات را ندارید.');
+            BotMotherStateHelper::clearState($stateKey);
+            return;
+        }
+
+        $botMotherId = (int) ($botMotherIdRaw ?? 1);
+
+        // Stateful steps
+        $currentState = BotMotherStateHelper::getCurrentState($stateKey);
+        $stateData = BotMotherStateHelper::getData($stateKey);
+        $stateData['bot_mother_id'] = $botMotherId;
+        $stateData['type'] = $type;
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION) {
+            $this->handleNativeMotherEndpointSelection($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_LANGUAGE) {
+            $this->handleNativeMotherLanguageSelection($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_TOKEN) {
+            $this->handleNativeMotherTokenInput($client, $text, $stateData, $type, $stateKey);
+            return;
+        }
+
+        // Stateless commands
+        if ($text === '/start' || $text === '/new' || $text === 'new' || $text === 'ساختن') {
+            $this->nativeMotherShowStartMenu($client, $type, $stateKey, $botMotherId);
+            return;
+        }
+
+        if ($text === '/help') {
+            BotHelper::sendMessage($client, $this->nativeMotherHelpMessage($type));
+            return;
+        }
+
+        // Unknown plain text → menu
+        $this->nativeMotherShowStartMenu($client, $type, $stateKey, $botMotherId);
+    }
+
+    /**
+     * /start (or unknown text): clear state, show endpoint list, wait for a number.
+     */
+    private function nativeMotherShowStartMenu(object $client, string $type, string $stateKey, int $botMotherId): void
+    {
+        BotMotherStateHelper::clearState($stateKey);
+
+        $message = "🤖 ربات‌ساز " . $this->platformLabel($type) . "\n\n";
+        $message .= WebhookEndpointHelper::getEndpointsListMessage();
+        $message .= "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "💡 برای مشاهده لیست کامل دستورات: /help";
+        BotHelper::sendMessage($client, $message);
+
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Short command list for /help.
+     */
+    private function nativeMotherHelpMessage(string $type): string
+    {
+        $message = "📖 راهنمای ربات‌ساز " . $this->platformLabel($type) . "\n\n";
+        $message .= "/start — شروع ساخت ربات جدید\n";
+        $message .= "/help — همین پیام\n";
+
+        return $message;
+    }
+
+    /**
+     * Platform display label.
+     */
+    private function platformLabel(string $type): string
+    {
+        return match ($type) {
+            'soroush' => 'سروش پلاس',
+            'rubika' => 'روبیکا',
+            default => $type,
+        };
+    }
+
+    /**
+     * Number → endpoint; then language (if the endpoint needs one) or straight
+     * to the child-token step.
+     */
+    private function handleNativeMotherEndpointSelection(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $endpoints = WebhookEndpointHelper::getAvailableEndpoints();
+
+        if (!is_numeric($text)) {
+            BotHelper::sendMessage($client, '❌ لطفاً شماره endpoint را ارسال کنید (مثلا: 1)');
+            return;
+        }
+
+        $selectedIndex = (int) $text - 1;
+        if ($selectedIndex < 0 || $selectedIndex >= count($endpoints)) {
+            BotHelper::sendMessage($client, '❌ شماره نامعتبر است. لطفاً شماره صحیح را ارسال کنید.');
+            return;
+        }
+
+        $endpoint = $endpoints[$selectedIndex];
+
+        $message = "✅ Endpoint انتخاب شد:\n\n";
+        $message .= "📝 نام: {$endpoint['name']}\n";
+        $message .= "🔗 Route: {$endpoint['route']}\n";
+        $message .= "📄 توضیحات: {$endpoint['description']}\n\n";
+
+        if ($endpoint['requires_language']) {
+            $message .= "زبان ربات را انتخاب کنید:\n";
+            $languages = $this->getSupportedLanguages();
+            $i = 1;
+            foreach ($languages as $code => $name) {
+                $message .= "{$i}. {$name} ({$code})\n";
+                $i++;
+            }
+            $message .= "\nشماره یا کد زبان را ارسال کنید:";
+            BotHelper::sendMessage($client, $message);
+            BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_LANGUAGE, array_merge($stateData, [
+                'endpoint' => $endpoint,
+            ]));
+            return;
+        }
+
+        // No language needed → straight to token.
+        $message .= "لطفاً توکن ربات " . $this->platformLabel($type) . " خود را ارسال کنید:";
+        BotHelper::sendMessage($client, $message);
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+            'endpoint' => $endpoint,
+            'language' => 'fa',
+        ]));
+    }
+
+    /**
+     * Language selection (number or code, case-insensitive) → token step.
+     */
+    private function handleNativeMotherLanguageSelection(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $languages = $this->getSupportedLanguages();
+        $selectedLanguage = null;
+
+        if (isset($languages[$text])) {
+            $selectedLanguage = $text;
+        } else {
+            foreach ($languages as $code => $name) {
+                if (strcasecmp($code, $text) === 0) {
+                    $selectedLanguage = $code;
+                    break;
+                }
+            }
+            if ($selectedLanguage === null && is_numeric($text) && (int) $text >= 1 && (int) $text <= count($languages)) {
+                $selectedLanguage = array_keys($languages)[(int) $text - 1];
+            }
+        }
+
+        if ($selectedLanguage === null) {
+            BotHelper::sendMessage($client, '❌ زبان نامعتبر است. لطفاً شماره یا کد زبان را ارسال کنید.');
+            return;
+        }
+
+        $endpoint = $stateData['endpoint'] ?? [];
+        $languageName = $languages[$selectedLanguage] ?? $selectedLanguage;
+        $message = "✅ زبان انتخاب شد: {$languageName}\n\n";
+        $message .= "لطفاً توکن ربات " . $this->platformLabel($type) . " خود را ارسال کنید:";
+        BotHelper::sendMessage($client, $message);
+        BotMotherStateHelper::setState($stateKey, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
+            'endpoint' => $endpoint,
+            'language' => $selectedLanguage,
+        ]));
+    }
+
+    /**
+     * Child token → registerBot (getMe → DB → setWebhook/updateBotEndpoints).
+     */
+    private function handleNativeMotherTokenInput(object $client, string $text, array $stateData, string $type, string $stateKey): void
+    {
+        $endpoint = $stateData['endpoint'] ?? [];
+        $endpointId = (string) ($endpoint['id'] ?? '');
+        $language = (string) ($stateData['language'] ?? 'fa');
+        $botMotherId = (int) ($stateData['bot_mother_id'] ?? 1);
+        $chatId = $client->ChatID();
+
+        if (!TokenHelper::isToken($text, $type)) {
+            BotHelper::sendMessage($client, trans('bot-owner.invalid_token'));
+            return;
+        }
+
+        $result = $this->registrationService->registerBot(
+            $text,
+            $endpointId,
+            $type,
+            $language,
+            $botMotherId,
+            null,
+            (string) $chatId
+        );
+
+        BotMotherStateHelper::clearState($stateKey);
+
+        if (!($result['success'] ?? false)) {
+            BotHelper::sendMessage($client, '❌ ' . ($result['message'] ?? trans('bot-owner.bot_creation_failed')));
+            return;
+        }
+
+        BotHelper::sendMessage($client, '✅ ' . $result['message']);
+        if ($type === 'rubika') {
+            BotHelper::sendMessage($client, 'ℹ️ endpoint وب‌هوک ربات در روبیکا ثبت شد؛ خوانش/تأیید webhook در روبیکا API ندارد (BLOCKED).');
+        }
+    }
 
     /**
      * Display a listing of the resource.
@@ -116,9 +762,11 @@ class BotMotherController extends Controller
                 $bot = new GapBot($request->input('token'), $request);
             }
 
+            // Get raw update data for forwarded message extraction
+            $update = $request->json()->all() ?? $request->all();
 
             if ($request->has('language')) {
-                $message = $this->getChatIdByType($bot);
+                $message = $this->getChatIdByType($bot, $update);
                 $message .= $this->getOtherBots();
                 BotHelper::sendMessage($bot, $message);
             }
@@ -133,6 +781,7 @@ class BotMotherController extends Controller
     {
         $type = 'bale';
         $baleMotherBot = $this->getMotherBotByType($type);
+        $baleMotherBot->setData($request->json()->all() ?? $request->all());
 //        dd(json_decode($request->getContent()), $baleMotherBot);
         $chat_id = $baleMotherBot->ChatID();
         $text = $baleMotherBot->Text();
@@ -155,7 +804,7 @@ class BotMotherController extends Controller
             } catch (Exception $e) {
                 BotHelper::sendMessageToSuperAdmin('وب هوک ارسالی به سرور برای روبات بله قادر به تشخیص توکن و یوزرنیم روبات نیست', $type);
                 Log::error($e->getMessage());
-//                throw $e;
+                return response('ok', 200);
             }
             // TODO: count check
             if (config('app.env') == 'local') {
@@ -327,14 +976,169 @@ class BotMotherController extends Controller
 
     /**
      * @param mixed $bot
+     * @param array|null $update Raw update data from request
      * @return string
      */
-    public function getChatIdByType($bot): string
+    public function getChatIdByType($bot, ?array $update = null): string
     {
         $message = trans('bot.your chat id') . "
 : " . $bot->ChatID();
 
+        // Extract forwarded message information if available
+        if ($update && isset($update['message'])) {
+            $forwardInfo = $this->extractForwardedMessageInfo($update['message']);
+            if ($forwardInfo) {
+                $message .= $forwardInfo;
+            }
+        }
+
         return $message;
+    }
+
+    /**
+     * Extract forwarded message information from message data
+     * @param array $messageData
+     * @return string|null
+     */
+    private function extractForwardedMessageInfo(array $messageData): ?string
+    {
+        $info = [];
+
+        // Check if message is forwarded
+        $isForwarded = isset($messageData['forward_from_chat']) || isset($messageData['forward_from']) || isset($messageData['forward_date']);
+
+        if ($isForwarded) {
+            $info[] = "
+" . trans('bot.forwarded message info');
+
+            $hasForwardFromChat = isset($messageData['forward_from_chat']);
+
+            // Forwarded from chat (channel or group)
+            if ($hasForwardFromChat) {
+                $forwardChat = $messageData['forward_from_chat'];
+                $chatId = $forwardChat['id'] ?? null;
+                $chatType = $forwardChat['type'] ?? 'unknown';
+                $chatTitle = $forwardChat['title'] ?? $forwardChat['username'] ?? '';
+
+                if ($chatId) {
+                    $chatTypeLabel = $this->getChatTypeLabel($chatType);
+                    $info[] = trans('bot.forwarded from chat', [
+                        'type' => $chatTypeLabel,
+                        'id' => $chatId,
+                        'title' => $chatTitle ? " ({$chatTitle})" : ''
+                    ]);
+                }
+            } else {
+                // اگر forward_from_chat وجود نداشت، احتمالاً از گروه فوروارد شده
+                // و ربات عضو گروه نیست یا اطلاعات در دسترس نیست
+                $info[] = trans('bot.forwarded from group unknown');
+            }
+
+            // Forwarded from user (original sender or forwarder)
+            if (isset($messageData['forward_from'])) {
+                $forwardFrom = $messageData['forward_from'];
+                $userId = $forwardFrom['id'] ?? null;
+                $firstName = $forwardFrom['first_name'] ?? '';
+                $lastName = $forwardFrom['last_name'] ?? '';
+                $username = $forwardFrom['username'] ?? '';
+
+                if ($userId) {
+                    $name = trim($firstName . ' ' . $lastName);
+                    $nameDisplay = $name ? " ({$name})" : '';
+                    $usernameDisplay = $username ? " @{$username}" : '';
+
+                    // اگر forward_from_chat وجود نداشت، این کاربر فوروارد کننده است
+                    if (!$hasForwardFromChat) {
+                        $info[] = trans('bot.forwarded by user', [
+                            'id' => $userId,
+                            'name' => $nameDisplay,
+                            'username' => $usernameDisplay
+                        ]);
+                    } else {
+                        $info[] = trans('bot.forwarded from user', [
+                            'id' => $userId,
+                            'name' => $nameDisplay,
+                            'username' => $usernameDisplay
+                        ]);
+                    }
+                }
+            }
+
+            // Forward signature (for channels)
+            if (isset($messageData['forward_signature'])) {
+                $info[] = trans('bot.forward signature') . ": " . $messageData['forward_signature'];
+            }
+
+            // Forward date
+            if (isset($messageData['forward_date'])) {
+                $forwardDate = date('Y-m-d H:i:s', $messageData['forward_date']);
+                $info[] = trans('bot.forward date') . ": " . $forwardDate;
+            }
+
+            // اگر forward_from_chat وجود نداشت، راهنمایی اضافه کنیم
+            if (!$hasForwardFromChat) {
+                $info[] = "
+" . trans('bot.forwarded group info note');
+            }
+        }
+
+        // Current message sender info
+        if (isset($messageData['from'])) {
+            $from = $messageData['from'];
+            $senderId = $from['id'] ?? null;
+            $senderFirstName = $from['first_name'] ?? '';
+            $senderLastName = $from['last_name'] ?? '';
+            $senderUsername = $from['username'] ?? '';
+
+            if ($senderId) {
+                $senderName = trim($senderFirstName . ' ' . $senderLastName);
+                $senderNameDisplay = $senderName ? " ({$senderName})" : '';
+                $senderUsernameDisplay = $senderUsername ? " @{$senderUsername}" : '';
+                $info[] = "
+" . trans('bot.message sender', [
+                    'id' => $senderId,
+                    'name' => $senderNameDisplay,
+                    'username' => $senderUsernameDisplay
+                ]);
+            }
+        }
+
+        // Current chat info (if different from sender)
+        if (isset($messageData['chat'])) {
+            $chat = $messageData['chat'];
+            $chatId = $chat['id'] ?? null;
+            $chatType = $chat['type'] ?? 'unknown';
+            $chatTitle = $chat['title'] ?? $chat['username'] ?? '';
+
+            if ($chatId && $chatType !== 'private') {
+                $chatTypeLabel = $this->getChatTypeLabel($chatType);
+                $info[] = trans('bot.current chat', [
+                    'type' => $chatTypeLabel,
+                    'id' => $chatId,
+                    'title' => $chatTitle ? " ({$chatTitle})" : ''
+                ]);
+            }
+        }
+
+        return !empty($info) ? implode("
+", $info) : null;
+    }
+
+    /**
+     * Get localized chat type label
+     * @param string $chatType
+     * @return string
+     */
+    private function getChatTypeLabel(string $chatType): string
+    {
+        $labels = [
+            'channel' => trans('bot.chat type channel'),
+            'group' => trans('bot.chat type group'),
+            'supergroup' => trans('bot.chat type supergroup'),
+            'private' => trans('bot.chat type private'),
+        ];
+
+        return $labels[$chatType] ?? $chatType;
     }
 
     private function getOtherBots(): string
@@ -356,7 +1160,7 @@ class BotMotherController extends Controller
 
     /**
      * Handle duplicate bots list command
-     * 
+     *
      * @param Telegram $bot
      * @param string $type
      * @return void
@@ -432,11 +1236,14 @@ class BotMotherController extends Controller
                 'type' => $type,
             ]);
         }
+
+        // نمایش دستور help
+        $this->sendHelpMessage($bot, $type);
     }
 
     /**
      * Handle start command - show endpoints list
-     * 
+     *
      * @param Telegram $bot
      * @param string $type
      * @param int $botMotherId
@@ -445,19 +1252,18 @@ class BotMotherController extends Controller
     private function handleStart(Telegram $bot, string $type, int $botMotherId): void
     {
         $chatId = $bot->ChatID();
-        
+
         // Clear any previous state
         BotMotherStateHelper::clearState($chatId);
-        
+
         $message = "🤖 ربات ساز\n\n";
         $message .= "با این ربات می‌توانید ربات‌های جدید بسازید و به endpoint های مختلف متصل کنید.\n\n";
-        $message .= "📋 دستورات:\n";
-        $message .= "/start یا 'ساختن' - شروع ساخت ربات جدید\n";
-        $message .= "/duplicates یا 'تکراری' - مشاهده ربات‌های تکراری\n\n";
         $message .= WebhookEndpointHelper::getEndpointsListMessage();
-        
+        $message .= "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "💡 برای مشاهده لیست کامل دستورات: /help";
+
         BotHelper::sendMessage($bot, $message);
-        
+
         // Set state to waiting for endpoint selection
         BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_ENDPOINT_SELECTION, [
             'bot_mother_id' => $botMotherId,
@@ -467,7 +1273,7 @@ class BotMotherController extends Controller
 
     /**
      * Handle endpoint selection
-     * 
+     *
      * @param Telegram $bot
      * @param string $text
      * @param string $type
@@ -478,35 +1284,45 @@ class BotMotherController extends Controller
     {
         $chatId = $bot->ChatID();
         $endpoints = WebhookEndpointHelper::getAvailableEndpoints();
-        
+
         // Check if input is a number
         if (!is_numeric($text)) {
             $message = "❌ لطفاً شماره endpoint را ارسال کنید (مثلاً: 1)";
             BotHelper::sendMessage($bot, $message);
             return;
         }
-        
+
         $selectedIndex = (int)$text - 1;
-        
+
         if ($selectedIndex < 0 || $selectedIndex >= count($endpoints)) {
             $message = "❌ شماره نامعتبر است. لطفاً شماره صحیح را ارسال کنید.";
             BotHelper::sendMessage($bot, $message);
             return;
         }
-        
+
         $selectedEndpoint = $endpoints[$selectedIndex];
-        
+
         $message = "✅ Endpoint انتخاب شد:\n\n";
         $message .= "📝 نام: {$selectedEndpoint['name']}\n";
         $message .= "🔗 Route: {$selectedEndpoint['route']}\n";
         $message .= "📄 توضیحات: {$selectedEndpoint['description']}\n\n";
+
+        if ($selectedEndpoint['id'] === 'book-library') {
+            $message .= "ℹ️ این ربات در دو مرحله ساخته می‌شود:\n";
+            $message .= "۱) ربات اصلی کتابخانه (همین endpoint)\n";
+            $message .= "۲) ربات کتابخوان — بعد از ثبت، توکن ربات دوم را می‌گیریم (یا بعداً از endpoint «Book Library Reader»)\n\n";
+        } elseif ($selectedEndpoint['id'] === 'book-library-reader') {
+            $message .= "⚠️ ابتدا باید ربات «Smart Book Library» (book-library) ساخته شده باشد.\n";
+            $message .= "پس از ثبت توکن این ربات، شناسه Bot ID ربات اصلی را از شما می‌پرسیم.\n\n";
+        }
+
         $message .= "نوع ربات را انتخاب کنید:\n";
         $message .= "1. تلگرام (Telegram)\n";
         $message .= "2. بله (Bale)\n\n";
         $message .= "شماره نوع ربات را ارسال کنید:";
-        
+
         BotHelper::sendMessage($bot, $message);
-        
+
         // Set state to waiting for type selection
         BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TYPE, [
             'bot_mother_id' => $botMotherId,
@@ -518,7 +1334,7 @@ class BotMotherController extends Controller
 
     /**
      * Handle type selection (telegram/bale)
-     * 
+     *
      * @param Telegram $bot
      * @param string $text
      * @param array $stateData
@@ -529,7 +1345,7 @@ class BotMotherController extends Controller
     private function handleTypeSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
     {
         $chatId = $bot->ChatID();
-        
+
         $selectedType = null;
         if ($text == '1' || strtolower($text) == 'telegram') {
             $selectedType = 'telegram';
@@ -540,19 +1356,119 @@ class BotMotherController extends Controller
             BotHelper::sendMessage($bot, $message);
             return;
         }
-        
+
         $endpoint = $stateData['endpoint'];
-        
+        $endpointId = $endpoint['id'] ?? $stateData['endpoint_id'] ?? '';
+
+        // Admin daily channel: no token؛ ویرایش/تکمیل قبلی یا تنظیم جدید
+        if ($endpointId === 'admin-daily-channel') {
+            $existingConfigs = AdminDailyChannelConfig::where('admin_chat_id', $chatId)->get();
+            if ($existingConfigs->isNotEmpty()) {
+                $message = "✅ ربات ادمین کانال روزانه.\n\nشما " . $existingConfigs->count() . " تنظیمات دارید:\n";
+                $contentLabels = ['verse' => 'آیه', 'hadith' => 'حدیث', 'nahj' => 'نهج', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
+                foreach ($existingConfigs as $i => $c) {
+                    $label = $contentLabels[$c->content_type] ?? $c->content_type;
+                    $missing = [];
+                    if (empty($c->bale_channel_chat_id)) $missing[] = 'بله';
+                    if (empty($c->telegram_channel_chat_id)) $missing[] = 'تلگرام';
+                    if (empty($c->eitaa_channel_chat_id)) $missing[] = 'ایتا';
+                    $suffix = !empty($missing) ? ' (ناقص: ' . implode(', ', $missing) . ')' : '';
+                    $num = $i + 1;
+                    $message .= "{$num} = {$label}{$suffix}\n";
+                }
+                $message .= "\nبرای تکمیل یا تغییر یکی، شماره نوع محتوا (۱–۶) بفرست.\nبرای تنظیم جدید، ۰ بفرست.";
+                BotHelper::sendMessage($bot, $message);
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW, array_merge($stateData, [
+                    'bot_type' => $selectedType,
+                ]));
+                return;
+            }
+            $message = "✅ ربات ادمین کانال روزانه.\n\n";
+            $message .= "نوع محتوا را انتخاب کن (هر ۲۴ ساعت یکی ارسال می‌شود):\n";
+            $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n5 = ترکیبی رندوم\n6 = ترکیبی ترتیبی (آیه → حدیث → نهج → شراب بهشتی → …)\n\n";
+            $message .= "شماره را بفرست:";
+            BotHelper::sendMessage($bot, $message);
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE, array_merge($stateData, [
+                'bot_type' => $selectedType,
+            ]));
+            return;
+        }
+
+        // ادمین کانال با صف رسانه پویا: انتخاب یا ساخت صف
+        if ($endpointId === 'admin-channel-media-queue') {
+            $queues = MediaQueue::where('admin_chat_id', $chatId)->orderBy('id')->get();
+            $message = "✅ ادمین کانال با صف رسانه پویا.\n\n";
+            if ($queues->isEmpty()) {
+                $message .= "هنوز صفی نداری. نام صف جدید را بفرست (مثلاً «مناسبت‌ها»):";
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME, array_merge($stateData, ['bot_type' => $selectedType]));
+            } else {
+                foreach ($queues as $i => $q) {
+                    $num = $i + 1;
+                    $message .= "{$num} = {$q->name}\n";
+                }
+                $message .= "\n۰ = صف جدید\nشماره صف را بفرست یا ۰ برای ساخت صف جدید:";
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE, array_merge($stateData, ['bot_type' => $selectedType]));
+            }
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
         // Check if endpoint requires language
         if ($endpoint['requires_language']) {
             $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
-            $message .= "زبان را انتخاب کنید:\n";
-            $message .= "1. فارسی (fa)\n";
-            $message .= "2. انگلیسی (en)\n\n";
-            $message .= "شماره زبان را ارسال کنید:";
-            
-            BotHelper::sendMessage($bot, $message);
-            
+
+            // برای ربات هواشناسی فقط فارسی و انگلیسی
+            if ($endpointId === 'weather-bot') {
+                $message .= "🌍 زبان را انتخاب کنید:\n\n";
+                $languages = [
+                    'fa' => '🇮🇷 فارسی',
+                    'en' => '🇬🇧 English',
+                ];
+
+                $buttons = [
+                    [
+                        $bot->buildInlineKeyBoardButton($languages['fa'], callback_data: 'lang_fa'),
+                        $bot->buildInlineKeyBoardButton($languages['en'], callback_data: 'lang_en'),
+                    ]
+                ];
+
+                $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+                BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+            }
+            // Check if endpoint supports multiple languages
+            elseif (isset($endpoint['supports_multiple_languages']) && $endpoint['supports_multiple_languages']) {
+                // Show 15 languages with inline buttons
+                $message .= "🌍 زبان را انتخاب کنید:\n\n";
+                $languages = $this->getSupportedLanguages();
+
+                // Create inline keyboard with language buttons
+                $buttons = [];
+                $row = [];
+                foreach ($languages as $langCode => $langName) {
+                    $row[] = $bot->buildInlineKeyBoardButton($langName, callback_data: 'lang_' . $langCode);
+                    // هر 2 دکمه در یک ردیف
+                    if (count($row) == 2) {
+                        $buttons[] = $row;
+                        $row = [];
+                    }
+                }
+                // اضافه کردن ردیف آخر اگر خالی نبود
+                if (!empty($row)) {
+                    $buttons[] = $row;
+                }
+
+                $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+                BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+            } else {
+                // Show only 2 languages (legacy)
+                $message .= "زبان را انتخاب کنید:\n";
+                $message .= "1. فارسی (fa)\n";
+                $message .= "2. انگلیسی (en)\n\n";
+                $message .= "شماره زبان را ارسال کنید:";
+
+                BotHelper::sendMessage($bot, $message);
+            }
+
             // Set state to waiting for language
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LANGUAGE, array_merge($stateData, [
                 'bot_type' => $selectedType,
@@ -561,9 +1477,9 @@ class BotMotherController extends Controller
             // If doesn't require language, ask for token directly
             $message = "✅ نوع ربات انتخاب شد: " . ($selectedType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
             $message .= "لطفاً توکن ربات را ارسال کنید:";
-            
+
             BotHelper::sendMessage($bot, $message);
-            
+
             // Set state to waiting for token
             BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
                 'bot_type' => $selectedType,
@@ -574,7 +1490,7 @@ class BotMotherController extends Controller
 
     /**
      * Handle language selection
-     * 
+     *
      * @param Telegram $bot
      * @param string $text
      * @param array $stateData
@@ -585,19 +1501,57 @@ class BotMotherController extends Controller
     private function handleLanguageSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
     {
         $chatId = $bot->ChatID();
-        
+        $this->handleLanguageSelectionInternal($bot, $text, $stateData, $type, $botMotherId, $chatId);
+    }
+
+    /**
+     * Handle language selection from callback query
+     *
+     * @param Telegram $bot
+     * @param string $selectedLanguage
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @param int|string $chatId
+     * @return void
+     */
+    private function handleLanguageSelectionFromCallback(Telegram $bot, string $selectedLanguage, array $stateData, string $type, int $botMotherId, $chatId): void
+    {
+        $this->handleLanguageSelectionInternal($bot, $selectedLanguage, $stateData, $type, $botMotherId, $chatId);
+    }
+
+    /**
+     * Internal method to handle language selection
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @param int|string $chatId
+     * @return void
+     */
+    private function handleLanguageSelectionInternal(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, $chatId): void
+    {
         $selectedLanguage = 'fa'; // Default
-        if ($text == '1' || strtolower($text) == 'fa' || strtolower($text) == 'فارسی') {
+        $languages = $this->getSupportedLanguages();
+
+        // Check if text is a language code
+        if (isset($languages[$text])) {
+            $selectedLanguage = $text;
+        } else if ($text == '1' || strtolower($text) == 'fa' || strtolower($text) == 'فارسی') {
             $selectedLanguage = 'fa';
         } else if ($text == '2' || strtolower($text) == 'en' || strtolower($text) == 'انگلیسی') {
             $selectedLanguage = 'en';
         }
-        
-        $message = "✅ زبان انتخاب شد: " . ($selectedLanguage == 'fa' ? 'فارسی' : 'انگلیسی') . "\n\n";
+
+        $languageName = $languages[$selectedLanguage] ?? $selectedLanguage;
+        $message = "✅ زبان انتخاب شد: {$languageName}\n\n";
         $message .= "لطفاً توکن ربات را ارسال کنید:";
-        
-        BotHelper::sendMessage($bot, $message);
-        
+
+        // Send message to the specified chat ID
+        BotHelper::sendMessageByChatId($bot, $chatId, $message);
+
         // Set state to waiting for token
         BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_TOKEN, array_merge($stateData, [
             'language' => $selectedLanguage,
@@ -605,8 +1559,70 @@ class BotMotherController extends Controller
     }
 
     /**
+     * Get list of supported languages with their display names
+     *
+     * @return array
+     */
+    private function getSupportedLanguages(): array
+    {
+        return [
+            'fa' => '🇮🇷 فارسی',
+            'en' => '🇬🇧 English',
+            'ar-IQ' => '🇮🇶 العربية (عراق)',
+            'az' => '🇦🇿 Azərbaycan',
+            'bs' => '🇧🇦 Bosanski',
+            'de-DE' => '🇩🇪 Deutsch',
+            'es' => '🇪🇸 Español',
+            'fr' => '🇫🇷 Français',
+            'he' => '🇮🇱 עברית',
+            'it' => '🇮🇹 Italiano',
+            'id' => '🇮🇩 Bahasa Indonesia',
+            'sw' => '🇰🇪 Kiswahili',
+            'pt-BR' => '🇧🇷 Português (Brasil)',
+            'pt-PT' => '🇵🇹 Português (Portugal)',
+            'ru' => '🇷🇺 Русский',
+            'tr' => '🇹🇷 Türkçe',
+            'ur' => '🇵🇰 اردو',
+            'zh-CN' => '🇨🇳 中文',
+        ];
+    }
+
+    /**
+     * Get display name for a language code
+     *
+     * @param string $languageCode
+     * @return string
+     */
+    private function getLanguageDisplayName(string $languageCode): string
+    {
+        $languages = $this->getSupportedLanguages();
+        return $languages[$languageCode] ?? $languageCode;
+    }
+
+    /**
+     * Normalize language code for statistics
+     * Converts codes like ar-IQ -> ar, de-DE -> de, zh-CN -> zh
+     *
+     * @param string $languageCode
+     * @return string
+     */
+    private function normalizeLanguageCode(string $languageCode): string
+    {
+        if (!$languageCode) {
+            return 'fa'; // default
+        }
+
+        // تبدیل ar-IQ -> ar, de-DE -> de, etc.
+        if (strpos($languageCode, '-') !== false) {
+            return explode('-', $languageCode)[0];
+        }
+
+        return $languageCode;
+    }
+
+    /**
      * Handle token input and create bot
-     * 
+     *
      * @param Telegram $bot
      * @param string $text
      * @param array $stateData
@@ -621,44 +1637,44 @@ class BotMotherController extends Controller
         $endpointId = $stateData['endpoint_id'];
         $botType = $stateData['bot_type'] ?? $type;
         $language = $stateData['language'] ?? 'fa';
-        
+
         // Validate token
         if (!TokenHelper::isToken($text, $botType)) {
             $message = "❌ توکن نامعتبر است. لطفاً توکن صحیح را ارسال کنید.";
             BotHelper::sendMessage($bot, $message);
             return;
         }
-        
+
         $message = "⏳ در حال ساخت ربات و تنظیم webhook...\nلطفاً صبر کنید.";
         BotHelper::sendMessage($bot, $message);
-        
+
         try {
             // Create bot instance with the provided token
             $newBot = new Telegram($text, $botType);
-            
+
             // Get bot info
             $getMe = $newBot->getMe();
-            
+
             if (!$getMe['ok']) {
                 throw new Exception("خطا در دریافت اطلاعات ربات: " . ($getMe['description'] ?? 'Unknown error'));
             }
-            
+
             // Check if bot with this token already exists
             $existingBot = null;
             $isDuplicate = false;
-            
+
             if ($botType == 'bale') {
                 $existingBot = Bot::where('bale_bot_token', $text)->first();
             } else {
                 $existingBot = Bot::where('telegram_bot_token', $text)->first();
             }
-            
+
             if ($existingBot) {
                 // Bot exists, update it instead of creating new
                 $isDuplicate = true;
                 $botItem = $existingBot;
                 $botItem->bot_mother_id = $botMotherId;
-                
+
                 if ($botType == 'bale') {
                     $botItem->bale_owner_chat_id = $chatId;
                     $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
@@ -676,7 +1692,7 @@ class BotMotherController extends Controller
                 // Create new bot
                 $botItem = new Bot();
                 $botItem->bot_mother_id = $botMotherId;
-                
+
                 if ($botType == 'bale') {
                     $botItem->bale_owner_chat_id = $chatId;
                     $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
@@ -691,19 +1707,192 @@ class BotMotherController extends Controller
                     $botItem->telegram_bot_status = 'Active';
                 }
             }
-            
+
+            // تنظیم endpoint_id، language_code و type برای ارتباط با جدول webhook_endpoints
+            $botItem->endpoint_id = $endpointId;
+            $botItem->language_code = $language;
+            $botItem->type = $botType;
+
+            // Validation: بررسی اینکه ربات اطلاعات کافی دارد
+            $validationErrors = [];
+
+            if ($botType == 'telegram') {
+                if (empty($botItem->telegram_bot_token)) {
+                    $validationErrors[] = 'telegram_bot_token نمی‌تواند خالی باشد';
+                }
+                if (empty($botItem->telegram_bot_name)) {
+                    $validationErrors[] = 'telegram_bot_name نمی‌تواند خالی باشد';
+                }
+            } elseif ($botType == 'bale') {
+                if (empty($botItem->bale_bot_token)) {
+                    $validationErrors[] = 'bale_bot_token نمی‌تواند خالی باشد';
+                }
+                if (empty($botItem->bale_bot_name)) {
+                    $validationErrors[] = 'bale_bot_name نمی‌تواند خالی باشد';
+                }
+            }
+
+            if (empty($botItem->bot_mother_id) || $botItem->bot_mother_id <= 0) {
+                $validationErrors[] = 'bot_mother_id باید بزرگتر از 0 باشد';
+            }
+
+            // اگر خطای validation وجود داشت، ربات را ذخیره نکن
+            if (!empty($validationErrors)) {
+                $errorMessage = "❌ خطا در ثبت ربات:\n\n";
+                foreach ($validationErrors as $error) {
+                    $errorMessage .= "• {$error}\n";
+                }
+                $errorMessage .= "\nلطفاً دوباره تلاش کنید.";
+                BotHelper::sendMessage($bot, $errorMessage);
+
+                Log::error('Bot validation failed', [
+                    'chat_id' => $chatId,
+                    'bot_type' => $botType,
+                    'errors' => $validationErrors,
+                ]);
+                return;
+            }
+
             $botItem->save();
-            
+
+            // Check if this is presenter bot - if so, ask for content
+            if ($endpointId == 'webhook-presenter-bot') {
+                // Set state to wait for content
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                    'content_lines' => [], // برای جمع‌آوری خطوط
+                ]));
+
+                $message = "✅ ربات با موفقیت ثبت شد!\n\n";
+                $message .= "📝 حالا لطفاً محتوای ربات را ارسال کنید.\n";
+                $message .= "می‌توانید محتوا را در یک یا چند پیام ارسال کنید.\n";
+                $message .= "پشتیبانی: متن، عکس، ویدیو، وویس، صوت (MP3)، فایل.\n";
+                $message .= "هر خط با Enter (\\n) از خط بعدی جدا می‌شود.\n";
+                $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.\n\n";
+                $message .= "💡 نکته: خطوط خالی و فاصله‌های اضافی به صورت خودکار حذف می‌شوند.";
+
+                BotHelper::sendMessage($bot, $message);
+                return; // Return early - don't set webhook yet
+            }
+
+            // Check if this is rating bot - if so, ask for content
+            if ($endpointId == 'webhook-rating-bot') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                    'content_lines' => [],
+                ]));
+
+                $message = "✅ ربات با موفقیت ثبت شد!\n\n";
+                $message .= "📝 حالا لطفاً عبارت‌های نظر سنجی را ارسال کنید.\n";
+                $message .= "می‌توانید محتوا را در یک یا چند پیام ارسال کنید.\n";
+                $message .= "پشتیبانی: متن، عکس، ویدیو، وویس، صوت (MP3)، فایل.\n";
+                $message .= "هر خط با Enter (\\n) از خط بعدی جدا می‌شود.\n";
+                $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.\n\n";
+                $message .= "💡 نکته: خطوط خالی و فاصله‌های اضافی به صورت خودکار حذف می‌شوند.";
+
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            // Check if this is psychology test bot - if so, create bot record and ask for questions
+            if ($endpointId == 'webhook-psychology-test') {
+                // Create psychology test bot record
+                $psychologyTestBot = PsychologyTestBot::create([
+                    'bot_id' => $botItem->id,
+                    'title' => 'تست‌های روانشناسی',
+                    'description' => null,
+                ]);
+
+                // Add creator as admin
+                PsychologyTestBotAdmin::create([
+                    'psychology_test_bot_id' => $psychologyTestBot->id,
+                    'chat_id' => $chatId,
+                    'origin' => $botType,
+                    'is_creator' => true,
+                ]);
+
+                // Set state to wait for questions
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PSYCHOLOGY_QUESTIONS, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                    'psychology_test_bot_id' => $psychologyTestBot->id,
+                    'question_lines' => [], // برای جمع‌آوری سوالات
+                ]));
+
+                $message = "✅ ربات تست روانشناسی با موفقیت ثبت شد!\n\n";
+                $message .= "📝 حالا لطفاً سوالات را به فرمت زیر ارسال کنید:\n\n";
+                $message .= "فرمت: سوال [دسته, وزن, جهت]\n\n";
+                $message .= "مثال:\n";
+                $message .= "آیا در جمع‌ها راحت هستید؟ [برون‌گرا, 1.0, 1]\n";
+                $message .= "ترجیح می‌دهید تنها باشید؟ [درون‌گرا, 0.9, 1]\n\n";
+                $message .= "توضیحات:\n";
+                $message .= "• وزن: عدد بین 0 تا 1 (پیش‌فرض: 1.0)\n";
+                $message .= "• جهت: 0 = خیلی کم به سمت دسته، 1 = خیلی زیاد به سمت دسته\n\n";
+                $message .= "می‌توانید سوالات را در یک یا چند پیام ارسال کنید.\n";
+                $message .= "وقتی تمام سوالات را ارسال کردید، کلمه 'پایان' را ارسال کنید.";
+
+                BotHelper::sendMessage($bot, $message);
+                return; // Return early - don't set webhook yet
+            }
+
+            // List bot (فهرست با دکمه شیشه‌ای) - no wizard, continue to set webhook
+            // (handled below with other endpoints; success message customized later)
+
+            // Content submission bot - start channel/group wizard
+            if ($endpointId == 'content-submission') {
+                Log::info('[ContentSubmission] Wizard start after token', [
+                    'bot_id' => $botItem->id,
+                    'chat_id' => $chatId,
+                    'step' => 'wizard_channel_confirm',
+                ]);
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                ]));
+                $message = "✅ ربات با موفقیت ثبت شد!\n\n";
+                $message .= "در کانال ادمین هستی؟ عضو هستی؟\n";
+                $message .= "اگر بله، پاسخ «بله» را بفرست.";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            if ($endpointId == 'book-library') {
+                LibraryBotConfig::firstOrCreate(['bot_id' => $botItem->id]);
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LIBRARY_READER_TOKEN, array_merge($stateData, [
+                    'bot_id' => $botItem->id,
+                    'main_bot_token' => $text,
+                ]));
+                $message = "✅ ربات کتابخانه ثبت شد!\n\n";
+                $message .= "🆔 Bot ID: {$botItem->id}\n\n";
+                $message .= "📖 ربات کتابخوان (reader) **اختیاری** است و فعلاً لازم نیست.\n";
+                $message .= "محتوا مستقیماً در همین ربات ارسال می‌شود.\n\n";
+                $message .= "اگر بعداً reader خواستید، «رد» بفرستید یا توکن reader را بدهید.\n";
+                $message .= "مدیریت محتوا: داخل ربات (مالک) یا /content در Bot Mother.";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
+            if ($endpointId == 'book-library-reader') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_LIBRARY_MAIN_BOT_ID, array_merge($stateData, [
+                    'reader_bot_id' => $botItem->id,
+                    'reader_bot_token' => $text,
+                ]));
+                $message = "✅ ربات کتابخوان (مرحله ۲) ثبت شد!\n\n";
+                $message .= "🆔 Reader Bot ID: {$botItem->id}\n\n";
+                $message .= "🔗 حالا Bot ID ربات اصلی «Smart Book Library» را بفرستید.\n";
+                $message .= "(همان شماره‌ای که هنگام ساخت book-library دریافت کردید، مثلاً 52)";
+                BotHelper::sendMessage($bot, $message);
+                return;
+            }
+
             // Create webhook URL
             $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
-            
+
             // Set webhook
             $setWebhookResult = $newBot->setWebhook($webhookUrl);
-            
+
             if (!$setWebhookResult['ok']) {
                 throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
             }
-            
+
             // Update webhook status in database
             if ($botType == 'bale') {
                 $botItem->bale_webhook_is_set = 1;
@@ -711,10 +1900,20 @@ class BotMotherController extends Controller
                 $botItem->telegram_webhook_is_set = 1;
             }
             $botItem->save();
-            
+
+            // Log webhook registration
+            Log::info('Bot webhook registered via Bot Mother', [
+                'bot_id' => $botItem->id,
+                'bot_mother_id' => $botMotherId,
+                'type' => $botType,
+                'language' => $language,
+                'endpoint_id' => $endpointId,
+                'webhook_url' => $webhookUrl,
+            ]);
+
             // Verify webhook
             $webhookInfo = BotHelper::checkWebhookInfo($text, $botType);
-            
+
             // Send success message
             if ($isDuplicate) {
                 $successMessage = "⚠️ این توکن قبلاً ثبت شده است. ربات قبلی به‌روزرسانی شد.\n\n";
@@ -724,17 +1923,17 @@ class BotMotherController extends Controller
                 $successMessage .= "• Bot ID قبلی: {$botItem->id}\n";
                 $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
                 $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
-                $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n\n";
+                $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n\n";
                 $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
-                
+
                 if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
                     $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
                     $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
                 } else {
                     $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
                 }
-                
-                $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
             } else {
                 $successMessage = "✅ ربات با موفقیت ساخته و ثبت شد!\n\n";
                 $successMessage .= "📝 اطلاعات ربات:\n";
@@ -742,25 +1941,33 @@ class BotMotherController extends Controller
                 $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
                 $successMessage .= "• Endpoint: {$stateData['endpoint']['name']}\n";
                 $successMessage .= "• Route: {$stateData['endpoint']['route']}\n";
-                $successMessage .= "• زبان: " . ($language == 'fa' ? 'فارسی' : 'انگلیسی') . "\n";
+                $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n";
                 $successMessage .= "• Bot ID: {$botItem->id}\n\n";
                 $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
-                
+
                 if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
                     $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
                     $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
                 } else {
                     $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
                 }
-                
-                $successMessage .= "\nبرای ساخت ربات جدید، /start را ارسال کنید.";
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
             }
-            
+
+            if ($endpointId === 'webhook-list-bot') {
+                $successMessage .= "\n\n━━━━━━━━━━━━━━━━━━━━\n📋 ربات فهرست با دکمه شیشه‌ای:\nبه ربات برو و /start بزن. اگر سازنده ربات هستی، یک بار متن منو را به فرمت زیر بفرست تا دکمه‌ها ساخته شوند:\n\n• خط اول با یک - : عنوان اصلی\n• هر خط با -- یا --- و بعد عنوان و در صورت نیاز : لینک\n\nمثال:\n- عنوان مادر\n-- زیر۱: https://t.me/bot\n-- زیر۲: لینک کانال بله\n--- زیر۲-۱: https://site.com";
+            }
+
+            if ($endpointId === 'webhook-channel-poster') {
+                $successMessage .= "\n\n━━━━━━━━━━━━━━━━━━━━\n📤 ربات ارسال به کانال‌ها:\nبه رباتت در بله برو و /start بزن.\nربات را ادمین کانال بله کن، یک پست فوروارد کن، بعد برایش تگ بگذار (مثلاً شراب بهشتی).\nمطلب بفرست تا به همان تگ برود. /add برای افزودن تلگرام یا ایتا به همان تگ.";
+            }
+
             BotHelper::sendMessage($bot, $successMessage);
-            
+
             // Clear state
             BotMotherStateHelper::clearState($chatId);
-            
+
             // Log success
             if ($isDuplicate) {
                 Log::info('Bot updated (duplicate token) via Bot Mother', [
@@ -778,14 +1985,14 @@ class BotMotherController extends Controller
                     'chat_id' => $chatId,
                 ]);
             }
-            
+
         } catch (Exception $e) {
             $errorMessage = "❌ خطا در ساخت ربات:\n\n";
             $errorMessage .= $e->getMessage() . "\n\n";
             $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
-            
+
             BotHelper::sendMessage($bot, $errorMessage);
-            
+
             // Log error
             Log::error('Error creating bot via Bot Mother', [
                 'error' => $e->getMessage(),
@@ -793,6 +2000,2999 @@ class BotMotherController extends Controller
                 'type' => $botType,
                 'chat_id' => $chatId,
             ]);
+        }
+    }
+
+    /**
+     * Extract wizard content items (text/media) from update.
+     *
+     * @return array<int, array{type:string, content?:string, file_id?:string, caption?:string}>
+     */
+    private function extractWizardContentItems(string $text, array $update): array
+    {
+        $message = $update['message'] ?? [];
+        $items = [];
+
+        $caption = is_array($message) ? ($message['caption'] ?? null) : null;
+        if (!is_string($caption)) {
+            $caption = null;
+        }
+
+        // Media
+        if (is_array($message) && isset($message['photo']) && is_array($message['photo']) && count($message['photo']) > 0) {
+            $photos = $message['photo'];
+            $last = end($photos);
+            $fileId = is_array($last) ? ($last['file_id'] ?? null) : null;
+            if (is_string($fileId) && $fileId !== '') {
+                $items[] = array_filter([
+                    'type' => 'photo',
+                    'file_id' => $fileId,
+                    'caption' => $caption,
+                ], static fn ($v) => $v !== null && $v !== '');
+            }
+            return $items;
+        }
+
+        $mediaMap = [
+            'video' => 'video',
+            'voice' => 'voice',
+            'audio' => 'audio',
+            'document' => 'document',
+        ];
+
+        foreach ($mediaMap as $key => $type) {
+            if (is_array($message) && isset($message[$key]['file_id'])) {
+                $fileId = $message[$key]['file_id'];
+                if (is_string($fileId) && $fileId !== '') {
+                    $items[] = array_filter([
+                        'type' => $type,
+                        'file_id' => $fileId,
+                        'caption' => $caption,
+                    ], static fn ($v) => $v !== null && $v !== '');
+                }
+                return $items;
+            }
+        }
+
+        // Text
+        $rawText = '';
+        if (is_array($message) && isset($message['text']) && is_string($message['text'])) {
+            $rawText = $message['text'];
+        } else if (is_string($text)) {
+            $rawText = $text;
+        }
+
+        if ($rawText !== '') {
+            foreach (explode("\n", $rawText) as $line) {
+                $trimmed = trim($line);
+                if ($trimmed !== '') {
+                    $items[] = ['type' => 'text', 'content' => $trimmed];
+                }
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * Handle presenter bot content input
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @param array $update
+     * @return void
+     */
+    private function handlePresenterContentInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update = []): void
+    {
+        $chatId = $bot->ChatID();
+        $botId = $stateData['bot_id'] ?? null;
+        $contentLines = $stateData['content_lines'] ?? [];
+        $items = $stateData['items'] ?? [];
+        $endpointId = $stateData['endpoint_id'] ?? 'webhook-presenter-bot';
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$botId) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات یافت نشد. لطفاً دوباره شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        // Check if user wants to clear/reset content
+        if (strtolower(trim($text)) == 'پاک' || strtolower(trim($text)) == 'clear' || strtolower(trim($text)) == 'reset') {
+            // Reset content lines
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT, array_merge($stateData, [
+                'content_lines' => [],
+                'items' => [],
+            ]));
+
+            $message = "🗑️ محتوای قبلی پاک شد.\n\n";
+            $message .= "📝 حالا می‌توانید محتوای جدید را ارسال کنید.\n";
+            $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        // Check if user wants to finish
+        if (strtolower(trim($text)) == 'پایان' || strtolower(trim($text)) == 'end' || strtolower(trim($text)) == 'finish') {
+            if (empty($items) && !empty($contentLines)) {
+                $items = array_map(static fn ($line) => ['type' => 'text', 'content' => $line], $contentLines);
+            }
+
+            if (empty($items)) {
+                BotHelper::sendMessage($bot, "❌ هیچ محتوایی ارسال نشده است. لطفاً حداقل یک خط محتوا ارسال کنید.");
+                return;
+            }
+
+            // Save content to database
+            try {
+                $textLines = [];
+                foreach ($items as $it) {
+                    if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                        $textLines[] = trim($it['content']);
+                    }
+                }
+                $textLines = array_values(array_filter($textLines, static fn ($v) => $v !== ''));
+                $content = implode("\n", $textLines);
+
+                // Create or update presenter bot
+                $presenterBot = PresenterBot::updateOrCreate(
+                    ['bot_id' => $botId],
+                    ['content' => $content, 'items' => $items]
+                );
+
+                // Get bot item
+                $botItem = Bot::find($botId);
+                if (!$botItem) {
+                    throw new Exception("ربات یافت نشد");
+                }
+
+                // Create webhook URL
+                $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+
+                // Get token
+                $token = $botType == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+                $newBot = new Telegram($token, $botType);
+
+                // Set webhook
+                $setWebhookResult = $newBot->setWebhook($webhookUrl);
+
+                if (!$setWebhookResult['ok']) {
+                    throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
+                }
+
+                // Update webhook status in database
+                if ($botType == 'bale') {
+                    $botItem->bale_webhook_is_set = 1;
+                } else {
+                    $botItem->telegram_webhook_is_set = 1;
+                }
+                $botItem->save();
+
+                // Verify webhook
+                $webhookInfo = BotHelper::checkWebhookInfo($token, $botType);
+
+                // Send success message
+                $successMessage = "✅ ربات پرزنتر با موفقیت ساخته شد!\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• Bot ID: {$botItem->id}\n";
+                $successMessage .= "• تعداد آیتم‌ها: " . count($items) . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+                $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
+
+                BotHelper::sendMessage($bot, $successMessage);
+
+                // Clear state
+                BotMotherStateHelper::clearState($chatId);
+
+                // Log success
+                Log::info('Presenter bot created successfully via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'presenter_bot_id' => $presenterBot->id,
+                    'content_items_count' => count($items),
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                ]);
+
+            } catch (Exception $e) {
+                $errorMessage = "❌ خطا در ذخیره محتوا:\n\n";
+                $errorMessage .= $e->getMessage() . "\n\n";
+                $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+
+                BotHelper::sendMessage($bot, $errorMessage);
+
+                // Log error
+                Log::error('Error saving presenter bot content', [
+                    'error' => $e->getMessage(),
+                    'bot_id' => $botId,
+                    'chat_id' => $chatId,
+                ]);
+            }
+        } else {
+            $newItems = $this->extractWizardContentItems($text, $update);
+            foreach ($newItems as $it) {
+                $items[] = $it;
+                if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                    $contentLines[] = $it['content'];
+                }
+            }
+
+            // Update state
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PRESENTER_CONTENT, array_merge($stateData, [
+                'content_lines' => $contentLines,
+                'items' => $items,
+            ]));
+
+            // Send confirmation
+            $totalItems = count($items);
+            $message = "✅ " . $totalItems . " آیتم ثبت شد.\n\n";
+            $message .= "آیتم بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    /**
+     * Handle rating bot content input
+     */
+    private function handleRatingContentInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update = []): void
+    {
+        $chatId = $bot->ChatID();
+        $botId = $stateData['bot_id'] ?? null;
+        $contentLines = $stateData['content_lines'] ?? [];
+        $items = $stateData['items'] ?? [];
+        $endpointId = $stateData['endpoint_id'] ?? 'webhook-rating-bot';
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$botId) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات یافت نشد. لطفاً دوباره شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        if (strtolower(trim($text)) == 'پاک' || strtolower(trim($text)) == 'clear' || strtolower(trim($text)) == 'reset') {
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+                'content_lines' => [],
+                'items' => [],
+            ]));
+
+            $message = "🗑️ محتوای قبلی پاک شد.\n\n";
+            $message .= "📝 حالا می‌توانید محتوای جدید را ارسال کنید.\n";
+            $message .= "وقتی تمام محتوا را ارسال کردید، کلمه 'پایان' را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        if (strtolower(trim($text)) == 'پایان' || strtolower(trim($text)) == 'end' || strtolower(trim($text)) == 'finish') {
+            if (empty($items) && !empty($contentLines)) {
+                $items = array_map(static fn ($line) => ['type' => 'text', 'content' => $line], $contentLines);
+            }
+
+            if (empty($items)) {
+                BotHelper::sendMessage($bot, "❌ هیچ محتوایی ارسال نشده است. لطفاً حداقل یک خط محتوا ارسال کنید.");
+                return;
+            }
+
+            try {
+                $textLines = [];
+                foreach ($items as $it) {
+                    if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                        $textLines[] = trim($it['content']);
+                    }
+                }
+                $textLines = array_values(array_filter($textLines, static fn ($v) => $v !== ''));
+                $content = implode("\n", $textLines);
+
+                $ratingBot = RatingBot::updateOrCreate(
+                    ['bot_id' => $botId],
+                    ['content' => $content, 'items' => $items]
+                );
+
+                $botItem = Bot::find($botId);
+                if (!$botItem) {
+                    throw new Exception("ربات یافت نشد");
+                }
+
+                $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+
+                $token = $botType == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+                $newBot = new Telegram($token, $botType);
+
+                $setWebhookResult = $newBot->setWebhook($webhookUrl);
+                if (!$setWebhookResult['ok']) {
+                    throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
+                }
+
+                if ($botType == 'bale') {
+                    $botItem->bale_webhook_is_set = 1;
+                } else {
+                    $botItem->telegram_webhook_is_set = 1;
+                }
+                $botItem->save();
+
+                $webhookInfo = BotHelper::checkWebhookInfo($token, $botType);
+
+                $successMessage = "✅ ربات امتیازدهی با موفقیت ساخته شد!\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• Bot ID: {$botItem->id}\n";
+                $successMessage .= "• تعداد آیتم‌ها: " . count($items) . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n";
+                $successMessage .= "• زبان: " . $this->getLanguageDisplayName($language) . "\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
+
+                BotHelper::sendMessage($bot, $successMessage);
+
+                BotMotherStateHelper::clearState($chatId);
+
+                Log::info('Rating bot created successfully via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'rating_bot_id' => $ratingBot->id,
+                    'content_items_count' => count($items),
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                ]);
+            } catch (Exception $e) {
+                $errorMessage = "❌ خطا در ذخیره محتوا:\n\n";
+                $errorMessage .= $e->getMessage() . "\n\n";
+                $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+
+                BotHelper::sendMessage($bot, $errorMessage);
+
+                Log::error('Error saving rating bot content', [
+                    'error' => $e->getMessage(),
+                    'bot_id' => $botId,
+                    'chat_id' => $chatId,
+                ]);
+            }
+
+            return;
+        }
+
+        $newItems = $this->extractWizardContentItems($text, $update);
+        foreach ($newItems as $it) {
+            $items[] = $it;
+            if (($it['type'] ?? null) === 'text' && isset($it['content']) && is_string($it['content'])) {
+                $contentLines[] = $it['content'];
+            }
+        }
+
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_RATING_CONTENT, array_merge($stateData, [
+            'content_lines' => $contentLines,
+            'items' => $items,
+        ]));
+
+        $totalItems = count($items);
+        $message = "✅ " . $totalItems . " آیتم ثبت شد.\n\n";
+        $message .= "آیتم بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle psychology test questions input
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handlePsychologyQuestionsInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $botId = $stateData['bot_id'] ?? null;
+        $psychologyTestBotId = $stateData['psychology_test_bot_id'] ?? null;
+        $questionLines = $stateData['question_lines'] ?? [];
+        $endpointId = $stateData['endpoint_id'] ?? 'webhook-psychology-test';
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$botId || !$psychologyTestBotId) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات یافت نشد. لطفاً دوباره شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        // Check if user wants to finish
+        if (strtolower(trim($text)) == 'پایان' || strtolower(trim($text)) == 'end' || strtolower(trim($text)) == 'finish') {
+            if (empty($questionLines)) {
+                BotHelper::sendMessage($bot, "❌ هیچ سوالی ارسال نشده است. لطفاً حداقل یک سوال ارسال کنید.");
+                return;
+            }
+
+            // Parse and save questions
+            try {
+                $categories = [];
+                $questions = [];
+                $order = 0;
+
+                foreach ($questionLines as $line) {
+                    // Parse format: سوال [دسته, وزن, جهت]
+                    // Example: آیا در جمع‌ها راحت هستید؟ [برون‌گرا, 1.0, 1]
+                    if (preg_match('/^(.+?)\s*\[([^,]+),\s*([\d.]+),\s*([01])\]$/', trim($line), $matches)) {
+                        $questionText = trim($matches[1]);
+                        $categoryName = trim($matches[2]);
+                        $weight = floatval($matches[3]);
+                        $direction = intval($matches[4]);
+
+                        // Limit weight between 0 and 1
+                        if ($weight < 0) $weight = 0;
+                        if ($weight > 1) $weight = 1;
+
+                        // Store category if not exists
+                        if (!isset($categories[$categoryName])) {
+                            $categories[$categoryName] = [
+                                'name' => $categoryName,
+                                'description' => null,
+                            ];
+                        }
+
+                        // Store question
+                        $questions[] = [
+                            'category_name' => $categoryName,
+                            'question_text' => $questionText,
+                            'weight' => $weight,
+                            'direction' => $direction,
+                            'order' => $order++,
+                        ];
+                    }
+                }
+
+                if (empty($questions)) {
+                    BotHelper::sendMessage($bot, "❌ خطا: فرمت سوالات نامعتبر است. لطفاً سوالات را با فرمت صحیح ارسال کنید.");
+                    return;
+                }
+
+                // Create categories
+                $categoryMap = [];
+                foreach ($categories as $categoryName => $categoryData) {
+                    $category = PsychologyTestCategory::updateOrCreate(
+                        [
+                            'psychology_test_bot_id' => $psychologyTestBotId,
+                            'name' => $categoryName,
+                        ],
+                        [
+                            'description' => null,
+                        ]
+                    );
+                    $categoryMap[$categoryName] = $category->id;
+                }
+
+                // Create questions
+                foreach ($questions as $questionData) {
+                    PsychologyTestQuestion::create([
+                        'psychology_test_bot_id' => $psychologyTestBotId,
+                        'psychology_test_category_id' => $categoryMap[$questionData['category_name']],
+                        'question_text' => $questionData['question_text'],
+                        'weight' => $questionData['weight'],
+                        'direction' => $questionData['direction'],
+                        'order' => $questionData['order'],
+                    ]);
+                }
+
+                // Get all categories for description input
+                $allCategories = PsychologyTestCategory::where('psychology_test_bot_id', $psychologyTestBotId)
+                    ->orderBy('name')
+                    ->get();
+
+                // Set state to wait for category descriptions
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CATEGORY_DESCRIPTIONS, array_merge($stateData, [
+                    'category_index' => 0,
+                    'category_ids' => $allCategories->pluck('id')->toArray(),
+                ]));
+
+                // Ask for first category description
+                if ($allCategories->count() > 0) {
+                    $firstCategory = $allCategories->first();
+                    $message = "✅ " . count($questions) . " سوال با " . count($categories) . " دسته ثبت شد!\n\n";
+                    $message .= "📝 حالا برای هر دسته، توضیحات را وارد کنید.\n\n";
+                    $message .= "دسته 1/" . $allCategories->count() . ": {$firstCategory->name}\n\n";
+                    $message .= "لطفاً توضیحات این دسته را ارسال کنید:";
+
+                    BotHelper::sendMessage($bot, $message);
+                } else {
+                    throw new Exception("خطا: هیچ دسته‌ای یافت نشد");
+                }
+
+            } catch (Exception $e) {
+                $errorMessage = "❌ خطا در ذخیره سوالات:\n\n";
+                $errorMessage .= $e->getMessage() . "\n\n";
+                $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+
+                BotHelper::sendMessage($bot, $errorMessage);
+
+                Log::error('Error saving psychology test questions', [
+                    'error' => $e->getMessage(),
+                    'psychology_test_bot_id' => $psychologyTestBotId,
+                    'chat_id' => $chatId,
+                ]);
+            }
+        } else {
+            // Split text by newlines and add all lines
+            $linesFromMessage = explode("\n", $text);
+
+            // Remove empty lines and trim each line
+            foreach ($linesFromMessage as $line) {
+                $trimmedLine = trim($line);
+                if ($trimmedLine !== '') {
+                    $questionLines[] = $trimmedLine;
+                }
+            }
+
+            // Update state
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_PSYCHOLOGY_QUESTIONS, array_merge($stateData, [
+                'question_lines' => $questionLines,
+            ]));
+
+            // Send confirmation
+            $totalLines = count($questionLines);
+            $message = "✅ " . $totalLines . " سوال ثبت شد.\n\n";
+            $message .= "سوال بعدی را ارسال کنید یا برای پایان، کلمه 'پایان' را ارسال کنید.";
+
+            BotHelper::sendMessage($bot, $message);
+        }
+    }
+
+    /**
+     * Handle category descriptions input
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleCategoryDescriptionsInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $botId = $stateData['bot_id'] ?? null;
+        $categoryIndex = $stateData['category_index'] ?? 0;
+        $categoryIds = $stateData['category_ids'] ?? [];
+        $endpointId = $stateData['endpoint_id'] ?? 'webhook-psychology-test';
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$botId || empty($categoryIds)) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات یافت نشد. لطفاً دوباره شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        try {
+            // Get current category
+            $currentCategoryId = $categoryIds[$categoryIndex] ?? null;
+            if (!$currentCategoryId) {
+                throw new Exception("دسته یافت نشد");
+            }
+
+            $currentCategory = PsychologyTestCategory::find($currentCategoryId);
+            if (!$currentCategory) {
+                throw new Exception("دسته یافت نشد");
+            }
+
+            // Save description
+            $currentCategory->description = trim($text);
+            $currentCategory->save();
+
+            // Move to next category
+            $categoryIndex++;
+
+            // Check if all categories are done
+            if ($categoryIndex >= count($categoryIds)) {
+                // All categories done - set webhook
+                $botItem = Bot::find($botId);
+                if (!$botItem) {
+                    throw new Exception("ربات یافت نشد");
+                }
+
+                // Create webhook URL
+                $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+
+                // Get token
+                $token = $botType == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+                $newBot = new Telegram($token, $botType);
+
+                // Set webhook
+                $setWebhookResult = $newBot->setWebhook($webhookUrl);
+
+                if (!$setWebhookResult['ok']) {
+                    throw new Exception("خطا در تنظیم webhook: " . ($setWebhookResult['description'] ?? 'Unknown error'));
+                }
+
+                // Update webhook status in database
+                if ($botType == 'bale') {
+                    $botItem->bale_webhook_is_set = 1;
+                } else {
+                    $botItem->telegram_webhook_is_set = 1;
+                }
+                $botItem->save();
+
+                // Verify webhook
+                $webhookInfo = BotHelper::checkWebhookInfo($token, $botType);
+
+                // Send success message
+                $successMessage = "✅ ربات تست روانشناسی با موفقیت ساخته شد!\n\n";
+                $successMessage .= "📝 اطلاعات ربات:\n";
+                $successMessage .= "• Bot ID: {$botItem->id}\n";
+                $successMessage .= "• تعداد دسته‌ها: " . count($categoryIds) . "\n";
+                $successMessage .= "• نوع: " . ($botType == 'telegram' ? 'تلگرام' : 'بله') . "\n\n";
+                $successMessage .= "🔗 Webhook URL:\n{$webhookUrl}\n\n";
+
+                if ($webhookInfo['ok'] && !empty($webhookInfo['result']['url'] ?? null)) {
+                    $successMessage .= "✅ Webhook با موفقیت تنظیم شد.\n";
+                    $successMessage .= "📊 Pending Updates: " . ($webhookInfo['result']['pending_update_count'] ?? 0) . "\n";
+                } else {
+                    $successMessage .= "⚠️ Webhook تنظیم شد اما تایید نشد. لطفاً بررسی کنید.\n";
+                }
+
+                $successMessage .= "\n\n💡 برای مشاهده لیست دستورات: /help";
+
+                BotHelper::sendMessage($bot, $successMessage);
+
+                // Clear state
+                BotMotherStateHelper::clearState($chatId);
+
+                // Log success
+                Log::info('Psychology test bot created successfully via Bot Mother', [
+                    'bot_id' => $botItem->id,
+                    'psychology_test_bot_id' => $currentCategory->psychology_test_bot_id,
+                    'categories_count' => count($categoryIds),
+                    'type' => $botType,
+                    'chat_id' => $chatId,
+                ]);
+            } else {
+                // Ask for next category description
+                $nextCategoryId = $categoryIds[$categoryIndex];
+                $nextCategory = PsychologyTestCategory::find($nextCategoryId);
+
+                if ($nextCategory) {
+                    $message = "✅ توضیحات دسته '{$currentCategory->name}' ثبت شد.\n\n";
+                    $message .= "دسته " . ($categoryIndex + 1) . "/" . count($categoryIds) . ": {$nextCategory->name}\n\n";
+                    $message .= "لطفاً توضیحات این دسته را ارسال کنید:";
+
+                    BotHelper::sendMessage($bot, $message);
+
+                    // Update state
+                    BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CATEGORY_DESCRIPTIONS, array_merge($stateData, [
+                        'category_index' => $categoryIndex,
+                    ]));
+                }
+            }
+
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در ذخیره توضیحات:\n\n";
+            $errorMessage .= $e->getMessage() . "\n\n";
+            $errorMessage .= "لطفاً دوباره تلاش کنید یا با ادمین تماس بگیرید.";
+
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error saving category descriptions', [
+                'error' => $e->getMessage(),
+                'category_index' => $categoryIndex,
+                'chat_id' => $chatId,
+            ]);
+        }
+    }
+
+    /**
+     * Content submission bot wizard: channel confirm → channel forward → need approval? → group forward → required approvals → save config & setWebhook
+     */
+    private function handleContentBotWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $botId = (int) ($stateData['bot_id'] ?? 0);
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+        $endpointId = 'content-submission';
+
+        Log::info('[ContentSubmission] handleContentBotWizard', [
+            'chat_id' => $chatId,
+            'bot_id' => $botId,
+            'current_state' => $currentState,
+            'step' => 'wizard_step',
+        ]);
+
+        if (!$botId) {
+            BotHelper::sendMessage($bot, '❌ خطا: ربات یافت نشد. لطفاً از /start دوباره شروع کنید.');
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        $botItem = Bot::find($botId);
+        if (!$botItem) {
+            BotHelper::sendMessage($bot, '❌ خطا: ربات یافت نشد.');
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        $newBotToken = $botType === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+        $newBot = $botType === 'bale' ? new Telegram($newBotToken, 'bale') : new Telegram($newBotToken);
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_CONFIRM) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'بله' && $t !== 'yes' && $t !== 'y') {
+                BotHelper::sendMessage($bot, 'لطفاً «بله» را بفرستید تا ادامه دهیم.');
+                return;
+            }
+            Log::info('[ContentSubmission] Channel confirm received', ['chat_id' => $chatId, 'step' => 'wizard_channel_confirm']);
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD, $stateData);
+            BotHelper::sendMessage($bot, 'یک پیام از کانال فوروارد کن.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_CHANNEL_FORWARD) {
+            $message = $update['message'] ?? null;
+            $forwardFromChat = $message['forward_from_chat'] ?? null;
+            if (!$forwardFromChat || !isset($forwardFromChat['id'])) {
+                Log::warning('[ContentSubmission] No forward_from_chat in message', ['chat_id' => $chatId, 'step' => 'wizard_channel_forward']);
+                BotHelper::sendMessage($bot, 'لطفاً یک پیام از خود کانال فوروارد کن (نه از گروه).');
+                return;
+            }
+            $channelChatId = (int) $forwardFromChat['id'];
+            $stateData['channel_chat_id'] = $channelChatId;
+            Log::info('[ContentSubmission] Channel forward received', ['chat_id' => $chatId, 'channel_chat_id' => $channelChatId, 'step' => 'wizard_channel_forward']);
+
+            try {
+                $newBot->sendMessage([
+                    'chat_id' => $channelChatId,
+                    'text' => 'تست - این پیام را پاک کنید.',
+                ]);
+            } catch (Exception $e) {
+                Log::error('[ContentSubmission] Failed to send test message to channel', [
+                    'channel_chat_id' => $channelChatId,
+                    'error' => $e->getMessage(),
+                    'step' => 'wizard_channel_forward',
+                ]);
+                BotHelper::sendMessage($bot, '❌ نتوانستم در کانال پیام بفرستم. مطمئن شو ربات در کانال ادمین است. دوباره یک پیام از کانال فوروارد کن.');
+                return;
+            }
+
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL, $stateData);
+            BotHelper::sendMessage($bot, "پیام تست در کانال فرستاده شد. آن را پاک کن.\n\nنیاز به تایید داری؟ بله یا خیر");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_NEED_APPROVAL) {
+            $t = mb_strtolower(trim($text));
+            if ($t === 'خیر' || $t === 'no' || $t === 'n') {
+                ContentSubmissionBotConfig::updateOrCreate(
+                    ['bot_id' => $botId],
+                    [
+                        'channel_chat_id' => $stateData['channel_chat_id'],
+                        'group_chat_id' => null,
+                        'required_approvals' => 0,
+                        'origin' => $botType,
+                    ]
+                );
+                Log::info('[ContentSubmission] Config saved without approval group', ['bot_id' => $botId, 'step' => 'wizard_need_approval']);
+                $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+                return;
+            }
+            if ($t !== 'بله' && $t !== 'yes' && $t !== 'y') {
+                BotHelper::sendMessage($bot, 'بله یا خیر بفرست.');
+                return;
+            }
+            Log::info('[ContentSubmission] Need approval: yes', ['chat_id' => $chatId, 'step' => 'wizard_need_approval']);
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD, $stateData);
+            BotHelper::sendMessage($bot, 'عضو گروه تایید هستی؟ اگر بله، یک پیام از گروه فوروارد کن. اگر فوروارد در بله کار نمی‌کند، می‌توانی «رد کن» بفرستی تا این مرحله رد شود.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_GROUP_FORWARD) {
+            $skipPhrases = ['رد کن', 'skip', 'بگذر', 'ادمه', 'رد'];
+            $t = mb_strtolower(trim($text));
+            $wantsSkip = in_array($t, array_map('mb_strtolower', $skipPhrases), true)
+                || in_array($text, $skipPhrases, true);
+            if ($wantsSkip) {
+                ContentSubmissionBotConfig::updateOrCreate(
+                    ['bot_id' => $botId],
+                    [
+                        'channel_chat_id' => $stateData['channel_chat_id'],
+                        'group_chat_id' => null,
+                        'required_approvals' => 0,
+                        'origin' => $botType,
+                    ]
+                );
+                Log::info('[ContentSubmission] Group step skipped by user', ['chat_id' => $chatId, 'bot_id' => $botId, 'step' => 'wizard_group_forward']);
+                $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+                return;
+            }
+
+            $message = $update['message'] ?? null;
+            $forwardFromChat = $message['forward_from_chat'] ?? null;
+            if (!$forwardFromChat || !isset($forwardFromChat['id'])) {
+                Log::warning('[ContentSubmission] No forward_from_chat for group', ['chat_id' => $chatId, 'step' => 'wizard_group_forward']);
+                BotHelper::sendMessage($bot, 'لطفاً یک پیام از گروه تایید فوروارد کن. اگر ربات در گروه ادمین است ولی فوروارد در بله کار نمی‌کند، عبارت «رد کن» را بفرست تا این مرحله رد شود.');
+                return;
+            }
+            $groupChatId = (int) $forwardFromChat['id'];
+            $stateData['group_chat_id'] = $groupChatId;
+            Log::info('[ContentSubmission] Group forward received', ['chat_id' => $chatId, 'group_chat_id' => $groupChatId, 'step' => 'wizard_group_forward']);
+
+            try {
+                $newBot->sendMessage([
+                    'chat_id' => $groupChatId,
+                    'text' => '.',
+                ]);
+            } catch (Exception $e) {
+                Log::error('[ContentSubmission] Failed to send dot to group', [
+                    'group_chat_id' => $groupChatId,
+                    'error' => $e->getMessage(),
+                    'step' => 'wizard_group_forward',
+                ]);
+                BotHelper::sendMessage($bot, '❌ نتوانستم در گروه پیام بفرستم. مطمئن شو ربات عضو گروه است. دوباره یک پیام از گروه فوروارد کن.');
+                return;
+            }
+
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS, $stateData);
+            BotHelper::sendMessage($bot, "پیام نقطه در گروه فرستاده شد. پاکش کن.\n\nتایید یک نفر کافی است یا دو نفر؟ ۱ یا ۲");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_CONTENT_BOT_REQUIRED_APPROVALS) {
+            $t = trim($text);
+            $requiredApprovals = ($t === '2' || $t === '۲' || $t === 'دو') ? 2 : 1;
+            ContentSubmissionBotConfig::updateOrCreate(
+                ['bot_id' => $botId],
+                [
+                    'channel_chat_id' => $stateData['channel_chat_id'],
+                    'group_chat_id' => $stateData['group_chat_id'] ?? null,
+                    'required_approvals' => $requiredApprovals,
+                    'origin' => $botType,
+                ]
+            );
+            Log::info('[ContentSubmission] Config saved with approval group', [
+                'bot_id' => $botId,
+                'required_approvals' => $requiredApprovals,
+                'step' => 'wizard_required_approvals',
+            ]);
+            $this->finishContentBotWizard($bot, $botItem, $botType, $language, $botMotherId, $endpointId, $chatId);
+        }
+    }
+
+    private function finishContentBotWizard(Telegram $bot, Bot $botItem, string $botType, string $language, int $botMotherId, string $endpointId, $chatId): void
+    {
+        try {
+            $webhookUrl = WebhookEndpointHelper::createWebhookUrl($endpointId, $botItem, $botType, $language, $botMotherId);
+            $token = $botType === 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            $newBot = $botType === 'bale' ? new Telegram($token, 'bale') : new Telegram($token);
+            $setWebhookResult = $newBot->setWebhook($webhookUrl);
+
+            if (!$setWebhookResult['ok']) {
+                throw new Exception('خطا در تنظیم webhook: ' . ($setWebhookResult['description'] ?? 'Unknown error'));
+            }
+
+            if ($botType === 'bale') {
+                $botItem->bale_webhook_is_set = 1;
+            } else {
+                $botItem->telegram_webhook_is_set = 1;
+            }
+            $botItem->save();
+
+            Log::info('[ContentSubmission] Wizard finished, webhook set', [
+                'bot_id' => $botItem->id,
+                'chat_id' => $chatId,
+                'step' => 'wizard_finish',
+            ]);
+
+            BotHelper::sendMessage($bot, "✅ ربات محتوای متنی/عکس/فیلم آماده است.\n\nWebhook تنظیم شد. کاربران می‌توانند در خصوصی متن/عکس/ویدیو بفرستند؛ در گروه تایید با ریپلای «۱» تایید شود و در کانال منتشر شود.\n\n💡 برای مشاهده لیست دستورات: /help");
+            BotMotherStateHelper::clearState($chatId);
+        } catch (Exception $e) {
+            Log::error('[ContentSubmission] finishContentBotWizard error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'chat_id' => $chatId,
+                'step' => 'wizard_finish',
+            ]);
+            BotHelper::sendMessage($bot, '❌ خطا در تنظیم webhook: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Admin daily channel wizard: content type -> bale/telegram forward -> eitaa id -> save.
+     */
+    private function handleDailyChannelWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+
+        // انتخاب بین ویرایش/تکمیل تنظیم موجود یا ساخت تنظیم جدید
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW) {
+            $trim = trim($text);
+
+            if ($trim === '0') {
+                // تنظیم جدید: انتخاب نوع محتوا
+                $message = "نوع محتوا را انتخاب کن (هر ۲۴ ساعت یکی ارسال می‌شود):\n";
+                $message .= "1 = آیه قرآن\n2 = حدیث\n3 = نهج البلاغه\n4 = شراب بهشتی\n5 = ترکیبی رندوم\n6 = ترکیبی ترتیبی (آیه → حدیث → نهج → شراب بهشتی → …)\n\n";
+                $message .= "شماره را بفرست:";
+                BotHelper::sendMessage($bot, $message);
+                BotMotherStateHelper::setState(
+                    $chatId,
+                    BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE,
+                    $stateData
+                );
+                return;
+            }
+
+            $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti', '5' => 'mixed', '6' => 'sequential'];
+            $contentType = $map[$trim] ?? null;
+            if (!$contentType) {
+                BotHelper::sendMessage($bot, 'لطفاً ۰ یا عدد ۱ تا ۶ بفرست.');
+                return;
+            }
+
+            // اگر تنظیم موجود است، مقدارهای فعلی بله/تلگرام/ایتا و posts_per_day را برای ویرایش prefill کن
+            $existing = AdminDailyChannelConfig::where('admin_chat_id', $chatId)
+                ->where('content_type', $contentType)
+                ->first();
+            if ($existing) {
+                $stateData['bale_channel_chat_id'] = $existing->bale_channel_chat_id;
+                $stateData['telegram_channel_chat_id'] = $existing->telegram_channel_chat_id;
+                $stateData['eitaa_channel_chat_id'] = $existing->eitaa_channel_chat_id;
+                $stateData['posts_per_day'] = $existing->posts_per_day ?? 1;
+            } else {
+                $stateData['posts_per_day'] = 1;
+            }
+            $stateData['content_type'] = $contentType;
+
+            $ppd = (int) ($stateData['posts_per_day'] ?? 1);
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
+                $stateData
+            );
+            BotHelper::sendMessage($bot, "نوع محتوا انتخاب شد.\n\nتعداد ارسال در روز فعلی: {$ppd}. برای تغییر ۱ یا ۲ یا ۴ بفرست، یا «همون» برای حفظ.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_CONTENT_TYPE) {
+            $map = ['1' => 'verse', '2' => 'hadith', '3' => 'nahj', '4' => 'sharabe_beheshti', '5' => 'mixed', '6' => 'sequential'];
+            $contentType = $map[trim($text)] ?? null;
+            if (!$contentType) {
+                BotHelper::sendMessage($bot, 'لطفاً عدد ۱ تا ۶ بفرست.');
+                return;
+            }
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY,
+                array_merge($stateData, ['content_type' => $contentType])
+            );
+            BotHelper::sendMessage($bot, "نوع محتوا ثبت شد.\n\nتعداد ارسال در روز: ۱ = یک بار، ۲ = دو بار، ۴ = چهار بار. شماره را بفرست:");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_POSTS_PER_DAY) {
+            $t = mb_strtolower(trim($text));
+            $ppdMap = ['1' => 1, '2' => 2, '4' => 4];
+            if ($t !== 'همون' && $t !== 'same') {
+                $ppd = $ppdMap[trim($text)] ?? null;
+                if ($ppd === null) {
+                    BotHelper::sendMessage($bot, 'لطفاً ۱، ۲ یا ۴ بفرست (یا «همون» برای حفظ).');
+                    return;
+                }
+                $stateData['posts_per_day'] = $ppd;
+            }
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD,
+                $stateData
+            );
+            $balePrompt = MultiPlatformChannelWizardHelper::getBalePrompt($type);
+            BotHelper::sendMessage($bot, "تعداد ارسال در روز ثبت شد.\n\n" . $balePrompt);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_BALE_FORWARD) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isBaleInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $baleId = MultiPlatformChannelWizardHelper::parseBaleInput($type, $text, $update);
+                if ($baleId !== null) {
+                    $stateData['bale_channel_chat_id'] = $baleId;
+                }
+            }
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD,
+                $stateData
+            );
+            $telegramPrompt = MultiPlatformChannelWizardHelper::getTelegramPrompt($type);
+            BotHelper::sendMessage($bot, $telegramPrompt);
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_TELEGRAM_FORWARD) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isTelegramInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد (مثلاً -1001234567890). دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $telegramId = MultiPlatformChannelWizardHelper::parseTelegramInput($type, $text, $update);
+                if ($telegramId !== null) {
+                    $stateData['telegram_channel_chat_id'] = $telegramId;
+                }
+            }
+            BotMotherStateHelper::setState(
+                $chatId,
+                BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID,
+                $stateData
+            );
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getEitaaPrompt());
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EITAA_ID) {
+            $eitaaId = null;
+            if (mb_strtolower(trim($text)) !== 'رد' && mb_strtolower(trim($text)) !== 'skip') {
+                $eitaaId = trim($text);
+            }
+            $contentType = $stateData['content_type'] ?? 'verse';
+            $postsPerDay = isset($stateData['posts_per_day']) ? (int) $stateData['posts_per_day'] : 1;
+            if (!in_array($postsPerDay, [1, 2, 4], true)) {
+                $postsPerDay = 1;
+            }
+            AdminDailyChannelConfig::updateOrCreate(
+                [
+                    'admin_chat_id' => $chatId,
+                    'content_type' => $contentType,
+                ],
+                [
+                    'posts_per_day' => $postsPerDay,
+                    'bale_channel_chat_id' => $stateData['bale_channel_chat_id'] ?? null,
+                    'telegram_channel_chat_id' => $stateData['telegram_channel_chat_id'] ?? null,
+                    'eitaa_channel_chat_id' => $eitaaId,
+                    'is_active' => true,
+                ]
+            );
+            BotMotherStateHelper::clearState($chatId);
+            $contentLabels = ['verse' => 'آیه قرآن', 'hadith' => 'حدیث', 'nahj' => 'نهج البلاغه', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
+            $label = $contentLabels[$contentType] ?? $contentType;
+            $ppdLabel = $postsPerDay === 1 ? 'یک بار' : ($postsPerDay === 2 ? 'دو بار' : 'چهار بار');
+            BotHelper::sendMessage($bot, "✅ تنظیمات ربات ادمین کانال روزانه ذخیره شد.\nهر روز {$ppdLabel} محتوای " . $label . " به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
+        }
+    }
+
+    /**
+     * تنظیمات/تکمیل ربات ادمین کانال روزانه (دسترسی مستقیم از دستور جداگانه).
+     */
+    private function handleDailyChannelSettings(Telegram $bot, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $configs = AdminDailyChannelConfig::where('admin_chat_id', $chatId)->get();
+
+        if ($configs->isEmpty()) {
+            $message = "هنوز هیچ تنظیمی برای ربات ادمین کانال روزانه ثبت نکردی.\n\n";
+            $message .= "برای ساخت تنظیم جدید از /start استفاده کن و endpoint «ربات ادمین کانال (تک‌آیه/حدیث/نهج/شراب بهشتی)» را انتخاب کن.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        $contentLabels = ['verse' => 'آیه', 'hadith' => 'حدیث', 'nahj' => 'نهج', 'sharabe_beheshti' => 'شراب بهشتی', 'mixed' => 'ترکیبی رندوم', 'sequential' => 'ترکیبی ترتیبی'];
+
+        $message = "⚙️ تنظیمات ربات ادمین کانال روزانه:\n\n";
+        foreach ($configs as $c) {
+            $label = $contentLabels[$c->content_type] ?? $c->content_type;
+            $missing = [];
+            if (empty($c->bale_channel_chat_id)) {
+                $missing[] = 'بله';
+            }
+            if (empty($c->telegram_channel_chat_id)) {
+                $missing[] = 'تلگرام';
+            }
+            if (empty($c->eitaa_channel_chat_id)) {
+                $missing[] = 'ایتا';
+            }
+            $suffix = !empty($missing) ? ' (ناقص: ' . implode(', ', $missing) . ')' : '';
+            $message .= "- {$label}{$suffix}\n";
+        }
+
+        $message .= "\nبرای تکمیل یا تغییر یکی، شماره نوع محتوا (۱–۶) را بفرست.\n";
+        $message .= "برای تنظیم جدید، «۰» بفرست.";
+
+        BotHelper::sendMessage($bot, $message);
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_DAILY_CHANNEL_EDIT_OR_NEW, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    // =========================================================
+    // F5: /weeklyinvite — ویزارد دعوت هفتگی به مطالعه (شراب بهشتی style)
+    // =========================================================
+
+    private function handleWeeklyInviteStart(Telegram $bot, string $arg, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $arg = trim($arg);
+
+        if (mb_strtolower($arg) === 'list' || $arg === 'لیست') {
+            $this->listWeeklyInvitations($bot);
+            return;
+        }
+        if (preg_match('/^(on|off)\s+(\d+)$/i', $arg, $m)) {
+            $this->toggleWeeklyInvitation($bot, (int) $m[2], mb_strtolower($m[1]) === 'on');
+            return;
+        }
+
+        $destinations = ChannelPosterDestination::where('is_active', true)->with('bot')->orderBy('id')->get();
+        if ($destinations->isEmpty()) {
+            BotHelper::sendMessage($bot, '❌ هیچ کانال فعالی در channel-poster ثبت نشده. اول از ربات channel-poster یک کانال وصل کن.');
+            return;
+        }
+
+        $map = [];
+        $lines = [];
+        foreach ($destinations as $i => $d) {
+            $idx = (string) ($i + 1);
+            $map[$idx] = (int) $d->id;
+            $title = $d->channel_title ?: '(بدون عنوان)';
+            $tag = ($d->tag !== null && $d->tag !== '') ? " [{$d->tag}]" : '';
+            $lines[] = "{$idx}) #{$d->id} {$title}{$tag} — {$d->platform}";
+        }
+
+        BotHelper::sendMessage($bot, '📖 دعوت هفتگی مطالعه: کدام کانال؟ (شماره بفرست)' . "\n" . implode("\n", $lines) . "\n\nلغو: /cancel");
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION, [
+            'wi_dest_map' => $map,
+        ]);
+    }
+
+    private function listWeeklyInvitations(Telegram $bot): void
+    {
+        $rows = WeeklyReadInvitation::with('destination')->orderBy('id')->get();
+        if ($rows->isEmpty()) {
+            BotHelper::sendMessage($bot, 'هنوز هیچ دعوت هفتگی‌ای ثبت نشده. /weeklyinvite');
+            return;
+        }
+        $lines = [];
+        foreach ($rows as $r) {
+            $dest = $r->destination;
+            $title = $dest?->channel_title ?: "dest#{$r->destination_id}";
+            $lines[] = '#'.$r->id.' '.$title.' ('.($dest?->platform ?? '?').') — روز: '
+                . WeeklyReadInvitation::dayNameFa($r->day_of_week)
+                . '، max_post: '.$r->max_post_id
+                . ($r->enabled ? '' : ' [غیرفعال]')
+                . '، آخرین: '.($r->last_invited_at?->toDateTimeString() ?? '—');
+        }
+        BotHelper::sendMessage($bot, '📖 دعوت‌های هفتگی:' . "\n" . implode("\n", $lines) . "\n\nفعال/غیرفعال: /weeklyinvite on 3 یا /weeklyinvite off 3");
+    }
+
+    private function toggleWeeklyInvitation(Telegram $bot, int $id, bool $enabled): void
+    {
+        $row = WeeklyReadInvitation::find($id);
+        if (!$row) {
+            BotHelper::sendMessage($bot, "❌ دعوت با شناسه {$id} پیدا نشد. /weeklyinvite list");
+            return;
+        }
+        $row->update(['enabled' => $enabled]);
+        BotHelper::sendMessage($bot, $enabled ? "✅ دعوت #{$id} فعال شد." : "⏸ دعوت #{$id} غیرفعال شد.");
+    }
+
+    private function handleWeeklyInviteWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $t = trim($text);
+
+        if ($t === '/cancel' || $t === 'لغو' || $t === 'رد' || mb_strtolower($t) === 'cancel') {
+            BotMotherStateHelper::clearState($chatId);
+            BotHelper::sendMessage($bot, '❌ ویزارد لغو شد.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DESTINATION) {
+            $map = $stateData['wi_dest_map'] ?? [];
+            $destId = $map[$t] ?? null;
+            if ($destId === null) {
+                BotHelper::sendMessage($bot, 'شماره معتبر نیست. دوباره بفرست یا /cancel.');
+                return;
+            }
+            $existing = WeeklyReadInvitation::where('destination_id', $destId)->first();
+            $dayHint = $existing
+                ? 'روز فعلی: ' . WeeklyReadInvitation::dayNameFa($existing->day_of_week) . ' — برای حفظ: «همون»'
+                : 'پیش‌فرض: جمعه';
+            BotHelper::sendMessage($bot, "کانال ثبت شد.\nروز هفته را بفرست (۰=یکشنبه، ۱=دوشنبه، ۲=سه‌شنبه، ۳=چهارشنبه، ۴=پنجشنبه، ۵=جمعه، ۶=شنبه).\n{$dayHint}");
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY, array_merge($stateData, [
+                'wi_dest_id' => $destId,
+                'wi_day' => $existing?->day_of_week ?? WeeklyReadInvitation::DEFAULT_DAY,
+            ]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_PICK_DAY) {
+            $day = null;
+            if (ctype_digit($t)) {
+                $day = (int) $t;
+            }
+            if ($day === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $day = (int) ($stateData['wi_day'] ?? WeeklyReadInvitation::DEFAULT_DAY);
+            }
+            if ($day === null || $day < 0 || $day > 6) {
+                BotHelper::sendMessage($bot, 'عدد ۰ تا ۶ بفرست (یا «همون»).');
+                return;
+            }
+            BotHelper::sendMessage($bot, 'روز «' . WeeklyReadInvitation::dayNameFa($day) . '» ثبت شد.' . "\n" . 'بزرگ‌ترین شماره مطلب آرشیوی را بفرست (شماره تصادفی از ۱ تا همین عدد انتخاب می‌شود):');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID, array_merge($stateData, ['wi_day' => $day]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_WEEKLY_INVITE_MAX_POST_ID) {
+            if (!ctype_digit($t) || (int) $t < 1) {
+                BotHelper::sendMessage($bot, 'یک عدد مثبت (حداقل ۱) بفرست یا /cancel.');
+                return;
+            }
+            $destId = (int) ($stateData['wi_dest_id'] ?? 0);
+            $day = (int) ($stateData['wi_day'] ?? WeeklyReadInvitation::DEFAULT_DAY);
+            $maxPostId = (int) $t;
+
+            WeeklyReadInvitation::updateOrCreate(
+                ['destination_id' => $destId],
+                [
+                    'day_of_week' => $day,
+                    'max_post_id' => $maxPostId,
+                    'enabled' => true,
+                ]
+            );
+
+            BotMotherStateHelper::clearState($chatId);
+            $dest = ChannelPosterDestination::find($destId);
+            BotHelper::sendMessage($bot, '✅ دعوت هفتگی ذخیره شد.' . "\n"
+                . 'کانال: ' . ($dest?->channel_title ?: "dest#{$destId}") . ' (' . ($dest?->platform ?? '?') . ')' . "\n"
+                . 'روز: ' . WeeklyReadInvitation::dayNameFa($day) . ' (هر هفته یک بار)' . "\n"
+                . 'شماره تصادفی از ۱ تا ' . $maxPostId . "\n\n"
+                . 'مدیریت: /weeklyinvite list — /weeklyinvite on N — /weeklyinvite off N');
+            return;
+        }
+
+        BotMotherStateHelper::clearState($chatId);
+        BotHelper::sendMessage($bot, 'ویزارد به پایان رسید. /weeklyinvite برای شروع دوباره.');
+    }
+
+    // =========================================================
+    // F6: /motivation — ویزارد اسکدیول متن انگیزشی LLM
+    // =========================================================
+
+    private function handleMotivationStart(Telegram $bot, string $arg, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $arg = trim($arg);
+
+        if (mb_strtolower($arg) === 'list' || $arg === 'لیست') {
+            $this->listMotivationSchedules($bot);
+            return;
+        }
+        if (preg_match('/^(on|off)\s+(\d+)$/i', $arg, $m)) {
+            $this->toggleMotivationSchedule($bot, (int) $m[2], mb_strtolower($m[1]) === 'on');
+            return;
+        }
+
+        $destinations = ChannelPosterDestination::where('is_active', true)->with('bot')->orderBy('id')->get();
+        if ($destinations->isEmpty()) {
+            BotHelper::sendMessage($bot, '❌ هیچ کانال فعالی در channel-poster ثبت نشده. اول از ربات channel-poster یک کانال وصل کن.');
+            return;
+        }
+
+        $map = [];
+        $lines = [];
+        foreach ($destinations as $i => $d) {
+            $idx = (string) ($i + 1);
+            $map[$idx] = (int) $d->id;
+            $title = $d->channel_title ?: '(بدون عنوان)';
+            $tag = ($d->tag !== null && $d->tag !== '') ? " [{$d->tag}]" : '';
+            $lines[] = "{$idx}) #{$d->id} {$title}{$tag} — {$d->platform}";
+        }
+
+        BotHelper::sendMessage($bot, '✨ متن انگیزشی LLM: کدام کانال؟ (شماره بفرست)' . "\n" . implode("\n", $lines) . "\n\nلغو: /cancel");
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION, [
+            'mot_dest_map' => $map,
+        ]);
+    }
+
+    private function listMotivationSchedules(Telegram $bot): void
+    {
+        $rows = ChannelMotivationalSchedule::with('destination')->orderBy('id')->get();
+        if ($rows->isEmpty()) {
+            BotHelper::sendMessage($bot, 'هنوز هیچ اسکدیول انگیزشی ثبت نشده. /motivation');
+            return;
+        }
+        $freqNames = ['weekly' => 'هفتگی', 'biweekly' => 'دو هفته یکبار', 'daily' => 'روزانه'];
+        $lines = [];
+        foreach ($rows as $r) {
+            $dest = $r->destination;
+            $title = $dest?->channel_title ?: "dest#{$r->destination_id}";
+            $lines[] = '#'.$r->id.' '.$title.' ('.($dest?->platform ?? '?').') — '
+                . ChannelMotivationalSchedule::dayNameFa($r->day_of_week)
+                . '، '.($freqNames[$r->frequency] ?? $r->frequency)
+                . ($r->enabled ? '' : ' [غیرفعال]')
+                . '، آخرین: '.($r->last_sent_at?->toDateTimeString() ?? '—');
+        }
+        BotHelper::sendMessage($bot, '✨ اسکدیول‌های انگیزشی:' . "\n" . implode("\n", $lines) . "\n\nفعال/غیرفعال: /motivation on 3 یا /motivation off 3");
+    }
+
+    private function toggleMotivationSchedule(Telegram $bot, int $id, bool $enabled): void
+    {
+        $row = ChannelMotivationalSchedule::find($id);
+        if (!$row) {
+            BotHelper::sendMessage($bot, "❌ اسکدیول با شناسه {$id} پیدا نشد. /motivation list");
+            return;
+        }
+        $row->update(['enabled' => $enabled]);
+        BotHelper::sendMessage($bot, $enabled ? "✅ اسکدیول #{$id} فعال شد." : "⏸ اسکدیول #{$id} غیرفعال شد.");
+    }
+
+    private function handleMotivationWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+        $t = trim($text);
+
+        if ($t === '/cancel' || $t === 'لغو' || $t === 'رد' || mb_strtolower($t) === 'cancel') {
+            BotMotherStateHelper::clearState($chatId);
+            BotHelper::sendMessage($bot, '❌ ویزارد لغو شد.');
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_DESTINATION) {
+            $map = $stateData['mot_dest_map'] ?? [];
+            $destId = $map[$t] ?? null;
+            if ($destId === null) {
+                BotHelper::sendMessage($bot, 'شماره معتبر نیست. دوباره بفرست یا /cancel.');
+                return;
+            }
+            $existing = ChannelMotivationalSchedule::where('destination_id', $destId)->first();
+            $dayHint = $existing
+                ? 'روز فعلی: ' . ChannelMotivationalSchedule::dayNameFa($existing->day_of_week) . ' — برای حفظ: «همون»'
+                : 'پیش‌فرض: جمعه';
+            BotHelper::sendMessage($bot, "کانال ثبت شد.\nروز هفته را بفرست (۰=یکشنبه، ۱=دوشنبه، ۲=سه‌شنبه، ۳=چهارشنبه، ۴=پنجشنبه، ۵=جمعه، ۶=شنبه).\n{$dayHint}");
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY, array_merge($stateData, [
+                'mot_dest_id' => $destId,
+                'mot_day' => $existing?->day_of_week ?? ChannelMotivationalSchedule::DEFAULT_DAY,
+                'mot_freq' => $existing?->frequency ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY,
+            ]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_DAY) {
+            $day = null;
+            if (ctype_digit($t)) {
+                $day = (int) $t;
+            }
+            if ($day === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $day = (int) ($stateData['mot_day'] ?? ChannelMotivationalSchedule::DEFAULT_DAY);
+            }
+            if ($day === null || $day < 0 || $day > 6) {
+                BotHelper::sendMessage($bot, 'عدد ۰ تا ۶ بفرست (یا «همون»).');
+                return;
+            }
+            BotHelper::sendMessage($bot, 'روز «' . ChannelMotivationalSchedule::dayNameFa($day) . '» ثبت شد.' . "\n" . 'فراوانی را انتخاب کن: ۱ = هفتگی، ۲ = دو هفته یکبار، ۳ = روزانه (یا «همون»):');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY, array_merge($stateData, ['mot_day' => $day]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PICK_FREQUENCY) {
+            $freqMap = ['1' => ChannelMotivationalSchedule::FREQUENCY_WEEKLY, '2' => ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY, '3' => ChannelMotivationalSchedule::FREQUENCY_DAILY];
+            $freq = $freqMap[$t] ?? null;
+            if ($freq === null && ($t === 'همون' || mb_strtolower($t) === 'same')) {
+                $freq = $stateData['mot_freq'] ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY;
+            }
+            if (!in_array($freq, [ChannelMotivationalSchedule::FREQUENCY_WEEKLY, ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY, ChannelMotivationalSchedule::FREQUENCY_DAILY], true)) {
+                BotHelper::sendMessage($bot, 'عدد ۱، ۲ یا ۳ بفرست (یا «همون»).');
+                return;
+            }
+            $freqNames = [ChannelMotivationalSchedule::FREQUENCY_WEEKLY => 'هفتگی', ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY => 'دو هفته یکبار', ChannelMotivationalSchedule::FREQUENCY_DAILY => 'روزانه'];
+            BotHelper::sendMessage($bot, 'فراوانی «' . $freqNames[$freq] . '» ثبت شد.' . "\n"
+                . 'پیام (prompt) سفارشی برای LLM بفرست، یا «default» برای پیش‌فرض:');
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MOTIVATION_PROMPT, array_merge($stateData, ['mot_freq' => $freq]));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MOTIVATION_PROMPT) {
+            $prompt = null;
+            if ($t !== 'default' && mb_strtolower($t) !== 'پیش‌فرض' && $t !== '') {
+                $prompt = $t;
+            }
+            $destId = (int) ($stateData['mot_dest_id'] ?? 0);
+            $day = (int) ($stateData['mot_day'] ?? ChannelMotivationalSchedule::DEFAULT_DAY);
+            $freq = $stateData['mot_freq'] ?? ChannelMotivationalSchedule::FREQUENCY_WEEKLY;
+
+            ChannelMotivationalSchedule::updateOrCreate(
+                ['destination_id' => $destId],
+                [
+                    'day_of_week' => $day,
+                    'frequency' => $freq,
+                    'prompt' => $prompt,
+                    'enabled' => true,
+                ]
+            );
+
+            BotMotherStateHelper::clearState($chatId);
+            $dest = ChannelPosterDestination::find($destId);
+            $freqNames = [ChannelMotivationalSchedule::FREQUENCY_WEEKLY => 'هفتگی', ChannelMotivationalSchedule::FREQUENCY_BIWEEKLY => 'دو هفته یکبار', ChannelMotivationalSchedule::FREQUENCY_DAILY => 'روزانه'];
+            BotHelper::sendMessage($bot, '✅ اسکدیول انگیزشی ذخیره شد.' . "\n"
+                . 'کانال: ' . ($dest?->channel_title ?: "dest#{$destId}") . ' (' . ($dest?->platform ?? '?') . ')' . "\n"
+                . 'روز: ' . ChannelMotivationalSchedule::dayNameFa($day) . ' — ' . ($freqNames[$freq] ?? $freq) . "\n"
+                . 'هر بار یک جمله‌ی کوتاه انگیزشی توسط LLM نوشته و ارسال می‌شود.' . "\n\n"
+                . 'مدیریت: /motivation list — /motivation on N — /motivation off N');
+            return;
+        }
+
+        BotMotherStateHelper::clearState($chatId);
+        BotHelper::sendMessage($bot, 'ویزارد به پایان رسید. /motivation برای شروع دوباره.');
+    }
+
+    /**
+     * ویزارد ادمین کانال با صف رسانه پویا: انتخاب/ساخت صف -> افزودن آیتم‌ها -> کانال بله/تلگرام/ایتا.
+     */
+    private function handleMediaQueueWizard(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId, array $update): void
+    {
+        $chatId = $bot->ChatID();
+        $currentState = BotMotherStateHelper::getCurrentState($chatId);
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_SELECT_OR_CREATE) {
+            $trim = trim($text);
+            if ($trim === '0') {
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME, $stateData);
+                BotHelper::sendMessage($bot, "نام صف جدید را بفرست (مثلاً «مناسبت‌ها»):");
+                return;
+            }
+            $queues = MediaQueue::where('admin_chat_id', $chatId)->orderBy('id')->get();
+            $idx = (int) $trim;
+            if ($idx < 1 || $idx > $queues->count()) {
+                BotHelper::sendMessage($bot, 'لطفاً شماره صف یا ۰ بفرست.');
+                return;
+            }
+            $queue = $queues[$idx - 1];
+            $stateData['media_queue_id'] = $queue->id;
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS, $stateData);
+            BotHelper::sendMessage($bot, "صف «{$queue->name}» انتخاب شد.\nآیتم بعدی را بفرست (متن، عکس یا ویدیو) یا /done برای پایان و رفتن به مرحله کانال‌ها.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_NEW_NAME) {
+            $name = trim($text);
+            if ($name === '') {
+                BotHelper::sendMessage($bot, 'نام صف را بفرست.');
+                return;
+            }
+            $queue = MediaQueue::create(['admin_chat_id' => $chatId, 'name' => $name]);
+            $stateData['media_queue_id'] = $queue->id;
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS, $stateData);
+            BotHelper::sendMessage($bot, "صف «{$name}» ساخته شد.\nآیتم بعدی را بفرست (متن، عکس یا ویدیو) یا /done برای پایان و رفتن به مرحله کانال‌ها.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_ADD_ITEMS) {
+            if (mb_strtolower(trim($text)) === '/done') {
+                $stateData['media_queue_id'] = $stateData['media_queue_id'] ?? null;
+                if (!$stateData['media_queue_id']) {
+                    BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست. از /start دوباره شروع کن.');
+                    return;
+                }
+                BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE, $stateData);
+                BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getBalePrompt($type));
+                return;
+            }
+            $queueId = $stateData['media_queue_id'] ?? null;
+            if (!$queueId) {
+                BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست.');
+                return;
+            }
+            $msg = $update['message'] ?? [];
+            $contentType = MediaQueueItem::TYPE_TEXT;
+            $contentText = trim($text);
+            $fileIdTelegram = null;
+            $fileIdBale = null;
+            if (!empty($msg['photo'])) {
+                $contentType = MediaQueueItem::TYPE_PHOTO;
+                $photo = is_array($msg['photo']) ? end($msg['photo']) : $msg['photo'];
+                $fileId = $photo['file_id'] ?? null;
+                if ($type === 'telegram') {
+                    $fileIdTelegram = $fileId;
+                } else {
+                    $fileIdBale = $fileId;
+                }
+                $contentText = $contentText ?: (isset($msg['caption']) ? trim($msg['caption']) : '');
+            } elseif (!empty($msg['video'])) {
+                $contentType = MediaQueueItem::TYPE_VIDEO;
+                $fileId = $msg['video']['file_id'] ?? null;
+                if ($type === 'telegram') {
+                    $fileIdTelegram = $fileId;
+                } else {
+                    $fileIdBale = $fileId;
+                }
+                $contentText = $contentText ?: (isset($msg['caption']) ? trim($msg['caption']) : '');
+            }
+            $maxPosition = MediaQueueItem::where('media_queue_id', $queueId)->max('position') ?? 0;
+            MediaQueueItem::create([
+                'media_queue_id' => $queueId,
+                'position' => $maxPosition + 1,
+                'content_type' => $contentType,
+                'content_text' => $contentText ?: null,
+                'file_id_telegram' => $fileIdTelegram,
+                'file_id_bale' => $fileIdBale,
+            ]);
+            BotHelper::sendMessage($bot, "آیتم اضافه شد. بعدی را بفرست یا /done برای پایان.");
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_BALE) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isBaleInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد. دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $baleId = MultiPlatformChannelWizardHelper::parseBaleInput($type, $text, $update);
+                if ($baleId !== null) {
+                    $stateData['bale_channel_chat_id'] = $baleId;
+                }
+            }
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM, $stateData);
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getTelegramPrompt($type));
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_TELEGRAM) {
+            $t = mb_strtolower(trim($text));
+            if ($t !== 'رد' && $t !== 'skip') {
+                if (MultiPlatformChannelWizardHelper::isTelegramInputInvalidWhenNotForward($type, $text)) {
+                    BotHelper::sendMessage($bot, "چت‌آیدی باید یک عدد باشد. دوباره بفرست یا «رد» بزن.");
+                    return;
+                }
+                $telegramId = MultiPlatformChannelWizardHelper::parseTelegramInput($type, $text, $update);
+                if ($telegramId !== null) {
+                    $stateData['telegram_channel_chat_id'] = $telegramId;
+                }
+            }
+            BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA, $stateData);
+            BotHelper::sendMessage($bot, MultiPlatformChannelWizardHelper::getEitaaPrompt());
+            return;
+        }
+
+        if ($currentState === BotMotherStateHelper::STATE_MEDIA_QUEUE_EITAA) {
+            $eitaaId = null;
+            if (mb_strtolower(trim($text)) !== 'رد' && mb_strtolower(trim($text)) !== 'skip') {
+                $eitaaId = trim($text);
+            }
+            $queueId = $stateData['media_queue_id'] ?? null;
+            if (!$queueId) {
+                BotHelper::sendMessage($bot, 'خطا: صف مشخص نیست.');
+                return;
+            }
+            AdminChannelMediaQueueConfig::updateOrCreate(
+                [
+                    'admin_chat_id' => $chatId,
+                    'media_queue_id' => $queueId,
+                ],
+                [
+                    'bale_channel_chat_id' => $stateData['bale_channel_chat_id'] ?? null,
+                    'telegram_channel_chat_id' => $stateData['telegram_channel_chat_id'] ?? null,
+                    'eitaa_channel_chat_id' => $eitaaId,
+                    'is_active' => true,
+                ]
+            );
+            BotMotherStateHelper::clearState($chatId);
+            $queueName = MediaQueue::find($queueId)->name ?? 'صف';
+            BotHelper::sendMessage($bot, "✅ تنظیمات ادمین کانال با صف رسانه ذخیره شد.\nصف «{$queueName}» به ترتیب به کانال‌های ثبت‌شده ارسال می‌شود.\n\n💡 برای مشاهده دستورات: /help");
+        }
+    }
+
+    /**
+     * Handle statistics command
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleStatistics(Telegram $bot, string $type, int $botMotherId): void
+    {
+        try {
+            // ارسال پیام "در حال پردازش"
+            $processingMessage = trans('bot.processing your request');
+            if ($processingMessage == 'bot.processing your request') {
+                $processingMessage = '⏳ در حال پردازش درخواست شما...';
+            }
+            BotHelper::sendMessage($bot, $processingMessage);
+
+            // استفاده از cache برای آمار (1 ساعت)
+            $cacheKey = "bot_mother_statistics_{$botMotherId}";
+            $cacheDuration = 3600; // 1 ساعت (60 دقیقه)
+
+            // بررسی اینکه آیا cache وجود دارد یا نه
+            $isCached = Cache::has($cacheKey);
+
+            $statisticsData = Cache::remember($cacheKey, $cacheDuration, function () use ($botMotherId) {
+                return $this->calculateStatistics($botMotherId);
+            });
+
+            // پیام cache
+            $cacheInfo = '';
+            if ($isCached) {
+                $cacheInfo = "\n\n💡 نکته: این آمار به دلیل سنگینی محاسبات، هر 1 ساعت یک بار به‌روزرسانی می‌شود.\n";
+                $cacheInfo .= "آخرین به‌روزرسانی: " . now()->format('Y-m-d H:i:s');
+            } else {
+                $cacheInfo = "\n\n💡 نکته: این آمار به دلیل سنگینی محاسبات، هر 1 ساعت یک بار به‌روزرسانی می‌شود.";
+            }
+
+            $message = "📊 آمار ربات مادر\n\n";
+            $message .= $statisticsData['message'];
+            $message .= $cacheInfo;
+
+            // Log قبل از ارسال
+            Log::info('Statistics message prepared', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+                'is_cached' => $isCached,
+                'bots_count' => $statisticsData['bots_count'] ?? 0,
+                'message_length' => strlen($message),
+            ]);
+
+            // استفاده از sendLongMessage برای پیام‌های طولانی
+            try {
+                BotHelper::sendLongMessage($message, $bot);
+                Log::info('Statistics message sent successfully', [
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                ]);
+            } catch (Exception $sendException) {
+                Log::error('Error sending statistics message', [
+                    'error' => $sendException->getMessage(),
+                    'chat_id' => $bot->ChatID(),
+                    'type' => $type,
+                    'message_length' => strlen($message),
+                ]);
+                // ارسال پیام خطا به کاربر
+                $errorMsg = "❌ خطا در ارسال آمار. لطفاً دوباره تلاش کنید.";
+                BotHelper::sendMessage($bot, $errorMsg);
+            }
+
+            // Log
+            Log::info('Statistics requested', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+                'is_cached' => $isCached,
+                'bots_count' => $statisticsData['bots_count'] ?? 0,
+            ]);
+
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در دریافت آمار:\n\n";
+            $errorMessage .= $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error getting statistics', [
+                'error' => $e->getMessage(),
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+            ]);
+        }
+    }
+
+    /**
+     * محاسبه آمار ربات مادر (برای استفاده در cache)
+     *
+     * @param int $botMotherId
+     * @return array
+     */
+    private function calculateStatistics(int $botMotherId): array
+    {
+        $message = '';
+
+        // آمار کلی ربات مادر
+        $totalSubscribers = BotLog::where('bot_mother_id', $botMotherId)
+            ->distinct('chat_id')
+            ->count('chat_id');
+
+            // استارت در 1 هفته قبل
+            $startedLastWeek = BotLog::where('bot_mother_id', $botMotherId)
+                ->where('created_at', '>=', now()->subWeek())
+                ->where('text', '/start')
+                ->distinct('chat_id')
+                ->count('chat_id');
+
+        // استارت در 1 ماه قبل
+        $startedLastMonth = BotLog::where('bot_mother_id', $botMotherId)
+            ->where('created_at', '>=', now()->subMonth())
+            ->where('text', '/start')
+            ->distinct('chat_id')
+            ->count('chat_id');
+
+        // استارت در 1 سال قبل
+        $startedLastYear = BotLog::where('bot_mother_id', $botMotherId)
+            ->where('created_at', '>=', now()->subYear())
+            ->where('text', '/start')
+            ->distinct('chat_id')
+            ->count('chat_id');
+
+        $message .= "📈 آمار کلی:\n";
+        $message .= "• کل مشترکین: {$totalSubscribers}\n";
+        $message .= "• استارت در 1 هفته قبل: {$startedLastWeek}\n";
+        $message .= "• استارت در 1 ماه قبل: {$startedLastMonth}\n";
+        $message .= "• استارت در 1 سال قبل: {$startedLastYear}\n\n";
+
+        // لیست ربات‌های ساخته شده (فقط ربات‌هایی که token دارند)
+        $bots = Bot::where('bot_mother_id', $botMotherId)
+                ->where(function($query) {
+                    $query->whereNotNull('telegram_bot_token')
+                        ->where('telegram_bot_token', '!=', '')
+                        ->orWhere(function($q) {
+                            $q->whereNotNull('bale_bot_token')
+                                ->where('bale_bot_token', '!=', '');
+                        });
+                })
+                ->get();
+
+        // فیلتر کردن ربات‌هایی که لاگ ندارند یا اطلاعات ندارند (یعنی deactivate هستند یا استفاده نمی‌شوند)
+        $activeBots = $bots->filter(function($botItem) {
+                // بررسی وجود لاگ بر اساس bot_id (روش جدید)
+                $hasLogs = BotLog::where('bot_id', $botItem->id)
+                    ->whereNotNull('bot_id')
+                    ->exists();
+
+                // اگر bot_id در لاگ‌ها موجود نباشد، از روش قدیمی استفاده می‌کنیم (سازگاری با لاگ‌های قدیمی)
+                if (!$hasLogs) {
+                    // Fallback: بررسی بر اساس type و bot_mother_id
+                    $hasLogs = BotLog::where('bot_mother_id', $botItem->bot_mother_id)
+                        ->where(function($query) use ($botItem) {
+                            if ($botItem->telegram_bot_token) {
+                                $query->where('type', 'telegram');
+                            } elseif ($botItem->bale_bot_token) {
+                                $query->where('type', 'bale');
+                            }
+                        })
+                        ->exists();
+                }
+
+                if (!$hasLogs) {
+                    return false;
+                }
+
+                // بررسی وجود endpoint (اولویت با bot_id)
+                $endpointUri = BotLog::where('bot_id', $botItem->id)
+                    ->whereNotNull('bot_id')
+                    ->whereNotNull('webhook_endpoint_uri')
+                    ->where('webhook_endpoint_uri', '!=', '')
+                    ->value('webhook_endpoint_uri');
+
+                // Fallback: اگر endpoint با bot_id پیدا نشد، از روش قدیمی استفاده می‌کنیم
+                if (!$endpointUri) {
+                    $endpointUri = BotLog::where('bot_mother_id', $botItem->bot_mother_id)
+                        ->where(function($query) use ($botItem) {
+                            if ($botItem->telegram_bot_token) {
+                                $query->where('type', 'telegram');
+                            } elseif ($botItem->bale_bot_token) {
+                                $query->where('type', 'bale');
+                            }
+                        })
+                        ->whereNotNull('webhook_endpoint_uri')
+                        ->where('webhook_endpoint_uri', '!=', '')
+                        ->value('webhook_endpoint_uri');
+                }
+
+                // اگر endpoint ندارند، نمایش نده
+                if (!$endpointUri) {
+                    return false;
+                }
+
+                return true;
+        });
+
+        if ($activeBots->isEmpty()) {
+            $message .= "📭 هیچ ربات فعالی با اطلاعات یافت نشد.\n";
+        } else {
+            $message .= "🤖 لیست ربات‌های فعال ({$activeBots->count()} ربات):\n\n";
+
+            foreach ($activeBots as $index => $botItem) {
+                    $botNumber = $index + 1;
+                    $botName = $botItem->telegram_bot_name ?? $botItem->bale_bot_name ?? 'N/A';
+                    $botType = $botItem->telegram_bot_token ? 'Telegram' : ($botItem->bale_bot_token ? 'Bale' : 'N/A');
+                    $createdAt = $botItem->created_at ? $botItem->created_at->format('Y-m-d H:i') : 'N/A';
+
+                    // استفاده از language_code از جدول bots (اولویت اول)
+                    $languageCode = $botItem->language_code;
+                    $normalizedLanguage = $this->normalizeLanguageCode($languageCode ?? 'fa');
+
+                    // تشخیص endpoint از bot_logs (اولویت با bot_id)
+                    $endpointUri = BotLog::where('bot_id', $botItem->id)
+                        ->whereNotNull('bot_id')
+                        ->whereNotNull('webhook_endpoint_uri')
+                        ->where('webhook_endpoint_uri', '!=', '')
+                        ->value('webhook_endpoint_uri');
+
+                    // Fallback: اگر endpoint با bot_id پیدا نشد، از روش قدیمی استفاده می‌کنیم
+                    if (!$endpointUri) {
+                        $endpointUri = BotLog::where('bot_mother_id', $botMotherId)
+                            ->where(function($query) use ($botItem) {
+                                if ($botItem->telegram_bot_token) {
+                                    $query->where('type', 'telegram');
+                                } elseif ($botItem->bale_bot_token) {
+                                    $query->where('type', 'bale');
+                                }
+                            })
+                            ->whereNotNull('webhook_endpoint_uri')
+                            ->where('webhook_endpoint_uri', '!=', '')
+                            ->value('webhook_endpoint_uri');
+                    }
+
+                    $endpointName = $endpointUri ? (WebhookEndpointHelper::getEndpointById($endpointUri)['name'] ?? $endpointUri) : 'نامشخص';
+
+                    // استفاده از language_code از جدول bots برای نمایش
+                    $languageDisplay = $languageCode ? $this->getLanguageDisplayName($languageCode) : 'نامشخص';
+
+                    $message .= "{$botNumber}. ربات #{$botItem->id}\n";
+                    $message .= "   📝 نام: @{$botName}\n";
+                    $message .= "   🔧 نوع: {$botType}\n";
+                    $message .= "   🌍 زبان: {$languageDisplay}\n";
+                    $message .= "   🔗 Endpoint: {$endpointName}\n";
+                    $message .= "   📅 تاریخ ساخت: {$createdAt}\n";
+
+                    // آمار کلی بر اساس bot_id (روش جدید)
+                    $baseQuery = BotLog::where('bot_id', $botItem->id)
+                        ->whereNotNull('bot_id');
+
+                    // Fallback: اگر bot_id در لاگ‌ها موجود نباشد، از روش قدیمی استفاده می‌کنیم (سازگاری با لاگ‌های قدیمی)
+                    $hasLogsWithBotId = (clone $baseQuery)->exists();
+                    if (!$hasLogsWithBotId) {
+                        $baseQuery = BotLog::where('bot_mother_id', $botMotherId)
+                            ->where(function($query) use ($botItem) {
+                                if ($botItem->telegram_bot_token) {
+                                    $query->where('type', 'telegram');
+                                } elseif ($botItem->bale_bot_token) {
+                                    $query->where('type', 'bale');
+                                }
+                            });
+
+                        if ($endpointUri) {
+                            $baseQuery->where('webhook_endpoint_uri', $endpointUri);
+                        }
+
+                        // استفاده از normalized language برای فیلتر کردن (اگر language در BotLog موجود باشد)
+                        if ($normalizedLanguage) {
+                            $baseQuery->where(function($query) use ($normalizedLanguage, $languageCode) {
+                                $query->where('language', $normalizedLanguage)
+                                    ->orWhere('language', $languageCode)
+                                    ->orWhere('language', 'like', $normalizedLanguage . '%');
+                            });
+                        }
+                    }
+
+                    // تعداد کاربرانی که استارت کردند (کل)
+                    $startedTotal = (clone $baseQuery)
+                        ->where('text', '/start')
+                        ->distinct('chat_id')
+                        ->count('chat_id');
+
+                    // تعداد کاربرانی که استارت کردند (هفته گذشته)
+                    $startedLastWeek = (clone $baseQuery)
+                        ->where('text', '/start')
+                        ->where('created_at', '>=', now()->subWeek())
+                        ->distinct('chat_id')
+                        ->count('chat_id');
+
+                    // تعداد کاربرانی که استارت کردند (ماه گذشته)
+                    $startedLastMonth = (clone $baseQuery)
+                        ->where('text', '/start')
+                        ->where('created_at', '>=', now()->subMonth())
+                        ->distinct('chat_id')
+                        ->count('chat_id');
+
+                    // تعداد کاربران فعال (استفاده می‌کنند) - کاربرانی که در 7 روز گذشته تعامل داشته‌اند
+                    $activeUsers = (clone $baseQuery)
+                        ->where('created_at', '>=', now()->subWeek())
+                        ->distinct('chat_id')
+                        ->count('chat_id');
+
+                    // کل تعاملات
+                    $totalInteractions = (clone $baseQuery)->count();
+
+                    // تعداد کاربران یونیک کل
+                    $uniqueUsersTotal = (clone $baseQuery)
+                        ->distinct('chat_id')
+                        ->count('chat_id');
+
+                    // نرخ استفاده متوسط (تعداد تعاملات / تعداد کاربران)
+                    $avgUsagePerUser = $uniqueUsersTotal > 0
+                        ? round($totalInteractions / $uniqueUsersTotal, 2)
+                        : 0;
+
+                    $message .= "   📊 آمار کلی:\n";
+                    $message .= "      👥 کاربران یونیک کل: {$uniqueUsersTotal}\n";
+                    $message .= "      🚀 استارت کل: {$startedTotal}\n";
+                    $message .= "      📅 استارت (هفته گذشته): {$startedLastWeek}\n";
+                    $message .= "      📅 استارت (ماه گذشته): {$startedLastMonth}\n";
+                    $message .= "      ✅ کاربران فعال (7 روز): {$activeUsers}\n";
+                    $message .= "      💬 کل تعاملات: {$totalInteractions}\n";
+                    $message .= "      📈 نرخ استفاده متوسط: {$avgUsagePerUser} تعامل/کاربر\n";
+
+                    // اگر ربات قرآنی است، آمار بیشتری نمایش بده
+                    if ($endpointUri == 'webhook-quran-word') {
+                        // آیات خوانده شده (pattern: /sure[0-9]+ayah[0-9]+)
+                        $ayahsRead = (clone $baseQuery)
+                            ->where('is_command', true)
+                            ->whereRaw("text REGEXP 'sure[0-9]+ayah[0-9]+'")
+                            ->count();
+
+                        $message .= "   📖 آمار قرآنی:\n";
+                        $message .= "      📖 آیات خوانده شده: {$ayahsRead}\n";
+                    }
+
+                $message .= "\n";
+            }
+        }
+
+        return [
+            'message' => $message,
+            'bots_count' => $activeBots->count(),
+        ];
+    }
+
+    /**
+     * Handle broadcast start command
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleBroadcastStart(Telegram $bot, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+
+        // بررسی ادمین بودن کاربر
+        if (!AdminHelper::isAdmin($chatId)) {
+            $message = "❌ شما دسترسی به این دستور ندارید.\nاین دستور فقط برای ادمین‌ها قابل استفاده است.";
+            BotHelper::sendMessage($bot, $message);
+            Log::warning('Unauthorized broadcast attempt', [
+                'chat_id' => $chatId,
+                'type' => $type,
+            ]);
+            return;
+        }
+
+        $message = "📢 ارسال پیام همگانی\n\n";
+        $message .= "🌍 لطفاً زبان را انتخاب کنید:\n\n";
+
+        $languages = $this->getSupportedLanguages();
+
+        // Create inline keyboard with language buttons
+        $buttons = [];
+        $row = [];
+        foreach ($languages as $langCode => $langName) {
+            $row[] = $bot->buildInlineKeyBoardButton($langName, callback_data: 'broadcast_lang_' . $langCode);
+            // هر 2 دکمه در یک ردیف
+            if (count($row) == 2) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+        // اضافه کردن ردیف آخر اگر خالی نبود
+        if (!empty($row)) {
+            $buttons[] = $row;
+        }
+
+        $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+        BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+
+        // Set state to waiting for language
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_BROADCAST_LANGUAGE, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Handle broadcast language selection
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleBroadcastLanguageSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $selectedLanguage = $text;
+        $languages = $this->getSupportedLanguages();
+
+        // Check if text is a language code (from callback or direct input)
+        if (str_starts_with($text, 'broadcast_lang_')) {
+            $selectedLanguage = str_replace('broadcast_lang_', '', $text);
+        }
+
+        if (!isset($languages[$selectedLanguage])) {
+            $message = "❌ زبان نامعتبر است. لطفاً زبان صحیح را انتخاب کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        $languageName = $languages[$selectedLanguage];
+        $message = "✅ زبان انتخاب شد: {$languageName}\n\n";
+        $message .= "📝 حالا لطفاً پیام خود را ارسال کنید:";
+
+        BotHelper::sendMessage($bot, $message);
+
+        // Set state to waiting for message
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_BROADCAST_MESSAGE, array_merge($stateData, [
+            'language' => $selectedLanguage,
+        ]));
+    }
+
+    /**
+     * Handle broadcast message input
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleBroadcastMessageInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $language = $stateData['language'] ?? 'fa';
+
+        if (empty(trim($text))) {
+            $message = "❌ پیام نمی‌تواند خالی باشد. لطفاً پیام خود را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        try {
+            $message = "⏳ در حال ارسال پیام...\nلطفاً صبر کنید.";
+            BotHelper::sendMessage($bot, $message);
+
+            $broadcastService = new BotMessageBroadcastService();
+            $result = $broadcastService->sendMessageToUsersByLanguage(
+                $language,
+                $text,
+                $type,
+                $botMotherId
+            );
+
+            $successMessage = "✅ ارسال پیام همگانی انجام شد!\n\n";
+            $successMessage .= "📊 نتایج:\n";
+            $successMessage .= "• ✅ ارسال موفق: {$result['success_count']}\n";
+            $successMessage .= "• ❌ خطا: {$result['error_count']}\n";
+            $successMessage .= "• 📝 گزارش کامل به ادمین‌ها ارسال شد.\n";
+
+            if ($result['error_count'] > 0 && count($result['errors']) > 0) {
+                $successMessage .= "\n⚠️ خطاها:\n";
+                foreach (array_slice($result['errors'], 0, 5) as $error) {
+                    $successMessage .= "• Chat ID {$error['chat_id']}: {$error['error']}\n";
+                }
+                if (count($result['errors']) > 5) {
+                    $successMessage .= "... و " . (count($result['errors']) - 5) . " خطای دیگر\n";
+                }
+            }
+
+            BotHelper::sendMessage($bot, $successMessage);
+
+            // Clear state
+            BotMotherStateHelper::clearState($chatId);
+
+            // Log
+            Log::info('Broadcast completed', [
+                'chat_id' => $chatId,
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+                'language' => $language,
+                'success_count' => $result['success_count'],
+                'error_count' => $result['error_count'],
+            ]);
+
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در ارسال پیام همگانی:\n\n";
+            $errorMessage .= $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error in broadcast', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId,
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+                'language' => $language,
+            ]);
+        }
+    }
+
+    /**
+     * Handle help command - نمایش لیست دستورات
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @return void
+     */
+    private function handleHelp(Telegram $bot, string $type): void
+    {
+        $this->sendHelpMessage($bot, $type);
+    }
+
+    /**
+     * ارسال پیام help (برای استفاده در آخر هر عملیات)
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @return void
+     */
+    private function sendHelpMessage(Telegram $bot, string $type): void
+    {
+        $message = "📖 راهنمای ربات مادر\n\n";
+        $message .= "📋 دستورات موجود:\n\n";
+        $message .= "1️⃣ /start یا 'ساختن'\n";
+        $message .= "   شروع ساخت ربات جدید\n\n";
+        $message .= "2️⃣ /statistics یا 'استاتستیکس'\n";
+        $message .= "   مشاهده آمار کامل ربات‌های ساخته شده\n\n";
+        $message .= "3️⃣ /broadcast یا 'ارسال همگانی'\n";
+        $message .= "   ارسال پیام همگانی به کاربران (فقط ادمین)\n\n";
+        $message .= "4️⃣ /duplicates یا 'تکراری'\n";
+        $message .= "   مشاهده ربات‌های تکراری\n\n";
+        $message .= "5️⃣ /help یا 'راهنما'\n";
+        $message .= "   نمایش این راهنما\n\n";
+        $message .= "6️⃣ /quran_bots یا 'ربات قرآن'\n";
+        $message .= "   معرفی ربات‌های قرآن با پشتیبانی چندزبانه\n\n";
+        $message .= "7️⃣ /clear_cache یا 'پاک کش'\n";
+        $message .= "   پاک کردن cache آمار (برای محاسبه مجدد)\n\n";
+        $message .= "8️⃣ /logs یا 'لاگ'\n";
+        $message .= "   نمایش 50 خط آخر لاگ\n\n";
+        $message .= "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+        $message .= "💡 برای مشاهده لیست endpoint ها، /start را ارسال کنید.";
+
+        BotHelper::sendMessage($bot, $message);
+    }
+
+    /**
+     * Handle Quran bots introduction command
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleQuranBotsIntroduction(Telegram $bot, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+
+        // نمایش لیست زبان‌ها برای انتخاب
+        $languages = $this->getSupportedLanguages();
+        $message = trans('bot.quran_bots.select_language', [], 'fa');
+        if ($message == 'bot.quran_bots.select_language') {
+            $message = 'برای چه زبانی می‌خواهید متن معرفی ربات‌های قرآن را ببینید؟';
+        }
+        $message .= "\n\n";
+
+        // ساخت دکمه‌های inline برای انتخاب زبان
+        $buttons = [];
+        $row = [];
+        foreach ($languages as $langCode => $langName) {
+            $row[] = $bot->buildInlineKeyBoardButton($langName, callback_data: 'quran_bots_lang_' . $langCode);
+            // هر 2 دکمه در یک ردیف
+            if (count($row) == 2) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+        // اضافه کردن ردیف آخر اگر خالی نبود
+        if (!empty($row)) {
+            $buttons[] = $row;
+        }
+
+        $inlineKeyboard = $bot->buildInlineKeyBoard($buttons);
+        BotHelper::sendKeyboardMessageToChatId($bot, $message, $inlineKeyboard, $chatId);
+
+        // تنظیم state
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_QURAN_BOTS_LANGUAGE, [
+            'bot_mother_id' => $botMotherId,
+            'type' => $type,
+        ]);
+    }
+
+    /**
+     * Handle Quran bots language selection
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleQuranBotsLanguageSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $selectedLanguage = $text; // استفاده از زبان انتخابی از callback
+
+        // اگر از callback آمده، زبان را از callback data بگیر
+        if (str_starts_with($text, 'quran_bots_lang_')) {
+            $selectedLanguage = str_replace('quran_bots_lang_', '', $text);
+        }
+
+        // بررسی اینکه زبان معتبر است
+        $languages = $this->getSupportedLanguages();
+        if (!isset($languages[$selectedLanguage])) {
+            // اگر زبان معتبر نیست، از fa استفاده کن
+            $selectedLanguage = 'fa';
+        }
+
+        Log::info('Quran bots language selected', [
+            'chat_id' => $chatId,
+            'selected_language' => $selectedLanguage,
+            'input_text' => $text,
+        ]);
+
+        // پرسیدن منبع
+        $message = trans('bot.quran_bots.select_source', [], 'fa');
+        if ($message == 'bot.quran_bots.select_source') {
+            $message = 'از چه منبعی استفاده کنیم؟';
+        }
+        $message .= "\n\n";
+        $messageBoth = trans('bot.quran_bots.source.both', [], 'fa');
+        if ($messageBoth == 'bot.quran_bots.source.both') {
+            $messageBoth = 'ترکیب کانفیگ + دیتابیس';
+        }
+        $message .= "1️⃣ {$messageBoth}\n";
+
+        $messageDb = trans('bot.quran_bots.source.database_only', [], 'fa');
+        if ($messageDb == 'bot.quran_bots.source.database_only') {
+            $messageDb = 'فقط دیتابیس';
+        }
+        $message .= "2️⃣ {$messageDb}\n";
+        $message .= "\n";
+        $message .= "شماره گزینه را ارسال کنید:";
+
+        BotHelper::sendMessage($bot, $message);
+
+        // به‌روزرسانی state
+        BotMotherStateHelper::setState($chatId, BotMotherStateHelper::STATE_WAITING_QURAN_BOTS_SOURCE, array_merge($stateData, [
+            'language' => $selectedLanguage,
+        ]));
+    }
+
+    /**
+     * Handle Quran bots source selection
+     *
+     * @param Telegram $bot
+     * @param string $text
+     * @param array $stateData
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleQuranBotsSourceSelection(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $language = $stateData['language'] ?? 'fa';
+        $source = 'both';
+
+        // تشخیص منبع انتخابی
+        if ($text == '1' || strtolower($text) == 'both' || strtolower($text) == 'ترکیب') {
+            $source = 'both';
+        } elseif ($text == '2' || strtolower($text) == 'database' || strtolower($text) == 'دیتابیس') {
+            $source = 'database_only';
+        } else {
+            $message = "❌ گزینه نامعتبر. لطفاً 1 یا 2 را ارسال کنید.";
+            BotHelper::sendMessage($bot, $message);
+            return;
+        }
+
+        try {
+            // ارسال پیام "در حال پردازش"
+            $processingMessage = trans('bot.processing your request');
+            if ($processingMessage == 'bot.processing your request') {
+                $processingMessage = '⏳ در حال پردازش درخواست شما...';
+            }
+            BotHelper::sendMessage($bot, $processingMessage);
+
+            // تولید متن معرفی
+            $service = new \App\Services\QuranBotsIntroductionService();
+
+            Log::info('Generating Quran bots introduction', [
+                'chat_id' => $chatId,
+                'language' => $language,
+                'source' => $source,
+                'bot_mother_id' => $botMotherId,
+                'type' => $type,
+            ]);
+
+            $message = $service->generateIntroductionMessage($language, $source, $botMotherId, $type);
+
+            if (empty(trim($message))) {
+                $message = "❌ هیچ ربات قرآنی یافت نشد.\n\n";
+                if ($source == 'database_only') {
+                    $message .= "لطفاً بررسی کنید که ربات‌های قرآن در دیتابیس ثبت شده‌اند.";
+                } else {
+                    $message .= "لطفاً بررسی کنید که ربات‌های قرآن در کانفیگ یا دیتابیس ثبت شده‌اند.";
+                }
+            }
+
+            BotHelper::sendMessage($bot, $message);
+
+            // پاک کردن state
+            BotMotherStateHelper::clearState($chatId);
+
+            // لاگ
+            Log::info('Quran bots introduction sent', [
+                'chat_id' => $chatId,
+                'language' => $language,
+                'source' => $source,
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+            ]);
+        } catch (\Exception $e) {
+            $errorMessage = "❌ خطا در تولید متن معرفی:\n\n" . $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error generating Quran bots introduction', [
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId,
+                'language' => $language,
+                'source' => $source,
+            ]);
+
+            BotMotherStateHelper::clearState($chatId);
+        }
+    }
+
+    /**
+     * Handle clear cache command
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @param int $botMotherId
+     * @return void
+     */
+    private function handleClearCache(Telegram $bot, string $type, int $botMotherId): void
+    {
+        try {
+            $cacheKey = "bot_mother_statistics_{$botMotherId}";
+            Cache::forget($cacheKey);
+
+            $message = "✅ Cache آمار پاک شد.\n\n";
+            $message .= "آمار در درخواست بعدی دوباره محاسبه خواهد شد.";
+
+            BotHelper::sendMessage($bot, $message);
+
+            Log::info('Cache cleared', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'bot_mother_id' => $botMotherId,
+            ]);
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در پاک کردن cache:\n\n" . $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error clearing cache', [
+                'error' => $e->getMessage(),
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+            ]);
+        }
+    }
+
+    /**
+     * Handle logs command - نمایش 50 خط آخر لاگ
+     *
+     * @param Telegram $bot
+     * @param string $type
+     * @return void
+     */
+    private function handleLogs(Telegram $bot, string $type): void
+    {
+        try {
+            $logFile = storage_path('logs/laravel-' . date('Y-m-d') . '.log');
+
+            if (!file_exists($logFile)) {
+                $singleLog = storage_path('logs/laravel.log');
+                if (file_exists($singleLog)) {
+                    $logFile = $singleLog;
+                } else {
+                    // اگر فایل امروز وجود نداشت، آخرین فایل لاگ را پیدا کن
+                    $logDir = storage_path('logs');
+                    $files = glob($logDir . '/laravel-*.log');
+                    if (empty($files)) {
+                        $message = "❌ هیچ فایل لاگی یافت نشد.";
+                        BotHelper::sendMessage($bot, $message);
+                        return;
+                    }
+                    // آخرین فایل را انتخاب کن
+                    usort($files, function($a, $b) {
+                        return filemtime($b) - filemtime($a);
+                    });
+                    $logFile = $files[0];
+                }
+            }
+
+            // خواندن 50 خط آخر
+            $lines = file($logFile);
+            $lastLines = array_slice($lines, -50);
+            $logContent = implode('', $lastLines);
+
+            // اگر لاگ خیلی طولانی است، آن را تقسیم کن
+            if (strlen($logContent) > 4000) {
+                $logContent = substr($logContent, -4000);
+                $logContent = "... (فقط 4000 کاراکتر آخر)\n\n" . $logContent;
+            }
+
+            $message = "📋 50 خط آخر لاگ:\n\n";
+            $message .= "```\n" . $logContent . "\n```";
+
+            BotHelper::sendMessage($bot, $message);
+
+            Log::info('Logs requested', [
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+                'log_file' => basename($logFile),
+            ]);
+        } catch (Exception $e) {
+            $errorMessage = "❌ خطا در خواندن لاگ:\n\n" . $e->getMessage();
+            BotHelper::sendMessage($bot, $errorMessage);
+
+            Log::error('Error reading logs', [
+                'error' => $e->getMessage(),
+                'chat_id' => $bot->ChatID(),
+                'type' => $type,
+            ]);
+        }
+    }
+
+    /**
+     * Handle /pro_confirm command
+     */
+    private function handleProConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+
+        // استخراج request_id از دستور
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /pro_confirm [REQUEST_ID]");
+            return;
+        }
+
+        try {
+            $proService = app(\App\Services\ProServiceImpl::class);
+            $adminId = 1; // می‌توانیم از AdminHelper استفاده کنیم
+
+            $result = $proService->confirmPurchase((int)$requestId, $adminId);
+
+            if ($result) {
+                $request = \App\Models\ProPurchaseRequest::find($requestId);
+                $botUser = $request->botUser ?? null;
+
+                $message = "✅ درخواست Pro با موفقیت تایید شد!\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($botUser) {
+                    $message .= "👤 User: {$request->user_identifier}\n";
+                    $message .= "💬 Chat ID: {$botUser->chat_id}\n";
+                }
+
+                BotHelper::sendMessage($bot, $message);
+
+                // ارسال پیام به کاربر
+                if ($botUser && $request->bot) {
+                    $botToken = $type === 'bale'
+                        ? $request->bot->bale_bot_token
+                        : $request->bot->telegram_bot_token;
+
+                    if ($botToken) {
+                        $userBot = new Telegram($botToken, $type === 'bale' ? 'bale' : null);
+                        $userMsg = "✅ درخواست Pro شما تایید شد!\n\nحالا می‌توانید از امکانات Pro استفاده کنید.";
+                        if (($request->bot->endpoint_id ?? '') === \App\Http\Controllers\GrowthCompanionController::ENDPOINT_ID) {
+                            $proUser = \App\Models\ProUser::where('bot_user_id', $botUser->id)
+                                ->where('bot_id', $request->bot_id)
+                                ->first();
+                            $until = optional($proUser?->expires_at)?->timezone('Asia/Tehran')?->format('Y-m-d');
+                            $userMsg = trans('growth_companion.pro_activated', [
+                                'date' => $until ?: trans('growth_companion.pro_unlimited'),
+                            ]);
+                        }
+                        BotHelper::sendMessageByChatId(
+                            $userBot,
+                            $botUser->chat_id,
+                            $userMsg
+                        );
+                    }
+                }
+
+                Log::info('✅ [BotMother] Pro purchase confirmed', [
+                    'request_id' => $requestId,
+                    'admin_chat_id' => $chatId,
+                    'type' => $type
+                ]);
+            } else {
+                BotHelper::sendMessage($bot, "❌ خطا در تایید درخواست.\n\nممکن است درخواست قبلاً پردازش شده باشد.");
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] Error confirming pro purchase', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+                'chat_id' => $chatId
+            ]);
+
+            BotHelper::sendMessage($bot, "❌ خطا در پردازش درخواست:\n\n" . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle /owner_pro_confirm command for Bot Owner Pro requests
+     */
+    private function handleOwnerProConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $parts = explode(' ', $text);
+        $requestId = $parts[1] ?? null;
+
+        if (!$requestId || !is_numeric($requestId)) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /owner_pro_confirm [REQUEST_ID] [months]\nmonths: 3, 6, 12, 0 (نامحدود) — پیش‌فرض: 3");
+            return;
+        }
+
+        $months = isset($parts[2]) && is_numeric($parts[2]) ? (int) $parts[2] : 3;
+
+        try {
+            $proService = app(\App\Modules\BotOwner\Contracts\BotOwnerProServiceInterface::class);
+            $result = $proService->confirmPro((int) $requestId, 1, $months);
+
+            if ($result) {
+                $request = \App\Modules\BotOwner\Models\BotOwnerProRequest::find($requestId);
+                $owner = $request?->botOwner;
+
+                $message = "✅ درخواست Pro مالک ربات تایید شد!\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($owner) {
+                    $message .= "📱 Phone: {$owner->phone}\n";
+                }
+                BotHelper::sendMessage($bot, $message);
+
+                if ($owner && $owner->bale_chat_id) {
+                    $adminToken = env('ADMIN_BOTS_TOKEN_BALE');
+                    if ($adminToken) {
+                        $adminBot = new Telegram($adminToken, 'bale');
+                        BotHelper::sendMessageByChatId(
+                            $adminBot,
+                            $owner->bale_chat_id,
+                            trans('bot-owner.pro_approved_notify')
+                        );
+                    }
+                }
+            } else {
+                BotHelper::sendMessage($bot, "❌ خطا در تایید درخواست مالک ربات.");
+            }
+        } catch (Exception $e) {
+            Log::error('BotMother owner_pro_confirm error', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle /adminbot_confirm command for hidden adminkie requests
+     */
+    private function handleAdminbotConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $args = $this->extractAdminbotConfirmArgs($text);
+        $requestId = $args['request_id'];
+        $mainBotId = $args['main_bot_id'];
+
+        Log::info('🤖 [BotMother] adminbot_confirm triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+            'main_bot_id' => $mainBotId,
+        ]);
+
+        if ($requestId === null) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_confirm_usage'));
+            return;
+        }
+
+        try {
+            $service = app(\App\Services\BotAdminKieService::class);
+            $result = $service->confirmRequest($requestId, (int) $chatId, $mainBotId);
+
+            if ($result) {
+                $request = \App\Models\BotAdminKieRequest::find($requestId);
+                $message = trans('bot.admin_kie_confirmed_admin') . "\n\n";
+                $message .= "🆔 Request ID: {$requestId}\n";
+                if ($request) {
+                    $message .= "👤 {$request->displayName()}\n";
+                    $message .= "💬 Chat ID: {$request->chat_id}\n";
+                    $message .= "🤖 Bot ID: " . ($request->bot_id ?? '—') . "\n";
+                }
+                BotHelper::sendMessage($bot, $message);
+            } else {
+                BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+            }
+        } catch (Exception $e) {
+            Log::error('BotMother adminbot_confirm error', [
+                'request_id' => $requestId,
+                'main_bot_id' => $mainBotId,
+                'error' => $e->getMessage(),
+            ]);
+            BotHelper::sendMessage($bot, '❌ خطا: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle /adminbot_reject command for hidden adminkie requests
+     */
+    private function handleAdminbotReject(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $requestId = $this->extractNumericCommandArg($text, 'adminbot_reject');
+
+        Log::info('🤖 [BotMother] adminbot_reject triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
+
+        if ($requestId === null) {
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_reject_usage'));
+            return;
+        }
+
+        $request = \App\Models\BotAdminKieRequest::pending()->find($requestId);
+        if (!$request) {
+            BotHelper::sendMessage($bot, '❌ درخواست یافت نشد یا قبلاً پردازش شده است.');
+            return;
+        }
+
+        $request->update([
+            'status' => 'rejected',
+            'approved_by' => $bot->ChatID(),
+            'approved_at' => now(),
+        ]);
+
+        BotHelper::sendMessage($bot, trans('bot.admin_kie_rejected_admin') . "\n🆔 Request ID: {$requestId}");
+    }
+
+    private function extractNumericCommandArg(string $text, string $command): ?int
+    {
+        // Accept:
+        // - /command 123
+        // - /command_123
+        // - /command123
+        // - /command@SomeBot 123
+        // - /command@SomeBot_123
+        // - extra whitespace/newlines
+        $pattern = '~^/\s*' . preg_quote($command, '~') . '(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)~iu';
+        if (preg_match($pattern, trim($text), $m) !== 1) {
+            return null;
+        }
+
+        $id = (int) $m[1];
+        return $id > 0 ? $id : null;
+    }
+
+    /**
+     * @return array{request_id: ?int, main_bot_id: ?int}
+     */
+    private function extractAdminbotConfirmArgs(string $text): array
+    {
+        // Accept:
+        // - /adminbot_confirm 123
+        // - /adminbot_confirm_123
+        // - /adminbot_confirm_123_456
+        // - /adminbot_confirm 123 456
+        // - /adminbot_confirm 123 456 — Bot Name
+        // - /adminbot_confirm@SomeBot_123_456
+        $pattern = '~^/\s*adminbot_confirm(?:@[a-zA-Z0-9_]*?[a-zA-Z0-9])?(?:[\s_]+|(?=[0-9]))([0-9]+)(?:[\s_]+([0-9]+))?~iu';
+        if (preg_match($pattern, trim($text), $m) !== 1) {
+            return ['request_id' => null, 'main_bot_id' => null];
+        }
+
+        $requestId = (int) $m[1];
+        $mainBotId = isset($m[2]) ? (int) $m[2] : null;
+
+        return [
+            'request_id' => $requestId > 0 ? $requestId : null,
+            'main_bot_id' => $mainBotId && $mainBotId > 0 ? $mainBotId : null,
+        ];
+    }
+
+    private function handleLibraryReaderTokenInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $mainBotId = $stateData['bot_id'] ?? null;
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+        $mainToken = $stateData['main_bot_token'] ?? null;
+
+        if (!$mainBotId || !$mainToken) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات اصلی یافت نشد. لطفاً دوباره از /start شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        $skip = in_array(mb_strtolower(trim($text)), ['رد', 'skip', 'نه', 'no'], true);
+
+        try {
+            $mainBotItem = Bot::find($mainBotId);
+            if (!$mainBotItem) {
+                throw new Exception('ربات اصلی یافت نشد.');
+            }
+
+            $readerBotId = null;
+
+            if (!$skip) {
+                if (!TokenHelper::isToken($text, $botType)) {
+                    BotHelper::sendMessage($bot, "❌ توکن نامعتبر است. توکن ربات کتابخوان را ارسال کنید یا «رد» بزنید.");
+                    return;
+                }
+
+                $readerBotItem = $this->registerChildBotFromToken($text, $botType, $chatId, $botMotherId, 'book-library-reader', $language);
+                $readerBotId = $readerBotItem->id;
+
+                LibraryBotConfig::updateOrCreate(
+                    ['bot_id' => $mainBotId],
+                    ['reader_bot_id' => $readerBotId]
+                );
+
+                $readerWebhookUrl = WebhookEndpointHelper::createWebhookUrl('book-library-reader', $readerBotItem, $botType, $language, $botMotherId);
+                $readerTelegram = new Telegram($text, $botType === 'bale' ? 'bale' : null);
+                $readerWebhookResult = $readerTelegram->setWebhook($readerWebhookUrl);
+                if (!$readerWebhookResult['ok']) {
+                    throw new Exception('خطا در تنظیم webhook ربات کتابخوان');
+                }
+                if ($botType === 'bale') {
+                    $readerBotItem->bale_webhook_is_set = 1;
+                } else {
+                    $readerBotItem->telegram_webhook_is_set = 1;
+                }
+                $readerBotItem->save();
+            }
+
+            $mainWebhookUrl = WebhookEndpointHelper::createWebhookUrl('book-library', $mainBotItem, $botType, $language, $botMotherId);
+            $mainTelegram = new Telegram($mainToken, $botType === 'bale' ? 'bale' : null);
+            $mainWebhookResult = $mainTelegram->setWebhook($mainWebhookUrl);
+            if (!$mainWebhookResult['ok']) {
+                throw new Exception('خطا در تنظیم webhook ربات کتابخانه');
+            }
+            if ($botType === 'bale') {
+                $mainBotItem->bale_webhook_is_set = 1;
+            } else {
+                $mainBotItem->telegram_webhook_is_set = 1;
+            }
+            $mainBotItem->save();
+
+            BotMotherStateHelper::clearState($chatId);
+
+            $message = "✅ ربات کتابخانه آماده است!\n\n";
+            $message .= "🆔 Main Bot ID: {$mainBotId}\n";
+            if ($readerBotId) {
+                $message .= "📖 Reader Bot ID: {$readerBotId}\n";
+                $message .= "✅ هر دو ربات به هم متصل شدند.\n";
+            } else {
+                $message .= "✅ محتوا مستقیماً در همین ربات ارسال می‌شود (reader لازم نیست).\n\n";
+                $message .= "📂 Seed دسته‌ها:\n";
+                $message .= "CONTENT_SEED_BOT_ID={$mainBotId} php artisan db:seed --class=ContentCategorySeeder\n\n";
+                $message .= "⚙️ مدیریت: /content در Bot Mother یا دستورات مالک داخل ربات.\n";
+            }
+            $message .= "\n🔗 Webhook ربات اصلی:\n{$mainWebhookUrl}";
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] Book library setup failed', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
+    }
+
+    private function registerChildBotFromToken(
+        string $token,
+        string $botType,
+        $ownerChatId,
+        int $botMotherId,
+        string $endpointId,
+        string $language
+    ): Bot {
+        $newBot = new Telegram($token, $botType === 'bale' ? 'bale' : null);
+        $getMe = $newBot->getMe();
+        if (!$getMe['ok']) {
+            throw new Exception('خطا در دریافت اطلاعات ربات: ' . ($getMe['description'] ?? 'Unknown'));
+        }
+
+        $existing = $botType === 'bale'
+            ? Bot::where('bale_bot_token', $token)->first()
+            : Bot::where('telegram_bot_token', $token)->first();
+
+        $botItem = $existing ?: new Bot();
+        $botItem->bot_mother_id = $botMotherId;
+        $botItem->endpoint_id = $endpointId;
+        $botItem->language_code = $language;
+        $botItem->type = $botType;
+
+        if ($botType === 'bale') {
+            $botItem->bale_owner_chat_id = $ownerChatId;
+            $botItem->bale_bot_name = $getMe['result']['username'] ?? null;
+            $botItem->bale_bot_token = $token;
+            $botItem->bale_get_me_api_response = json_encode($getMe['result']);
+            $botItem->bale_bot_status = 'Active';
+        } else {
+            $botItem->telegram_owner_chat_id = $ownerChatId;
+            $botItem->telegram_bot_name = $getMe['result']['username'] ?? null;
+            $botItem->telegram_bot_token = $token;
+            $botItem->telegram_get_me_api_response = json_encode($getMe['result']);
+            $botItem->telegram_bot_status = 'Active';
+        }
+
+        $botItem->save();
+
+        return $botItem;
+    }
+
+    /**
+     * Link standalone book-library-reader to an existing book-library main bot.
+     */
+    private function handleLibraryMainBotIdInput(Telegram $bot, string $text, array $stateData, string $type, int $botMotherId): void
+    {
+        $chatId = $bot->ChatID();
+        $readerBotId = $stateData['reader_bot_id'] ?? null;
+        $readerToken = $stateData['reader_bot_token'] ?? null;
+        $botType = $stateData['bot_type'] ?? $type;
+        $language = $stateData['language'] ?? 'fa';
+
+        if (!$readerBotId || !$readerToken) {
+            BotHelper::sendMessage($bot, "❌ خطا: اطلاعات ربات کتابخوان یافت نشد. لطفاً دوباره از /start شروع کنید.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        if (!is_numeric(trim($text))) {
+            BotHelper::sendMessage($bot, "❌ لطفاً Bot ID عددی ربات اصلی book-library را ارسال کنید.");
+            return;
+        }
+
+        $mainBotId = (int) trim($text);
+        $mainBotItem = Bot::where('id', $mainBotId)->where('endpoint_id', 'book-library')->first();
+
+        if (!$mainBotItem) {
+            BotHelper::sendMessage($bot, "❌ ربات اصلی با ID {$mainBotId} و endpoint book-library یافت نشد.\n\nابتدا Smart Book Library را بسازید.");
+            return;
+        }
+
+        $readerBotItem = Bot::find($readerBotId);
+        if (!$readerBotItem) {
+            BotHelper::sendMessage($bot, "❌ ربات کتابخوان یافت نشد.");
+            BotMotherStateHelper::clearState($chatId);
+            return;
+        }
+
+        try {
+            LibraryBotConfig::updateOrCreate(
+                ['bot_id' => $mainBotId],
+                ['reader_bot_id' => $readerBotId]
+            );
+
+            $readerWebhookUrl = WebhookEndpointHelper::createWebhookUrl('book-library-reader', $readerBotItem, $botType, $language, $botMotherId);
+            $readerTelegram = new Telegram($readerToken, $botType === 'bale' ? 'bale' : null);
+            $readerWebhookResult = $readerTelegram->setWebhook($readerWebhookUrl);
+            if (!$readerWebhookResult['ok']) {
+                throw new Exception('خطا در تنظیم webhook ربات کتابخوان');
+            }
+            if ($botType === 'bale') {
+                $readerBotItem->bale_webhook_is_set = 1;
+            } else {
+                $readerBotItem->telegram_webhook_is_set = 1;
+            }
+            $readerBotItem->save();
+
+            BotMotherStateHelper::clearState($chatId);
+
+            $message = "✅ ربات کتابخوان به ربات اصلی متصل شد!\n\n";
+            $message .= "🆔 Main Bot ID: {$mainBotId}\n";
+            $message .= "📖 Reader Bot ID: {$readerBotId}\n\n";
+            $message .= "🔗 Webhook کتابخوان:\n{$readerWebhookUrl}\n\n";
+            $message .= "💡 به کاربران بگویید هر دو ربات را /start کنند:\n";
+            $message .= "• ربات اصلی: انتخاب کتاب و منو\n";
+            $message .= "• ربات کتابخوان: دریافت صوت و PDF";
+            BotHelper::sendMessage($bot, $message);
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] Link library reader failed', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
+    }
+
+    private function handleLibraryPlanConfirm(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $requestId = $this->extractNumericCommandArg($text, 'library_plan_confirm');
+
+        Log::info('💎 [BotMother] library_plan_confirm triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
+
+        if ($requestId === null) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /library_plan_confirm [REQUEST_ID]");
+            return;
+        }
+
+        try {
+            $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+            // Note: confirmPlanRequest() also sends the activation message
+            // (with the milestone reward teaser) to the user — keep this
+            // admin-only ack to avoid double notifications.
+            $result = $planService->confirmPlanRequest((int) $requestId, 'bot_mother_admin');
+
+            if ($result['success'] ?? false) {
+                BotHelper::sendMessage($bot, "✅ پلن کتابخانه تایید شد.\n🆔 Request ID: {$requestId}");
+            } else {
+                BotHelper::sendMessage($bot, $result['message'] ?? '❌ خطا در تایید درخواست.');
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] library_plan_confirm error', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
+        }
+    }
+
+    private function handleLibraryPlanReject(Telegram $bot, string $text, string $type): void
+    {
+        $chatId = $bot->ChatID();
+        $requestId = $this->extractNumericCommandArg($text, 'library_plan_reject');
+
+        Log::info('💎 [BotMother] library_plan_reject triggered', [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'request_id' => $requestId,
+        ]);
+
+        if ($requestId === null) {
+            BotHelper::sendMessage($bot, "❌ فرمت دستور اشتباه است.\n\nاستفاده: /library_plan_reject [REQUEST_ID]");
+            return;
+        }
+
+        try {
+            $planService = app(\App\Services\BookLibraryPlanServiceImpl::class);
+            $result = $planService->rejectPlanRequest((int) $requestId, 'bot_mother_admin');
+
+            if ($result['success'] ?? false) {
+                BotHelper::sendMessage($bot, "❌ درخواست پلن کتابخانه رد شد.\n🆔 Request ID: {$requestId}");
+            } else {
+                BotHelper::sendMessage($bot, $result['message'] ?? '❌ خطا در پردازش درخواست.');
+            }
+        } catch (Exception $e) {
+            Log::error('❌ [BotMother] library_plan_reject error', ['error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, "❌ خطا: " . $e->getMessage());
         }
     }
 

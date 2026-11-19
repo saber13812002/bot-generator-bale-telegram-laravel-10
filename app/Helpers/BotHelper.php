@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Telegram;
+use App\Helpers\PrayerHelper;
 
 class BotHelper
 {
@@ -98,7 +99,10 @@ class BotHelper
                     
                     // بررسی webhook بعد از ست کردن (الزامی!)
                     Log::info('🔍 BotHelper - Verifying webhook after setting', [
+                        'bot_id' => $botItem->id,
+                        'bot_mother_id' => $botMotherId,
                         'type' => $type,
+                        'language' => $language,
                         'token_preview' => substr($token, 0, 10) . '...',
                         'webhook_url_set' => $webHookUrl
                     ]);
@@ -106,7 +110,10 @@ class BotHelper
                     $webhookInfo = self::checkWebhookInfo($token, $type);
                     if (!$webhookInfo['ok'] || empty($webhookInfo['result']['url'] ?? null)) {
                         Log::error('❌ BotHelper - Webhook verification FAILED after setting', [
+                            'bot_id' => $botItem->id,
+                            'bot_mother_id' => $botMotherId,
                             'type' => $type,
+                            'language' => $language,
                             'token_preview' => substr($token, 0, 10) . '...',
                             'webhook_url_expected' => $webHookUrl,
                             'webhook_info' => $webhookInfo
@@ -116,7 +123,10 @@ class BotHelper
                         $urlMatches = $actualUrl === $webHookUrl;
                         
                         Log::info('✅ BotHelper - Webhook verified successfully', [
+                            'bot_id' => $botItem->id,
+                            'bot_mother_id' => $botMotherId,
                             'type' => $type,
+                            'language' => $language,
                             'url_expected' => $webHookUrl,
                             'url_actual' => $actualUrl,
                             'url_matches' => $urlMatches,
@@ -178,6 +188,11 @@ class BotHelper
      */
     private static function createWebhookUrl(Bot $botItem, $type, $language, $botMotherId): string
     {
+        // اگر bot_id هنوز وجود ندارد (ربات جدید)، باید ابتدا save شود
+        if (!$botItem->id) {
+            $botItem->save();
+        }
+        
         return config('bot.childbotwebhookurl')
             . '?bot_user_name='
             . $botItem->bale_bot_name
@@ -188,7 +203,9 @@ class BotHelper
             . '&language='
             . $language
             . '&bot_mother_id='
-            . $botMotherId;
+            . $botMotherId
+            . '&bot_id='
+            . $botItem->id;
     }
 
     /**
@@ -264,56 +281,84 @@ class BotHelper
         return $messenger->sendMessage($content);
     }
 
-    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram')
+    public static function sendMessageEitaaSupport($message, $bot_token, $channel_chat_id, $type = 'telegram', $parseMode = null)
     {
         if ($type != "eitaa") {
             $bot = new Telegram($bot_token, $type);
             return self::sendMessageByChatId($bot, $channel_chat_id, $message);
         } else {
-            return self::sendMessageEitaa($message, $bot_token, $channel_chat_id);
+            return self::sendMessageEitaa($message, $bot_token, $channel_chat_id, $parseMode);
         }
     }
 
-    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id)
+    private static function sendMessageEitaa($message, $bot_token, $channel_chat_id, $parseMode = null)
     {
-        return self::call_eitaa_api($bot_token, $channel_chat_id, $message);
+        return self::call_eitaa_api($bot_token, $channel_chat_id, $message, null, $parseMode);
     }
 
-    public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption)
+    public static function sendAnyFileMessageEitaa($chat_id, $photoUrl, $title, $messenger, $caption, $parseMode = null)
     {
         // todo: test eitaa image sender with test send photo message to eitaa command TestSendPhotoMessageToEitaa
         return self::call_eitaa_api($messenger->Token(), $chat_id, $title . "
-" . $caption, $photoUrl);
+" . $caption, $photoUrl, $parseMode);
     }
 
-    private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null)
+    /**
+     * سازندهٔ فیلدهای POST برای API رسمی ایتایار (eitaa) — خالص و قابل تست.
+     *
+     * مستندات رسمی: docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf
+     * (نسخهٔ آزمایشی، از https://eitaayar.ir/api):
+     * - متدها: getMe, sendMessage, sendFile
+     * - sendMessage: chat_id(اجباری), text(اجباری), title, disable_notification,
+     *   reply_to_message_id, date, pin, viewCountForDelete
+     * - sendFile: همان sendMessage به‌جز اینکه به‌جای text از caption استفاده می‌شود
+     *   (اجباری: file)
+     * - هیچ پارامتر parse_mode یا فرمت HTML وجود ندارد؛ متن verbatim رندر می‌شود.
+     *
+     * باگ RCA: ارسال parse_mode=html + تگ‌های <a href> باعث نمایش HTML خام در
+     * کلاینت ایتا می‌شد (API پارامتر ناشناخته را نادیده می‌گیرد).
+     *
+     * تصمیم کاربر: در sendFile هر دو caption (طبق مستندات رسمی) و text
+     * (سازگاری با رفتار فعلی production) با همان مقدار ارسال شوند.
+     */
+    public static function buildEitaaApiFields($chat_id, string $text, bool $isFile = false): array
+    {
+        // عمداً parse_mode ارسال نمی‌شود — در مستندات رسمی ایتایار وجود ندارد.
+        if ($isFile) {
+            return [
+                'chat_id' => $chat_id,
+                'caption' => $text,
+                'text' => $text,
+            ];
+        }
+
+        return [
+            'chat_id' => $chat_id,
+            'text' => $text,
+        ];
+    }
+
+    private static function call_eitaa_api($bot_token, $chat_id, $text, $photoUrl = null, $parseMode = null)
     {
         $uri = 'https://eitaayar.ir/api/' . $bot_token . ($photoUrl ? '/sendFile' : '/sendMessage');
 
-//        if ($photoUrl)
-//            dd($uri);
-        //
         $request = curl_init($uri);
         curl_setopt($request, CURLOPT_POST, true);
         curl_setopt($request, CURLOPT_SSL_VERIFYHOST, 0);
         curl_setopt($request, CURLOPT_SSL_VERIFYPEER, false);
 
-        $postFields = [
-            'chat_id' => $chat_id,
-            'text' => $text,
-        ];
+        // $parseMode برای سازگاری امضا نگه داشته شده ولی عمداً نادیده گرفته می‌شود:
+        // در مستندات رسمی ایتایار (docs/features/OFFICIAL/EitaaYar_API_Documentation.pdf)
+        // هیچ پارامتر parse_mode/HTML وجود ندارد و متن verbatim رندر می‌شود.
+        $postFields = self::buildEitaaApiFields($chat_id, $text, $isFile = (bool) $photoUrl);
 
         // Check if a file path is provided
         if ($photoUrl) {
             $cleanUrl = self::removeQueryParameters($photoUrl);
 
             $localFilePath = self::downloadImage($cleanUrl);
-            // It's a URL, add it as a string
-//            dd($localFilePath);
-//            $postFields['file'] = $cleanUrl; // Use the URL directly
-            $postFields['file'] = new \CurlFile(realpath($localFilePath)); // Use the URL directly
+            $postFields['file'] = new \CurlFile(realpath($localFilePath));
         }
-//        dd($postFields,$bot_token);
 
 
 //        if ($photoUrl)
@@ -436,15 +481,49 @@ class BotHelper
      * @param string $message
      * @return mixed
      */
-    public static function sendMessageByChatId($messenger, $chat_id, string $message)
+    public static function sendMessageByChatId($messenger, $chat_id, string $message, array $options = [])
     {
-        $content = [
+        $content = array_merge([
             'chat_id' => $chat_id,
             'text' => $message,
             'parse_mode' => "html"
-        ];
+        ], $options);
 
         return $messenger->sendMessage($content);
+    }
+
+    /**
+     * Get a random call to action for the /help command.
+     */
+    public static function getRandomHelpCta($botUser = null): string
+    {
+        $messages = [
+            "💡 برای آشنایی با امکانات بیشتر، روی /help کلیک کنید.",
+            "📌 راهنمای استفاده از ربات رو خوندی؟ 👉 /help",
+            "🤔 می‌خوای بدونی ربات چه قابلیت‌های دیگه‌ای داره؟ /help",
+            "🔍 اگر گیر کردی یا سوالی داری، /help به کمکت میاد!",
+            "⚙️ لیست کامل دستورات رو در /help ببینید.",
+            "📚 کار با ربات رو بلدی؟ نگاهی به /help بنداز.",
+            "✨ برای مدیریت بهتر فایل‌هات، حتماً /help رو ببین.",
+            "💡 یک کلیک تا راهنمای کامل ربات: /help",
+            "🧩 می‌خوای حرفه‌ای‌تر از ربات استفاده کنی؟ 👉 /help",
+            "🧭 برای پیدا کردن مسیر و دستورات، /help رو لمس کن!"
+        ];
+        
+        $cta = "\n\n" . $messages[array_rand($messages)];
+        
+        if ($botUser && class_exists('\App\Helpers\ContentBotAdminHelper')) {
+            $botModel = \App\Models\Bot::find($botUser->bot_id);
+            if ($botModel) {
+                // Determine origin (telegram or bale) from BotUsers or Bot
+                $origin = $botUser->origin ?? 'bale';
+                if (\App\Helpers\ContentBotAdminHelper::isBotOwner($botModel, (string)$botUser->chat_id, $origin)) {
+                    $cta .= "\n🛠 پنل مدیریت (ویژه شما): /manage";
+                }
+            }
+        }
+        
+        return $cta;
     }
 
     /**
@@ -647,6 +726,49 @@ class BotHelper
         $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
         self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
 
+    }
+
+    /**
+     * Send inline keyboard message with custom buttons array
+     * 
+     * @param Telegram $messenger
+     * @param string $message
+     * @param array $buttons Array of button arrays: [['text' => 'Button 1', 'callback_data' => 'data1'], ...]
+     * @return void
+     */
+    public static function sendTelegramInlineMessageWithButtons(Telegram $messenger, string $message, array $buttons): void
+    {
+        $option = [];
+        foreach ($buttons as $button) {
+            // بررسی اینکه آیا button یک آرایه از دکمه‌هاست (chunked) یا یک دکمه واحد
+            if (isset($button[0]) && is_array($button[0])) {
+                // ساختار chunked: هر عنصر یک آرایه از دکمه‌هاست
+                $row = [];
+                foreach ($button as $btn) {
+                    if (isset($btn['text'])) {
+                        $row[] = $messenger->buildInlineKeyBoardButton(
+                            $btn['text'],
+                            callback_data: $btn['callback_data'] ?? '',
+                            url: $btn['url'] ?? ''
+                        );
+                    }
+                }
+                if (!empty($row)) {
+                    $option[] = $row;
+                }
+            } elseif (isset($button['text'])) {
+                // ساختار ساده: هر عنصر یک دکمه است
+                $option[] = [
+                    $messenger->buildInlineKeyBoardButton(
+                        $button['text'],
+                        callback_data: $button['callback_data'] ?? '',
+                        url: $button['url'] ?? ''
+                    )
+                ];
+            }
+        }
+        $inlineKeyboard = $messenger->buildInlineKeyBoard($option);
+        self::sendKeyboardMessage($messenger, $message, $inlineKeyboard);
     }
 
     /**
@@ -856,29 +978,91 @@ class BotHelper
     public
     static function makeBaleKeyboard4button($array, $arrayCommands): array
     {
-        return [
-            [
-                [
-                    "text" => $array[0][0],
-                    "callback_data" => $array[0][1]
-                ],
-                [
-                    "text" => $array[1][0],
-                    "callback_data" => $array[1][1]
-                ]
-            ],
-            [
-                [
-                    "text" => $array[2][0],
-                    "callback_data" => $array[2][1]
-                ],
-                [
-                    "text" => $array[3][0],
-                    "callback_data" => $array[3][1]
-                ]
-            ],
-            $arrayCommands
-        ];
+        return self::makeButtonGrid(array_merge($array, $arrayCommands), 2);
+    }
+
+    /**
+     * Normalize mixed button input into a flat list of ['text' => ..., 'callback_data' => ...].
+     *
+     * Accepts:
+     *  - flat pairs:            [['label', '/command'], ...]
+     *  - assoc buttons:         [['text' => 'label', 'callback_data' => '/command'], ...]
+     *  - chunked rows of either (nested arrays of buttons)
+     *
+     * @return array<int, array{string, string}>
+     */
+    public static function normalizeButtonPairs(array $buttons): array
+    {
+        $normalized = [];
+        foreach ($buttons as $button) {
+            if (!is_array($button)) {
+                continue;
+            }
+            if (isset($button['text'])) {
+                $normalized[] = ['text' => (string) $button['text'], 'callback_data' => (string) ($button['callback_data'] ?? '')];
+            } elseif (isset($button[0]) && is_array($button[0])) {
+                // nested row of buttons
+                $normalized = array_merge($normalized, self::normalizeButtonPairs($button));
+            } elseif (array_key_exists(0, $button) && is_string($button[0])) {
+                $normalized[] = ['text' => (string) $button[0], 'callback_data' => (string) ($button[1] ?? '')];
+            }
+        }
+        return $normalized;
+    }
+
+    /**
+     * Build an inline-keyboard grid (rows of ['text','callback_data']) from any button list,
+     * chunked into rows of $perRow buttons.
+     */
+    public static function makeButtonGrid(array $buttons, int $perRow = 2): array
+    {
+        $flat = self::normalizeButtonPairs($buttons);
+        $grid = [];
+        foreach (array_chunk($flat, max(1, $perRow)) as $row) {
+            $grid[] = $row;
+        }
+        return $grid;
+    }
+
+    /**
+     * Send a message with a generic N-button keyboard, chunked into rows,
+     * for any bot type (bale inline, telegram inline, gap reply keyboard).
+     *
+     * @param $messenger
+     * @param string $message
+     * @param array $buttons flat pairs ['text','command'] and/or assoc ['text'=>..,'callback_data'=>..]
+     * @param string $type bale | telegram | gap
+     * @param string $token bot token (bale)
+     * @param int $perRow buttons per row
+     */
+    public static function sendButtonGridMessage($messenger, string $message, array $buttons, string $type, string $token = '', int $perRow = 2): void
+    {
+        $flat = self::normalizeButtonPairs($buttons);
+        if (empty($flat)) {
+            self::sendMessage($messenger, $message);
+            return;
+        }
+
+        if ($type == 'gap') {
+            $rows = [];
+            foreach (array_chunk($flat, max(1, $perRow)) as $chunk) {
+                $row = [];
+                foreach ($chunk as $button) {
+                    $row[] = [$button['callback_data'] => $button['text']];
+                }
+                $rows[] = $row;
+            }
+            $messenger->sendText($messenger->ChatID(), $message, $messenger->replyKeyboard($rows));
+            return;
+        }
+
+        if ($type == 'telegram') {
+            self::sendTelegramInlineMessageWithButtons($messenger, $message, self::makeButtonGrid($buttons, $perRow));
+            return;
+        }
+
+        // bale (default)
+        self::messageWithKeyboard($token, $messenger->ChatID(), $message, self::makeButtonGrid($buttons, $perRow));
     }
 
     /**
@@ -1081,18 +1265,45 @@ class BotHelper
      * @throws GuzzleException
      */
     public
-    static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): void
+    static function messageWithKeyboard($botToken, $chatId, string $message, $inlineKeyboard): bool
     {
-        $client = new GuzzleHttp\Client();
-        $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
-        $response = $client->post($uri, ['json' => [
-            "chat_id" => $chatId,
-            "text" => $message,
-            'parse_mode' => "html",
-            "reply_markup" => [
-                "inline_keyboard" => $inlineKeyboard
-            ]]]);
-//        echo $response->getBody()->getContents();
+        // Mirror the vendor Telegram package's curl behavior:
+        // (a) CURLOPT_SSL_VERIFYPEER = false — tapi.bale.ai is reached behind
+        //     a self-signed MITM certificate on some networks, and Guzzle's
+        //     default certificate verification aborts with cURL error 60.
+        // (b) API errors (e.g. 404 for an invalid/empty bot token) are
+        //     swallowed and logged, exactly like the vendor package does for
+        //     curl failures — a failed send must not turn the webhook into a 500.
+        // Returns true only when the send actually succeeded, so callers can
+        // stop logging misleading "✅ sent" messages on failure.
+        try {
+            $client = new GuzzleHttp\Client(['verify' => false]);
+            $uri = 'https://tapi.bale.ai/bot' . $botToken . '/sendMessage';
+            $response = $client->post($uri, ['json' => [
+                "chat_id" => $chatId,
+                "text" => $message,
+                'parse_mode' => "html",
+                "reply_markup" => [
+                    "inline_keyboard" => $inlineKeyboard
+                ]]]);
+
+            $body = (string) $response->getBody();
+            $decoded = json_decode($body, true);
+            if (is_array($decoded) && array_key_exists('ok', $decoded) && !(bool) $decoded['ok']) {
+                Log::warning('BotHelper::messageWithKeyboard not ok', [
+                    'chat_id' => $chatId,
+                    'api_response' => mb_substr($body, 0, 500),
+                ]);
+                return false;
+            }
+            return true;
+        } catch (GuzzleException $e) {
+            Log::warning('BotHelper::messageWithKeyboard failed', [
+                'chat_id' => $chatId,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
 
@@ -1106,6 +1317,10 @@ class BotHelper
      */
     public static function sendPhoto(mixed $chat_id, string $photoUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
+        // چک کردن آیا photoUrl یک file_id است (شروع با "AgAC" یا "BAAC" یا "CAA" برای تلگرام/بله)
+        // یا اینکه یک URL است
+        $isFileId = preg_match('/^(AgAC|BAAC|CAA|BQAC|AwAC)/', $photoUrl) || 
+                    (strlen($photoUrl) < 100 && !filter_var($photoUrl, FILTER_VALIDATE_URL));
 
         $content = [
             'chat_id' => $chat_id,
@@ -1128,6 +1343,10 @@ class BotHelper
      */
     public static function sendAudio(mixed $chat_id, string $audioUrl, string $title, Telegram $messenger, string $caption = ""): mixed
     {
+        // چک کردن آیا audioUrl یک file_id است (شروع با "CQAC" یا "BAAC" برای تلگرام/بله)
+        // یا اینکه یک URL است
+        $isFileId = preg_match('/^(CQAC|BAAC|AwAC|BQAC)/', $audioUrl) || 
+                    (strlen($audioUrl) < 100 && !filter_var($audioUrl, FILTER_VALIDATE_URL));
 
         $content = [
             'chat_id' => $chat_id,
@@ -1181,7 +1400,15 @@ class BotHelper
         if (strlen($message) > $maxCharacterPerMessage) {
             self::sendMessageWhenLong($message, $maxCharacterPerMessage, $bot);
         } else {
-            self::sendMessage($bot, $message);
+            try {
+                self::sendMessage($bot, $message);
+            } catch (Exception $e) {
+                Log::error('Error sending message', [
+                    'error' => $e->getMessage(),
+                    'message_length' => strlen($message),
+                ]);
+                throw $e; // دوباره throw می‌کنیم تا در controller catch شود
+            }
         }
     }
 
@@ -1200,23 +1427,219 @@ class BotHelper
 
         $currentLength = 0;
         $index = 0;
-        $pages[] = null;
+        $pages = [];
 
         foreach ($words as $word) {
             // +1 because the word will receive back the space in the end that it loses in explode()
             $wordLength = strlen($word) + 1;
 
             if (($currentLength + $wordLength) <= $maxLineLength) {
+                if (!isset($pages[$index])) {
+                    $pages[$index] = '';
+                }
                 $pages[$index] .= $word . ' ';
                 $currentLength += $wordLength;
             } else {
                 $index += 1;
                 $currentLength = $wordLength;
-                $pages[$index] = $word;
+                $pages[$index] = $word . ' ';
             }
         }
 //                            dd($pages);
-        foreach ($pages as $page)
-            BotHelper::sendMessage($bot, $page);
+        foreach ($pages as $page) {
+            if ($page && trim($page) !== '') {
+                try {
+                    BotHelper::sendMessage($bot, trim($page));
+                } catch (Exception $e) {
+                    Log::error('Error sending long message part', [
+                        'error' => $e->getMessage(),
+                        'page_length' => strlen($page),
+                    ]);
+                    // ادامه ارسال بقیه قسمت‌ها حتی اگر یکی خطا بدهد
+                }
+            }
+        }
+    }
+
+    /**
+     * ساخت keyboard برای انتخاب نماز
+     * 
+     * @param string $type نوع پلتفرم (telegram, bale)
+     * @return array
+     */
+    public static function makePrayerSelectionKeyboard(string $type): array
+    {
+        $buttons = [
+            [
+                ['text' => '🌅 ' . trans('bot.fajr') . ' (2)', 'callback_data' => 'prayer_fajr'],
+                ['text' => '☀️ ' . trans('bot.dhuhr') . ' (4)', 'callback_data' => 'prayer_dhuhr'],
+            ],
+            [
+                ['text' => '🌤️ ' . trans('bot.asr') . ' (4)', 'callback_data' => 'prayer_asr'],
+                ['text' => '🌇 ' . trans('bot.maghrib') . ' (3)', 'callback_data' => 'prayer_maghrib'],
+            ],
+            [
+                ['text' => '🌙 ' . trans('bot.isha') . ' (4)', 'callback_data' => 'prayer_isha'],
+            ],
+        ];
+
+        return [
+            'inline_keyboard' => $buttons
+        ];
+    }
+
+    /**
+     * ساخت keyboard برای تنظیمات ایمیل
+     * 
+     * @return array
+     */
+    public static function makeEmailSettingsKeyboard(): array
+    {
+        $buttons = [
+            [
+                ['text' => '📧 ' . trans('bot.set_email'), 'callback_data' => 'email_set'],
+            ],
+            [
+                ['text' => '📅 ' . trans('bot.daily'), 'callback_data' => 'email_freq_daily'],
+                ['text' => '📆 ' . trans('bot.weekly'), 'callback_data' => 'email_freq_weekly'],
+            ],
+            [
+                ['text' => '📋 ' . trans('bot.monthly'), 'callback_data' => 'email_freq_monthly'],
+                ['text' => '🔕 ' . trans('bot.never'), 'callback_data' => 'email_freq_never'],
+            ],
+        ];
+
+        return [
+            'inline_keyboard' => $buttons
+        ];
+    }
+
+    /**
+     * تشخیص عدد در متن
+     * 
+     * @param string $text
+     * @return int|null
+     */
+    public static function detectNumberInText(string $text): ?int
+    {
+        return PrayerHelper::detectNumberInText($text);
+    }
+
+    /**
+     * تشخیص نوع نماز از متن
+     * 
+     * @param string $text
+     * @return string|null
+     */
+    public static function detectPrayerTypeFromText(string $text): ?string
+    {
+        $type = PrayerHelper::detectPrayerTypeFromText($text);
+        return $type !== 'optional' ? $type : null;
+    }
+
+    /**
+     * ارسال پیام با reply به پیام خاص
+     * 
+     * @param Telegram $bot
+     * @param string $message
+     * @param int $replyToMessageId
+     * @return mixed
+     */
+    public static function sendMessageWithReply(Telegram $bot, string $message, int $replyToMessageId): mixed
+    {
+        $content = [
+            'chat_id' => $bot->ChatID(),
+            'text' => $message,
+            'reply_to_message_id' => $replyToMessageId,
+        ];
+
+        return $bot->sendMessage($content);
+    }
+
+    /**
+     * Handle /tome command for bot ownership claim with admin approval.
+     *
+     * Flow:
+     * 1. User sends /tome V-CODE to the bot
+     * 2. If already admin/owner → "You already have access"
+     * 3. If new user → Create pending BotAdminKieRequest, notify admin
+     * 4. Admin approves from web panel
+     *
+     * @param Telegram $bot The bot instance
+     * @param string $text The message text
+     * @param string $chatId The sender's chat ID
+     * @param string $origin 'bale' or 'telegram'
+     * @param \App\Models\Bot|null $botModel The bot model (if known)
+     * @return bool True if handled, false if not a /tome command
+     */
+    public static function handleTomeCommand(Telegram $bot, string $text, string $chatId, string $origin, ?\App\Models\Bot $botModel = null): bool
+    {
+        // Only handle /tome command (not /claim, not plain code)
+        if (!str_starts_with(mb_strtolower(trim($text)), '/tome ')) {
+            return false;
+        }
+
+        $code = trim(substr($text, 6));
+        \Log::info('🔍 [Tome] Command received', [
+            'code' => $code,
+            'chat_id' => $chatId,
+            'origin' => $origin,
+            'has_bot_model' => $botModel !== null,
+        ]);
+
+        if (empty($code)) {
+            self::sendMessage($bot, 'Usage: /tome V-CODE');
+            return true;
+        }
+
+        try {
+            $claimService = app(\App\Modules\BotOwner\Contracts\BotClaimServiceInterface::class);
+            $result = $claimService->verifyClaim($code, $chatId, $origin);
+            
+            \Log::info('✅ [Tome] Verification result', [
+                'success' => $result['success'] ?? false,
+                'message' => $result['message'] ?? 'no message',
+                'needs_approval' => $result['needs_approval'] ?? false,
+            ]);
+
+            self::sendMessage($bot, $result['message']);
+
+            // If request is pending approval, notify current owner on messenger
+            if (isset($result['needs_approval']) && $result['needs_approval'] && isset($result['bot'])) {
+                $targetBot = $result['bot'];
+                $ownerChatId = $targetBot->bale_owner_chat_id ?? $targetBot->telegram_owner_chat_id;
+                if ($ownerChatId && (string)$ownerChatId !== (string)$chatId) {
+                    $panelUrl = config('app.url') . '/bots/manage/' . $targetBot->id . '/admin-kie';
+                    $botName = $targetBot->bale_bot_name ?? $targetBot->telegram_bot_name ?? 'Bot #' . $targetBot->id;
+                    
+                    \Log::info('🔔 [Tome] Sending notification to owner', [
+                        'owner_chat_id' => $ownerChatId,
+                        'bot_id' => $targetBot->id,
+                        'bot_name' => $botName,
+                    ]);
+
+                    // Send notification message through the SAME bot that received /tome
+                    try {
+                        self::sendMessageByChatId($bot, $ownerChatId,
+                            "🔔 New admin request for your bot **{$botName}**!\n" .
+                            "User chat ID: {$chatId}\n" .
+                            "Approve from web panel: {$panelUrl}"
+                        );
+                        \Log::info('✅ [Tome] Notification sent to owner');
+                    } catch (\Exception $notifyErr) {
+                        \Log::warning('⚠️ [Tome] Could not notify owner via bot', [
+                            'error' => $notifyErr->getMessage(),
+                            'owner_chat_id' => $ownerChatId,
+                        ]);
+                    }
+                }
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('❌ [Tome] Error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            self::sendMessage($bot, '❌ An error occurred. Please try again later.');
+            return true;
+        }
     }
 }

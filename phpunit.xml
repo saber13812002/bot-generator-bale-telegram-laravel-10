@@ -21,11 +21,22 @@
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="CACHE_DRIVER" value="array"/>
-        <!-- <env name="DB_CONNECTION" value="sqlite"/> -->
-        <!-- <env name="DB_DATABASE" value=":memory:"/> -->
+        <!-- DB_CONNECTION از .env خوانده می‌شود (mysql) -->
+        <!-- دیتابیس مجزا برای تست - از دیتابیس اصلی جدا است -->
+        <env name="DB_DATABASE" value="pardisa2_bot_platform_test"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- WS-J: strict L5 در تست‌ها خاموش؛ strict جدا در AiConsumerHardeningTest test می‌شود -->
+        <env name="AI_REQUIRE_ACTIVE_PROVIDER" value="false"/>
+        <!-- R1: stage rollout در تست‌ها = public (3) تا رفتار تست‌های WS-E
+             (open-by-default) دست‌نخورده بماند؛ fail-closed stageها جدا
+             test شده‌اند (tests/Feature/AiPilotRolloutTest.php) -->
+        <env name="AI_ROLLOUT_STAGE" value="3"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="LOG_VIEWER_SECRET" value="test-log-viewer-secret-token-at-least-32-chars"/>
+        <env name="METRICS_SECRET" value="test-metrics-secret-token-at-least-32-chars"/>
+        <env name="HEALTH_SECRET" value="test-health-secret-token-at-least-32-chars"/>
+        <env name="APP_LOG_MAX_ROWS" value="50"/>
     </php>
 </phpunit>

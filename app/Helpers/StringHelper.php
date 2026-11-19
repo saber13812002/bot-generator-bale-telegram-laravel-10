@@ -41,6 +41,10 @@ class StringHelper
 برای استعلام
 وضعیت هواشناسی فعلی دستور /current
 و برای پیش بینی باد در 16 ساعت آینده /forecasting
+و برای تنظیم موقعیت مکانی /location
+و برای مدیریت هشدارها /alert
+و برای تنظیمات ایمیل /email
+و برای امکانات Pro /pro
 را کلیک یا ارسال کنید.";
     }
 
@@ -180,8 +184,11 @@ class StringHelper
     }
 
 
-    public static function ifBotTextIsTooLong($bot, string $botText): bool
+    public static function ifBotTextIsTooLong($bot, ?string $botText): bool
     {
+        if ($botText === null) {
+            return false;
+        }
         if (Str::length($botText) > 70) {
             BotHelper::sendMessage($bot, trans("bot.command is too long for process"));
             return true;

@@ -3,137 +3,47 @@
 namespace App\Helpers;
 
 use App\Models\Bot;
+use App\Models\WebhookEndpoint;
 
 class WebhookEndpointHelper
 {
     /**
      * لیست تمام webhook endpoint های موجود در سیستم
+     * خواندن از جدول webhook_endpoints
      * 
      * @return array
      */
     public static function getAvailableEndpoints(): array
     {
-        $baseUrl = env('APP_URL', 'https://your-domain.com');
-        
-        return [
-            [
-                'id' => 'webhook-personnel-registration',
-                'name' => 'ثبت‌نام پرسنل',
-                'route' => '/api/webhook-personnel-registration',
-                'description' => 'ربات ثبت‌نام پرسنل',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => true,
-            ],
-            [
-                'id' => 'webhook-personnel-admin',
-                'name' => 'ادمین ثبت‌نام پرسنل',
-                'route' => '/api/webhook-personnel-admin',
-                'description' => 'ربات ادمین برای مشاهده لیست ثبت‌نام‌های پرسنل',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-mission-bot',
-                'name' => 'ربات ماموریت',
-                'route' => '/api/webhook-mission-bot',
-                'description' => 'ربات مدیریت ماموریت‌ها',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-mission-media',
-                'name' => 'ربات مدیا ماموریت',
-                'route' => '/api/webhook-mission-media',
-                'description' => 'ربات مدیریت و آپلود مدیاهای آموزشی ماموریت‌ها',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-task-approval',
-                'name' => 'تایید وظایف',
-                'route' => '/api/webhook-task-approval',
-                'description' => 'ربات تایید و رد وظایف',
-                'requires_bot_mother_id' => true,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-weather',
-                'name' => 'آب و هوا',
-                'route' => '/api/webhook-weather',
-                'description' => 'ربات اطلاع از آب و هوا',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-quran-word',
-                'name' => 'کلمه قرآنی',
-                'route' => '/api/webhook-quran-word',
-                'description' => 'ربات جستجوی کلمات قرآنی',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-quran-ayat',
-                'name' => 'آیات قرآن',
-                'route' => '/api/webhook-quran-ayat',
-                'description' => 'ربات جستجوی آیات قرآن',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-hadith',
-                'name' => 'حدیث',
-                'route' => '/api/webhook-hadith',
-                'description' => 'ربات جستجوی احادیث',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-nahj',
-                'name' => 'نهج البلاغه',
-                'route' => '/api/webhook-nahj',
-                'description' => 'ربات جستجوی نهج البلاغه',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-blog',
-                'name' => 'وبلاگ',
-                'route' => '/api/webhook-blog',
-                'description' => 'ربات مدیریت وبلاگ',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-rss',
-                'name' => 'RSS Feed',
-                'route' => '/api/webhook-rss',
-                'description' => 'ربات RSS Feed',
-                'requires_bot_mother_id' => false,
-                'requires_token' => true,
-                'requires_language' => false,
-            ],
-            [
-                'id' => 'webhook-bot-children',
-                'name' => 'ربات‌های فرزند',
-                'route' => '/api/webhook-bot-children',
-                'description' => 'ربات مدیریت ربات‌های فرزند',
-                'requires_bot_mother_id' => false,
-                'requires_token' => false,
-                'requires_language' => false,
-            ],
-        ];
+        try {
+            // خواندن از جدول
+            $endpoints = WebhookEndpoint::where('is_active', true)
+                ->orderBy('name')
+                ->get();
+            
+            if ($endpoints->isEmpty()) {
+                // اگر جدول خالی است، آرایه خالی برگردان
+                return [];
+            }
+            
+            // تبدیل به فرمت مورد نیاز
+            return $endpoints->map(function ($endpoint) {
+                return [
+                    'id' => $endpoint->endpoint_id,
+                    'name' => $endpoint->name,
+                    'route' => $endpoint->route,
+                    'description' => $endpoint->description,
+                    'requires_bot_mother_id' => $endpoint->requires_bot_mother_id,
+                    'requires_token' => $endpoint->requires_token,
+                    'requires_language' => $endpoint->requires_language,
+                    'supports_multiple_languages' => $endpoint->supports_multiple_languages,
+                ];
+            })->toArray();
+        } catch (\Exception $e) {
+            // در صورت خطا (مثلاً جدول وجود ندارد)، آرایه خالی برگردان
+            \Log::warning('Error reading webhook endpoints from database: ' . $e->getMessage());
+            return [];
+        }
     }
 
     /**
@@ -146,7 +56,7 @@ class WebhookEndpointHelper
      * @param int $botMotherId
      * @return string
      */
-    public static function createWebhookUrl(string $endpointId, Bot $botItem, string $type, string $language = 'fa', int $botMotherId = 1): string
+    public static function createWebhookUrl(string $endpointId, Bot $botItem, string $type, string $language = null, int $botMotherId = 1): string
     {
         $endpoints = self::getAvailableEndpoints();
         $endpoint = collect($endpoints)->firstWhere('id', $endpointId);
@@ -156,13 +66,22 @@ class WebhookEndpointHelper
         }
 
         $baseUrl = env('APP_URL', 'https://your-domain.com');
-        $url = $baseUrl . $endpoint['route'];
+        // اطمینان از وجود slash در انتهای baseUrl و ابتدای route
+        $baseUrl = rtrim($baseUrl, '/');
+        $route = ltrim($endpoint['route'], '/');
+        $url = $baseUrl . '/' . $route;
         
         $params = [];
         
         // اضافه کردن پارامترهای مورد نیاز
         if ($endpoint['requires_token']) {
-            $token = $type == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            // Phase 4: هر پلتفرم ستون توکن خاص خودش را دارد
+            $token = match ($type) {
+                'bale' => $botItem->bale_bot_token,
+                'soroush' => $botItem->soroush_bot_token,
+                'rubika' => $botItem->rubika_bot_token,
+                default => $botItem->telegram_bot_token,
+            };
             $params['token'] = $token;
         }
         
@@ -171,16 +90,41 @@ class WebhookEndpointHelper
         }
         
         if ($endpoint['requires_language']) {
+            // اگر language داده نشد، از language_code ربات استفاده کن
+            if (!$language && $botItem->language_code) {
+                $language = $botItem->language_code;
+            }
+            // اگر هنوز language نداریم، از پیش‌فرض fa استفاده کن
+            if (!$language) {
+                $language = 'fa';
+            }
             $params['language'] = $language;
         }
         
         // پارامتر origin همیشه لازم است
         $params['origin'] = $type;
         
+        // اضافه کردن bot_id به URL (همیشه لازم است)
+        // اگر bot_id هنوز وجود ندارد (ربات جدید)، باید ابتدا save شود
+        if (!$botItem->id) {
+            $botItem->save();
+        }
+        $params['bot_id'] = $botItem->id;
+        
         // برای webhook-bot-children پارامترهای خاص لازم است
         if ($endpointId === 'webhook-bot-children') {
-            $params['bot_user_name'] = $botItem->bale_bot_name ?? $botItem->telegram_bot_name;
-            $params['bot_token'] = $type == 'bale' ? $botItem->bale_bot_token : $botItem->telegram_bot_token;
+            $params['bot_user_name'] = match ($type) {
+                'bale' => $botItem->bale_bot_name,
+                'soroush' => $botItem->soroush_bot_name,
+                'rubika' => $botItem->rubika_bot_name,
+                default => $botItem->telegram_bot_name,
+            };
+            $params['bot_token'] = match ($type) {
+                'bale' => $botItem->bale_bot_token,
+                'soroush' => $botItem->soroush_bot_token,
+                'rubika' => $botItem->rubika_bot_token,
+                default => $botItem->telegram_bot_token,
+            };
         }
         
         if (!empty($params)) {

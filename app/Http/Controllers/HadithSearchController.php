@@ -48,6 +48,13 @@ class HadithSearchController extends BotController
             $token = $request->has('token') ? $request->input('token') : env("BOT_HADITH_TOKEN_" . strtoupper($type));
             $bot = new Telegram($token, $type);
 
+            // Inject the incoming update explicitly (the constructor only reads
+            // php://input, which is unreliable as the single source of truth)
+            $update = $request->json()->all() ?: $request->all();
+            if (is_array($update)) {
+                $bot->setData($update);
+            }
+
             $botMe = $bot->getMe();
             $botKid = BotKid::firstOrCreate(
                 [

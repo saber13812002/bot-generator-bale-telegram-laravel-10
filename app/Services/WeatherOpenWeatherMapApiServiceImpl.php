@@ -19,19 +19,21 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
     /**
      * @throws GuzzleException
      */
-    public function getMessage(): string
+    public function getMessage(float $latitude, float $longitude): string
     {
-        return $this->getMessageFromOpenWeatherMapApi();
+        return $this->getMessageFromOpenWeatherMapApi($latitude, $longitude);
     }
 
 
     /**
+     * @param float $latitude
+     * @param float $longitude
      * @return string
      * @throws GuzzleException
      */
-    public function getMessageFromOpenWeatherMapApi(): string
+    public function getMessageFromOpenWeatherMapApi(float $latitude, float $longitude): string
     {
-        $weather_data = $this->weatherOpenWeatherApiRepository->call();
+        $weather_data = $this->weatherOpenWeatherApiRepository->call($latitude, $longitude);
         return self::generateMessageByWeatherData($weather_data);
     }
 
@@ -50,6 +52,10 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
         $humidity = $weather_data["main"]["humidity"];
         $pressure = $weather_data["main"]["pressure"];
 
+        $windSpeed = $weather_data['wind']['speed'] ?? 0;
+        $windDeg = $weather_data['wind']['deg'] ?? 0;
+        $windGust = $weather_data['wind']['gust'] ?? 'N/A';
+
         return 'وضعیت هوا 🌬 در قم :
  :' . $weather_description . '
  دید و برد چشم:' . $visibility . '
@@ -59,8 +65,8 @@ class WeatherOpenWeatherMapApiServiceImpl implements WeatherOpenWeatherMapApiSer
  رطوبت:' . $humidity . '
  فشار هوا:' . $pressure . '
  وضعیت باد 🌬 :.' . '
- 💨 سرعت  :' . $weather_data['wind']['speed'] . '
-🧭 زاویه  : ' . $weather_data['wind']['deg'] . '
- 🌪 وزش شدید  :' . $weather_data['wind']['gust'];
+ 💨 سرعت  :' . $windSpeed . '
+🧭 زاویه  : ' . $windDeg . '
+ 🌪 وزش شدید  :' . $windGust;
     }
 }

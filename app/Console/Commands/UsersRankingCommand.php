@@ -19,7 +19,7 @@ class UsersRankingCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Command description';
+    protected $description = 'ارسال پیام رتبه‌بندی و آمار عملکرد به همه کاربران ربات قرآن';
 
 
     private QuranBotUserRankingService $quranBotUserRankingService;

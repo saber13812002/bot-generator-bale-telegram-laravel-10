@@ -4,11 +4,47 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>News</title>
+    <title>ربات‌های پردیسانیا</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,600&display=swap" rel="stylesheet"/>
+
+    <!-- Google Analytics (GA4) -->
+    @if(config('analytics.google_analytics.enabled') && !empty(config('analytics.google_analytics.measurement_id')))
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('analytics.google_analytics.measurement_id') }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config('analytics.google_analytics.measurement_id') }}');
+    </script>
+    @endif
+
+    <!-- Microsoft Clarity -->
+    @if(config('analytics.clarity.enabled') && !empty(config('analytics.clarity.project_id')))
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "{{ config('analytics.clarity.project_id') }}");
+    </script>
+    @endif
+
+    <!-- Hotjar -->
+    @if(config('analytics.hotjar.enabled') && !empty(config('analytics.hotjar.site_id')))
+    <script>
+        (function(h,o,t,j,a,r){
+            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+            h._hjSettings={hjid:{{ config('analytics.hotjar.site_id') }},hjsv:6};
+            a=o.getElementsByTagName('head')[0];
+            r=o.createElement('script');r.async=1;
+            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+            a.appendChild(r);
+        })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+    </script>
+    @endif
 
     <!-- Styles -->
     <style>
@@ -808,173 +844,111 @@
         </div>
 
         <div class="mt-16">
+            {{-- CTA: ساخت ربات خودتان --}}
+            <div class="mb-8 p-6 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg border border-red-200 dark:border-red-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">ساخت ربات خودتان</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">با OTP بله وارد شوید و ربات اختصاصی خود را بسازید</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="{{ route('bot-owner.intro') }}"
+                       class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold">
+                        شروع کنید
+                    </a>
+                    <a href="https://pardisania.ir" target="_blank"
+                       class="px-5 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-gray-800">
+                        pardisania.ir
+                    </a>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                <a href="https://blog.pardisania.ir/posts/robat-bdr-o-robat-madr"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
-                            </svg>
+                @forelse($bots ?? [] as $bot)
+                    @php
+                        $icon = $bot->icon_emoji ?? ($bot->icon_svg ?? '🤖');
+                        $canCreate = !in_array($bot->endpoint_id, ['admin-bots', 'get-chat-id']);
+                    @endphp
+                    <div class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250">
+                        <a href="{{ route('bot.show', $bot->endpoint_id) }}" class="flex flex-1 focus:outline focus:outline-2 focus:outline-red-500 rounded">
+                        <div>
+                            <div class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
+                                @if($bot->icon_svg)
+                                    {!! $bot->icon_svg !!}
+                                @else
+                                    <span style="font-size: 2rem;">{{ $icon }}</span>
+                                @endif
+                            </div>
+
+                            <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">{{ $bot->name }}</h2>
+
+                            <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                                {{ $bot->description ?? 'بدون توضیحات' }}
+                            </p>
+
+                            @if($bot->sample_telegram_link || $bot->sample_bale_link)
+                            <div class="mt-4 text-xs text-gray-400">
+                                @if($bot->sample_telegram_link)
+                                    <span>📱 Telegram</span>
+                                @endif
+                                @if($bot->sample_bale_link)
+                                    <span class="mr-2">📱 Bale</span>
+                                @endif
+                            </div>
+                            @endif
                         </div>
 
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Bot Mother</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            comming soon...
-                        </p>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                             class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
+                        </svg>
+                        </a>
+                        @if($canCreate)
+                        <a href="{{ route('bot-owner.create', $bot->endpoint_id) }}"
+                           class="self-center shrink-0 px-3 py-2 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 whitespace-nowrap"
+                           title="ساختن این ربات">
+                            + ساختن
+                        </a>
+                        @endif
                     </div>
+                @empty
+                    <div class="col-span-2 text-center py-12">
+                        <p class="text-gray-500 dark:text-gray-400">هیچ ربات فعالی یافت نشد.</p>
+                    </div>
+                @endforelse
 
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-                <a href="https://blog.pardisania.ir/posts/robat-shnash-ay-dy-akant-tlgram-o-blh-y-shma"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round"
-                                      d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
-                            </svg>
+                {{-- بخش ویژه نماز قضا --}}
+                @php
+                    $prayerBot = ($bots ?? collect())->firstWhere('endpoint_id', 'webhook-prayer-qadha');
+                @endphp
+                @if($prayerBot)
+                <div class="col-span-2 mt-8 p-6" style="background: linear-gradient(to right, #f0fdf4, #eff6ff); border: 2px solid #bbf7d0; border-radius: 0.5rem;">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-2" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">
+                                🕌 ربات نماز قضا
+                            </h3>
+                            <p class="text-gray-700 dark:text-gray-300 mb-4" style="color: rgb(55 65 81); margin-bottom: 1rem;">
+                                مدیریت نمازهای قضای خود را با این ربات انجام دهید. گزارش‌های هفتگی، نمودارهای پیشرفت و آمار دقیق در دسترس شماست.
+                            </p>
+                            <div class="flex gap-4" style="display: flex; gap: 1rem;">
+                                @if($prayerBot->sample_telegram_link)
+                                <a href="{{ $prayerBot->sample_telegram_link }}" target="_blank" 
+                                   style="padding: 0.5rem 1rem; background-color: #3b82f6; color: white; border-radius: 0.5rem; text-decoration: none;">
+                                    📱 Telegram
+                                </a>
+                                @endif
+                                @if($prayerBot->sample_bale_link)
+                                <a href="{{ $prayerBot->sample_bale_link }}" target="_blank" 
+                                   style="padding: 0.5rem 1rem; background-color: #22c55e; color: white; border-radius: 0.5rem; text-decoration: none;">
+                                    📱 Bale
+                                </a>
+                                @endif
+                            </div>
                         </div>
-
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Get Chat ID Bots</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            ble.ir/Get_chat_id_bot
-                            ble.ir/Get_idbot
-                            ble.ir/Getbotidbot
-                        </p>
+                        <div style="font-size: 3.75rem;">🕌</div>
                     </div>
-
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-                <a href="https://blog.pardisania.ir/posts/robat-ab-o-hoa"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>
-                            </svg>
-                        </div>
-
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Weather Bot</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            t.me/ABvaHavaTennis_bot   bale: ble.ir/weather_qom_bot
-                        </p>
-                    </div>
-
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-                <a href="https://ble.ir/hefze_quran_bot_news"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>
-                            </svg>
-                        </div>
-
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Quran Bots</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            All news About Quran bots  please read me more here.
-                        </p>
-                    </div>
-
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-
-
-
-
-                <a href="https://t.me/hamsaraan_bot"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>
-                            </svg>
-                        </div>
-
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Rel Bot</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            https://t.me/hamsaraan_bot
-                        </p>
-                    </div>
-
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-
-
-                <a href="https://t.me/channel_admin_sync_news"
-                   class="scale-100 p-6 bg-white dark:bg-gray-800/50 dark:bg-gradient-to-bl from-gray-700/50 via-transparent dark:ring-1 dark:ring-inset dark:ring-white/5 rounded-lg shadow-2xl shadow-gray-500/20 dark:shadow-none flex motion-safe:hover:scale-[1.01] transition-all duration-250 focus:outline focus:outline-2 focus:outline-red-500">
-                    <div>
-                        <div
-                            class="h-16 w-16 bg-red-50 dark:bg-red-800/20 flex items-center justify-center rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                 class="w-7 h-7 stroke-red-500">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>
-                            </svg>
-                        </div>
-
-                        <h2 class="mt-6 text-xl font-semibold text-gray-900 dark:text-white">Sync Bot</h2>
-
-                        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-                            sync your Bale Telegram Eitaa Channel - and twitter facebook instagram linkedin - https://ble.ir/channel_admin_sync_news
-                        </p>
-                    </div>
-
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                         class="self-center shrink-0 stroke-red-500 w-6 h-6 mx-6">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                              d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75"/>
-                    </svg>
-                </a>
-
-
-
+                </div>
+                @endif
 
             </div>
         </div>
@@ -1002,3 +976,4 @@
 </div>
 </body>
 </html>
+
