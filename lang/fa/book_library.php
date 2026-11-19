@@ -81,7 +81,22 @@ return [
     'yes' => 'بله',
     'no' => 'خیر',
     'admin_file_received' => '✅ فایل دریافت شد. File ID: :id',
-    'admin_add_to_category_cmd' => '/addFileToCategory :id',
+    'admin_add_to_category_cmd' => '/addFileToCategory_:id',
+    // ===== Onboarding و راهنمایی مالک (3-step quick start) =====
+    'wizard_cancel_hint' => '(برای لغو: /cancel)',
+    'admin_category_confirm_reprompt' => "برای دسته «:title» فقط «بله» یا «خیر» بنویسید یا از دکمه‌ها استفاده کنید.\n(برای لغو کامل: /cancel)",
+    'admin_category_name_missing' => '❌ نام دسته ثبت نشده بود. دوباره /addcategory بزنید.',
+    'admin_category_create_failed' => '❌ خطا در ساخت دسته. دوباره تلاش کنید.',
+    'admin_category_broadcast_queued' => '📢 اطلاع‌رسانی به کاربران در صف ارسال قرار گرفت.',
+    'admin_category_next_step' => '📌 قدم بعدی: اولین فایل صوتی خود را برای ربات بفرستید تا به این دسته اضافه شود.',
+    'admin_empty_library_guide' => "🚀 شروع سریع کتابخانه\n\n" .
+        "۱️⃣ دسته بسازید: /addcategory\n" .
+        "۲️⃣ فایل صوتی بفرستید (همین‌جا برای ربات)\n" .
+        "۳️⃣ انتساب: فایل را با /addFileToCategory_{id} به دسته وصل کنید\n\n" .
+        "با ساخت اولین دسته، کتابخانه‌تان زنده می‌شود! 📚",
+    'user_empty_library' => '📚 هنوز محتوایی موجود نیست. لطفاً بعداً سر بزنید!',
+    'admin_upload_empty_library_guide' => '🚀 هنوز دسته‌ای ندارید: ابتدا /addcategory بزنید تا دسته بسازید، سپس فایل را انتساب کنید:',
+    'admin_picker_empty_hint' => 'برای ساخت دسته جدید: /addcategory',
     'admin_add_to_category_usage' => 'استفاده: /addFileToCategory {id}',
     'admin_pending_not_found' => 'فایل در انتظار یافت نشد.',
     'admin_pick_category' => 'دسته را انتخاب کنید:',
