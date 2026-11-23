@@ -505,6 +505,7 @@ class BookLibraryReaderController extends Controller
                 'content_wizard' => null,
                 'content_note_item_id' => null,
                 'content_note_type' => null,
+                'content_category_draft' => null,
                 'sendmsg_target_id' => null,
             ]);
             BotHelper::sendMessage($bot, '❌ لغو شد.');
@@ -583,8 +584,8 @@ class BookLibraryReaderController extends Controller
                 'bot_user_origin' => $botUser->origin,
                 'instance_bot_id' => $instanceBotId,
             ]);
-            $botUser->settings(['content_wizard' => 'add_category_name']);
-            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
+            $botUser->settings(['content_wizard' => 'add_category_name', 'content_category_draft' => null]);
+            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:\n(برای لغو: /cancel)');
             return;
         }
 
@@ -779,7 +780,72 @@ class BookLibraryReaderController extends Controller
             return true;
         }
 
+        // ===== مرحله تأیید اطلاع‌رسانی دسته جدید — ورودی متنی =====
+        // Root Cause: بدون این case، متن «بله/خیر» در حالت add_category_broadcast
+        // به فالبک «دستور نامشخص» می‌رفت و وضعیت ویزارد چرخه می‌خورد (loop).
+        if ($wizard === 'add_category_broadcast') {
+            // دستورات (مثل /addcategory یا /cancel) در اولویت هستند تا حلقه /addcategory بسته شود
+            if (str_starts_with(ltrim($text), '/')) {
+                return false;
+            }
+            $normalized = mb_strtolower(trim($text));
+            if (in_array($normalized, ['بله', 'yes', 'y', '1', '✔'], true)) {
+                $this->finalizeAddCategory($bot, $botUser, $botId, $type, true);
+                return true;
+            }
+            if (in_array($normalized, ['خیر', 'نه', 'no', 'n', '0', '❌'], true)) {
+                $this->finalizeAddCategory($bot, $botUser, $botId, $type, false);
+                return true;
+            }
+            // متن ناشناخته: وضعیت را نگه دار و دوباره با دکمه‌ها راهنمایی کن
+            $draft = (string) $botUser->setting('content_category_draft', '');
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton('✅ بله، اطلاع‌رسانی شود', callback_data: 'bl:catbc:yes')],
+                [$bot->buildInlineKeyBoardButton('❌ خیر', callback_data: 'bl:catbc:no')],
+            ];
+            BotHelper::sendKeyboardMessage(
+                $bot,
+                "🏷 برای دسته «{$draft}» فقط «بله» یا «خیر» بنویسید یا از دکمه‌ها استفاده کنید.\n(برای لغو کامل: /cancel)",
+                $bot->buildInlineKeyBoard($keyboard)
+            );
+            return true;
+        }
+
         return false;
+    }
+
+    /**
+     * پایان‌دهنده مشترک ویزارد ساخت دسته (مسیر متنی + مسیر دکمه bl:catbc).
+     * Draft را می‌خواند، وضعیت را پاک می‌کند، دسته می‌سازد و در صورت بله، اطلاع‌رسانی را در صف می‌گذارد.
+     */
+    private function finalizeAddCategory(Telegram $bot, BotUsers $botUser, int $botId, string $type, bool $doBroadcast): void
+    {
+        $name = trim((string) $botUser->setting('content_category_draft', ''));
+        $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
+
+        if ($name === '') {
+            BotHelper::sendMessage($bot, '❌ نام دسته ثبت نشده بود. دوباره /addcategory بزنید.');
+            return;
+        }
+
+        try {
+            $category = $this->adminService->createCategory($botId, $name);
+        } catch (\Throwable $e) {
+            Log::error('❌ [BookLibrary] Error creating category', ['bot_id' => $botId, 'title' => $name, 'error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, '❌ خطا در ساخت دسته. دوباره تلاش کنید.');
+            return;
+        }
+
+        $message = "✅ دسته «{$category->title}» ساخته شد.";
+        if ($doBroadcast) {
+            $botModel = Bot::find($botId);
+            if ($botModel) {
+                $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
+                $message .= "\n📢 اطلاع‌رسانی به کاربران در صف ارسال قرار گرفت.";
+            }
+        }
+        $message .= "\n\n📌 قدم بعدی: اولین فایل صوتی خود را برای ربات بفرستید تا به این دسته اضافه شود.";
+        BotHelper::sendMessage($bot, $message);
     }
 
     // ======================== MEDIA UPLOAD ========================
@@ -976,8 +1042,8 @@ class BookLibraryReaderController extends Controller
             return;
         }
         if ($callbackData === 'bl:admin:addcat') {
-            $botUser->settings(['content_wizard' => 'add_category_name']);
-            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:');
+            $botUser->settings(['content_wizard' => 'add_category_name', 'content_category_draft' => null]);
+            BotHelper::sendMessage($bot, '🏷 نام دسته جدید را وارد کنید:\n(برای لغو: /cancel)');
             return;
         }
         if ($callbackData === 'bl:admin:broadcast') {
@@ -1046,20 +1112,10 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
-        // ساخت دسته
+        // ساخت دسته (تأیید از طریق دکمه — همان مسیر متنی «بله/خیر»)
         if (str_starts_with($callbackData, 'bl:catbc:')) {
             $doBroadcast = str_ends_with($callbackData, ':yes');
-            $name = $botUser->setting('content_category_draft', '');
-            $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
-            $category = $this->adminService->createCategory($instanceBotId, $name);
-            BotHelper::sendMessage($bot, "✅ دسته «{$category->title}» ساخته شد.");
-            if ($doBroadcast) {
-                $botModel = Bot::find($instanceBotId);
-                if ($botModel) {
-                    $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
-                    BotHelper::sendMessage($bot, '📢 اطلاع‌رسانی به کاربران ارسال شد.');
-                }
-            }
+            $this->finalizeAddCategory($bot, $botUser, $instanceBotId, $type, $doBroadcast);
             return;
         }
 
@@ -1138,7 +1194,17 @@ class BookLibraryReaderController extends Controller
         }
         $categories = $this->queueService->getCategoriesForPage($botId, $page);
         if ($categories->isEmpty()) {
-            BotHelper::sendMessage($bot, "🏷 هیچ دسته‌بندی‌ای موجود نیست.");
+            $botModel = Bot::find($botId);
+            $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $botUser->chat_id, $botUser->origin);
+            if ($isOwner) {
+                BotHelper::sendMessage($bot, "🚀 شروع سریع کتابخانه\n\n"
+                    . "۱️⃣ دسته بسازید: /addcategory\n"
+                    . "۲️⃣ فایل صوتی بفرستید (همین‌جا برای ربات)\n"
+                    . "۳️⃣ انتساب: با دستور /addFileToCategory_{id} فایل را به دسته‌تان وصل کنید\n\n"
+                    . "با ساخت اولین دسته، کتابخانه‌تان زنده می‌شود! 📚");
+            } else {
+                BotHelper::sendMessage($bot, '📚 هنوز محتوایی موجود نیست. لطفاً بعداً سر بزنید!');
+            }
             return;
         }
         $keyboard = [];
@@ -1318,6 +1384,13 @@ class BookLibraryReaderController extends Controller
         $message .= "➖ /broadcast — ارسال همگانی\n";
         $message .= "➖ /adminkie — درخواست ادمین\n\n";
         $message .= "💡 همچنین می‌توانید فایل صوتی بفرستید تا در صف قرار گیرد.";
+
+        if ($categories === 0) {
+            $message .= "\n\n🚀 شروع سریع کتابخانه\n"
+                . "۱️⃣ دسته بسازید: /addcategory\n"
+                . "۲️⃣ فایل صوتی بفرستید (همین‌جا برای ربات)\n"
+                . "۳️⃣ انتساب: فایل را با /addFileToCategory_{id} به دسته وصل کنید";
+        }
 
         $keyboard = [
             [$bot->buildInlineKeyBoardButton('🏷 دسته‌بندی‌ها', callback_data: "bl:admin:categories")],
