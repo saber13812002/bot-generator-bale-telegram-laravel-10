@@ -8,7 +8,7 @@ use App\Models\ChannelPosterDestination;
  * پارسر لینک‌های پیام‌های منتشرشده در هر پلتفرم.
  *
  * خروجی استاندارد هر parser:
- *   platform            — bale | telegram | eitaa | soroush
+ *   platform            — bale | telegram | eitaa | soroush | rubika
  *   channel_identifier  — شناسه کانال (username یا chat id)
  *   message_identifier  — شناسه پیام (عدد)
  *   canonical_url       — لینک نرمال‌شده
@@ -17,6 +17,9 @@ use App\Models\ChannelPosterDestination;
  * لینک پیام شناخته نمی‌شوند (null).
  *
  * توجه: فرمت لینک سروش هنوز نمونه واقعی ندارد و unverified باقی می‌ماند.
+ * توجه: فرمت لینک روبیکا از مستندات community-level است (rubika.ir/{username})
+ * و با علامت unverified ثبت شده است؛ پارسِ پیام (username + id عددی) هم
+ * مانند سروش unverified است، اما لینک خود کانال برای ثبت شناسهٔ عمومی استفاده می‌شود.
  */
 class PostUrlParser
 {
@@ -28,6 +31,7 @@ class PostUrlParser
         'bale' => ['ble.ir', 'bale.ir', 'bale.ai', 'mybale.ai'],
         'eitaa' => ['eitaa.com', 'my.eitaa.com'],
         'soroush' => ['soroush.chat', 'splus.ir'],
+        'rubika' => ['rubika.ir', 'rubika.ru'],
     ];
 
     /**
@@ -67,6 +71,7 @@ class PostUrlParser
                 'bale' => self::parseBale($segments),
                 'eitaa' => self::parseEitaa($segments),
                 'soroush' => self::parseSoroush($segments),
+                'rubika' => self::parseRubika($segments),
                 default => null,
             };
 
@@ -130,6 +135,18 @@ class PostUrlParser
             ];
         }
 
+        // ble.ir/{username} — لینک عمومی خودِ کانال (بدون پیام). message_identifier
+        // خالی است: این لینک «شناسهٔ کانال» می‌دهد، نه «پیام مشخص».
+        if (count($segments) === 1
+            && preg_match('/^[A-Za-z0-9_\-]+$/', $segments[0]) === 1
+        ) {
+            return [
+                'channel_identifier' => $segments[0],
+                'channel_username' => $segments[0],
+                'message_identifier' => '',
+            ];
+        }
+
         return null;
     }
 
@@ -165,6 +182,36 @@ class PostUrlParser
         return null;
     }
 
+    private static function parseRubika(array $segments): ?array
+    {
+        // rubika.ir/{username}/{messageId} — فرمت community-level (unverified)
+        if (count($segments) === 2
+            && preg_match('/^[A-Za-z0-9_\-]+$/', $segments[0]) === 1
+            && preg_match('/^\d+$/', $segments[1]) === 1
+        ) {
+            return [
+                'channel_identifier' => $segments[0],
+                'channel_username' => $segments[0],
+                'message_identifier' => ltrim($segments[1], '0') ?: '0',
+            ];
+        }
+
+        // rubika.ir/{username} — لینک عمومی خودِ کانال (بدون پیام)
+        // ۱ بخشِ همه‌عددی chat id است، نه نام کاربری عمومی
+        if (count($segments) === 1
+            && preg_match('/^[A-Za-z0-9_\-]+$/', $segments[0]) === 1
+            && preg_match('/^\d+$/', $segments[0]) !== 1
+        ) {
+            return [
+                'channel_identifier' => $segments[0],
+                'channel_username' => $segments[0],
+                'message_identifier' => '',
+            ];
+        }
+
+        return null;
+    }
+
     /**
      * لینک رسمی (canonical) هر پلتفرم — برای تطبیق و ذخیره.
      *
@@ -183,6 +230,7 @@ class PostUrlParser
                 : 'https://ble.ir/' . $channelIdentifier . '/' . $messageId,
             'eitaa' => 'https://eitaa.com/' . $channelIdentifier . '/' . $messageId,
             'soroush' => 'https://soroush.chat/' . $channelIdentifier . '/' . $messageId,
+            'rubika' => 'https://rubika.ir/' . $channelIdentifier . '/' . $messageId,
             default => '',
         };
     }

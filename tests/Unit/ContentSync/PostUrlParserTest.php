@@ -89,6 +89,45 @@ class PostUrlParserTest extends TestCase
         $this->assertSame('77', $parsed['message_identifier']);
     }
 
+    public function test_parses_rubika_community_level_post_url(): void
+    {
+        $parsed = PostUrlParser::parse('https://rubika.ir/SomeChannel/42');
+
+        $this->assertNotNull($parsed);
+        $this->assertSame('rubika', $parsed['platform']);
+        $this->assertSame('SomeChannel', $parsed['channel_identifier']);
+        $this->assertSame('SomeChannel', $parsed['channel_username']);
+        $this->assertSame('42', $parsed['message_identifier']);
+    }
+
+    public function test_parses_rubika_public_channel_url_without_message(): void
+    {
+        $parsed = PostUrlParser::parse('https://rubika.ru/SomeChannel');
+
+        $this->assertNotNull($parsed);
+        $this->assertSame('rubika', $parsed['platform']);
+        $this->assertSame('SomeChannel', $parsed['channel_identifier']);
+        $this->assertSame('SomeChannel', $parsed['channel_username']);
+        $this->assertSame('', $parsed['message_identifier']);
+    }
+
+    public function test_parses_bale_public_channel_url_without_message(): void
+    {
+        $parsed = PostUrlParser::parse('https://ble.ir/MyChannel');
+
+        $this->assertNotNull($parsed);
+        $this->assertSame('bale', $parsed['platform']);
+        $this->assertSame('MyChannel', $parsed['channel_identifier']);
+        $this->assertSame('MyChannel', $parsed['channel_username']);
+        $this->assertSame('', $parsed['message_identifier']);
+    }
+
+    public function test_rejects_unverified_rubika_structures(): void
+    {
+        $this->assertNull(PostUrlParser::parse('https://rubika.ir/12345'));
+        $this->assertNull(PostUrlParser::parse('https://rubika.ir/a/b/c'));
+    }
+
     public function test_rejects_non_post_links(): void
     {
         $this->assertNull(PostUrlParser::parse('https://eitaa.com/alirezamehran_3'));
@@ -173,5 +212,7 @@ class PostUrlParserTest extends TestCase
         $this->assertSame('https://eitaa.com/user/5', PostUrlParser::canonical('eitaa', 'user', '5'));
         $this->assertSame('https://ble.ir/5/9', PostUrlParser::canonical('bale', '5', '9'));
         $this->assertSame('https://soroush.chat/u/1', PostUrlParser::canonical('soroush', 'u', '1'));
+        $this->assertSame('https://rubika.ir/SomeChannel/42', PostUrlParser::canonical('rubika', 'SomeChannel', '42'));
+        $this->assertSame('https://ble.ir/Saberblog/5062926176/1461', PostUrlParser::canonical('bale', '5062926176', '1461', 'Saberblog'));
     }
 }

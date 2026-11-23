@@ -787,6 +787,31 @@ Chat ID: :chat_id',
     'channel_poster_hnd_hint_emoji' => 'Type the emoji or “default” (or cancel)',
     'channel_poster_hnd_hint_yesno' => 'yes / no / back (or cancel)',
 
+    // === Channel Link / Public Handle (CP-CHANNEL-LINK) ===
+    'channel_chl_menu_entry' => '🔗 Register channel handle',
+    'channel_recheck_menu_entry' => '🔁 Recheck settings',
+    'channel_chl_button' => '🔗 Register channel handle',
+    'channel_chl_no_channels' => 'You have no active channel yet. Send /start first and connect a channel.',
+    'channel_chl_no_tag' => 'You do not have a tag yet. Send /start first and connect a channel.',
+    'channel_chl_ask_tag' => 'Which tag should register its public channel handle? (Only Bale and Rubika channels need a public handle)',
+    'channel_chl_pick_channel' => 'Which channel should register its public handle? (✅ = has one, ❌ = does not)',
+    'channel_chl_ask_link' => '🔗 Channel “:channel” (:platform)'."\n".'Send the public link of the channel — open the channel profile and copy its public address (username).'."\n".'Bale example: https://ble.ir/username'."\n".'Rubika example: https://rubika.ir/username'."\n".'Note: only the public handle is saved; the signature, tag and other settings of the channel stay untouched.',
+    'channel_chl_invalid_link' => '❌ That is not a valid public link for :platform.'."\n".'The link must start with https:// and follow the public channel format of that platform (e.g. https://ble.ir/username or https://rubika.ir/username).'."\n".'Try again or send “cancel”.',
+    'channel_chl_wrong_platform' => '❌ That link belongs to :expected, not :got.'."\n".'Send a public link for :expected, or send “cancel”.',
+    'channel_chl_confirm' => '✅ Public handle found: @:handle'."\n".'Save it for channel “:channel”?'."\n".'💾 Only the public handle is stored — the signature, tag and other settings of the channel remain unchanged.',
+    'channel_chl_saved' => '✅ Channel handle registered: @:handle (channel “:channel”)'."\n".'💾 Only the public handle was saved; the signature, tag and other settings were not touched.'."\n".'🔁 You can run /recheck to verify.',
+    'channel_chl_invalid_number' => 'Send the option number correctly (or use the buttons).',
+    'channel_chl_confirm_invalid' => 'Send yes, no or back (or use the buttons).',
+    'channel_chl_hint_tag' => 'Type the tag / channel number (or cancel)',
+    'channel_chl_hint_link' => 'Paste the full public link (or cancel)',
+    'channel_chl_hint_yesno' => 'yes / no / back (or cancel)',
+    'channel_chl_hint_fix' => 'Tap “🔗 Register channel handle” for the channel you want (or /sethandle)',
+    'channel_chl_missing_explain' => '⚠️ Problem: the public handle (username) of these Bale/Rubika channels is not registered.'."\n".'Without it: (1) the “channel handle” signature (🔰 @handle) cannot be built; (2) content sync cannot be sure the source is this exact channel instead of another one — in that case the destination is held with a report for the admin.',
+    'channel_chl_missing_hint' => 'Tap “🔗 Register channel handle” for any of these channels — only its public link is needed; you do not have to reconfigure the whole channel. (Command: /sethandle)',
+    'channel_recheck_header' => '🔁 Recheck settings — public handle status of connected channels:',
+    'channel_recheck_all_ok' => '✅ All channels have a valid public handle (or do not need one).',
+    'channel_recheck_missing_note' => 'These channels still have no public handle:',
+
     // === Content Sync (multi-channel synchronization) ===
     'channel_sync_invalid_url' => 'That is not a valid Bale/Telegram/Eitaa/Soroush post link. Send the exact post URL.',
     'channel_sync_duplicate' => '⚠️ This link was already registered (content #:id).'."\n".':url'."\n".'Use /sync :id to view its status.',
@@ -927,6 +952,8 @@ Chat ID: :chat_id',
         "\n" . '/mode — current publish method (change it in /settings)' .
         "\n" . '/tags — list of tags' .
         "\n" . '/channels — connected channels + unlink buttons' .
+        "\n" . '/sethandle — register the public handle of a Bale/Rubika channel (step by step, no reconfiguration)' .
+        "\n" . '/recheck — recheck settings: public handle status of all channels' .
         "\n" . '/settings — settings menu: publish destinations, publish time, fast mode (short submenus)' .
         "\n" . '/new — clear current state and get ready for the next link' .
         "\n" . '/queue — publish queue' .

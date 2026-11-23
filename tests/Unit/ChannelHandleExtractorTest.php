@@ -66,9 +66,18 @@ class ChannelHandleExtractorTest extends TestCase
         $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://mybale.ai/Saberblog/5062926176/1461'));
     }
 
-    public function test_bale_shorter_or_longer_structures_are_unverified_and_rejected(): void
+    public function test_bale_one_segment_public_link_yields_handle(): void
     {
-        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog'));
+        // CP-CHANNEL-LINK: ble.ir/{username} — لینک عمومی خودِ کانال (community-level)
+        $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog'));
+        $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://bale.ir/Saberblog'));
+        $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://mybale.ai/Saberblog'));
+        // ۱ بخشِ همه‌عددی chat id است، نه نام کاربری
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/5062926176'));
+    }
+
+    public function test_bale_other_unverified_structures_are_rejected(): void
+    {
         $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog/5062926176'));
         $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog/5062926176/1461/extra'));
         $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/5062926176/1461'));
@@ -105,10 +114,19 @@ class ChannelHandleExtractorTest extends TestCase
 
     // ─────────────────────────── rubika ───────────────────────────
 
-    public function test_rubika_never_extracts_from_url(): void
+    public function test_rubika_extracts_from_public_channel_links(): void
     {
-        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/SomeChannel/42'));
-        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/SomeChannel'));
+        // CP-CHANNEL-LINK: rubika.ir/{username}[/msgId] — community-level (unverified)
+        $this->assertSame('SomeChannel', ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/SomeChannel'));
+        $this->assertSame('SomeChannel', ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/SomeChannel/42'));
+        $this->assertSame('SomeChannel', ChannelHandleExtractor::extract('rubika', 'https://rubika.ru/SomeChannel'));
+    }
+
+    public function test_rubika_rejects_unverified_structures(): void
+    {
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/12345'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/a/b/c'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://example.com/SomeChannel'));
     }
 
     public function test_rubika_trusted_column_still_works(): void

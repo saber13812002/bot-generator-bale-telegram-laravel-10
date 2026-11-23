@@ -58,10 +58,11 @@ class ChannelHandleExtractor
      * استخراج شناسه از URL بر اساس ساختار تأییدشدهٔ پلتفرم.
      *
      * - telegram : /{username} یا /{username}/{msgId} (مسار c/ و همه‌عددی ممنوع)
-     * - bale     : فقط /{username}/{chatId}/{msgId} (فرمت تأییدشدهٔ سه‌بخشی)
+     * - bale     : /{username}/{chatId}/{msgId} (فرمت تأییدشدهٔ سه‌بخشی) یا
+     *              /{username} (لینک عمومی خودِ کانال — community-level)
      * - eitaa    : /{username} یا /{username}/{msgId}
      * - soroush  : /{username} یا /{username}/{msgId}
-     * - rubika   : از URL استخراج نمی‌شود (ساختار عمومی تأییدشده ندارد)
+     * - rubika   : /{username} یا /{username}/{msgId} (community-level، unverified)
      *
      * @return string|null شناسه بدون «@» یا null
      */
@@ -98,6 +99,7 @@ class ChannelHandleExtractor
             'telegram' => self::fromTelegramUrl($segments),
             'bale' => self::fromBaleUrl($segments),
             'eitaa', 'soroush' => self::fromNamedPathUrl($segments),
+            'rubika' => self::fromNamedPathUrl($segments),
             default => null,
         };
     }
@@ -123,9 +125,9 @@ class ChannelHandleExtractor
     }
 
     /**
-     * bale: فقط /{username}/{chatId}/{msgId} (نمونهٔ واقعی تأییدشده:
-     * https://ble.ir/Saberblog/5062926176/1461). ساختارهای کوتاه‌تر
-     * تأیید نشده‌اند → null.
+     * bale: /{username}/{chatId}/{msgId} (نمونهٔ واقعی تأییدشده:
+     * https://ble.ir/Saberblog/5062926176/1461) یا /{username} (لینک عمومی
+     * خودِ کانال، community-level). ساختارهای دیگر → null.
      */
     private static function fromBaleUrl(array $s): ?string
     {
@@ -134,6 +136,10 @@ class ChannelHandleExtractor
             && preg_match('/^\d+$/', $s[1]) === 1
             && preg_match('/^\d+$/', $s[2]) === 1
         ) {
+            return self::sanitizeHandle($s[0]);
+        }
+
+        if (count($s) === 1) {
             return self::sanitizeHandle($s[0]);
         }
 

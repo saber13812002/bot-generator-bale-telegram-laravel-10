@@ -74,6 +74,12 @@ class ChannelPosterBotController extends Controller
     public const STATE_HANDLE_EMOJI = 'cp_hnd_awaiting_emoji';
     public const STATE_HANDLE_CONFIRM = 'cp_hnd_awaiting_confirm';
 
+    // === Channel Link / Public Handle (CP-CHANNEL-LINK) ===
+    public const STATE_CHL_TAG = 'cp_chl_awaiting_tag';
+    public const STATE_CHL_CHANNEL = 'cp_chl_awaiting_channel';
+    public const STATE_CHL_LINK = 'cp_chl_awaiting_link';
+    public const STATE_CHL_CONFIRM = 'cp_chl_awaiting_confirm';
+
     // === Delete Pure Link (CP-DELETE-PURELINK, T7) ===
     public const STATE_DELETE_PURE_LINK_TAG = 'cp_dpl_awaiting_tag';
     public const STATE_DELETE_PURE_LINK_CHANNEL = 'cp_dpl_awaiting_channel';
@@ -367,6 +373,11 @@ class ChannelPosterBotController extends Controller
                 $this->finishHandleWizard($publisher, $botItem, $type, $chatId);
                 return;
             }
+            // CP-CHANNEL-LINK: لغو ویزارد ثبت شناسهٔ عمومی کانال.
+            if ($state && str_starts_with($state->state, 'cp_chl_')) {
+                $this->finishChannelLinkWizard($publisher, $botItem, $type, $chatId);
+                return;
+            }
             // CP-DELETE-PURELINK (T7): cancel the /deletepurelink wizard.
             if ($state && str_starts_with($state->state, 'cp_dpl_')) {
                 $this->finishDeletePureLinkWizard($publisher, $botItem, $type, $chatId);
@@ -442,6 +453,17 @@ class ChannelPosterBotController extends Controller
 
         if (is_string($text) && preg_match('#^/channels\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
             $this->handleChannelsCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        // === CP-CHANNEL-LINK: «تنظیم شناسه کانال» + «بررسی مجدد تنظیمات» ===
+        if (is_string($text) && preg_match('#^/sethandle\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->startChannelLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if (is_string($text) && preg_match('#^/recheck\b#', $text) && $this->isAdmin($botItem, $chatId, $type)) {
+            $this->handleRecheckCommand($publisher, $botItem, $type, $chatId);
             return;
         }
 
@@ -523,6 +545,12 @@ class ChannelPosterBotController extends Controller
             // === CP-CHANNEL-HANDLE-SIGNATURE: معادل‌های متنی (سروش/روبیکا) ===
             if (str_starts_with($state->state, 'cp_hnd_')) {
                 $this->handleHandleText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
+                return;
+            }
+
+            // === CP-CHANNEL-LINK: معادل‌های متنی (سروش/روبیکا) ===
+            if (str_starts_with($state->state, 'cp_chl_')) {
+                $this->handleChannelLinkText($publisher, $botItem, $type, $chatId, $text, $state->data ?? []);
                 return;
             }
 
@@ -1078,6 +1106,32 @@ class ChannelPosterBotController extends Controller
         }
         if (str_starts_with($data, 'cp:hndconf:')) {
             $this->handleHandleConfirmCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+
+        // Handle channel-link (public handle) wizard callbacks (CP-CHANNEL-LINK)
+        if ($data === 'cp:chlink') {
+            $this->startChannelLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if ($data === 'cp:chrecheck') {
+            $this->handleRecheckCommand($publisher, $botItem, $type, $chatId);
+            return;
+        }
+        if (str_starts_with($data, 'cp:chltag:')) {
+            $this->handleChannelLinkTagCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:chlch:')) {
+            $this->handleChannelLinkChannelCallback($publisher, $botItem, $type, $chatId, (int) substr($data, 9));
+            return;
+        }
+        if (str_starts_with($data, 'cp:chlconf:')) {
+            $this->handleChannelLinkConfirmCallback($publisher, $botItem, $type, $chatId, $data);
+            return;
+        }
+        if (str_starts_with($data, 'cp:chlfix:')) {
+            $this->startChannelLinkWizardForDestination($publisher, $botItem, $type, $chatId, (int) substr($data, 10));
             return;
         }
 
@@ -2801,6 +2855,492 @@ class ChannelPosterBotController extends Controller
     ): void {
         $this->clearState($botItem, $chatId, $type);
         $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_cancelled'));
+    }
+
+    // ======================================================================
+    // === CP-CHANNEL-LINK: ثبت شناسهٔ عمومی کانال (بلی/روبیکا) ===
+    //
+    // اگر شناسهٔ عمومی (username) کانالِ بله یا روبیکا ثبت نشده باشد:
+    //   - /channels و /settings مشکل را واضح توضیح می‌دهند + دکمهٔ «🔗 ثبت
+    //     شناسه کانال»
+    //   - /sethandle = همین ویزارد مرحله‌به‌مرحله:
+    //     تگ → کانال → لینک عمومی (اعتبارسنجی) → تأیید
+    //   - /recheck = بررسی مجدد وضعیت شناسهٔ همهٔ کانال‌ها
+    //
+    // اصل «حفظ تنظیمات»: فقط channel_username (و در صورت خالی بودن
+    // channel_link) نوشته می‌شود؛ امضا/تگ/is_active/bot_token دست نمی‌خورد.
+    // ======================================================================
+
+    /**
+     * /sethandle (یا دکمهٔ «🔗 ثبت شناسه کانال») — شروع ویزارد؛ اگر کانال
+     * مشخصی از دکمهٔ فهرست آمده باشد، مستقیم به مرحلهٔ لینک آن می‌رود.
+     */
+    private function startChannelLinkWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        ?int $destId = null
+    ): void {
+        if ($destId !== null) {
+            $this->startChannelLinkWizardForDestination($publisher, $botItem, $type, $chatId, $destId);
+            return;
+        }
+
+        $destinations = ChannelPosterDestination::where('bot_id', $botItem->id)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+        if ($destinations->isEmpty()) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_no_channels'));
+            return;
+        }
+
+        $groups = $this->service->listTagGroups($botItem->id);
+        if ($groups === []) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_no_tag'));
+            return;
+        }
+
+        if (count($groups) === 1) {
+            $this->showChannelLinkChannels($publisher, $botItem, $type, $chatId, $groups[0]['key']);
+            return;
+        }
+
+        $rows = [];
+        foreach ($groups as $index => $group) {
+            $rows[] = [['text' => $group['label'], 'callback_data' => 'cp:chltag:' . $index]];
+        }
+        $this->setState($botItem, $chatId, $type, self::STATE_CHL_TAG, [
+            'tag_keys' => array_map(fn (array $g) => $g['key'], $groups),
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_chl_ask_tag'), $rows, [
+            trans('bot.channel_chl_hint_tag'),
+        ]);
+    }
+
+    /**
+     * ورود مستقیم از دکمهٔ «🔗 ثبت شناسه کانال» فهرست /channels — مرحلهٔ
+     * تگ/کانال حذف می‌شود و فقط لینک عمومیِ همان کانال خواسته می‌شود.
+     */
+    private function startChannelLinkWizardForDestination(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::where('bot_id', $botItem->id)->find($destId);
+        if (!$dest || !$dest->is_active) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_gone'));
+            return;
+        }
+        $this->askChannelLink($publisher, $botItem, $type, $chatId, $dest);
+    }
+
+    private function handleChannelLinkTagCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $index = (int) substr($data, 10);
+        $state = $this->getState($botItem, $chatId, $type);
+        $keys = $state?->getData('tag_keys', []) ?? [];
+        $tag = is_array($keys) ? (string) ($keys[$index] ?? '') : '';
+
+        if ($tag === '') {
+            $groups = $this->service->listTagGroups($botItem->id);
+            $tag = $groups[$index]['key'] ?? '';
+        }
+        if ($tag === '') {
+            return;
+        }
+
+        $this->showChannelLinkChannels($publisher, $botItem, $type, $chatId, $tag);
+    }
+
+    /**
+     * انتخاب کانال — با نشانگر وضعیت شناسه (✅ دارد / ❌ ندارد).
+     */
+    private function showChannelLinkChannels(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $tag
+    ): void {
+        $destinations = $this->service->resolveByTag($botItem->id, $tag);
+        if ($destinations->isEmpty()) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_no_channels'));
+            return;
+        }
+
+        $platformLabels = [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ];
+
+        $rows = [];
+        $destIds = [];
+        foreach ($destinations as $dest) {
+            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+            $title = $dest->channel_title ?? $dest->channel_chat_id;
+            $handle = $this->channelLinkHandleOf($dest);
+            $rows[] = [[
+                'text' => "{$label} — {$title} " . ($handle !== null ? '✅' : '❌'),
+                'callback_data' => 'cp:chlch:' . $dest->id,
+            ]];
+            $destIds[] = $dest->id;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_CHL_CHANNEL, [
+            'tag' => $tag,
+            'dest_ids' => $destIds,
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_chl_pick_channel'), $rows, [
+            trans('bot.channel_chl_hint_tag'),
+        ]);
+    }
+
+    private function handleChannelLinkChannelCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::where('bot_id', $botItem->id)->find($destId);
+        if (!$dest || !$dest->is_active) {
+            return;
+        }
+        $this->askChannelLink($publisher, $botItem, $type, $chatId, $dest);
+    }
+
+    /**
+     * مرحلهٔ لینک — لینک عمومی کانال از کاربر خواسته می‌شود (دکمه در مبدأهای
+     * native حذف می‌شود؛ همان متن با hintِ متنی ارسال می‌شود).
+     */
+    private function askChannelLink(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        ChannelPosterDestination $dest
+    ): void {
+        $this->setState($botItem, $chatId, $type, self::STATE_CHL_LINK, [
+            'destination_id' => (int) $dest->id,
+            'tag' => (string) $dest->tag,
+        ]);
+        $platformLabel = $this->channelLinkPlatformLabel($dest->platform);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_chl_ask_link', [
+            'channel' => ($dest->channel_title ?: $dest->channel_chat_id),
+            'platform' => $platformLabel,
+        ]), [
+            [['text' => trans('bot.channel_poster_hnd_conf_back'), 'callback_data' => 'cp:chlconf:back']],
+        ], [
+            trans('bot.channel_chl_hint_link'),
+        ]);
+    }
+
+    /**
+     * دریافت و اعتبارسنجیِ لینک عمومی — پارس با پارسرِ خودِ همان پلتفرم.
+     */
+    private function handleChannelLinkText(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $text,
+        array $d
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        $raw = trim($text);
+        $choice = mb_strtolower($raw);
+
+        if (in_array($choice, ['انصراف', 'لغو', 'cancel'], true)) {
+            $this->finishChannelLinkWizard($publisher, $botItem, $type, $chatId);
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_CHL_TAG) {
+            $keys = (array) ($d['tag_keys'] ?? []);
+            if ($raw !== '' && ctype_digit($raw) && isset($keys[(int) $raw - 1])) {
+                $this->handleChannelLinkTagCallback($publisher, $botItem, $type, $chatId, 'cp:chltag:' . ((int) $raw - 1));
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_CHL_CHANNEL) {
+            $ids = array_map('intval', (array) ($d['dest_ids'] ?? []));
+            if ($raw !== '' && ctype_digit($raw) && isset($ids[(int) $raw - 1])) {
+                $this->handleChannelLinkChannelCallback($publisher, $botItem, $type, $chatId, $ids[(int) $raw - 1]);
+                return;
+            }
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_invalid_number'));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_CHL_LINK) {
+            $this->validateAndConfirmChannelLink($publisher, $botItem, $type, $chatId, $raw, (int) ($d['destination_id'] ?? 0));
+            return;
+        }
+
+        if ($state && $state->state === self::STATE_CHL_CONFIRM) {
+            $yes = in_array($choice, ['بله', 'بره', 'yes', 'y'], true);
+            $no = in_array($choice, ['خیر', 'نه', 'no', 'n'], true);
+            $back = in_array($choice, ['بازگشت', 'back'], true);
+
+            if (!$yes && !$no && !$back) {
+                $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_confirm_invalid'));
+                return;
+            }
+
+            if ($back) {
+                $this->handleChannelLinkConfirmCallback($publisher, $botItem, $type, $chatId, 'cp:chlconf:back');
+                return;
+            }
+
+            $this->saveChannelLink($publisher, $botItem, $type, $chatId, $d, $yes);
+            return;
+        }
+    }
+
+    /**
+     * پارس + اعتبارسنجی (پلتفرم لینک باید همان پلتفرم مقصد باشد) و پیش‌نمایش.
+     */
+    private function validateAndConfirmChannelLink(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $raw,
+        int $destId
+    ): void {
+        $dest = ChannelPosterDestination::where('bot_id', $botItem->id)->find($destId);
+        if (!$dest || !$dest->is_active) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_gone'));
+            return;
+        }
+
+        if (preg_match('#^https?://\S+$#i', $raw) !== 1) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_invalid_link', [
+                'platform' => $this->channelLinkPlatformLabel($dest->platform),
+            ]));
+            return;
+        }
+
+        $parsed = PostUrlParser::parse($raw);
+        if ($parsed === null) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_invalid_link', [
+                'platform' => $this->channelLinkPlatformLabel($dest->platform),
+            ]));
+            return;
+        }
+        if (($parsed['platform'] ?? '') !== $dest->platform) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_wrong_platform', [
+                'expected' => $this->channelLinkPlatformLabel($dest->platform),
+                'got' => $this->channelLinkPlatformLabel((string) ($parsed['platform'] ?? '')),
+            ]));
+            return;
+        }
+
+        $handle = ChannelHandleExtractor::extract($dest->platform, $raw, null);
+        if ($handle === null) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_invalid_link', [
+                'platform' => $this->channelLinkPlatformLabel($dest->platform),
+            ]));
+            return;
+        }
+
+        $this->setState($botItem, $chatId, $type, self::STATE_CHL_CONFIRM, [
+            'destination_id' => $destId,
+            'tag' => (string) $dest->tag,
+            'handle' => $handle,
+            'link' => $raw,
+        ]);
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, trans('bot.channel_chl_confirm', [
+            'channel' => ($dest->channel_title ?: $dest->channel_chat_id),
+            'handle' => $handle,
+        ]), [
+            [['text' => trans('bot.channel_poster_hnd_conf_yes'), 'callback_data' => 'cp:chlconf:yes']],
+        ], [
+            trans('bot.channel_chl_hint_yesno'),
+        ]);
+    }
+
+    private function handleChannelLinkConfirmCallback(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        string $data
+    ): void {
+        $state = $this->getState($botItem, $chatId, $type);
+        if (!$state || $state->state !== self::STATE_CHL_CONFIRM) {
+            return;
+        }
+        $choice = substr($data, strlen('cp:chlconf:'));
+        $d = $state->data ?? [];
+
+        if ($choice === 'back') {
+            $dest = ChannelPosterDestination::where('bot_id', $botItem->id)
+                ->find((int) ($d['destination_id'] ?? 0));
+            if ($dest && $dest->is_active) {
+                $this->askChannelLink($publisher, $botItem, $type, $chatId, $dest);
+            } else {
+                $this->finishChannelLinkWizard($publisher, $botItem, $type, $chatId);
+            }
+            return;
+        }
+
+        $this->saveChannelLink($publisher, $botItem, $type, $chatId, $d, $choice === 'yes');
+    }
+
+    /**
+     * نقطهٔ تنها ذخیره — فقط channel_username (و channel_link اگر خالی باشد)
+     * با forceFill روی همان رکورد می‌نویسد؛ هیچ فیلد دیگری دست نمی‌خورد.
+     */
+    private function saveChannelLink(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId,
+        array $d,
+        bool $enabled
+    ): void {
+        $destId = (int) ($d['destination_id'] ?? 0);
+        $handle = (string) ($d['handle'] ?? '');
+        if ($destId <= 0 || $handle === '') {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        $dest = ChannelPosterDestination::where('bot_id', $botItem->id)->find($destId);
+        if (!$dest || !$dest->is_active) {
+            $this->clearState($botItem, $chatId, $type);
+            return;
+        }
+
+        if (!$enabled) {
+            $this->clearState($botItem, $chatId, $type);
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_cancelled'));
+            return;
+        }
+
+        $updates = ['channel_username' => $handle];
+        if (empty($dest->channel_link)) {
+            $updates['channel_link'] = (string) ($d['link'] ?? '');
+        }
+        $dest->forceFill($updates)->save();
+
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_saved', [
+            'channel' => ($dest->channel_title ?: $dest->channel_chat_id),
+            'handle' => $handle,
+        ]));
+    }
+
+    private function finishChannelLinkWizard(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $this->clearState($botItem, $chatId, $type);
+        $publisher->sendPrivateMessage($chatId, trans('bot.channel_poster_hnd_cancelled'));
+    }
+
+    /**
+     * /recheck — بررسی مجدد وضعیت شناسهٔ عمومیِ همهٔ کانال‌های متصل؛ برای
+     * کانال‌های بی‌شناسهٔ بله/روبیکا دکمهٔ «🔗 ثبت شناسه کانال».
+     */
+    private function handleRecheckCommand(
+        ChannelPosterPublisher $publisher,
+        Bot $botItem,
+        string $type,
+        string $chatId
+    ): void {
+        $destinations = ChannelPosterDestination::where('bot_id', $botItem->id)
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get();
+
+        if ($destinations->isEmpty()) {
+            $publisher->sendPrivateMessage($chatId, trans('bot.channel_chl_no_channels'));
+            return;
+        }
+
+        $missingBaleRubika = $destinations->filter(
+            fn (ChannelPosterDestination $d) =>
+                in_array($d->platform, [
+                    ChannelPosterDestination::PLATFORM_BALE,
+                    ChannelPosterDestination::PLATFORM_RUBIKA,
+                ], true)
+                && $this->channelLinkHandleOf($d) === null
+        );
+
+        $lines = [trans('bot.channel_recheck_header')];
+        foreach ($destinations as $dest) {
+            $title = $dest->channel_title ?: $dest->channel_chat_id;
+            $label = $this->channelLinkPlatformLabel($dest->platform) . ' — ' . $title
+                . ' (' . $this->service->displayTagLabel($dest->tag) . ')';
+            $handle = $this->channelLinkHandleOf($dest);
+            if ($handle !== null) {
+                $lines[] = '✅ @' . $handle . ' — ' . $label;
+            } else {
+                $lines[] = '❌ ' . $label;
+            }
+        }
+
+        if ($missingBaleRubika->isEmpty()) {
+            $lines[] = '';
+            $lines[] = trans('bot.channel_recheck_all_ok');
+            $publisher->sendPrivateMessage($chatId, implode("\n", $lines));
+            return;
+        }
+
+        $lines[] = '';
+        $lines[] = trans('bot.channel_recheck_missing_note');
+
+        $rows = [];
+        foreach ($missingBaleRubika as $dest) {
+            $rows[] = [[
+                'text' => trans('bot.channel_chl_button'),
+                'callback_data' => 'cp:chlfix:' . $dest->id,
+            ]];
+        }
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, implode("\n", $lines), $rows, [
+            trans('bot.channel_chl_hint_fix'),
+        ]);
+    }
+
+    private function channelLinkHandleOf(ChannelPosterDestination $dest): ?string
+    {
+        return ChannelHandleExtractor::extract(
+            $dest->platform,
+            $dest->channel_link,
+            $dest->channel_username
+        );
+    }
+
+    private function channelLinkPlatformLabel(string $platform): string
+    {
+        return [
+            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+        ][$platform] ?? $platform;
     }
 
     // ======================================================================
@@ -4673,6 +5213,9 @@ class ChannelPosterBotController extends Controller
                 $rows[] = [['text' => trans('bot.channel_poster_hnd_menu_entry'), 'callback_data' => 'cp:handle']];
                 // CP-DELETE-PURELINK (T7): purelink removal entry (owner only)
                 $rows[] = [['text' => trans('bot.channel_poster_dpl_menu_entry'), 'callback_data' => 'cp:dpl']];
+                // CP-CHANNEL-LINK: ثبت شناسهٔ عمومی کانال + بررسی مجدد تنظیمات (فقط مالک)
+                $rows[] = [['text' => trans('bot.channel_chl_menu_entry'), 'callback_data' => 'cp:chlink']];
+                $rows[] = [['text' => trans('bot.channel_recheck_menu_entry'), 'callback_data' => 'cp:chrecheck']];
             }
 
             $rows[] = [['text' => trans('bot.channel_sync_menu_attr'), 'callback_data' => 'cps:sub:attr']];
@@ -5099,17 +5642,45 @@ class ChannelPosterBotController extends Controller
         }
 
         $rows = [];
+        $missingLines = [];
+        $missingRows = [];
         foreach ($destinations as $dest) {
             $label = $dest->platform
                 . ' — '
                 . ($dest->channel_title ?: $dest->channel_chat_id)
                 . ' (' . $this->service->displayTagLabel($dest->tag) . ')';
+            $handle = $this->channelLinkHandleOf($dest);
             $rows[] = [
-                ['text' => $label, 'callback_data' => 'cp:unlink:' . $dest->id],
+                ['text' => $label . ($handle !== null ? ' ✅' : ' ❌'), 'callback_data' => 'cp:unlink:' . $dest->id],
             ];
+            if (
+                in_array($dest->platform, [
+                    ChannelPosterDestination::PLATFORM_BALE,
+                    ChannelPosterDestination::PLATFORM_RUBIKA,
+                ], true)
+                && $handle === null
+            ) {
+                $missingLines[] = '❌ ' . $label;
+                $missingRows[] = [
+                    ['text' => trans('bot.channel_chl_button'), 'callback_data' => 'cp:chlfix:' . $dest->id],
+                ];
+            }
         }
 
-        $publisher->sendPrivateMessage($chatId, trans('bot.channel_sync_channels_header'), $rows);
+        $message = trans('bot.channel_sync_channels_header');
+        if ($missingLines !== []) {
+            // CP-CHANNEL-LINK: توضیح واضحِ مشکل + دکمهٔ «🔗 ثبت شناسه کانال»
+            // برای هر کانالِ بله/روبیکا بدون شناسهٔ عمومی.
+            $message .= "\n\n" . trans('bot.channel_chl_missing_explain');
+            foreach ($missingLines as $line) {
+                $message .= "\n" . $line;
+            }
+            $message .= "\n" . trans('bot.channel_chl_missing_hint');
+        }
+
+        $this->sendNativeHintIfNeeded($publisher, $chatId, $type, $message, array_merge($rows, $missingRows), [
+            trans('bot.channel_chl_hint_fix'),
+        ]);
     }
 
     /**
