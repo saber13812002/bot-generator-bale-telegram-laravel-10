@@ -178,6 +178,20 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
+        // ===== /reportall — گزارش فعالیت در همه‌ی ربات‌ها (فقط ادمین کل) =====
+        if (str_starts_with(mb_strtolower(trim($text)), '/reportall')) {
+            if (!\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
+                \App\Helpers\BotHelper::sendMessageByChatId($bot, (string)$chatId, "❌ شما مجوز استفاده از این دستور را ندارید.");
+                return;
+            }
+            \Illuminate\Support\Facades\Artisan::call('user:progress-report', [
+                '--user-id' => $botUser->id,
+                '--bot-id' => $instanceBotId,
+                '--all-bots' => true,
+            ]);
+            return;
+        }
+
         // ===== User Command: /whatsnew =====
         if (in_array(mb_strtolower(trim($text)), ['/whatsnew', 'whatsnew', 'تازه ها'])) {
             $config = \App\Models\LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
@@ -479,6 +493,7 @@ class BookLibraryReaderController extends Controller
             if (\App\Helpers\AdminHelper::isAdmin((string)$chatId)) {
                 $message .= "\n⚙️ دستورات ادمین:\n";
                 $message .= "🔹 /topusers — 🏆 لیست کاربران برتر (با دکمه ارسال پیام)\n";
+                $message .= "🔹 /reportall — 📊 گزارش فعالیت در همه‌ی ربات‌ها\n";
                 if ($type === 'bale') {
                     $message .= "🔹 [✉️ ارسال پیام به کاربر خاص](send:/sendmsg)\n";
                 } else {
@@ -507,6 +522,7 @@ class BookLibraryReaderController extends Controller
                 'content_note_type' => null,
                 'content_category_draft' => null,
                 'sendmsg_target_id' => null,
+                'content_delete_item_id' => null,
             ]);
             BotHelper::sendMessage($bot, '❌ لغو شد.');
             return;
@@ -567,12 +583,17 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
-        // ===== حذف نرم آیتم =====
+        // ===== حذف آیتم (دو مرحله‌ای با تأیید) =====
         if ($isOwner && str_starts_with($text, '/deleteItem_')) {
             $itemId = (int) str_replace('/deleteItem_', '', $text);
             if ($itemId > 0) {
-                $deleted = $this->adminService->deleteContentItem($itemId, $instanceBotId);
-                BotHelper::sendMessage($bot, $deleted ? "🗑 آیتم حذف شد." : "❌ آیتم یافت نشد.");
+                $item = ContentItem::where('id', $itemId)->where('bot_id', $instanceBotId)->first();
+                if (!$item) {
+                    BotHelper::sendMessage($bot, '❌ آیتم یافت نشد.');
+                    return;
+                }
+                $botUser->settings(['content_wizard' => 'delete_item_confirm', 'content_delete_item_id' => $itemId]);
+                BotHelper::sendMessage($bot, "🗑 آیا فایل «{$item->title}» را از دسته حذف می‌کنید؟\nپس از حذف، فایل از صف خارج می‌شود و قابل برگشت نیست.\n«بله» بنویسید تا حذف شود، یا «خیر» برای لغو.\n(برای لغو کامل: /cancel)");
             }
             return;
         }
@@ -740,11 +761,15 @@ class BookLibraryReaderController extends Controller
 
         // ===== ویزارد ویرایش عنوان =====
         if ($wizard === 'edit_title') {
+            // دستور (مثل /cancel یا /editTitle_) نباید به‌عنوان متن عنوان ثبت شود
+            if (str_starts_with(ltrim($text), '/')) {
+                return false;
+            }
             $itemId = (int) $botUser->setting('content_edit_item_id', 0);
             if ($itemId > 0) {
                 $updated = $this->adminService->updateContentItem($itemId, $botId, ['title' => $text]);
                 if ($updated) {
-                    BotHelper::sendMessage($bot, "✅ عنوان با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                    BotHelper::sendMessage($bot, "✅ عنوان با موفقیت تغییر کرد. (هیچ فایلی حذف نشد.)\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
                 } else {
                     BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی عنوان.');
                 }
@@ -755,16 +780,44 @@ class BookLibraryReaderController extends Controller
 
         // ===== ویزارد ویرایش توضیحات =====
         if ($wizard === 'edit_desc') {
+            // دستور نباید به‌عنوان متن توضیحات ثبت شود
+            if (str_starts_with(ltrim($text), '/')) {
+                return false;
+            }
             $itemId = (int) $botUser->setting('content_edit_item_id', 0);
             if ($itemId > 0) {
                 $updated = $this->adminService->updateContentItem($itemId, $botId, ['description' => $text]);
                 if ($updated) {
-                    BotHelper::sendMessage($bot, "✅ توضیحات با موفقیت به‌روزرسانی شد.\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
+                    BotHelper::sendMessage($bot, "✅ توضیحات با موفقیت تغییر کرد. (هیچ فایلی حذف نشد.)\n📌 برای مشاهده گزینه‌های بیشتر:\n/editContent_{$itemId}");
                 } else {
                     BotHelper::sendMessage($bot, '❌ خطا در به‌روزرسانی توضیحات.');
                 }
             }
             $botUser->settings(['content_wizard' => null, 'content_edit_item_id' => null]);
+            return true;
+        }
+
+        // ===== تأیید حذف آیتم (مرحله دوم) =====
+        if ($wizard === 'delete_item_confirm') {
+            // اگر دستور آمد (مثل /cancel یا ارسال دوباره /deleteItem_)، جواب تأیید تلقی نشود
+            if (str_starts_with(ltrim($text), '/')) {
+                return false;
+            }
+            $itemId = (int) $botUser->setting('content_delete_item_id', 0);
+            $normalized = mb_strtolower(trim($text));
+            if (in_array($normalized, ['بله', 'yes', 'y', '1', '✔'], true)) {
+                $botUser->settings(['content_wizard' => null, 'content_delete_item_id' => null]);
+                $deleted = $itemId > 0 ? $this->adminService->deleteContentItem($itemId, $botId) : false;
+                BotHelper::sendMessage($bot, $deleted ? "🗑 فایل با موفقیت حذف شد." : "❌ آیتم یافت نشد.");
+                return true;
+            }
+            if (in_array($normalized, ['خیر', 'نه', 'no', 'n', '0', '❌'], true)) {
+                $botUser->settings(['content_wizard' => null, 'content_delete_item_id' => null]);
+                BotHelper::sendMessage($bot, '❌ حذف لغو شد. چیزی حذف نشد.');
+                return true;
+            }
+            // متن ناشناخته: وضعیت حفظ می‌شود و دوباره پرسیده می‌شود
+            BotHelper::sendMessage($bot, 'لطفاً برای تأیید حذف «بله» و برای لغو «خیر» بنویسید.\n(برای لغو کامل: /cancel)');
             return true;
         }
 
@@ -1082,10 +1135,12 @@ class BookLibraryReaderController extends Controller
             return;
         }
 
-        // انتخاب دسته
+        // انتخاب دسته (با هم‌راستایی با /category: ربات خواننده → ربات اصلی کتابخانه)
         if (str_starts_with($callbackData, 'bl:cat:')) {
             $categoryId = (int) str_replace('bl:cat:', '', $callbackData);
-            $this->deliverNextInCategory($bot, $botUser, $instanceBotId, $type, $categoryId);
+            $config = LibraryBotConfig::where('reader_bot_id', $instanceBotId)->first();
+            $actualBotId = $config ? $config->bot_id : $instanceBotId;
+            $this->deliverNextInCategory($bot, $botUser, $actualBotId, $type, $categoryId);
             return;
         }
 
@@ -1097,7 +1152,7 @@ class BookLibraryReaderController extends Controller
                 $categoryId = (int) ($parts[3] ?? 0);
                 $item = $this->adminService->assignPendingToCategory($pendingId, $categoryId, $instanceBotId);
                 if ($item) {
-                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.\n📝 برای ویرایش عنوان و توضیحات:\n/editContent_{$item->id}\n🗑 برای حذف:\n/deleteItem_{$item->id}");
+                    BotHelper::sendMessage($bot, "✅ فایل به دسته «{$item->category->title}» با ترتیب {$item->queue_order} اضافه شد.\n🔧 برای تغییر عنوان یا توضیحات (ویرایش هیچ فایلی را حذف نمی‌کند):\n/editContent_{$item->id}\n🗑 برای حذف کامل فایل از دسته (با تأیید مجدد):\n/deleteItem_{$item->id}");
                 } else {
                     BotHelper::sendMessage($bot, '❌ فایل یافت نشد.');
                 }
@@ -1266,13 +1321,51 @@ class BookLibraryReaderController extends Controller
         }
         $item = $this->queueService->getNextItemForUser($botUser, $categoryId, $botId);
         if (!$item) {
-            BotHelper::sendMessage($bot, "📭 محتوای جدیدی در دسته «{$category->title}» موجود نیست.\nبه زودی محتوای جدید اضافه خواهد شد.");
+            BotHelper::sendMessage($bot, $this->buildQueueEndMessage($botUser, $category));
             return;
         }
         $delivered = $this->contentDeliveryService->deliverNextInCategory($bot, $botUser, $item, $botId, $type);
         if ($delivered) {
             $this->queueService->advanceProgress($botUser, $categoryId, $botId, $item);
         }
+    }
+
+    /**
+     * پایان صف: آخرین فایل ارسالی + تاریخ ارسال، «فعلاً کلش رو دیدی» یا «N تا جدید»،
+     * و همیشه شمارنده «دیده‌شده X / باقی‌مانده Y»
+     */
+    private function buildQueueEndMessage(BotUsers $botUser, ContentCategory $category): string
+    {
+        $progress = \App\Models\ContentUserProgress::where('bot_user_id', $botUser->id)
+            ->where('category_id', $category->id)
+            ->first();
+
+        $lastPosition = (int) ($progress?->last_position ?? 0);
+        $lastItem = $progress?->last_content_item_id ? ContentItem::find((int) $progress->last_content_item_id) : null;
+        $totalItems = $category->items()->where('is_active', true)->count();
+        $remaining = max(0, $totalItems - $lastPosition);
+
+        $msg = "📭 محتوای جدیدی در دسته «{$category->title}» در صف نیست.\n";
+
+        if ($totalItems === 0) {
+            $msg .= "📦 این دسته خالی است؛ هنوز فایلی اضافه نشده است.";
+            return $msg;
+        }
+
+        if ($lastItem) {
+            $sentAt = $progress?->updated_at ? $progress->updated_at->format('Y/m/d H:i') : '—';
+            $msg .= "\n🔙 آخرین فایلی که به شما فرستادیم: «{$lastItem->title}»\n";
+            $msg .= "🗓 تاریخ ارسال: {$sentAt}\n";
+        }
+
+        if ($remaining > 0) {
+            $msg .= "\n🆕 {$remaining} فایل جدید به این دسته اضافه شده است.\n";
+        } else {
+            $msg .= "\n✅ فعلاً کلش رو دیدی.\n";
+        }
+
+        $msg .= "\n👁 دیده‌شده: {$lastPosition} / ⏳ باقی‌مانده: {$remaining}";
+        return $msg;
     }
 
     private function showMyProgress(Telegram $bot, BotUsers $botUser, int $botId): void

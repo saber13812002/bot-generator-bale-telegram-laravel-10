@@ -22,6 +22,12 @@ class BookLibraryPlanServiceImpl implements BookLibraryPlanService
 
     public function canDeliver(BotUsers $botUser, int $botId): bool
     {
+        // مالک خودِ ربات (سازنده از پنل وب یا تاییدشده) نامحدود استفاده می‌کند
+        $bot = Bot::find($botId);
+        if ($bot && \App\Helpers\ContentBotAdminHelper::isBotOwner($bot, (string) $botUser->chat_id, (string) $botUser->origin)) {
+            return true;
+        }
+
         $subscription = $this->bookLibraryService->getOrCreateSubscription($botUser, $botId);
         return $subscription->canDeliver();
     }

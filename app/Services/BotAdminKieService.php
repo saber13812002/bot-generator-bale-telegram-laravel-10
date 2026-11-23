@@ -91,6 +91,46 @@ class BotAdminKieService
         $from = $message['from'] ?? [];
         $botUser = $this->findBotUser($chatId, $rawBotId ?? $ownerBotId, $origin);
 
+        // سازنده‌ی ربات از پنل وب (bots.pardisania.ir): خودش ادمین رباتش است
+        // → تایید خودکار بدون نیاز به ادمین کل
+        $webOwner = $ownerBot->botOwner;
+        if ($webOwner && $webOwner->bale_chat_id && (string) $webOwner->bale_chat_id === (string) $chatId) {
+            if ($origin === 'bale' && (string) $ownerBot->bale_owner_chat_id !== $chatId) {
+                $ownerBot->bale_owner_chat_id = $chatId;
+                $ownerBot->save();
+            } elseif ($origin !== 'bale' && (string) $ownerBot->telegram_owner_chat_id !== $chatId) {
+                $ownerBot->telegram_owner_chat_id = $chatId;
+                $ownerBot->save();
+            }
+
+            BotAdminKieRequest::updateOrCreate(
+                ['chat_id' => $chatId, 'origin' => $origin],
+                [
+                    'bot_id' => $ownerBotId,
+                    'bot_user_id' => $botUser?->id,
+                    'first_name' => $from['first_name'] ?? null,
+                    'last_name' => $from['last_name'] ?? null,
+                    'username' => $from['username'] ?? null,
+                    'alias_name' => $botUser?->alias_name,
+                    'email' => $botUser?->email,
+                    'webhook_endpoint' => $webhookEndpoint,
+                    'status' => 'confirmed',
+                    'approved_by' => $chatId,
+                    'approved_at' => now(),
+                    'notes' => 'auto-confirmed: web-panel bot owner',
+                ]
+            );
+
+            Log::info('[AdminKie] Auto-confirmed web-panel bot owner', [
+                'bot_id' => $ownerBotId,
+                'chat_id' => $chatId,
+                'origin' => $origin,
+            ]);
+
+            BotHelper::sendMessage($bot, trans('bot.admin_kie_approved_user'));
+            return response('', 200);
+        }
+
         if ($this->isAlreadyBotOwner($ownerBot, $chatId, $origin)) {
             BotHelper::sendMessage($bot, trans('bot.admin_kie_already_owner'));
             return response('', 200);

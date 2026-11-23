@@ -182,10 +182,11 @@ class ContentAdminService
         if ($item->description) {
             $message .= "📌 توضیحات فعلی:\n{$item->description}\n\n";
         }
-        $message .= "برای ویرایش، از دستورات زیر استفاده کنید:\n";
-        $message .= "/editTitle_{$item->id} — ویرایش عنوان\n";
-        $message .= "/editDesc_{$item->id} — ویرایش توضیحات\n";
-        $message .= "/deleteItem_{$item->id} — حذف آیتم";
+        $message .= "🔧 برای ویرایش (فقط متن عوض می‌شود و هیچ فایلی حذف نمی‌شود):\n";
+        $message .= "/editTitle_{$item->id} — تغییر عنوان\n";
+        $message .= "/editDesc_{$item->id} — تغییر توضیحات\n\n";
+        $message .= "🗑 برای حذف کامل فایل از دسته:\n";
+        $message .= "/deleteItem_{$item->id} — حذف فایل (بعد از فشردن، یک بار دیگر تأیید می‌گیرید)";
 
         BotHelper::sendMessage($bot, $message);
     }

@@ -777,7 +777,7 @@ class BookLibraryController extends Controller
 
         $item = $this->queueService->getNextItemForUser($botUser, $categoryId, $botId);
         if (!$item) {
-            BotHelper::sendMessage($bot, trans('book_library.queue_end', ['category' => $category->title]));
+            BotHelper::sendMessage($bot, $this->buildQueueEndMessage($botUser, $category));
             return;
         }
 
@@ -785,6 +785,44 @@ class BookLibraryController extends Controller
         if ($delivered) {
             $this->queueService->advanceProgress($botUser, $categoryId, $botId, $item);
         }
+    }
+
+    /**
+     * پایان صف: آخرین فایل ارسالی + تاریخ ارسال، «فعلاً کلش رو دیدی» یا «N تا جدید»،
+     * و همیشه شمارنده «دیده‌شده X / باقی‌مانده Y»
+     */
+    private function buildQueueEndMessage(BotUsers $botUser, \App\Models\ContentCategory $category): string
+    {
+        $progress = \App\Models\ContentUserProgress::where('bot_user_id', $botUser->id)
+            ->where('category_id', $category->id)
+            ->first();
+
+        $lastPosition = (int) ($progress?->last_position ?? 0);
+        $lastItem = $progress?->last_content_item_id ? \App\Models\ContentItem::find((int) $progress->last_content_item_id) : null;
+        $totalItems = $category->items()->where('is_active', true)->count();
+        $remaining = max(0, $totalItems - $lastPosition);
+
+        $msg = "📭 محتوای جدیدی در دسته «{$category->title}» در صف نیست.\n";
+
+        if ($totalItems === 0) {
+            $msg .= "📦 این دسته خالی است؛ هنوز فایلی اضافه نشده است.";
+            return $msg;
+        }
+
+        if ($lastItem) {
+            $sentAt = $progress?->updated_at ? $progress->updated_at->format('Y/m/d H:i') : '—';
+            $msg .= "\n🔙 آخرین فایلی که به شما فرستادیم: «{$lastItem->title}»\n";
+            $msg .= "🗓 تاریخ ارسال: {$sentAt}\n";
+        }
+
+        if ($remaining > 0) {
+            $msg .= "\n🆕 {$remaining} فایل جدید به این دسته اضافه شده است.\n";
+        } else {
+            $msg .= "\n✅ فعلاً کلش رو دیدی.\n";
+        }
+
+        $msg .= "\n👁 دیده‌شده: {$lastPosition} / ⏳ باقی‌مانده: {$remaining}";
+        return $msg;
     }
 
     private function showMyProgress(Telegram $bot, BotUsers $botUser, int $botId): void
