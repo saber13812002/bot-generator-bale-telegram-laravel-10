@@ -221,7 +221,12 @@ class BookLibraryController extends Controller
 
         // لغو ویزارد فعال (یادداشت/سؤال و ...)
         if (in_array(mb_strtolower(trim($text)), ['/cancel', 'لغو'], true)) {
-            $botUser->settings(['content_wizard' => null, 'content_note_item_id' => null, 'content_note_type' => null]);
+            $botUser->settings([
+                'content_wizard' => null,
+                'content_note_item_id' => null,
+                'content_note_type' => null,
+                'content_category_draft' => null,
+            ]);
             BotHelper::sendMessage($bot, '❌ لغو شد.');
             return;
         }
@@ -248,8 +253,8 @@ class BookLibraryController extends Controller
         }
 
         if ($isOwner && in_array(mb_strtolower($text), ['/addcategory', '/add_category'], true)) {
-            $botUser->settings(['content_wizard' => 'add_category_name']);
-            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt'));
+            $botUser->settings(['content_wizard' => 'add_category_name', 'content_category_draft' => null]);
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt') . "\n" . trans('book_library.wizard_cancel_hint'));
             return;
         }
 
@@ -276,7 +281,7 @@ class BookLibraryController extends Controller
         }
 
         if ($text === trans('book_library.menu_categories')) {
-            $this->showCategoryPage($bot, $instanceBotId, 1);
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, 1);
             return;
         }
 
@@ -335,6 +340,13 @@ class BookLibraryController extends Controller
         $message .= "➖ /broadcast — ارسال همگانی\n";
         $message .= "➖ /manage — نمایش دوباره این پنل\n\n";
         $message .= "برای افزودن فایل، فقط یک فایل صوتی ارسال کنید.";
+
+        if ($categories === 0) {
+            $message .= "\n\n🚀 شروع سریع کتابخانه\n"
+                . "۱️⃣ دسته بسازید: /addcategory\n"
+                . "۲️⃣ فایل صوتی بفرستید (همین‌جا برای ربات)\n"
+                . "۳️⃣ انتساب: فایل را با /addFileToCategory_{id} به دسته وصل کنید";
+        }
 
         $keyboard = [
             [$bot->buildInlineKeyBoardButton('🏷 دسته‌بندی‌ها', callback_data: "bl:admin:categories")],
@@ -395,7 +407,71 @@ class BookLibraryController extends Controller
             return true;
         }
 
+        // ===== مرحله تأیید اطلاع‌رسانی دسته جدید — ورودی متنی =====
+        // Root Cause: بدون این case، متن «بله/خیر» در حالت add_category_broadcast
+        // به فالبک «use_menu» می‌رفت و وضعیت ویزارد چرخه می‌خورد (loop).
+        if ($wizard === 'add_category_broadcast') {
+            // دستورات (مثل /addcategory یا /cancel) در اولویت هستند تا حلقه /addcategory بسته شود
+            if (str_starts_with(ltrim($text), '/')) {
+                return false;
+            }
+            $normalized = mb_strtolower(trim($text));
+            if (in_array($normalized, ['بله', 'yes', 'y', '1', '✔'], true)) {
+                $this->finalizeAddCategory($bot, $botUser, $botId, $type, true);
+                return true;
+            }
+            if (in_array($normalized, ['خیر', 'نه', 'no', 'n', '0', '❌'], true)) {
+                $this->finalizeAddCategory($bot, $botUser, $botId, $type, false);
+                return true;
+            }
+            // متن ناشناخته: وضعیت را نگه دار و دوباره با دکمه‌ها راهنمایی کن
+            $draft = (string) $botUser->setting('content_category_draft', '');
+            $keyboard = [
+                [$bot->buildInlineKeyBoardButton(trans('book_library.yes'), callback_data: 'bl:catbc:yes')],
+                [$bot->buildInlineKeyBoardButton(trans('book_library.no'), callback_data: 'bl:catbc:no')],
+            ];
+            BotHelper::sendKeyboardMessage(
+                $bot,
+                trans('book_library.admin_category_confirm_reprompt', ['title' => $draft]),
+                $bot->buildInlineKeyBoard($keyboard)
+            );
+            return true;
+        }
+
         return false;
+    }
+
+    /**
+     * پایان‌دهنده مشترک ویزارد ساخت دسته (مسیر متنی + مسیر دکمه bl:catbc).
+     */
+    private function finalizeAddCategory(Telegram $bot, BotUsers $botUser, int $botId, string $type, bool $doBroadcast): void
+    {
+        $name = trim((string) $botUser->setting('content_category_draft', ''));
+        $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
+
+        if ($name === '') {
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_missing'));
+            return;
+        }
+
+        try {
+            $category = $this->adminService->createCategory($botId, $name);
+        } catch (\Throwable $e) {
+            Log::error('❌ [BookLibrary] Error creating category', ['bot_id' => $botId, 'title' => $name, 'error' => $e->getMessage()]);
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_create_failed'));
+            return;
+        }
+
+        $message = trans('book_library.admin_category_created', ['title' => $category->title]);
+        if ($doBroadcast) {
+            $botModel = Bot::find($botId);
+            if ($botModel) {
+                $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
+                $message .= "\n" . trans('book_library.admin_category_broadcast_queued');
+            }
+        }
+        $message .= "\n\n" . trans('book_library.admin_category_next_step');
+        BotHelper::sendMessage($bot, $message);
     }
 
     /**
@@ -538,8 +614,8 @@ class BookLibraryController extends Controller
         }
 
         if ($callbackData === 'bl:admin:addcat') {
-            $botUser->settings(['content_wizard' => 'add_category_name']);
-            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt'));
+            $botUser->settings(['content_wizard' => 'add_category_name', 'content_category_draft' => null]);
+            BotHelper::sendMessage($bot, trans('book_library.admin_category_name_prompt') . "\n" . trans('book_library.wizard_cancel_hint'));
             return;
         }
 
@@ -551,7 +627,7 @@ class BookLibraryController extends Controller
 
         if (str_starts_with($callbackData, 'bl:cat_page:')) {
             $page = (int) str_replace('bl:cat_page:', '', $callbackData);
-            $this->showCategoryPage($bot, $instanceBotId, $page);
+            $this->showCategoryPage($bot, $botUser, $instanceBotId, $page);
             return;
         }
 
@@ -586,19 +662,10 @@ class BookLibraryController extends Controller
             return;
         }
 
+        // ساخت دسته (تأیید از طریق دکمه — همان مسیر متنی «بله/خیر»)
         if (str_starts_with($callbackData, 'bl:catbc:')) {
             $doBroadcast = str_ends_with($callbackData, ':yes');
-            $name = $botUser->setting('content_category_draft', '');
-            $botUser->settings(['content_wizard' => null, 'content_category_draft' => null]);
-            $category = $this->adminService->createCategory($instanceBotId, $name);
-            BotHelper::sendMessage($bot, trans('book_library.admin_category_created', ['title' => $category->title]));
-            if ($doBroadcast) {
-                $botModel = Bot::find($instanceBotId);
-                if ($botModel) {
-                    $this->adminService->dispatchNewCategoryNotify($category, $botModel, $type);
-                    BotHelper::sendMessage($bot, trans('book_library.admin_category_broadcast_sent'));
-                }
-            }
+            $this->finalizeAddCategory($bot, $botUser, $instanceBotId, $type, $doBroadcast);
             return;
         }
 
@@ -645,7 +712,7 @@ class BookLibraryController extends Controller
         BotHelper::sendMessage($bot, trans('book_library.welcome'));
         $this->sendMainMenu($bot);
         if ($botId > 0) {
-            $this->showCategoryPage($bot, $botId, 1);
+            $this->showCategoryPage($bot, $botUser, $botId, 1);
         }
     }
 
@@ -659,7 +726,7 @@ class BookLibraryController extends Controller
         BotHelper::sendKeyboardMessage($bot, trans('book_library.menu_prompt'), $bot->buildKeyBoard($keyboard, true, true));
     }
 
-    private function showCategoryPage(Telegram $bot, int $botId, int $page): void
+    private function showCategoryPage(Telegram $bot, BotUsers $botUser, int $botId, int $page): void
     {
         if ($botId <= 0) {
             BotHelper::sendMessage($bot, trans('book_library.delivery_error'));
@@ -668,7 +735,11 @@ class BookLibraryController extends Controller
 
         $categories = $this->queueService->getCategoriesForPage($botId, $page);
         if ($categories->isEmpty()) {
-            BotHelper::sendMessage($bot, trans('book_library.no_genres') . "\n\n" . trans('book_library.no_categories_admin_hint'));
+            $botModel = Bot::find($botId);
+            $isOwner = $botModel && ContentBotAdminHelper::isBotOwner($botModel, (string) $botUser->chat_id, $botUser->origin);
+            BotHelper::sendMessage($bot, $isOwner
+                ? trans('book_library.admin_empty_library_guide')
+                : trans('book_library.user_empty_library'));
             return;
         }
 

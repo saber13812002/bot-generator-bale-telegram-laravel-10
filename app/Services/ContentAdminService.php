@@ -58,14 +58,21 @@ class ContentAdminService
         $message = trans('book_library.admin_file_received', ['id' => $pending->id]);
 
         if ($categories->isNotEmpty()) {
+            // نام دسته‌ها هم در متن پیام می‌آید تا بدون دکمه هم قابل فهم باشد (UX)
             $message .= "\n\n" . trans('book_library.admin_pick_category');
+            foreach ($categories as $cat) {
+                $message .= "🔹 {$cat->title}\n";
+            }
+            $message = rtrim($message);
             $keyboard = [];
             foreach ($categories as $cat) {
                 $keyboard[] = [$bot->buildInlineKeyBoardButton($cat->title, callback_data: "bl:acf:{$pending->id}:{$cat->id}")];
             }
             BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
         } else {
-            $message .= "\n\n" . trans('book_library.admin_add_to_category_cmd', ['id' => $pending->id]);
+            // کتابخانه خالی: مالک را از مرحله «ساخت دسته» راهنمایی کن (onboarding)
+            $message .= "\n\n" . trans('book_library.admin_upload_empty_library_guide');
+            $message .= "\n" . trans('book_library.admin_add_to_category_cmd', ['id' => $pending->id]);
             $message .= "\n\n🗑 برای حذف:\n/deletePending_{$pending->id}";
             BotHelper::sendMessage($bot, $message);
         }
@@ -81,16 +88,19 @@ class ContentAdminService
 
         $categories = ContentCategory::where('bot_id', $botId)->where('is_active', true)->orderBy('page')->orderBy('sort_order')->get();
         if ($categories->isEmpty()) {
-            BotHelper::sendMessage($bot, trans('book_library.no_genres'));
+            BotHelper::sendMessage($bot, trans('book_library.no_genres') . "\n" . trans('book_library.admin_picker_empty_hint'));
             return;
         }
 
+        // نام دسته‌ها هم در متن پیام می‌آید (UX: بدون دکمه هم قابل فهم باشد)
+        $message = trans('book_library.admin_pick_category');
         $keyboard = [];
         foreach ($categories as $cat) {
+            $message .= "\n🔹 {$cat->title}";
             $keyboard[] = [$bot->buildInlineKeyBoardButton($cat->title, callback_data: "bl:acf:{$pendingId}:{$cat->id}")];
         }
 
-        BotHelper::sendKeyboardMessage($bot, trans('book_library.admin_pick_category'), $bot->buildInlineKeyBoard($keyboard));
+        BotHelper::sendKeyboardMessage($bot, $message, $bot->buildInlineKeyBoard($keyboard));
     }
 
     public function assignPendingToCategory(int $pendingId, int $categoryId, int $botId): ?ContentItem
