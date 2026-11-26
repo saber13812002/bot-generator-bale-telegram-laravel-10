@@ -71,9 +71,22 @@ class ContentBroadcastJob implements ShouldQueue
         Log::info('ContentBroadcastJob completed', ['id' => $job->id, 'sent' => $sent, 'failed' => $failed]);
     }
 
+    /**
+     * Resolve the recipient list for a broadcast job.
+     *
+     * All filters are scoped to users who hold a LibraryUserSubscription
+     * for the SPECIFIC bot in $job->bot_id. This guarantees bot panel
+     * isolation: a broadcast from bot #5 never reaches users of bot #12.
+     */
     private function resolveRecipients(ContentBroadcastJobModel $job, string $origin): \Illuminate\Support\Collection
     {
-        $query = BotUsers::where('status', 'active')->where('origin', $origin);
+        // Base scope: only users subscribed to THIS bot
+        $botUserIds = LibraryUserSubscription::where('bot_id', $job->bot_id)
+            ->pluck('bot_user_id');
+
+        $query = BotUsers::where('status', 'active')
+            ->where('origin', $origin)
+            ->whereIn('id', $botUserIds);
 
         return match ($job->target_filter) {
             'free' => $query->get()->filter(fn ($u) => !$this->isPaidUser($u, $job->bot_id)),
@@ -81,10 +94,13 @@ class ContentBroadcastJob implements ShouldQueue
             'active' => $query->whereIn('id', ContentUserProgress::where('bot_id', $job->bot_id)
                 ->where('last_position', '>', 0)->pluck('bot_user_id'))->get(),
             'category' => $job->target_category_id
-                ? ContentUserProgress::where('category_id', $job->target_category_id)->where('last_position', '>', 0)
+                ? ContentUserProgress::where('category_id', $job->target_category_id)
+                    ->where('bot_id', $job->bot_id)
+                    ->where('last_position', '>', 0)
+                    ->whereIn('bot_user_id', $botUserIds)
                     ->with('botUser')->get()->pluck('botUser')->filter()
                 : collect(),
-            default => $query->whereIn('id', LibraryUserSubscription::where('bot_id', $job->bot_id)->pluck('bot_user_id'))->get(),
+            default => $query->get(),
         };
     }
 
