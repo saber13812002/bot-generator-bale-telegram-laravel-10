@@ -1094,6 +1094,8 @@ Chat ID: :chat_id',
     'channel_poster_queued' => 'در صف قرار گرفت. زمان ارسال: :date ساعت :time',
     'channel_poster_queue_published' => '📢 مطلب از صف منتشر شد:',
     'channel_poster_queue_some_failed' => '⚠️ بخشی از ارسال‌های صف ناموفق بود:',
+    'channel_poster_queue_sig_handle_missing' => '⚠️ امزای «شناسهٔ کانال» برای این کانال‌ها ساخته نشد:'."\n".'به‌دلیل نبود شناسهٔ عمومی (username)، امزای 🔰 @handle در خط آخر پست اضافه نشد. پست بدون امزا منتشر شد.'."\n".'برای رفع مشکل، شناسهٔ عمومی هر کانال را ثبت کن:',
+    'channel_poster_queue_sig_handle_missing_btn' => '🔗 ثبت شناسه کانال',
 
     // === Queue Control (/queue) ===
     'channel_poster_btn_queue_list' => '📋 صف ارسال (:count)',

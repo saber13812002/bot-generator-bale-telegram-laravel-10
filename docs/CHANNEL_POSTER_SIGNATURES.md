@@ -181,6 +181,30 @@
 
 ---
 
+## ۹.۱. ثبت شناسهٔ کانال (CP-CHANNEL-LINK — نوامبر ۲۰۲۶)
+
+امکان ثبت **لینک عمومی** کانال برای استخراج شناسهٔ handle بدون نیاز به recheck دستی:
+
+- **دسترسی:** `/settings` → «🔗 ثبت شناسه کانال» (callback `cp:chlink`) یا دکمهٔ inline در هشدار publish (callback `cp:chlfix:{destId}`).
+- **ویزارد:** انتخاب تگ → انتخاب کانال مقصد → وارد کردن لینک → اعتبارسنجی سفت‌گیرانه → تأیید.
+- **اعتبارسنجی:** [`ChannelHandleExtractor::extract()`](app/Services/ChannelPoster/ChannelHandleExtractor.php) با `RESERVED_PATHS` denylist (~100 مسیر سیستمی: `join`, `joinc`, `c`, `invite`, `login`, `settings`, `bot`, `channel`, `addstickers`, `share`, …). لینک‌های خصوصی، chat id عددی، و مسیرهای رزرو **رد** می‌شوند.
+- **پشتیبانی پلتفرمی:**
+  - Bale: `/{username}` (لینک عمومی) + `/{username}/{chatId}/{msgId}` (سه‌بخشی)
+  - Rubika: `/{username}` یا `/{username}/{msgId}` (هاست‌ها: `rubika.ir`, `rubika.ru`)
+  - Telegram: `/{username}` یا `/{username}/{msgId}`
+  - Eitaa / Soroush: `/{username}` یا `/{username}/{msgId}`
+- **`/recheck`:** دستورات `cp:chrecheck` و `/recheck` — بررسی مجدد تمام مقاصد و گزارش وضعیت شناسه.
+
+### ⚠️ هشدار خودکار زمان انتشار (CP-SIG-WARNING)
+
+- **تصریف:** هنگام `publishItem()`، اگر `signature_type='handle'` و `signature_enabled=true` باشد ولی `ChannelHandleExtractor::extract()` مقدار معتبر برنگرداند → مقصد به `$missingHandleDests` اضافه می‌شود.
+- **رفتار:** پست **بدون امزا** منتشر می‌شود (publish fail نمی‌شود)؛ پس از publish، صاحب ربات پیام خصوصی + دکمهٔ «🔗 ثبت شناسه کانال» دریافت می‌کند.
+- **Rate-limit:** ۱۲ ساعت بر مقصد (`Cache::put("cp_sig_handle_warn:{destId}", 1, 12h)`).
+- **پیاده‌سازی:** [`ChannelPosterQueuePublishService::publishItem()`](app/Services/ChannelPosterQueuePublishService.php) — بلوک `$missingHandleDests`.
+- **lang keys:** `channel_poster_queue_sig_handle_missing` + `channel_poster_queue_sig_handle_missing_btn` در `lang/fa/bot.php`.
+
+---
+
 ## ۱۰. پوشش تست
 
 - `tests/Unit/SignatureScenariosTest.php` — **۱۰ سناریوی پذیرش** (F):

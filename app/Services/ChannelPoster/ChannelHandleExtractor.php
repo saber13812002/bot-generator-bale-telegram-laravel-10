@@ -20,6 +20,43 @@ class ChannelHandleExtractor
     private const HANDLE_PATTERN = '/^[A-Za-z0-9_\-]+$/';
 
     /**
+     * مسیری‌های رزرو‌شدهٔ سیستمی که هرگز نباید به‌عنوان username تفسیر شوند.
+     * این مسیرها در پلتفرم‌های ایرانی (بلی، روبیکا) و تلگرام به لینک‌های
+     * دعوت/کانال خصوصی/سایر ساختارهای سیستمی اختصاص دارند.
+     */
+    private const RESERVED_PATHS = [
+        // Telegram
+        'c', 'addstickers', 'addemoji', 'addcustomemoji', 'share',
+        // Bale / Rubika / general
+        'join', 'joinc', 'invite', 'login', 'register', 'signup',
+        'signin', 'logout', 'settings', 'profile', 'search',
+        'api', 'help', 'about', 'terms', 'privacy', 'support',
+        'admin', 'manage', 'channel', 'group', 'bot', 'bots',
+        'users', 'user', 'files', 'file', 'docs', 'document',
+        'photo', 'image', 'video', 'audio', 'sticker', 'stickers',
+        'poll', 'polls', 'quiz', 'vote', 'votes',
+        'link', 'links', 'url', 'urls',
+        'home', 'index', 'main', 'start', 'end',
+        'new', 'old', 'edit', 'delete', 'remove', 'add', 'create',
+        'update', 'save', 'cancel', 'confirm', 'verify', 'verified',
+        'pending', 'active', 'inactive', 'disabled', 'enabled',
+        'public', 'private', 'secret', 'hidden', 'visible',
+        'all', 'none', 'default', 'test', 'debug', 'error',
+        'true', 'false', 'yes', 'no', 'ok', 'fail', 'failed',
+        'success', 'warning', 'info', 'notice', 'alert',
+        'message', 'messages', 'chat', 'chats', 'conversation',
+        'conversations', 'thread', 'threads', 'post', 'posts',
+        'comment', 'comments', 'reply', 'replies', 'like', 'likes',
+        'share', 'shares', 'forward', 'forwarded', 'copy', 'copied',
+        'paste', 'upload', 'download', 'send', 'receive', 'received',
+        'send', 'sended', 'sent', 'delivered', 'read', 'unread',
+        'online', 'offline', 'busy', 'away', 'do_not_disturb',
+        'notification', 'notifications', 'setting', 'settings',
+        'account', 'accounts', 'security', 'privacy', 'data',
+        'storage', 'memory', 'cache', 'clear', 'empty', 'fill',
+    ];
+
+    /**
      * @return string|null شناسه بدون «@» یا null اگر معتبر نیست
      */
     public static function extract(string $platform, ?string $channelLink, ?string $channelUsername = null): ?string
@@ -52,6 +89,15 @@ class ChannelHandleExtractor
         }
 
         return $v;
+    }
+
+    /**
+     * آیا یک بخش از URL در فهرست مسیری‌های رزرو‌شده است؟
+     * این مسیری‌ها هرگز نباید به‌عنوان username تفسیر شوند.
+     */
+    private static function isReservedPath(string $segment): bool
+    {
+        return in_array(strtolower($segment), self::RESERVED_PATHS, true);
     }
 
     /**
@@ -115,9 +161,15 @@ class ChannelHandleExtractor
             return null;
         }
         if (count($s) === 1) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
         if (count($s) === 2 && preg_match('/^\d+$/', $s[1]) === 1) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
 
@@ -136,10 +188,16 @@ class ChannelHandleExtractor
             && preg_match('/^\d+$/', $s[1]) === 1
             && preg_match('/^\d+$/', $s[2]) === 1
         ) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
 
         if (count($s) === 1) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
 
@@ -147,14 +205,20 @@ class ChannelHandleExtractor
     }
 
     /**
-     * eitaa / soroush: /{username} یا /{username}/{msgId}
+     * eitaa / soroush / rubika: /{username} یا /{username}/{msgId}
      */
     private static function fromNamedPathUrl(array $s): ?string
     {
         if (count($s) === 1) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
         if (count($s) === 2 && preg_match('/^\d+$/', $s[1]) === 1) {
+            if (self::isReservedPath($s[0])) {
+                return null;
+            }
             return self::sanitizeHandle($s[0]);
         }
 

@@ -178,14 +178,26 @@ php artisan app:test-signature-link \
 | پلتفرم | هاست‌های مجاز | ساختار مسیر پذیرفته‌شده |
 |---|---|---|
 | Telegram | `t.me`, `telegram.me`, `tlg.sk` | `/{username}` یا `/{username}/{msgId}` |
-| Bale | `ble.ir`, `bale.ir`, `bale.ai`, `mybale.ai` | فقط `/{username}/{chatId}/{msgId}` (فرمت سه‌بخشی تأییدشده) |
+| Bale | `ble.ir`, `bale.ir`, `bale.ai`, `mybale.ai` | `/{username}` (لینک عمومی) یا `/{username}/{chatId}/{msgId}` (فرمت سه‌بخشی تأییدشده) |
 | Eitaa | `eitaa.com`, `my.eitaa.com` | `/{username}` یا `/{username}/{msgId}` |
 | Soroush | `soroush.chat`, `splus.ir` | `/{username}` یا `/{username}/{msgId}` |
-| Rubika | — | از URL استخراج نمی‌شود (ساختار عمومی تأییدشده ندارد)؛ فقط ستون معتبر `channel_username` |
+| Rubika | `rubika.ir`, `rubika.ru` | `/{username}` یا `/{username}/{msgId}` |
 
 قوانین رد (ردّ): مسیر `c/{chatId}/...` تلگرام (کانال خصوصی)، بخش اول همه‌عددی (chat id)، ساختارهای کوتاه‌تر/طول‌تر از ساختار تأییدشده، هر مقدار همه‌عددی، و هر کاراکتری خارج از `[A-Za-z0-9_\-]` (حداکثر 64 نویسه).
 
+**Denylist مسیرهای رزرو** (`RESERVED_PATHS`): سگمنت‌هایی مانند `join`, `joinc`, `c`, `invite`, `login`, `settings`, `bot`, `channel`, `addstickers`, `share` و حدود ۱۰۰ مسیر سیستمی دیگر هرگز به‌عنوان username استخراج نمی‌شوند. این لیست در [`ChannelHandleExtractor::RESERVED_PATHS`](../../app/Services/ChannelPoster/ChannelHandleExtractor.php) تعریف شده و روی تمام پلتفرم‌ها (Bale, Rubika, Telegram, Eitaa, Soroush) اعمال می‌شود.
+
 **اصل «تخمین ممنوع»**: اگر هیچ شناسهٔ معتبری به‌دست نیاید → `null` → **هیچ امضایی ساخته نمی‌شود** (خروجی بدون امضا). chat id عددی هرگز به‌عنوان نام کاربری در نظر گرفته نمی‌شود. `@` پیش‌لینک (اگر باشد) حذف می‌شود و در خروجی دقیقاً یک‌بار `@{handle}` چاپ می‌شود.
+
+### ⚠️ هشدار زمان انتشار (CP-SIG-WARNING — نوامبر ۲۰۲۶)
+
+اگر هنگام publish، امزای `handle` برای هر مقصدی ساخته **نشود** (شناسهٔ معتبر در دسترس نیست):
+
+- پست **به‌عادی** منتشر می‌شود (بدون امزا) — publish fail نمی‌شود.
+- صاحب ربات یک پیام خصوصی با عنوان «⚠️ امزای «شناسهٔ کانال» برای این کانال‌ها ساخته نشد» + لیست کانال‌های متأثر دریافت می‌کند.
+- هر ردیف پیام یک دکمهٔ «🔗 ثبت شناسه کانال» با `callback_data = cp:chlfix:{destId}` دارد → مستقیماً ویزارد ثبت شناسه برای همان مقصد باز می‌شود.
+- **Rate-limit**: هشدار برای هر مقصد فقط یک‌بار در هر ۱۲ ساعت ارسال می‌شود (`Cache::put("cp_sig_handle_warn:{destId}", 1, now()->addHours(12))`).
+- پیاده‌سازی: [`ChannelPosterQueuePublishService::publishItem()`](../../app/Services/ChannelPosterQueuePublishService.php) — بلوک `$missingHandleDests`.
 
 ### نسبت (attribution) مقاصد ثانوی Eitaa
 

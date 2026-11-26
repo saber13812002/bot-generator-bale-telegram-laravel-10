@@ -197,4 +197,64 @@ class ChannelHandleExtractorTest extends TestCase
     {
         $this->assertNull(ChannelHandleExtractor::extract('whatsapp', 'https://t.me/saberblog'));
     }
+
+    // ─────────────────────────── reserved paths (P1) ───────────────────────────
+
+    public function test_bale_reserved_paths_are_rejected(): void
+    {
+        // join / joinc / invite / c — مسیری‌های رزرو‌شدهٔ بله
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/join'));
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/joinc'));
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/invite'));
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/c'));
+        // 3-segment with reserved first segment
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/join/5062926176/1461'));
+        $this->assertNull(ChannelHandleExtractor::extract('bale', 'https://ble.ir/invite/5062926176/1461'));
+    }
+
+    public function test_rubika_reserved_paths_are_rejected(): void
+    {
+        // مسیری‌های رزرو‌شدهٔ روبیکا
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/join'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/joinc'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/invite'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/c'));
+        // 2-segment with reserved first segment
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/join/42'));
+        $this->assertNull(ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/invite/42'));
+    }
+
+    public function test_telegram_reserved_paths_are_rejected(): void
+    {
+        // مسیری‌های رزرو‌شدهٔ تلگرام
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/addstickers'));
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/addemoji'));
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/login'));
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/settings'));
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/bot'));
+        // 2-segment with reserved first segment
+        $this->assertNull(ChannelHandleExtractor::extract('telegram', 'https://t.me/share/42'));
+    }
+
+    public function test_valid_handles_still_work_after_denylist(): void
+    {
+        // مطمئن شو لیست سیاه بر روی شناسه‌های معتبر اثر ندارد
+        $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog'));
+        $this->assertSame('SomeChannel', ChannelHandleExtractor::extract('rubika', 'https://rubika.ir/SomeChannel'));
+        $this->assertSame('saberblog', ChannelHandleExtractor::extract('telegram', 'https://t.me/saberblog'));
+        $this->assertSame('alirezamehran_3', ChannelHandleExtractor::extract('eitaa', 'https://eitaa.com/alirezamehran_3'));
+        $this->assertSame('foo', ChannelHandleExtractor::extract('soroush', 'https://soroush.chat/foo'));
+        // 3-segment valid
+        $this->assertSame('Saberblog', ChannelHandleExtractor::extract('bale', 'https://ble.ir/Saberblog/5062926176/1461'));
+    }
+
+    public function test_eitaa_soroush_reserved_paths_are_rejected(): void
+    {
+        $this->assertNull(ChannelHandleExtractor::extract('eitaa', 'https://eitaa.com/join'));
+        $this->assertNull(ChannelHandleExtractor::extract('eitaa', 'https://eitaa.com/invite'));
+        $this->assertNull(ChannelHandleExtractor::extract('eitaa', 'https://eitaa.com/login/42'));
+        $this->assertNull(ChannelHandleExtractor::extract('soroush', 'https://soroush.chat/join'));
+        $this->assertNull(ChannelHandleExtractor::extract('soroush', 'https://soroush.chat/invite'));
+        $this->assertNull(ChannelHandleExtractor::extract('soroush', 'https://soroush.chat/c'));
+    }
 }

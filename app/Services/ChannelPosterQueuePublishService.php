@@ -7,11 +7,13 @@ use App\Interfaces\Services\ChannelPosterBotService;
 use App\Services\ChannelPoster\SignatureRenderer;
 use App\Interfaces\Services\ChannelPosterPublisherFactory;
 use App\Models\Bot;
+use App\Models\ChannelPosterDestination;
 use App\Models\ChannelPosterPublishLog;
 use App\Models\ChannelPosterQueue;
 use App\Models\ContentSyncAdminPrefs;
 use App\Models\ContentSyncContent;
 use App\Models\ContentSyncVersion;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -136,6 +138,7 @@ class ChannelPosterQueuePublishService
 
             $allOk = true;
             $results = [];
+            $missingHandleDests = [];
             foreach ($destinations as $destination) {
                 // جلوگیری از انتشار مجدد به مقصدی که قبلا در این آیتم موفق بوده
                 // (در انتشارهای جزئی — مثلا ۲ از ۳ کانال — ریکورد «failed» می‌ماند
@@ -190,6 +193,13 @@ class ChannelPosterQueuePublishService
                             $destText .= $sig['text'];
                             $destParseMode = $sig['parse_mode'];
                             $destReplyMarkup = $sig['button'] ?? null;
+                        }
+                    } else {
+                        // P1: هشدار امزای handle که ساخته نشد (عدم شناسهٔ معتبر)
+                        if (($destination->signature_type ?? null) === SignatureRenderer::TYPE_HANDLE
+                            && $destination->signature_enabled !== false
+                        ) {
+                            $missingHandleDests[] = $destination;
                         }
                     }
                 }
@@ -282,6 +292,59 @@ class ChannelPosterQueuePublishService
                         'queue_id' => $item->id,
                         'error'    => TokenHelper::redactTokens($e->getMessage()),
                     ]);
+                }
+
+                // P1: هشدار امزای handle که ساخته نشد — با دکمهٔ رفع مشکل و rate-limit
+                if ($missingHandleDests !== []) {
+                    try {
+                        // Rate-limit: هر مقصد حداکثر یک بار در ۱۲ ساعت
+                        $platformLabels = [
+                            ChannelPosterDestination::PLATFORM_BALE => trans('bot.channel_poster_sig_bale'),
+                            ChannelPosterDestination::PLATFORM_TELEGRAM => trans('bot.channel_poster_sig_telegram'),
+                            ChannelPosterDestination::PLATFORM_EITAA => trans('bot.channel_poster_sig_eitaa'),
+                            ChannelPosterDestination::PLATFORM_SOROUSH => trans('bot.channel_poster_sig_soroush'),
+                            ChannelPosterDestination::PLATFORM_RUBIKA => trans('bot.channel_poster_sig_rubika'),
+                        ];
+
+                        $warnLines = [];
+                        $warnRows = [];
+                        $warnDestIds = [];
+
+                        foreach ($missingHandleDests as $dest) {
+                            $cacheKey = "cp_sig_handle_warn:{$dest->id}";
+                            if (Cache::has($cacheKey)) {
+                                continue; // rate-limited
+                            }
+                            $label = $platformLabels[$dest->platform] ?? $dest->platform;
+                            $title = $dest->channel_title ?: $dest->channel_chat_id;
+                            $warnLines[] = "• {$label} — {$title}";
+                            $warnRows[] = [
+                                ['text' => trans('bot.channel_poster_queue_sig_handle_missing_btn'), 'callback_data' => 'cp:chlfix:' . $dest->id],
+                            ];
+                            $warnDestIds[] = $dest->id;
+                        }
+
+                        if ($warnDestIds !== []) {
+                            // ثبت rate-limit (12 ساعت)
+                            foreach ($warnDestIds as $id) {
+                                Cache::put("cp_sig_handle_warn:{$id}", 1, now()->addHours(12));
+                            }
+
+                            $warnMsg = trans('bot.channel_poster_queue_sig_handle_missing') . "\n"
+                                . implode("\n", $warnLines);
+                            $publisher->sendPrivateMessage($item->owner_chat_id, $warnMsg, $warnRows);
+
+                            Log::info('[ChannelPoster] Signature handle-missing warning sent', [
+                                'queue_id'       => $item->id,
+                                'destinations'   => $warnDestIds,
+                            ]);
+                        }
+                    } catch (Throwable $e) {
+                        Log::warning('[ChannelPoster] Failed to send signature warning', [
+                            'queue_id' => $item->id,
+                            'error'    => TokenHelper::redactTokens($e->getMessage()),
+                        ]);
+                    }
                 }
             }
 
